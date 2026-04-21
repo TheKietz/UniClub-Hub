@@ -361,3 +361,25 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+
+# Secrets & Local Config 
+**/appsettings.Development.json
+**/appsettings.Local.json
+frontend/.env
+frontend/.env.local
+frontend/.env.development.local
+
+# Node/Frontend
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/dist-ssr/
+frontend/.eslintcache
+
+# Logs & OS Files
+*.log
+.DS_Store
+Thumbs.db
+
+# VS Code 
+.vscode/
