@@ -1,0 +1,33 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.14.36717.8 d17.14
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{54A90642-561A-4BB1-A94E-469ADEE60C69}") = "uniclub-hub.client", "uniclub-hub.client\uniclub-hub.client.esproj", "{80CDCAC0-179C-3DA4-7B86-DBE9C71F3E23}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UniClub-Hub.Server", "UniClub-Hub.Server\UniClub-Hub.Server.csproj", "{12114537-D126-44AE-B977-3D5491E439F4}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{80CDCAC0-179C-3DA4-7B86-DBE9C71F3E23}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{80CDCAC0-179C-3DA4-7B86-DBE9C71F3E23}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{80CDCAC0-179C-3DA4-7B86-DBE9C71F3E23}.Debug|Any CPU.Deploy.0 = Debug|Any CPU
+		{80CDCAC0-179C-3DA4-7B86-DBE9C71F3E23}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{80CDCAC0-179C-3DA4-7B86-DBE9C71F3E23}.Release|Any CPU.Build.0 = Release|Any CPU
+		{80CDCAC0-179C-3DA4-7B86-DBE9C71F3E23}.Release|Any CPU.Deploy.0 = Release|Any CPU
+		{12114537-D126-44AE-B977-3D5491E439F4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{12114537-D126-44AE-B977-3D5491E439F4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{12114537-D126-44AE-B977-3D5491E439F4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{12114537-D126-44AE-B977-3D5491E439F4}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {E690EF27-7ABC-404F-89BB-C10167D6193B}
+	EndGlobalSection
+EndGlobal

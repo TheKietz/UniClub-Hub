@@ -1,0 +1,6 @@
+@UniClub_Hub.Server_HostAddress = http://localhost:5015
+
+GET {{UniClub_Hub.Server_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
