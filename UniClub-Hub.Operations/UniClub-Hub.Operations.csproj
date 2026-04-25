@@ -9,6 +9,7 @@
 
   <ItemGroup>
     <Folder Include="Mappings\" />
+    <Folder Include="workflows\" />
   </ItemGroup>
 
 	<ItemGroup>

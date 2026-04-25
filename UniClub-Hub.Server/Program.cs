@@ -51,6 +51,7 @@ builder.Services.AddAuthorization();
 
 // Đăng ký FileUploadHelper để có thể inject vào các controller hoặc service khác
 builder.Services.AddScoped<FileUploadHelper>();
+// Đăng ký các service từ các module khác nhau
 builder.Services.AddOperationsServices();
 builder.Services.AddMembershipServices();
 builder.Services.AddPortalServices();
