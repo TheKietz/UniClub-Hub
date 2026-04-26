@@ -8,8 +8,12 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Folder Include="Data\Migrations\" />
-    <Folder Include="Models\Viewmodels\" />
+    <Compile Remove="Data\Migrations\**" />
+    <Compile Remove="Models\Viewmodels\**" />
+    <EmbeddedResource Remove="Data\Migrations\**" />
+    <EmbeddedResource Remove="Models\Viewmodels\**" />
+    <None Remove="Data\Migrations\**" />
+    <None Remove="Models\Viewmodels\**" />
   </ItemGroup>
 
 	<ItemGroup>

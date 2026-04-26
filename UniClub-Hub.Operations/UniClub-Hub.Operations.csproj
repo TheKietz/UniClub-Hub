@@ -8,8 +8,12 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Folder Include="Mappings\" />
-    <Folder Include="workflows\" />
+    <Compile Remove="Mappings\**" />
+    <Compile Remove="workflows\**" />
+    <EmbeddedResource Remove="Mappings\**" />
+    <EmbeddedResource Remove="workflows\**" />
+    <None Remove="Mappings\**" />
+    <None Remove="workflows\**" />
   </ItemGroup>
 
 	<ItemGroup>
