@@ -1,0 +1,18 @@
+using System.ComponentModel.DataAnnotations.Schema;
+
+namespace UniClub_Hub.Shared.Models
+{
+    [Table("Applications")]
+    public class ClubApplication
+    {
+        public int Id { get; set; }
+        public string UserId { get; set; } = null!;
+        public int ClubId { get; set; }
+        public string? Answers { get; set; } // JSONB — câu trả lời form tuyển thành viên
+        public string Status { get; set; } = "Pending"; // Pending / Interview / Accepted / Rejected
+        public DateTime AppliedAt { get; set; } = DateTime.UtcNow;
+
+        public ApplicationUser User { get; set; } = null!;
+        public Club Club { get; set; } = null!;
+    }
+}

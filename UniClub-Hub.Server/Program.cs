@@ -16,9 +16,8 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// Cấu hình DbContext với SQL Server
 builder.Services.AddDbContext<UniClubDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("LocalConnection")));
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 // Cấu hình Identity
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options => {
