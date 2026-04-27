@@ -3,5 +3,6 @@ trigger: always_on
 ---
 
 # Rule: Core Project Knowledge
-- Luôn tham chiếu file `@project-description.md` để đảm bảo code sinh ra đáp ứng đúng yêu cầu chức năng của từng Đề tài.
-- Tuyệt đối không được làm chồng chéo chức năng giữa 3 Đề tài (ví dụ: Đề tài 2 không được làm phần Quản lý thành viên của Đề tài 1).
+
+1. **Functional Alignment**: Always reference `@project-description.md` to ensure generated code aligns with the specific functional requirements of each sub-project.
+2. **Scope Isolation**: Strictly prevent functional overlap between the three sub-projects (e.g., Sub-project 2 must not implement the Member Management features assigned to Sub-project 1).

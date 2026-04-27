@@ -4,12 +4,14 @@ trigger: always_on
 
 # Global Architecture Enforcement
 
-Khi làm việc trong Solution này, AI Agent phải tuân thủ các ràng buộc sau:
+The AI Agent must comply with the following architectural constraints within this Solution:
 
-### Cấm (Restrictions)
-- **KHÔNG** tạo thư mục `Models` hay `Entities` bên trong các dự án Module.
-- **KHÔNG** tạo tham chiếu trực tiếp giữa các Module với nhau (VD: Operations không được Reference Membership).
+### Restrictions
 
-### Cho phép (Permissions)
-- Chỉ được phép tham chiếu từ Module vào project `Shared`.
-- Chỉ được phép tạo Entity mới sau khi đã được User phê duyệt cấu trúc.
+- **DO NOT** create `Models` or `Entities` directories inside specific Module projects.
+- **DO NOT** establish direct references between Modules (e.g., the Operations module must not reference the Membership module).
+
+### Permissions
+
+- References are only permitted from a Module to the `Shared` project.
+- New Entities may only be created within the `Shared` project following explicit user approval of the schema.

@@ -4,10 +4,10 @@ trigger: always_on
 
 # Database Safety Rules
 
-AI Agent phải tuân thủ nghiêm ngặt các quy tắc sau khi đụng đến tầng dữ liệu:
+The AI Agent must strictly adhere to the following data-tier protocols:
 
-1. **Quyền hạn**: AI KHÔNG được phép tự ý sửa file trong thư mục `UniClubHub.Shared/Entities/`.
-2. **Quy trình phê duyệt**:
-   - Bước 1: Đề xuất cấu trúc bảng/cột trong chat.
-   - Bước 2: Chờ tôi xác nhận "Approve" hoặc "Đồng ý".
-3. **Thực thi**: Tuyệt đối không chạy lệnh `dotnet ef database update`. Chỉ được phép gợi ý lệnh Migration để tôi tự chạy.
+1. **Authority Limitation**: The AI is STRICTLY PROHIBITED from directly modifying any files within the `UniClubHub.Shared/Entities/` directory.
+2. **Approval Workflow**:
+   - **Step 1**: Propose the schema (table/column structure) within the chat interface.
+   - **Step 2**: Await explicit confirmation ("Approve" or "Agree") before proceeding.
+3. **Execution Restriction**: Never execute the `dotnet ef database update` command. The Agent may only suggest the appropriate Migration commands for the user to execute manually.

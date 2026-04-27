@@ -1,15 +1,17 @@
 ---
 name: uniclub-project-context
-description: Cung cấp bối cảnh tổng thể, kiến trúc và tiến độ hiện tại của dự án UniClub Hub. Hãy đọc file này trước khi hỗ trợ Leader Kiệt.
+description: Provides overall context, architecture, and current progress of the UniClub Hub project. Read this file before assisting.
 ---
 
 # UniClub Hub - Project Context
 
-## 📌 Tổng quan dự án
-- **Mục tiêu:** Hệ thống ERP quản lý Câu lạc bộ (Modular Monolith).
-- **Kiến trúc:** 1 API, 1 Shared (Entities), 3 Modules (Membership, Operations, Portal).
+## 📌 Project Overview
 
-## 📅 Tiến độ hiện tại (Cập nhật 26/04/2026)
-- **Đã xong:** Cấu trúc Solution, kết nối Database, Base Web API.
-- **Đang làm:** Phân hệ Operations (Kanban & Sự kiện).
-- **Sắp tới:** Tích hợp OpenTelemetry và xử lý Upload ảnh.
+- **Objective:** Club ERP Management System (Modular Monolith).
+- **Architecture:** 1 API Project, 1 Shared Project (Entities), 3 Feature Modules (Membership, Operations, Portal).
+
+## 📅 Current Progress (Updated April 26, 2026)
+
+- **Completed:** Solution structure, Database connectivity (PostgreSQL/Neon), Base Web API setup.
+- **In Progress:** Operations Module (Kanban Board & Event Management).
+- **Upcoming:** OpenTelemetry integration and Image Upload handling.
