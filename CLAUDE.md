@@ -6,11 +6,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 UniClub-Hub là hệ thống quản lý câu lạc bộ sinh viên đại học, gồm 3 phân hệ do 3 nhóm thực hiện, dùng chung một codebase và database:
 
-| Phân hệ | Module | Mô tả |
-|---|---|---|
-| Đề tài 1 | `UniClub-Hub.Membership` | Quản lý CLB, thành viên, cơ cấu tổ chức |
-| Đề tài 2 | `UniClub-Hub.Operations` | Quản lý hoạt động, sự kiện, công việc nội bộ |
-| Đề tài 3 | `UniClub-Hub.Portal` | Cổng thông tin công khai, landing page, truyền thông |
+| Phân hệ  | Module                   | Mô tả                                                |
+| -------- | ------------------------ | ---------------------------------------------------- |
+| Đề tài 1 | `UniClub-Hub.Membership` | Quản lý CLB, thành viên, cơ cấu tổ chức              |
+| Đề tài 2 | `UniClub-Hub.Operations` | Quản lý hoạt động, sự kiện, công việc nội bộ         |
+| Đề tài 3 | `UniClub-Hub.Portal`     | Cổng thông tin công khai, landing page, truyền thông |
 
 **Module dùng chung** (áp dụng cho cả 3 đề tài): Auth/JWT, RBAC (Admin, Quản lý CLB, Trưởng ban, Thành viên, User công khai), danh mục hệ thống, file upload, logging/audit log, notification.
 
@@ -60,14 +60,14 @@ Chạy .NET API — nó tự proxy sang Vite dev server (`https://localhost:5461
 
 ### Solution projects
 
-| Project | Vai trò |
-|---|---|
-| `UniClub-Hub.API` | Entry point — `Program.cs`, Controllers |
-| `UniClub-Hub.Shared` | `UniClubDbContext`, models, `FileUploadHelper`, shared utilities |
-| `UniClub-Hub.Membership` | Phân hệ thành viên (Đề tài 1) |
-| `UniClub-Hub.Operations` | Phân hệ vận hành (Đề tài 2) |
-| `UniClub-Hub.Portal` | Phân hệ cổng thông tin (Đề tài 3) |
-| `uniclub-hub.client` | React 19 + TypeScript frontend |
+| Project                  | Vai trò                                                          |
+| ------------------------ | ---------------------------------------------------------------- |
+| `UniClub-Hub.API`        | Entry point — `Program.cs`, Controllers                          |
+| `UniClub-Hub.Shared`     | `UniClubDbContext`, models, `FileUploadHelper`, shared utilities |
+| `UniClub-Hub.Membership` | Phân hệ thành viên (Đề tài 1)                                    |
+| `UniClub-Hub.Operations` | Phân hệ vận hành (Đề tài 2)                                      |
+| `UniClub-Hub.Portal`     | Phân hệ cổng thông tin (Đề tài 3)                                |
+| `uniclub-hub.client`     | React 19 + TypeScript frontend                                   |
 
 ### Backend layers
 

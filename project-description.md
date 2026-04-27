@@ -1,139 +1,331 @@
-MODULE DÙNG CHUNG (Áp dụng cho cả 3 đề tài)
-Xác thực & quản lý người dùng (đăng nhập, JWT/session)
-Phân quyền RBAC (Admin, Quản lý CLB, Trưởng ban, Thành viên, User công khai)
-Danh mục hệ thống (trạng thái, loại hoạt động, mức ưu tiên, lĩnh vực CLB)
-Upload & quản lý tệp (ảnh, tài liệu)
-Logging, audit log, xử lý lỗi
-Notification (email/web)
-Kiến trúc nhiều lớp (layered/clean), API dùng chung, CSDL dùng chung
-ĐỀ TÀI 1: Xây dựng hệ thống quản lý câu lạc bộ, thành viên và cơ cấu tổ chức trong môi trường đại học
-1. Nội dung thực hiện
+# 🎓 Student Club Management System
 
-Đề tài tập trung nghiên cứu, phân tích, thiết kế và xây dựng phân hệ quản lý dữ liệu lõi của các câu lạc bộ sinh viên. Hệ thống cho phép quản lý thông tin câu lạc bộ, cơ cấu tổ chức, thành viên và vai trò của từng cá nhân; đồng thời theo dõi quá trình tham gia và mức độ đóng góp của thành viên.
+A modular system for managing student clubs in a university environment.  
+The system is divided into three main subsystems while sharing a common core.
 
-Phân hệ đóng vai trò nền tảng dữ liệu, cung cấp thông tin chuẩn hóa cho các phân hệ vận hành và cổng thông tin.
+---
 
-2. Yêu cầu chức năng
-Sinh viên có thể xem danh sách câu lạc bộ, có thể đăng ký, duyệt, từ chối,...
-Quản lý câu lạc bộ:
-Tạo, cập nhật, xóa, tra cứu
-Thông tin: tên, mã, mô tả, lĩnh vực, logo, ngày thành lập, giảng viên phụ trách, trạng thái
-Quản lý cơ cấu tổ chức:
-Ban chủ nhiệm, các ban chức năng
-Vai trò trong từng ban
-Quản lý thành viên:
-Thêm, sửa, xóa, tra cứu
-Phân loại theo CLB, ban, vai trò
-Phân quyền theo vai trò người dùng
-Tra cứu danh sách thành viên theo nhiều tiêu chí
-Quản lý đa CLB trong hệ thống
-Theo dõi lịch sử tham gia của thành viên
-Quản lý vòng đời thành viên (ứng tuyển → thử việc → chính thức → rời CLB)
-Hệ thống đánh giá thành viên (KPI nội bộ)
-Import/Export dữ liệu (Excel/CSV)
-Audit log theo dõi thay đổi
-Gợi ý phân công vai trò (rule-based/AI nhẹ)
-Thống kê - Báo cáo
-3. Yêu cầu phi chức năng
-Bảo mật dữ liệu và phân quyền truy cập
-Hiệu năng ổn định với số lượng lớn thành viên
-Thiết kế theo layered/clean architecture
-Dễ mở rộng và tích hợp
-4. Triển khai và đánh giá
-Xây dựng hệ thống web hoàn chỉnh
-Kiểm thử chức năng và dữ liệu
-Đánh giá hiệu quả quản lý tổ chức CLB
-ĐỀ TÀI 2
-Tên đề tài
+# 📌 Overview
 
-Xây dựng hệ thống quản lý hoạt động, sự kiện và công việc nội bộ của câu lạc bộ sinh viên
+This project consists of three main topics:
 
-1. Nội dung thực hiện
+1. **Club, Member & Organization Management**
+2. **Activity, Event & Task Management**
+3. **Public Portal & Communication System**
 
-Đề tài tập trung xây dựng phân hệ quản lý vận hành nội bộ của câu lạc bộ, bao gồm quản lý hoạt động, sự kiện và công việc. Hệ thống hỗ trợ lập kế hoạch, phân công nhiệm vụ, theo dõi tiến độ và đánh giá hiệu quả thực hiện.
+All subsystems share a **common core architecture**, database, and services.
 
-Phân hệ phản ánh toàn bộ quá trình tổ chức và triển khai hoạt động của câu lạc bộ.
+---
 
-2. Yêu cầu chức năng
-Quản lý hoạt động, sự kiện:
-Tạo, chỉnh sửa, xóa
-Thời gian, địa điểm, nội dung
-Quản lý công việc:
-Tạo, phân công nhiệm vụ
-Gán người thực hiện
-Deadline, trạng thái
-Theo dõi tiến độ công việc
-Quản lý danh sách người tham gia
-Tra cứu hoạt động và công việc
-Công việc cha – con, phụ thuộc công việc
-Hiển thị Kanban, Calendar, Timeline
-Gantt chart cho sự kiện
-Workflow quy trình hoạt động
-Nhắc việc tự động
-Phân bổ workload
-Theo dõi tiến độ (%)
-Realtime cập nhật trạng thái (SignalR/WebSocket)
-Dashboard nội bộ
-Activity log
-Quản lý sprint (Agile nhẹ)
-Gợi ý phân công công việc
-Dự đoán trễ deadline
-Đề xuất ưu tiên
-3. Yêu cầu phi chức năng
-Hỗ trợ nhiều người dùng đồng thời
-Không mất dữ liệu khi mất kết nối
-Hiệu năng tốt với realtime
-Khả năng mở rộng
-4. Triển khai và đánh giá
-Kiểm thử nghiệp vụ vận hành
-Đánh giá hiệu quả quản lý hoạt động
-So sánh trước và sau khi áp dụng hệ thống
-ĐỀ TÀI 3: Xây dựng cổng thông tin và hệ thống truyền thông giới thiệu hoạt động câu lạc bộ sinh viên
+# 🧩 Shared Modules (Core System)
 
-1. Nội dung thực hiện
+## 1. Authentication & User Management
 
-Đề tài tập trung xây dựng cổng thông tin công khai cho các câu lạc bộ, bao gồm landing page, hệ thống quản lý nội dung và chức năng đăng ký tham gia.
+- Login (JWT / Session)
+- User profile management
 
-Phân hệ giúp quảng bá hình ảnh CLB và kết nối sinh viên với hoạt động câu lạc bộ.
+## 2. Role-Based Access Control (RBAC)
 
-2. Yêu cầu chức năng
-Landing page CLB:
-Giới thiệu CLB
-Cơ cấu tổ chức (hiển thị)
-Hoạt động
-Quản lý nội dung:
-Bài viết, tin tức
-Hình ảnh, video
-Hiển thị danh sách CLB
-Đăng ký tham gia CLB
-Quản lý đơn đăng ký
-Tra cứu thông tin CLB
-CMS quản lý nội dung động
-Template landing page
-SEO cơ bản
-Phân quyền nội dung (editor/reviewer)
-Duyệt nội dung nhiều cấp
-Analytics (lượt truy cập, tương tác)
-Tích hợp mạng xã hội
-Recommendation CLB (AI nhẹ)
-Notification (email/web)
-Dashboard truyền thông
-3. Yêu cầu phi chức năng
-Tối ưu tốc độ tải trang
-Responsive đa thiết bị
-Cache dữ liệu
-Có thể triển khai cloud
-4. Triển khai và đánh giá
-Triển khai website thực tế
-Đánh giá trải nghiệm người dùng
-Đánh giá hiệu quả truyền thông
-Đề tài 1 sẽ thiên về quản trị hệ thống nhiều hơn nhen (xử lý module dùng chung lun nha)
-Để 3 đề tài không bị chồng nhau, các phần sau nên dùng chung:
+- Roles:
+  - Admin
+  - Club Manager
+  - Department Head
+  - Member
+  - Public User
 
-Xác thực và quản lý tài khoản
-Phân quyền người dùng
-Upload file (ảnh, video, tài liệu)
-Notification (email)
-Logging và audit log
-Cơ sở dữ liệu dùng chung
-API tích hợp giữa 2 hệ
+## 3. System Categories
+
+- Status
+- Activity types
+- Priority levels
+- Club domains
+
+## 4. File Management
+
+- Upload images, documents
+- File storage & retrieval
+
+## 5. Logging & Monitoring
+
+- Logging system
+- Audit logs (track data changes)
+- Error handling
+
+## 6. Notification System
+
+- Email notifications
+- Web notifications
+
+## 7. Architecture
+
+- Layered / Clean Architecture
+- Shared API
+- Shared Database
+
+---
+
+# 📘 Topic 1: Club, Member & Organization Management
+
+## 1. Description
+
+This module manages **core data of student clubs**, including:
+
+- Club information
+- Organizational structure
+- Members and roles
+
+Acts as a **foundation layer** for other subsystems.
+
+---
+
+## 2. Functional Requirements
+
+### 2.1 Student Features
+
+- View club list
+- Apply to join club
+- Application approval / rejection
+
+### 2.2 Club Management
+
+- Create / Update / Delete / Search
+- Attributes:
+  - Name, Code, Description
+  - Domain, Logo
+  - Founding Date
+  - Advisor
+  - Status
+
+### 2.3 Organization Management
+
+- Executive board
+- Departments
+- Role assignment per department
+
+### 2.4 Member Management
+
+- Add / Update / Delete / Search
+- Classification:
+  - By club
+  - By department
+  - By role
+- Role-based access control
+
+### 2.5 Advanced Features
+
+- Multi-club management
+- Member participation history
+- Member lifecycle:
+  - Applicant → Probation → Official → Left
+- KPI evaluation system
+- Import / Export (Excel, CSV)
+- Audit logs
+- Role suggestion (rule-based / lightweight AI)
+- Reports & statistics
+
+---
+
+## 3. Non-functional Requirements
+
+- Secure data access
+- High performance with large datasets
+- Scalable architecture
+- Easy integration
+
+---
+
+## 4. Evaluation
+
+- Functional testing
+- Data validation
+- Management efficiency assessment
+
+---
+
+# 📗 Topic 2: Activity, Event & Task Management
+
+## 1. Description
+
+This module manages **club operations**, including:
+
+- Activities
+- Events
+- Tasks
+
+Supports planning, execution, and tracking.
+
+---
+
+## 2. Functional Requirements
+
+### 2.1 Activity & Event Management
+
+- Create / Update / Delete
+- Manage:
+  - Time
+  - Location
+  - Content
+
+### 2.2 Task Management
+
+- Create tasks
+- Assign members
+- Deadline & status tracking
+
+### 2.3 Advanced Features
+
+- Participant management
+- Search activities & tasks
+- Task dependencies (parent-child)
+- Views:
+  - Kanban
+  - Calendar
+  - Timeline
+- Gantt chart
+- Workflow management
+- Auto reminders
+- Workload distribution
+- Progress tracking (%)
+- Real-time updates (SignalR / WebSocket)
+- Dashboard
+- Activity logs
+- Agile sprint (lightweight)
+- Task suggestion
+- Deadline prediction
+- Priority recommendation
+
+---
+
+## 3. Non-functional Requirements
+
+- Concurrent users support
+- No data loss on disconnection
+- Real-time performance
+- Scalable system
+
+---
+
+## 4. Evaluation
+
+- Workflow testing
+- Operational efficiency comparison
+
+---
+
+# 📙 Topic 3: Portal & Communication System
+
+## 1. Description
+
+A public-facing system to:
+
+- Promote clubs
+- Provide information
+- Allow student interaction
+
+---
+
+## 2. Functional Requirements
+
+### 2.1 Club Landing Page
+
+- Club introduction
+- Organization structure
+- Activities
+
+### 2.2 Content Management (CMS)
+
+- Articles, news
+- Images, videos
+
+### 2.3 Features
+
+- Club listing
+- Club registration
+- Application management
+- Search functionality
+- Dynamic CMS
+- Landing page templates
+- Basic SEO
+- Content roles:
+  - Editor
+  - Reviewer
+- Multi-level approval workflow
+- Analytics (traffic, engagement)
+- Social media integration
+- Club recommendation (AI lightweight)
+- Notifications (email/web)
+- Communication dashboard
+
+---
+
+## 3. Non-functional Requirements
+
+- Fast loading speed
+- Responsive design
+- Caching
+- Cloud deployment support
+
+---
+
+## 4. Evaluation
+
+- User experience (UX)
+- Communication effectiveness
+
+---
+
+# 🔗 System Integration
+
+To avoid overlap between topics, the following components are shared:
+
+- Authentication & User Management
+- Role-Based Access Control
+- File Upload System
+- Notification System
+- Logging & Audit Logs
+- Shared Database
+- Shared APIs between subsystems
+
+---
+
+# 🏗️ Suggested Architecture
+
+Presentation Layer (Web / API)
+↓
+Application Layer (Services)
+↓
+Domain Layer (Business Logic)
+↓
+Infrastructure Layer (DB, External Services)
+
+---
+
+# 🚀 Deployment
+
+- Web-based system
+- Can be deployed on cloud (AWS, Azure, etc.)
+- Supports scaling and modular expansion
+
+---
+
+# 🧪 Testing
+
+- Unit Testing
+- Integration Testing
+- System Testing
+- User Acceptance Testing (UAT)
+
+---
+
+# 📊 Future Improvements
+
+- AI recommendation enhancements
+- Performance optimization
+- Mobile application integration
+- Advanced analytics dashboard
+
+---
+
+# 👨‍💻 Authors
+
+- Student Team Project
