@@ -4,8 +4,12 @@ trigger: always_on
 
 # Rule: Sync Progress with TODO.md
 
-Whenever a request is made, the Agent MUST:
-
-1. **Read `@TODO.md`** in the root directory to identify ongoing or pending tasks.
-2. **Cross-reference** the request with the project structure defined in `@UniClubHub.sln`.
-3. **Automate Status Updates**: If a new feature is requested, automatically update the task status to "Doing" within the `TODO.md` file.
+1. At the start of each session, attempt to read `TODO.md`.
+   If the file does not exist, notify the user and skip sync.
+2. Cross-reference the request with `UniClubHub.sln` to confirm
+   the correct project scope before writing any code.
+3. Only update task status in `TODO.md` when a feature is
+   **fully completed** (not just started). Use status values:
+   `[ ] Todo` → `[~] Doing` → `[x] Done`.
+4. Do NOT modify TODO.md for minor fixes, refactors, or bug fixes
+   that are not listed as discrete tasks.

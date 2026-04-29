@@ -15,6 +15,9 @@ To ensure source code integrity and user control, the Agent must follow these st
 
 ### Permitted Scope
 
-- Operations are limited strictly to the **Local Workspace**.
-- The Agent may propose **Commit Messages**, but the final execution of the `git commit` command remains the user's sole authority.
-- The Agent may generate `.gitignore` files to assist in local file management upon request.
+- The Agent may execute `git status`, `git diff`, and `git log`
+  for read-only inspection.
+- The Agent may execute `git add` to stage files, but must explicitly
+  list all files being staged and await user confirmation before proceeding.
+- Commit message proposals must be presented to the user;
+  `git commit` is executed by the user only.
