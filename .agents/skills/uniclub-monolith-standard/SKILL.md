@@ -7,7 +7,7 @@ description: Expert in building Modular Monoliths. Use this to develop features 
 
 ## 1. File Structure (File Locations)
 
-- **Entities**: Always located in `UniClubHub.Shared/Models/` or `UniClubHub.Shared/Entities/`.
+- **Entities**: Always located in `UniClubHub.Shared/Models/`.
 - **Services/DTOs**: Located in the respective `UniClubHub.[ModuleName]/` project.
 - **Controllers**: Located in `UniClubHub.API/Controllers/[ModuleName]/`.
 
@@ -16,7 +16,15 @@ description: Expert in building Modular Monoliths. Use this to develop features 
 - Strictly prohibit the Repository Pattern; utilize `UniClubDbContext` directly for data access.
 - Register services via a `DependencyInjection.cs` file located at the root of each Module.
 
-## 3. Frontend Standards (Integration with Vercel Skills)
+## 3. Frontend Standards
 
-- Implement `async-parallel` (SKILL1) for efficient data fetching from APIs.
-- Apply the `architecture-avoid-boolean-props` (SKILL) principle when designing UI components to ensure scalability.
+- Use `Promise.all()` for independent API calls (see `vercel-react-best-practices` → `async-parallel`).
+- Avoid boolean props on components; use composition (see `vercel-composition-patterns` → `architecture-avoid-boolean-props`).
+
+## 4. Cross-Module Data Access
+
+When Module A needs data owned by Module B:
+
+- Query the Shared entity directly via UniClubDbContext (read-only).
+- Never import or instantiate a Service class from another Module.
+- Never create a duplicate DTO — reuse from Shared if it exists.

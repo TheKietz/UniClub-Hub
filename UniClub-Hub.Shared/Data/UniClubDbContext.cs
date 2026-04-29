@@ -6,7 +6,8 @@ namespace UniClub_Hub.Shared.Data
 {
     public class UniClubDbContext : IdentityDbContext<ApplicationUser>
     {
-        public UniClubDbContext(DbContextOptions<UniClubDbContext> options) : base(options) { }
+        public UniClubDbContext(DbContextOptions<UniClubDbContext> options)
+            : base(options) { }
 
         public DbSet<Category> Categories { get; set; }
         public DbSet<Club> Clubs { get; set; }
@@ -22,47 +23,42 @@ namespace UniClub_Hub.Shared.Data
         public DbSet<Contribution> Contributions { get; set; }
         public DbSet<Notification> Notifications { get; set; }
         public DbSet<TaskAttachment> TaskAttachments { get; set; }
+        public DbSet<TaskComment> TaskComments { get; set; }
+        public DbSet<AuditLog> AuditLogs { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);
 
             // JSONB columns (PostgreSQL)
-            builder.Entity<Club>()
-                .Property(c => c.FormSchema)
-                .HasColumnType("jsonb");
+            builder.Entity<Club>().Property(c => c.FormSchema).HasColumnType("jsonb");
 
-            builder.Entity<LandingPage>()
-                .Property(lp => lp.SocialLinks)
-                .HasColumnType("jsonb");
+            builder.Entity<LandingPage>().Property(lp => lp.SocialLinks).HasColumnType("jsonb");
 
-            builder.Entity<LandingPage>()
-                .Property(lp => lp.LayoutSettings)
-                .HasColumnType("jsonb");
+            builder.Entity<LandingPage>().Property(lp => lp.LayoutSettings).HasColumnType("jsonb");
 
-            builder.Entity<ClubApplication>()
-                .Property(a => a.Answers)
-                .HasColumnType("jsonb");
+            builder.Entity<ClubApplication>().Property(a => a.Answers).HasColumnType("jsonb");
 
             // Club.Code phải unique
-            builder.Entity<Club>()
-                .HasIndex(c => c.Code)
-                .IsUnique();
+            builder.Entity<Club>().HasIndex(c => c.Code).IsUnique();
 
             // LandingPage — quan hệ 1-1 với Club
-            builder.Entity<LandingPage>()
+            builder
+                .Entity<LandingPage>()
                 .HasOne(lp => lp.Club)
                 .WithOne(c => c.LandingPage)
                 .HasForeignKey<LandingPage>(lp => lp.ClubId);
 
             // ClubTask có 2 FK vào ApplicationUser — phải khai báo tường minh
-            builder.Entity<ClubTask>()
+            builder
+                .Entity<ClubTask>()
                 .HasOne(t => t.Assignee)
                 .WithMany()
                 .HasForeignKey(t => t.AssignedTo)
                 .OnDelete(DeleteBehavior.SetNull);
 
-            builder.Entity<ClubTask>()
+            builder
+                .Entity<ClubTask>()
                 .HasOne(t => t.Creator)
                 .WithMany()
                 .HasForeignKey(t => t.CreatedBy)

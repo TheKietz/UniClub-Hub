@@ -6,6 +6,10 @@ license: MIT
 
 # Optimizing EF Core Queries
 
+## UniClub Note
+
+Inject UniClubDbContext directly into Services — no Repository wrapper.
+
 ## When to Use
 
 - EF Core queries are slow or generating too many SQL statements
@@ -21,10 +25,10 @@ license: MIT
 
 ## Inputs
 
-| Input | Required | Description |
-|-------|----------|-------------|
-| Slow EF Core queries | Yes | The LINQ queries or DbContext usage to optimize |
-| SQL output or logs | No | EF Core generated SQL or query execution logs |
+| Input                | Required | Description                                     |
+| -------------------- | -------- | ----------------------------------------------- |
+| Slow EF Core queries | Yes      | The LINQ queries or DbContext usage to optimize |
+| SQL output or logs   | No       | EF Core generated SQL or query execution logs   |
 
 ## Workflow
 
@@ -56,6 +60,7 @@ Or use the `Microsoft.EntityFrameworkCore` log category:
 **The #1 EF Core performance killer.** Happens when loading related entities in a loop.
 
 **Before (N+1 — 1 query for orders + N queries for items):**
+
 ```csharp
 var orders = await db.Orders.ToListAsync();
 foreach (var order in orders)
@@ -66,6 +71,7 @@ foreach (var order in orders)
 ```
 
 **After (eager loading — 1 or 2 queries total):**
+
 ```csharp
 // Option 1: Include (JOIN)
 var orders = await db.Orders
@@ -91,12 +97,12 @@ var orderSummaries = await db.Orders
 
 **When to use Split vs Single query:**
 
-| Scenario | Use |
-|----------|-----|
-| 1 level of Include | Single query (default) |
-| Multiple Includes (Cartesian risk) | `AsSplitQuery()` |
-| Include with large child collections | `AsSplitQuery()` |
-| Need transaction consistency | Single query |
+| Scenario                             | Use                    |
+| ------------------------------------ | ---------------------- |
+| 1 level of Include                   | Single query (default) |
+| Multiple Includes (Cartesian risk)   | `AsSplitQuery()`       |
+| Include with large child collections | `AsSplitQuery()`       |
+| Need transaction consistency         | Single query           |
 
 ### Step 3: Use NoTracking for read-only queries
 
@@ -133,13 +139,13 @@ var order = await GetOrderById(db, orderId);
 
 ### Step 5: Avoid common query traps
 
-| Trap | Problem | Fix |
-|------|---------|-----|
-| `ToList()` before `Where()` | Loads entire table into memory | Filter first: `.Where().ToList()` |
-| `Count()` to check existence | Scans all rows | Use `.Any()` instead |
-| `.Select()` after `.Include()` | Include is ignored with projection | Remove Include, use Select only |
-| `string.Contains()` in Where | May not translate, falls to client eval | Use `EF.Functions.Like()` for SQL LIKE |
-| Calling `.ToList()` inside `Select()` | Causes nested queries | Use projection with `Select` all the way |
+| Trap                                  | Problem                                 | Fix                                      |
+| ------------------------------------- | --------------------------------------- | ---------------------------------------- |
+| `ToList()` before `Where()`           | Loads entire table into memory          | Filter first: `.Where().ToList()`        |
+| `Count()` to check existence          | Scans all rows                          | Use `.Any()` instead                     |
+| `.Select()` after `.Include()`        | Include is ignored with projection      | Remove Include, use Select only          |
+| `string.Contains()` in Where          | May not translate, falls to client eval | Use `EF.Functions.Like()` for SQL LIKE   |
+| Calling `.ToList()` inside `Select()` | Causes nested queries                   | Use projection with `Select` all the way |
 
 ### Step 6: Use raw SQL or FromSql for complex queries
 
@@ -169,10 +175,10 @@ var results = await db.Orders
 
 ## Common Pitfalls
 
-| Pitfall | Solution |
-|---------|----------|
-| Lazy loading silently creating N+1 | Remove `Microsoft.EntityFrameworkCore.Proxies` or disable lazy loading |
-| Global query filters forgotten in perf analysis | Check `HasQueryFilter` in model config; use `IgnoreQueryFilters()` if needed |
-| `DbContext` kept alive too long | DbContext should be scoped (per-request); don't cache it |
-| Batch updates fetching then saving | EF Core 7+: use `ExecuteUpdateAsync` / `ExecuteDeleteAsync` for bulk operations |
-| String interpolation in `FromSqlRaw` | SQL injection risk — use `FromSqlInterpolated` (parameterized) |
+| Pitfall                                         | Solution                                                                        |
+| ----------------------------------------------- | ------------------------------------------------------------------------------- |
+| Lazy loading silently creating N+1              | Remove `Microsoft.EntityFrameworkCore.Proxies` or disable lazy loading          |
+| Global query filters forgotten in perf analysis | Check `HasQueryFilter` in model config; use `IgnoreQueryFilters()` if needed    |
+| `DbContext` kept alive too long                 | DbContext should be scoped (per-request); don't cache it                        |
+| Batch updates fetching then saving              | EF Core 7+: use `ExecuteUpdateAsync` / `ExecuteDeleteAsync` for bulk operations |
+| String interpolation in `FromSqlRaw`            | SQL injection risk — use `FromSqlInterpolated` (parameterized)                  |

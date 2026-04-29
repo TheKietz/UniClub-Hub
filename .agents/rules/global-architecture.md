@@ -8,8 +8,13 @@ The AI Agent must comply with the following architectural constraints within thi
 
 ### Restrictions
 
-- **DO NOT** create `Models` or `Entities` directories inside specific Module projects.
-- **DO NOT** establish direct references between Modules (e.g., the Operations module must not reference the Membership module).
+- DO NOT create `Models`, `Entities`, or `DTOs` directories
+  inside specific Module projects (Operations, Portal, Membership).
+- DO NOT reference Module projects from other Module projects in `.csproj`.
+- DO NOT duplicate Entity classes across modules —
+  always import from `UniClubHub.Shared`.
+- Cross-module communication must go through the Shared project
+  or via API contracts (DTOs in Shared), never direct object passing.
 
 ### Permissions
 
