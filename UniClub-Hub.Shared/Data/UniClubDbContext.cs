@@ -1,12 +1,20 @@
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using UniClub_Hub.Shared.Common;
 using UniClub_Hub.Shared.Models;
 
 namespace UniClub_Hub.Shared.Data
 {
     public class UniClubDbContext : IdentityDbContext<ApplicationUser>
     {
-        public UniClubDbContext(DbContextOptions<UniClubDbContext> options) : base(options) { }
+        private readonly IHttpContextAccessor? _httpContextAccessor;
+
+        public UniClubDbContext(DbContextOptions<UniClubDbContext> options,
+            IHttpContextAccessor? httpContextAccessor = null) : base(options)
+        {
+            _httpContextAccessor = httpContextAccessor;
+        }
 
         public DbSet<Category> Categories { get; set; }
         public DbSet<Club> Clubs { get; set; }
@@ -22,10 +30,16 @@ namespace UniClub_Hub.Shared.Data
         public DbSet<Contribution> Contributions { get; set; }
         public DbSet<Notification> Notifications { get; set; }
         public DbSet<TaskAttachment> TaskAttachments { get; set; }
+        public DbSet<RefreshToken> RefreshTokens { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);
+
+            // Global Query Filters — tự động lọc soft-deleted records
+            builder.Entity<ApplicationUser>().HasQueryFilter(u => !u.IsDeleted);
+            builder.Entity<Club>().HasQueryFilter(c => !c.IsDeleted);
+            builder.Entity<Department>().HasQueryFilter(d => !d.IsDeleted);
 
             // JSONB columns (PostgreSQL)
             builder.Entity<Club>()
@@ -44,6 +58,12 @@ namespace UniClub_Hub.Shared.Data
                 .Property(a => a.Answers)
                 .HasColumnType("jsonb");
 
+            // StudentId unique (bỏ qua NULL)
+            builder.Entity<ApplicationUser>()
+                .HasIndex(u => u.StudentId)
+                .IsUnique()
+                .HasFilter("\"StudentId\" IS NOT NULL");
+
             // Club.Code phải unique
             builder.Entity<Club>()
                 .HasIndex(c => c.Code)
@@ -55,7 +75,7 @@ namespace UniClub_Hub.Shared.Data
                 .WithOne(c => c.LandingPage)
                 .HasForeignKey<LandingPage>(lp => lp.ClubId);
 
-            // ClubTask có 2 FK vào ApplicationUser — phải khai báo tường minh
+            // ClubTask có 2 FK vào ApplicationUser
             builder.Entity<ClubTask>()
                 .HasOne(t => t.Assignee)
                 .WithMany()
@@ -67,6 +87,52 @@ namespace UniClub_Hub.Shared.Data
                 .WithMany()
                 .HasForeignKey(t => t.CreatedBy)
                 .OnDelete(DeleteBehavior.SetNull);
+        }
+
+        public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+        {
+            var currentUserId = _httpContextAccessor?.HttpContext?.User
+                .FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+            var now = DateTime.UtcNow;
+
+            foreach (var entry in ChangeTracker.Entries())
+            {
+                // IAuditable — tự động set CreatedAt/UpdatedAt/By
+                if (entry.Entity is IAuditable auditable)
+                {
+                    if (entry.State == EntityState.Added)
+                    {
+                        auditable.CreatedAt = now;
+                        auditable.CreatedBy = currentUserId;
+                        auditable.UpdatedAt = now;
+                        auditable.UpdatedBy = currentUserId;
+                    }
+                    else if (entry.State == EntityState.Modified)
+                    {
+                        auditable.UpdatedAt = now;
+                        auditable.UpdatedBy = currentUserId;
+                    }
+                }
+
+                // ISoftDeletable — chuyển Delete thành soft delete
+                if (entry.Entity is ISoftDeletable softDeletable
+                    && entry.State == EntityState.Deleted)
+                {
+                    entry.State = EntityState.Modified;
+                    softDeletable.IsDeleted = true;
+                    softDeletable.DeletedBy = currentUserId;
+
+                    // Cập nhật UpdatedAt/By nếu entity cũng là IAuditable
+                    if (entry.Entity is IAuditable auditableOnDelete)
+                    {
+                        auditableOnDelete.UpdatedAt = now;
+                        auditableOnDelete.UpdatedBy = currentUserId;
+                    }
+                }
+            }
+
+            return base.SaveChangesAsync(cancellationToken);
         }
     }
 }
