@@ -31,6 +31,8 @@ namespace UniClub_Hub.Shared.Data
         public DbSet<Notification> Notifications { get; set; }
         public DbSet<TaskAttachment> TaskAttachments { get; set; }
         public DbSet<RefreshToken> RefreshTokens { get; set; }
+        public DbSet<TaskComment> TaskComments { get; set; }
+        public DbSet<AuditLog> AuditLogs { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
@@ -42,21 +44,10 @@ namespace UniClub_Hub.Shared.Data
             builder.Entity<Department>().HasQueryFilter(d => !d.IsDeleted);
 
             // JSONB columns (PostgreSQL)
-            builder.Entity<Club>()
-                .Property(c => c.FormSchema)
-                .HasColumnType("jsonb");
-
-            builder.Entity<LandingPage>()
-                .Property(lp => lp.SocialLinks)
-                .HasColumnType("jsonb");
-
-            builder.Entity<LandingPage>()
-                .Property(lp => lp.LayoutSettings)
-                .HasColumnType("jsonb");
-
-            builder.Entity<ClubApplication>()
-                .Property(a => a.Answers)
-                .HasColumnType("jsonb");
+            builder.Entity<Club>().Property(c => c.FormSchema).HasColumnType("jsonb");
+            builder.Entity<LandingPage>().Property(lp => lp.SocialLinks).HasColumnType("jsonb");
+            builder.Entity<LandingPage>().Property(lp => lp.LayoutSettings).HasColumnType("jsonb");
+            builder.Entity<ClubApplication>().Property(a => a.Answers).HasColumnType("jsonb");
 
             // StudentId unique (bỏ qua NULL)
             builder.Entity<ApplicationUser>()
@@ -65,9 +56,7 @@ namespace UniClub_Hub.Shared.Data
                 .HasFilter("\"StudentId\" IS NOT NULL");
 
             // Club.Code phải unique
-            builder.Entity<Club>()
-                .HasIndex(c => c.Code)
-                .IsUnique();
+            builder.Entity<Club>().HasIndex(c => c.Code).IsUnique();
 
             // LandingPage — quan hệ 1-1 với Club
             builder.Entity<LandingPage>()
@@ -98,7 +87,6 @@ namespace UniClub_Hub.Shared.Data
 
             foreach (var entry in ChangeTracker.Entries())
             {
-                // IAuditable — tự động set CreatedAt/UpdatedAt/By
                 if (entry.Entity is IAuditable auditable)
                 {
                     if (entry.State == EntityState.Added)
@@ -115,7 +103,6 @@ namespace UniClub_Hub.Shared.Data
                     }
                 }
 
-                // ISoftDeletable — chuyển Delete thành soft delete
                 if (entry.Entity is ISoftDeletable softDeletable
                     && entry.State == EntityState.Deleted)
                 {
@@ -123,7 +110,6 @@ namespace UniClub_Hub.Shared.Data
                     softDeletable.IsDeleted = true;
                     softDeletable.DeletedBy = currentUserId;
 
-                    // Cập nhật UpdatedAt/By nếu entity cũng là IAuditable
                     if (entry.Entity is IAuditable auditableOnDelete)
                     {
                         auditableOnDelete.UpdatedAt = now;
