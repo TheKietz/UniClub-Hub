@@ -1,7 +1,12 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
+using System.Text.Json;
 using UniClub_Hub.Membership.DTOs.Club;
 using UniClub_Hub.Membership.Services.Interfaces;
 using UniClub_Hub.Shared.Common;
+using UniClub_Hub.Shared.Data;
 
 namespace UniClub_Hub.Server.Controllers.Membership
 {
@@ -10,10 +15,12 @@ namespace UniClub_Hub.Server.Controllers.Membership
     public class ClubsController : ControllerBase
     {
         private readonly IClubService _clubService;
+        private readonly UniClubDbContext _db;
 
-        public ClubsController(IClubService clubService)
+        public ClubsController(IClubService clubService, UniClubDbContext db)
         {
             _clubService = clubService;
+            _db = db;
         }
 
         [HttpGet]
@@ -37,6 +44,49 @@ namespace UniClub_Hub.Server.Controllers.Membership
             {
                 return NotFound(ApiResponse<object>.Fail(ex.Message));
             }
+        }
+
+        // Lấy schema form đăng ký của CLB — public
+        [HttpGet("{id}/form-schema")]
+        public async Task<IActionResult> GetFormSchema(int id)
+        {
+            var club = await _db.Clubs.FindAsync(id);
+            if (club == null) return NotFound(ApiResponse<object>.Fail("Không tìm thấy CLB."));
+
+            if (string.IsNullOrEmpty(club.FormSchema))
+                return Ok(ApiResponse<object?>.Ok(null, "CLB chưa cấu hình form."));
+
+            var schema = JsonSerializer.Deserialize<JsonElement>(club.FormSchema);
+            return Ok(ApiResponse<JsonElement>.Ok(schema));
+        }
+
+        // Cập nhật schema form đăng ký — CLUB_ADMIN hoặc SUPER_ADMIN
+        [HttpPut("{id}/form-schema")]
+        [Authorize]
+        public async Task<IActionResult> UpdateFormSchema(int id, [FromBody] JsonElement schema)
+        {
+            var club = await _db.Clubs.FindAsync(id);
+            if (club == null) return NotFound(ApiResponse<object>.Fail("Không tìm thấy CLB."));
+
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+            var isSuperAdmin = User.IsInRole("SUPER_ADMIN");
+
+            if (!isSuperAdmin)
+            {
+                var isClubAdmin = await _db.ClubMemberships.AnyAsync(m =>
+                    m.UserId == userId &&
+                    m.ClubId == id &&
+                    m.ClubRole == "CLUB_ADMIN" &&
+                    m.Status == "Active");
+
+                if (!isClubAdmin)
+                    return Forbid();
+            }
+
+            club.FormSchema = JsonSerializer.Serialize(schema);
+            await _db.SaveChangesAsync();
+
+            return Ok(ApiResponse<object?>.Ok(null, "Cập nhật form schema thành công."));
         }
     }
 }

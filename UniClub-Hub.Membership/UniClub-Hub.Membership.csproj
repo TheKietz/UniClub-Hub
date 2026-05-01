@@ -13,6 +13,8 @@
     <None Remove="Mappings\**" />
   </ItemGroup>
 	<ItemGroup>
+		<PackageReference Include="ClosedXML" Version="0.105.0" />
+		<PackageReference Include="CloudinaryDotNet" Version="1.29.0" />
 		<PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.16" />
 		<PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="8.0.16" />
 		<PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="8.0.22" />

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 using UniClub_Hub.Shared.Common;
 using UniClub_Hub.Shared.Models;
 
@@ -9,6 +10,14 @@ namespace UniClub_Hub.Shared.Data
     public class UniClubDbContext : IdentityDbContext<ApplicationUser>
     {
         private readonly IHttpContextAccessor? _httpContextAccessor;
+
+        // Các entity không cần audit log (quá noise hoặc tự thân là log)
+        private static readonly HashSet<Type> _auditExcluded =
+        [
+            typeof(AuditLog),
+            typeof(RefreshToken),
+            typeof(Notification)
+        ];
 
         public UniClubDbContext(DbContextOptions<UniClubDbContext> options,
             IHttpContextAccessor? httpContextAccessor = null) : base(options)
@@ -78,7 +87,7 @@ namespace UniClub_Hub.Shared.Data
                 .OnDelete(DeleteBehavior.SetNull);
         }
 
-        public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+        public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {
             var currentUserId = _httpContextAccessor?.HttpContext?.User
                 .FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
@@ -118,7 +127,72 @@ namespace UniClub_Hub.Shared.Data
                 }
             }
 
-            return base.SaveChangesAsync(cancellationToken);
+            // Thu thập dữ liệu audit TRƯỚC khi save (để lấy đúng OriginalValues)
+            var auditEntries = ChangeTracker.Entries()
+                .Where(e => !_auditExcluded.Contains(e.Entity.GetType())
+                         && e.State is EntityState.Added or EntityState.Modified)
+                .Select(e =>
+                {
+                    // Xác định hành động
+                    string action;
+                    if (e.State == EntityState.Added)
+                    {
+                        action = "Create";
+                    }
+                    else
+                    {
+                        // Phân biệt soft delete và update thông thường
+                        var isDeletedProp = e.Properties
+                            .FirstOrDefault(p => p.Metadata.Name == "IsDeleted");
+                        action = isDeletedProp?.IsModified == true && isDeletedProp.CurrentValue is true
+                            ? "Delete"
+                            : "Update";
+                    }
+
+                    // Ghi lại giá trị cũ trước khi save
+                    string? oldValue = e.State == EntityState.Modified ? SerializeValues(e.OriginalValues) : null;
+
+                    return (Entry: e, Action: action, OldValue: oldValue);
+                })
+                .ToList(); // force evaluation TRƯỚC base.SaveChangesAsync
+
+            var result = await base.SaveChangesAsync(cancellationToken);
+
+            // Sau khi save, ID đã được sinh ra cho các entity Added
+            if (auditEntries.Count > 0)
+            {
+                var logs = auditEntries.Select(a =>
+                {
+                    var keyProp = a.Entry.Metadata.FindPrimaryKey()?.Properties.FirstOrDefault();
+                    var entityId = keyProp != null
+                        ? a.Entry.Property(keyProp.Name).CurrentValue?.ToString() ?? ""
+                        : "";
+
+                    return new AuditLog
+                    {
+                        UserId = currentUserId,
+                        Action = a.Action,
+                        EntityName = a.Entry.Entity.GetType().Name,
+                        EntityId = entityId,
+                        OldValue = a.OldValue,
+                        NewValue = a.Action != "Delete" ? SerializeValues(a.Entry.CurrentValues) : null,
+                        Timestamp = now
+                    };
+                }).ToList();
+
+                AuditLogs.AddRange(logs);
+                await base.SaveChangesAsync(cancellationToken);
+            }
+
+            return result;
+        }
+
+        private static string SerializeValues(Microsoft.EntityFrameworkCore.ChangeTracking.PropertyValues values)
+        {
+            var dict = values.Properties.ToDictionary(
+                p => p.Name,
+                p => values[p]?.ToString());
+            return JsonSerializer.Serialize(dict);
         }
     }
 }
