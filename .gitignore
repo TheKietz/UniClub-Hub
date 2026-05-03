@@ -381,5 +381,9 @@ frontend/.eslintcache
 .DS_Store
 Thumbs.db
 
-# VS Code 
+# VS Code
 .vscode/
+
+# ASP.NET SPA build artifacts (auto-generated, do not commit)
+uniclub-hub.client/obj/
+uniclub-hub.client/bin/
