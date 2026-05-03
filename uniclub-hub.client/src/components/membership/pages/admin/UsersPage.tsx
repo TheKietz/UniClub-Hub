@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { getUsers, lockUser, unlockUser, deleteUser } from '@/lib/adminApi'
-import type { UserItem } from '@/types/admin'
+import { getUsers, lockUser, unlockUser, deleteUser } from '@/components/membership/services/adminApi'
+import type { UserItem } from '@/components/membership/services/admin.types'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { getSystemStats } from '@/lib/adminApi'
-import type { SystemStats } from '@/types/admin'
+import { getSystemStats } from '@/components/membership/services/adminApi'
+import type { SystemStats } from '@/components/membership/services/admin.types'
 import { Users, Building2, UserCheck, FileText } from 'lucide-react'
 
 function StatCard({ label, value, icon: Icon, color }: {

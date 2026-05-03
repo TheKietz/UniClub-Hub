@@ -1,9 +1,9 @@
-import api from './axiosInstance'
+import api from '@/lib/axiosInstance'
 import type {
   ClubDetail, ClubListItem, ClubStats, MemberItem, DepartmentItem,
   ApplicationItem, AddMemberDto, UpdateMemberDto, ReviewApplicationDto,
   FormSchema, SubmitApplicationDto,
-} from '@/types/club'
+} from '@/components/membership/services/club.types'
 
 const base = (clubId: number) => `/clubs/${clubId}`
 

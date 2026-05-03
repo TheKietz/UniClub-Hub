@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { getAdminClubs, createClub, updateClub, deleteClub, getCategories } from '@/lib/adminApi'
-import type { ClubItem, CategoryItem, CreateClubDto, UpdateClubDto } from '@/types/admin'
+import { getAdminClubs, createClub, updateClub, deleteClub, getCategories } from '@/components/membership/services/adminApi'
+import type { ClubItem, CategoryItem, CreateClubDto, UpdateClubDto } from '@/components/membership/services/admin.types'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'

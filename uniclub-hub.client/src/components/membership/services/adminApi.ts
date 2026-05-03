@@ -1,8 +1,8 @@
-import api from './axiosInstance'
+import api from '@/lib/axiosInstance'
 import type {
   SystemStats, UserItem, PagedResult, ClubItem, CategoryItem,
   CreateClubDto, UpdateClubDto, CreateCategoryDto,
-} from '@/types/admin'
+} from '@/components/membership/services/admin.types'
 
 // ── Stats ──────────────────────────────────────────────────────────────────
 

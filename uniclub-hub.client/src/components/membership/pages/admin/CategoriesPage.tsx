@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { getCategories, createCategory, updateCategory, deleteCategory } from '@/lib/adminApi'
-import type { CategoryItem, CreateCategoryDto } from '@/types/admin'
+import { getCategories, createCategory, updateCategory, deleteCategory } from '@/components/membership/services/adminApi'
+import type { CategoryItem, CreateCategoryDto } from '@/components/membership/services/admin.types'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'

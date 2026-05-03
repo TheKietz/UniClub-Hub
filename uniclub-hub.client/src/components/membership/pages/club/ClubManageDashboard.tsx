@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { getClubStats } from '@/lib/clubApi'
-import type { ClubStats } from '@/types/club'
+import { getClubStats } from '@/components/membership/services/clubApi'
+import type { ClubStats } from '@/components/membership/services/club.types'
 import { Users, Building, FileText, UserCheck } from 'lucide-react'
 
 function StatCard({ label, value, icon: Icon, color }: {
