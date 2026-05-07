@@ -4,7 +4,7 @@ const api = axios.create({ baseURL: '/api' })
 
 // Đính kèm access token vào mỗi request
 api.interceptors.request.use(config => {
-  const token = localStorage.getItem('accessToken')
+  const token = localStorage.getItem('accessToken') || sessionStorage.getItem('accessToken')
   if (token) config.headers.Authorization = `Bearer ${token}`
   return config
 })
@@ -32,7 +32,7 @@ api.interceptors.response.use(
       isRefreshing = true
 
       try {
-        const refreshToken = localStorage.getItem('refreshToken')
+        const refreshToken = localStorage.getItem('refreshToken') || sessionStorage.getItem('refreshToken')
         if (!refreshToken) throw new Error('No refresh token')
 
         const { data } = await axios.post('/api/auth/refresh', { refreshToken })

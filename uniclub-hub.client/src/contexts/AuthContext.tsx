@@ -17,7 +17,7 @@ interface AuthContextType {
   hasRole: (role: string) => boolean
   // Trả về ClubRole nếu user có membership Active trong CLB đó, null nếu không
   getClubRole: (clubId: number) => string | null
-  login: (email: string, password: string) => Promise<void>
+  login: (email: string, password: string, rememberMe?: boolean) => Promise<void>
   register: (data: RegisterData) => Promise<void>
   logout: () => void
 }
@@ -29,7 +29,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    const token = localStorage.getItem('accessToken')
+    const token = localStorage.getItem('accessToken') || sessionStorage.getItem('accessToken')
     if (!token) { setIsLoading(false); return }
     api.get('/users/me')
       .then((res: { data: { data: UserInfo } }) => setUser(res.data.data))
@@ -40,11 +40,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .finally(() => setIsLoading(false))
   }, [])
 
-  async function login(email: string, password: string) {
+  async function login(email: string, password: string, rememberMe = true) {
     const res = await api.post('/auth/login', { email, password })
     const { accessToken, refreshToken } = res.data.data
-    localStorage.setItem('accessToken', accessToken)
-    localStorage.setItem('refreshToken', refreshToken)
+    const storage = rememberMe ? localStorage : sessionStorage
+    storage.setItem('accessToken', accessToken)
+    storage.setItem('refreshToken', refreshToken)
     const me = await api.get('/users/me')
     setUser(me.data.data)
   }
@@ -54,10 +55,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   function logout() {
-    const refreshToken = localStorage.getItem('refreshToken')
+    const refreshToken = localStorage.getItem('refreshToken') || sessionStorage.getItem('refreshToken')
     if (refreshToken) api.post('/auth/revoke', { refreshToken }).catch(() => { })
     localStorage.removeItem('accessToken')
     localStorage.removeItem('refreshToken')
+    sessionStorage.removeItem('accessToken')
+    sessionStorage.removeItem('refreshToken')
     setUser(null)
   }
 
