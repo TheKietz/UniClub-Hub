@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { Users, Calendar, Award, ArrowRight, BarChart3, Shield, Bell } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
+import UserMenu from '@/components/membership/layout/UserMenu'
 
 const FEATURES = [
   { icon: Users, title: 'Quản lý thành viên', desc: 'Phân quyền linh hoạt theo vai trò: Quản lý CLB, Trưởng ban, Thành viên.' },
@@ -12,7 +13,7 @@ const FEATURES = [
 ]
 
 export default function LandingPage() {
-  const { isAuthenticated, isSuperAdmin } = useAuth()
+  const { isAuthenticated } = useAuth()
 
   return (
     <div className="min-h-screen bg-white flex flex-col">
@@ -29,15 +30,16 @@ export default function LandingPage() {
             <span className="font-semibold text-gray-900">UniClub Hub</span>
           </div>
 
-          <nav className="flex items-center gap-3">
+          <nav className="flex items-center gap-1">
+            <Link
+              to="/clubs"
+              className="h-9 px-4 rounded-lg text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors flex items-center"
+            >
+              Câu lạc bộ
+            </Link>
+            <div className="w-px h-5 bg-gray-200 mx-1" />
             {isAuthenticated ? (
-              <Link
-                to={isSuperAdmin ? '/admin' : '/dashboard'}
-                className="h-9 px-4 rounded-lg text-sm font-medium text-white flex items-center gap-1.5 transition-opacity hover:opacity-90"
-                style={{ background: 'linear-gradient(135deg, #4f46e5, #7c3aed)' }}
-              >
-                Vào hệ thống <ArrowRight size={14} />
-              </Link>
+              <UserMenu />
             ) : (
               <>
                 <Link
@@ -95,30 +97,30 @@ export default function LandingPage() {
             Nền tảng số hóa toàn diện giúp các câu lạc bộ sinh viên quản lý thành viên, sự kiện và hoạt động nội bộ hiệu quả.
           </p>
 
-          {isAuthenticated ? (
-            <Link
-              to={isSuperAdmin ? '/admin' : '/dashboard'}
-              className="inline-flex items-center gap-2 h-12 px-8 rounded-xl text-base font-semibold text-indigo-700 bg-white hover:bg-gray-50 transition-colors"
-            >
-              Vào hệ thống <ArrowRight size={16} />
-            </Link>
-          ) : (
-            <div className="flex items-center justify-center gap-3 flex-wrap">
+          <div className="flex items-center justify-center gap-3 flex-wrap">
+            {isAuthenticated ? (
+              <Link
+                to="/dashboard"
+                className="inline-flex items-center gap-2 h-12 px-8 rounded-xl text-base font-semibold text-indigo-700 bg-white hover:bg-gray-50 transition-colors"
+              >
+                Vào hệ thống <ArrowRight size={16} />
+              </Link>
+            ) : (
               <Link
                 to="/register"
                 className="inline-flex items-center gap-2 h-12 px-8 rounded-xl text-base font-semibold text-indigo-700 bg-white hover:bg-gray-50 transition-colors"
               >
                 Đăng ký miễn phí <ArrowRight size={16} />
               </Link>
-              <Link
-                to="/login"
-                className="inline-flex items-center h-12 px-8 rounded-xl text-base font-medium text-purple-200 hover:text-white transition-colors"
-                style={{ border: '1px solid rgba(255,255,255,0.2)' }}
-              >
-                Đăng nhập
-              </Link>
-            </div>
-          )}
+            )}
+            <Link
+              to="/clubs"
+              className="inline-flex items-center gap-2 h-12 px-8 rounded-xl text-base font-medium text-purple-200 hover:text-white transition-colors"
+              style={{ border: '1px solid rgba(255,255,255,0.2)' }}
+            >
+              <Users size={16} /> Khám phá CLB
+            </Link>
+          </div>
         </div>
       </section>
 

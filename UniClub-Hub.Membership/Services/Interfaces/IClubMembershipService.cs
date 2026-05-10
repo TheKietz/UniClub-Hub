@@ -1,3 +1,4 @@
+using UniClub_Hub.Shared.Common;
 using UniClub_Hub.Membership.DTOs.Membership;
 
 namespace UniClub_Hub.Membership.Services.Interfaces
@@ -17,5 +18,8 @@ namespace UniClub_Hub.Membership.Services.Interfaces
         Task<MemberDto> AddMemberAsAdminAsync(int clubId, AddMemberDto dto);
         Task<MemberDto> UpdateMemberAsAdminAsync(int clubId, int membershipId, UpdateMemberDto dto);
         Task RemoveMemberAsAdminAsync(int clubId, int membershipId);
+
+        // Xác nhận chính thức (Probation → Active)
+        Task<MemberDto> PromoteMemberAsync(int clubId, int membershipId);
     }
 }

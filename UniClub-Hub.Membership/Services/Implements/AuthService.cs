@@ -1,3 +1,4 @@
+using UniClub_Hub.Shared.Common;
 using System.Net.Http.Headers;
 using System.Text.Json;
 using Microsoft.AspNetCore.Identity;
@@ -67,7 +68,7 @@ namespace UniClub_Hub.Membership.Services.Implements
             if (!await _roleManager.RoleExistsAsync("USER"))
                 await _roleManager.CreateAsync(new IdentityRole("USER"));
 
-            await _userManager.AddToRoleAsync(user, "USER");
+            await _userManager.AddToRoleAsync(user, SystemRole.User);
 
             return await BuildAuthResponseAsync(user);
         }
@@ -127,7 +128,7 @@ namespace UniClub_Hub.Membership.Services.Implements
                 if (!await _roleManager.RoleExistsAsync("USER"))
                     await _roleManager.CreateAsync(new IdentityRole("USER"));
 
-                await _userManager.AddToRoleAsync(user, "USER");
+                await _userManager.AddToRoleAsync(user, SystemRole.User);
             }
             else if (user.IsDeleted)
             {

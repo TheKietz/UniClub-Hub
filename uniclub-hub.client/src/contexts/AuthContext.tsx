@@ -84,7 +84,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   function getClubRole(clubId: number): string | null {
     const membership = user?.memberships.find(
-      m => m.clubId === clubId && m.status === 'Active'
+      m => m.clubId === clubId && m.status === MEMBERSHIP_STATUS.ACTIVE
     )
     return membership?.clubRole ?? null
   }

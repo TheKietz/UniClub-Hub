@@ -1,0 +1,19 @@
+# Dependencies
+uniclub-hub.client/node_modules/
+
+# Build artifacts
+**/bin/
+**/obj/
+
+# Lock files
+uniclub-hub.client/package-lock.json
+
+# EF Core migrations (generated, rarely need full read)
+UniClub-Hub.Shared/Migrations/
+
+# Sensitive config (never read secrets)
+UniClub-Hub.Server/appsettings.Development.json
+UniClub-Hub.Server/appsettings.Production.json
+
+# Git internals
+.git/

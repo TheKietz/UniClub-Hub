@@ -10,10 +10,19 @@
     "RefreshTokenExpiryDays": 7
   },
   "Cloudinary": {
-    "CloudName": "REPLACE_CLOUD_NAME",
-    "ApiKey": "REPLACE_API_KEY",
-    "ApiSecret": "REPLACE_API_SECRET"
+    "CloudName": "YOUR_CLOUD_NAME",
+    "ApiKey": "YOUR_API_KEY",
+    "ApiSecret": "YOUR_API_SECRET"
   },
+  "Email": {
+    "Host": "smtp.gmail.com",
+    "Port": "587",
+    "Username": "your-email@gmail.com",
+    "Password": "YOUR_APP_PASSWORD",
+    "FromName": "UniClub Hub",
+    "FromAddress": "your-email@gmail.com"
+  },
+  "AppUrl": "https://your-domain.com",
   "Logging": {
     "LogLevel": {
       "Default": "Information",

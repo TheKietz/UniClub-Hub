@@ -44,6 +44,8 @@ export interface DepartmentItem {
   name: string
   description?: string
   memberCount: number
+  deptLeadMembershipId?: number
+  deptLeadName?: string
 }
 
 export interface ApplicationItem {

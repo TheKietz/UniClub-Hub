@@ -12,6 +12,7 @@ namespace UniClub_Hub.Shared.Models
         public int? DepartmentId { get; set; }
         public ClubRole ClubRole { get; set; } = ClubRole.MEMBER;
         public DateOnly JoinedDate { get; set; }
+        public DateOnly? ResignedDate { get; set; }
         public MembershipStatus Status { get; set; } = MembershipStatus.Active;
 
         public ApplicationUser User { get; set; } = null!;

@@ -1,9 +1,12 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 using UniClub_Hub.Membership.DTOs.Membership;
 using UniClub_Hub.Membership.Services.Interfaces;
 using UniClub_Hub.Shared.Common;
+using UniClub_Hub.Shared.Enums;
+using UniClub_Hub.Shared.Data;
 
 namespace UniClub_Hub.Server.Controllers.Membership
 {
@@ -12,10 +15,12 @@ namespace UniClub_Hub.Server.Controllers.Membership
     public class ClubMembershipsController : ControllerBase
     {
         private readonly IClubMembershipService _membershipService;
+        private readonly UniClubDbContext _db;
 
-        public ClubMembershipsController(IClubMembershipService membershipService)
+        public ClubMembershipsController(IClubMembershipService membershipService, UniClubDbContext db)
         {
             _membershipService = membershipService;
+            _db = db;
         }
 
         [HttpGet]
@@ -136,6 +141,30 @@ namespace UniClub_Hub.Server.Controllers.Membership
             {
                 return Conflict(ApiResponse<object>.Fail(ex.Message));
             }
+        }
+
+        [HttpPatch("{membershipId}/promote")]
+        [Authorize]
+        public async Task<IActionResult> PromoteMember(int clubId, int membershipId)
+        {
+            var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+            var isSuperAdmin = User.IsInRole("SUPER_ADMIN");
+
+            if (!isSuperAdmin)
+            {
+                var isClubAdmin = await _db.ClubMemberships.AnyAsync(m =>
+                    m.UserId == currentUserId && m.ClubId == clubId &&
+                    m.ClubRole == ClubRole.CLUB_ADMIN && m.Status == MembershipStatus.Active);
+                if (!isClubAdmin) return Forbid();
+            }
+
+            try
+            {
+                var result = await _membershipService.PromoteMemberAsync(clubId, membershipId);
+                return Ok(ApiResponse<MemberDto>.Ok(result, "Đã xác nhận thành viên chính thức."));
+            }
+            catch (KeyNotFoundException ex) { return NotFound(ApiResponse<object>.Fail(ex.Message)); }
+            catch (InvalidOperationException ex) { return Conflict(ApiResponse<object>.Fail(ex.Message)); }
         }
     }
 }

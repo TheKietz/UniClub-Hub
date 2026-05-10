@@ -61,7 +61,9 @@ namespace UniClub_Hub.Membership.Services.Implements
                 throw new KeyNotFoundException($"Không tìm thấy CLB với ID {clubId}.");
 
             var isMember = await _db.ClubMemberships.AnyAsync(m =>
-                m.ClubId == clubId && m.UserId == userId && m.Status == MembershipStatus.Active
+                m.ClubId == clubId
+                && m.UserId == userId
+                && (m.Status == MembershipStatus.Active || m.Status == MembershipStatus.Probation)
             );
             if (isMember)
                 throw new InvalidOperationException("Bạn đã là thành viên của CLB này.");
@@ -199,7 +201,7 @@ namespace UniClub_Hub.Membership.Services.Implements
                 var alreadyMember = await _db.ClubMemberships.AnyAsync(m =>
                     m.ClubId == application.ClubId
                     && m.UserId == application.UserId
-                    && m.Status == MembershipStatus.Active
+                    && (m.Status == MembershipStatus.Active || m.Status == MembershipStatus.Probation)
                 );
 
                 if (!alreadyMember)
@@ -211,7 +213,7 @@ namespace UniClub_Hub.Membership.Services.Implements
                             ClubId = application.ClubId,
                             ClubRole = UniClub_Hub.Shared.Enums.ClubRole.MEMBER,
                             JoinedDate = DateOnly.FromDateTime(DateTime.UtcNow),
-                            Status = MembershipStatus.Active,
+                            Status = MembershipStatus.Probation,
                         }
                     );
                     await _db.SaveChangesAsync();

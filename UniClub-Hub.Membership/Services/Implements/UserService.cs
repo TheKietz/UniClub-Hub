@@ -154,6 +154,7 @@ namespace UniClub_Hub.Membership.Services.Implements
                 {
                     ClubId = m.ClubId,
                     ClubName = m.Club.Name,
+                    ClubLogoUrl = m.Club.LogoUrl,
                     DepartmentId = m.DepartmentId,
                     DepartmentName = m.Department != null ? m.Department.Name : null,
                     ClubRole = m.ClubRole,
@@ -233,6 +234,29 @@ namespace UniClub_Hub.Membership.Services.Implements
             await _userManager.AddToRoleAsync(user, role);
 
             return (await GetUserByIdAsync(user.Id))!;
+        }
+
+        public async Task<IEnumerable<MembershipHistoryDto>> GetMyHistoryAsync(string userId)
+        {
+            return await _db.ClubMemberships
+                .AsNoTracking()
+                .Include(m => m.Club)
+                .Include(m => m.Department)
+                .Where(m => m.UserId == userId)
+                .OrderByDescending(m => m.JoinedDate)
+                .Select(m => new MembershipHistoryDto
+                {
+                    MembershipId = m.Id,
+                    ClubId = m.ClubId,
+                    ClubName = m.Club.Name,
+                    ClubLogoUrl = m.Club.LogoUrl,
+                    ClubRole = m.ClubRole.ToString(),
+                    DepartmentName = m.Department != null ? m.Department.Name : null,
+                    Status = m.Status.ToString(),
+                    JoinedDate = m.JoinedDate,
+                    ResignedDate = m.ResignedDate,
+                })
+                .ToListAsync();
         }
     }
 }

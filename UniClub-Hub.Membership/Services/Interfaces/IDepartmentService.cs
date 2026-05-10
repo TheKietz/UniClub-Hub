@@ -1,3 +1,4 @@
+using UniClub_Hub.Shared.Common;
 using UniClub_Hub.Membership.DTOs.Department;
 
 namespace UniClub_Hub.Membership.Services.Interfaces
@@ -9,5 +10,6 @@ namespace UniClub_Hub.Membership.Services.Interfaces
         Task<AdminDepartmentDto> CreateAsync(int clubId, CreateDepartmentDto dto);
         Task<AdminDepartmentDto> UpdateAsync(int clubId, int id, UpdateDepartmentDto dto);
         Task DeleteAsync(int clubId, int id);
+        Task SetLeadAsync(int clubId, int departmentId, int? membershipId);
     }
 }

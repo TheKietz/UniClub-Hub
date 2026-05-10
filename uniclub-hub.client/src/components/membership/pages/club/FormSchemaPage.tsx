@@ -82,11 +82,10 @@ export default function FormSchemaPage() {
   if (loading) return <div className="p-8 text-gray-500">Đang tải...</div>
 
   return (
-    <div className="px-8 pb-8 space-y-6 max-w-2xl">
+    <div className="px-8 pb-8 space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold" style={{ color: '#0f172a' }}>Form đăng ký</h1>
-          <p className="mt-1" style={{ color: '#6b7280' }}>Thiết lập câu hỏi cho đơn tham gia CLB</p>
         </div>
         <Button onClick={handleSave} disabled={saving}>
           {saving ? 'Đang lưu...' : 'Lưu form'}

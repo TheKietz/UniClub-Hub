@@ -27,9 +27,13 @@ import MembersPage from '@/components/membership/pages/club/MembersPage'
 import ApplicationsPage from '@/components/membership/pages/club/ApplicationsPage'
 import DepartmentsPage from '@/components/membership/pages/club/DepartmentsPage'
 import FormSchemaPage from '@/components/membership/pages/club/FormSchemaPage'
+import ClubSettingsPage from '@/components/membership/pages/club/ClubSettingsPage'
 
 import MemberDashboard from '@/components/membership/pages/MemberDashboard'
 import ClubListPage from '@/components/membership/pages/ClubListPage'
+import ClubDetailPage from '@/components/membership/pages/ClubDetailPage'
+import ProfilePage from '@/components/membership/pages/ProfilePage'
+import MemberHistoryPage from '@/components/membership/pages/MemberHistoryPage'
 
 
 const Soon = ({ label }: { label: string }) => (
@@ -66,14 +70,16 @@ export default function App() {
             </Route>
           </Route>
 
+          {/* Public club pages — không cần đăng nhập */}
+          <Route path="/clubs" element={<ClubListPage />} />
+          <Route path="/clubs/:clubId" element={<ClubDetailPage />} />
+
           {/* Member routes — sidebar layout */}
           <Route element={<ProtectedRoute />}>
             <Route element={<MemberLayout />}>
               <Route path="/dashboard" element={<MemberDashboard />} />
-              <Route path="/clubs" element={<ClubListPage />} />
-              <Route path="/clubs/:clubId" element={<Soon label="Club Detail" />} />
-              <Route path="/profile" element={<Soon label="Hồ sơ cá nhân" />} />
-              <Route path="/my-history" element={<Soon label="Lịch sử hoạt động" />} />
+              <Route path="/profile" element={<ProfilePage />} />
+              <Route path="/my-history" element={<MemberHistoryPage />} />
               <Route path="/my-tasks" element={<Soon label="Task được giao" />} />
               <Route path="/my-kpi" element={<Soon label="KPI của tôi" />} />
               <Route element={<ClubProtectedRoute requiredRoles={[CLUB_ROLES.CLUB_ADMIN, CLUB_ROLES.DEPT_LEAD]} />}>
@@ -92,6 +98,7 @@ export default function App() {
                   <Route path="manage/applications" element={<ApplicationsPage />} />
                   <Route path="manage/departments" element={<DepartmentsPage />} />
                   <Route path="manage/form" element={<FormSchemaPage />} />
+                  <Route path="manage/settings" element={<ClubSettingsPage />} />
                 </Route>
               </Route>
             </Route>

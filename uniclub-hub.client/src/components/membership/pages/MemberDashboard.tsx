@@ -15,7 +15,7 @@ export default function MemberDashboard() {
   const { user } = useAuth()
   const navigate = useNavigate()
 
-  const activeMemberships = user?.memberships.filter(m => m.status === 'Active') ?? []
+  const activeMemberships = user?.memberships.filter(m => m.status === MEMBERSHIP_STATUS.ACTIVE) ?? []
   const managedClubs = activeMemberships.filter(m => m.clubRole === CLUB_ROLES.CLUB_ADMIN)
   const memberClubs = activeMemberships.filter(m => m.clubRole !== CLUB_ROLES.CLUB_ADMIN)
 
