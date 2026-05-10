@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { toast } from 'sonner'
-import { Plus, Search, Trash2, LockKeyhole, LockKeyholeOpen, ShieldCheck, ShieldOff } from 'lucide-react'
+import { Plus, Search, Trash2, LockKeyhole, LockKeyholeOpen, ShieldCheck, ShieldOff, ArrowUpDown } from 'lucide-react'
 
 const PAGE_SIZE = 20
 
@@ -110,110 +110,138 @@ export default function UsersPage() {
     } catch { toast.error('Xoá thất bại.') }
   }
 
-  const filtered = statusFilter
-    ? users.filter(u => statusFilter === 'locked' ? u.isLocked : !u.isLocked)
-    : users
+  const [sortBy, setSortBy] = useState<'name' | 'email' | 'role'>('name')
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
+
+  const filtered = users
+    .filter(u => statusFilter === 'locked' ? u.isLocked : statusFilter === 'active' ? !u.isLocked : true)
+    .sort((a, b) => {
+      let cmp = 0
+      if (sortBy === 'name') cmp = (a.fullName ?? a.email).localeCompare(b.fullName ?? b.email)
+      else if (sortBy === 'email') cmp = a.email.localeCompare(b.email)
+      else if (sortBy === 'role') cmp = (a.roles?.[0] ?? '').localeCompare(b.roles?.[0] ?? '')
+      return sortDir === 'asc' ? cmp : -cmp
+    })
+
+  function toggleSort(col: typeof sortBy) {
+    if (sortBy === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    else { setSortBy(col); setSortDir('asc') }
+  }
 
   const field = (key: keyof CreateForm) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm(p => ({ ...p, [key]: e.target.value }))
 
   return (
-    <div className="px-8 pt-3 pb-8 space-y-3">
+    <div className="px-6 pt-3 pb-8 space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold leading-none" style={{ color: '#0f172a' }}>Người dùng</h1>
-        <Button onClick={() => setAddOpen(true)} className="gap-2 bg-indigo-600 hover:bg-indigo-700">
+        <div>
+          <h1 className="text-xl font-bold text-gray-900">Người dùng</h1>
+          <p className="text-sm text-gray-400 mt-0.5">Quản lý tài khoản hệ thống</p>
+        </div>
+        <Button onClick={() => setAddOpen(true)} className="gap-1.5 bg-indigo-600 hover:bg-indigo-700">
           <Plus size={16} /> Thêm người dùng
         </Button>
       </div>
 
-      {/* Search & filter */}
-      <div className="flex items-center gap-3">
-        <div className="relative flex-1 max-w-xs">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-          <Input
-            placeholder="Tìm theo email, tên, MSSV..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="pl-9"
-          />
+      {/* Filter bar */}
+      <div className="bg-white rounded-xl border border-gray-200 p-3 flex flex-wrap items-center gap-2">
+        <div className="relative flex-1 min-w-52">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+          <Input placeholder="Tìm email, tên, MSSV..." value={search}
+            onChange={e => setSearch(e.target.value)} className="pl-8 h-9 text-sm" />
         </div>
-        <select
-          value={statusFilter}
-          onChange={e => setStatusFilter(e.target.value)}
-          className="border border-input rounded-lg px-3 py-2 text-sm bg-background"
-        >
+        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
+          className="h-9 border border-input rounded-lg px-3 text-sm bg-white">
           <option value="">Tất cả trạng thái</option>
           <option value="active">Hoạt động</option>
           <option value="locked">Đã khoá</option>
         </select>
-        <span className="text-sm" style={{ color: '#9ca3af' }}>{filtered.length} người dùng</span>
+        <span className="text-sm text-gray-400 ml-auto whitespace-nowrap">{filtered.length}/{users.length}</span>
       </div>
 
       {/* Table */}
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         <Table>
           <TableHeader>
-            <TableRow className="bg-gray-50">
-              <TableHead>Họ tên</TableHead>
-              <TableHead>Email</TableHead>
+            <TableRow className="bg-gray-50/80">
+              <TableHead>
+                <button onClick={() => toggleSort('name')} className="flex items-center gap-1 hover:text-gray-900 font-medium">
+                  Họ tên <ArrowUpDown size={12} className={sortBy === 'name' ? 'text-indigo-500' : 'text-gray-300'} />
+                </button>
+              </TableHead>
+              <TableHead>
+                <button onClick={() => toggleSort('email')} className="flex items-center gap-1 hover:text-gray-900 font-medium">
+                  Email <ArrowUpDown size={12} className={sortBy === 'email' ? 'text-indigo-500' : 'text-gray-300'} />
+                </button>
+              </TableHead>
               <TableHead>MSSV</TableHead>
               <TableHead>Ngành</TableHead>
-              <TableHead>Quyền</TableHead>
+              <TableHead>
+                <button onClick={() => toggleSort('role')} className="flex items-center gap-1 hover:text-gray-900 font-medium">
+                  Quyền <ArrowUpDown size={12} className={sortBy === 'role' ? 'text-indigo-500' : 'text-gray-300'} />
+                </button>
+              </TableHead>
               <TableHead>Trạng thái</TableHead>
               <TableHead className="text-center">Hành động</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={6} className="text-center text-gray-400 py-12">Đang tải...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={7} className="text-center text-gray-400 py-16">Đang tải...</TableCell></TableRow>
             ) : filtered.length === 0 ? (
-              <TableRow><TableCell colSpan={6} className="text-center text-gray-400 py-12">Không tìm thấy người dùng nào.</TableCell></TableRow>
+              <TableRow>
+                <TableCell colSpan={7} className="py-16">
+                  <div className="flex flex-col items-center gap-2 text-gray-400">
+                    <Search size={32} className="text-gray-200" />
+                    <p className="text-sm">Không tìm thấy người dùng nào.</p>
+                  </div>
+                </TableCell>
+              </TableRow>
             ) : filtered.map(user => {
               const isSuperAdmin = user.roles?.includes('SUPER_ADMIN')
               return (
-              <TableRow key={user.id} className="hover:bg-gray-50/60">
+              <TableRow key={user.id} className="hover:bg-gray-50/60 transition-colors">
                 <TableCell>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2.5">
                     <Avatar name={user.fullName} email={user.email} />
-                    <span className="font-medium text-sm" style={{ color: '#111827' }}>{user.fullName ?? '—'}</span>
+                    <div>
+                      <p className="font-medium text-sm text-gray-900">{user.fullName ?? '—'}</p>
+                      {user.studentId && <p className="text-xs text-gray-400">{user.studentId}</p>}
+                    </div>
                   </div>
                 </TableCell>
-                <TableCell className="text-sm" style={{ color: '#6b7280' }}>{user.email}</TableCell>
-                <TableCell className="text-sm" style={{ color: '#6b7280' }}>{user.studentId ?? '—'}</TableCell>
-                <TableCell className="text-sm" style={{ color: '#6b7280' }}>{user.major ?? '—'}</TableCell>
+                <TableCell className="text-sm text-gray-500">{user.email}</TableCell>
+                <TableCell className="text-sm text-gray-400">{user.studentId ?? '—'}</TableCell>
+                <TableCell className="text-sm text-gray-500 max-w-36 truncate">{user.major ?? '—'}</TableCell>
                 <TableCell>
-                  <span className="px-2 py-0.5 rounded-full text-xs font-semibold"
+                  <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold"
                     style={{ background: isSuperAdmin ? '#ede9fe' : '#f3f4f6', color: isSuperAdmin ? '#6d28d9' : '#374151' }}>
                     {isSuperAdmin ? 'Super Admin' : 'Người dùng'}
                   </span>
                 </TableCell>
                 <TableCell>
-                  <span className="px-2 py-0.5 rounded-full text-xs font-semibold"
+                  <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold"
                     style={{ background: user.isLocked ? '#fee2e2' : '#dcfce7', color: user.isLocked ? '#dc2626' : '#16a34a' }}>
                     {user.isLocked ? 'Đã khoá' : 'Hoạt động'}
                   </span>
                 </TableCell>
                 <TableCell>
-                  <div className="flex items-center justify-center gap-1">
-                    <Button variant="ghost" size="icon"
-                      className={`h-7 w-7 ${isSuperAdmin ? 'text-gray-400 hover:text-gray-600 hover:bg-gray-50' : 'text-violet-500 hover:text-violet-700 hover:bg-violet-50'}`}
-                      title={isSuperAdmin ? 'Hạ về Người dùng' : 'Nâng lên Super Admin'}
-                      onClick={() => handleChangeRole(user)}>
+                  <div className="flex items-center justify-center gap-0.5">
+                    <button title={isSuperAdmin ? 'Hạ về Người dùng' : 'Nâng lên Super Admin'}
+                      onClick={() => handleChangeRole(user)}
+                      className={`p-1.5 rounded-md transition-colors ${isSuperAdmin ? 'text-gray-400 hover:bg-gray-100' : 'text-violet-500 hover:bg-violet-50'}`}>
                       {isSuperAdmin ? <ShieldOff size={14} /> : <ShieldCheck size={14} />}
-                    </Button>
-                    <Button variant="ghost" size="icon"
-                      className={`h-7 w-7 ${user.isLocked ? 'text-emerald-500 hover:text-emerald-700 hover:bg-emerald-50' : 'text-amber-500 hover:text-amber-700 hover:bg-amber-50'}`}
-                      title={user.isLocked ? 'Mở khoá' : 'Khoá tài khoản'}
-                      onClick={() => handleLock(user)}>
+                    </button>
+                    <button title={user.isLocked ? 'Mở khoá' : 'Khoá tài khoản'}
+                      onClick={() => handleLock(user)}
+                      className={`p-1.5 rounded-md transition-colors ${user.isLocked ? 'text-emerald-500 hover:bg-emerald-50' : 'text-amber-500 hover:bg-amber-50'}`}>
                       {user.isLocked ? <LockKeyholeOpen size={14} /> : <LockKeyhole size={14} />}
-                    </Button>
-                    <Button variant="ghost" size="icon"
-                      className="h-7 w-7 text-red-400 hover:text-red-600 hover:bg-red-50"
-                      title="Xoá tài khoản"
-                      onClick={() => setDeleteTarget(user)}>
+                    </button>
+                    <button title="Xoá tài khoản" onClick={() => setDeleteTarget(user)}
+                      className="p-1.5 rounded-md text-red-400 hover:bg-red-50 transition-colors">
                       <Trash2 size={14} />
-                    </Button>
+                    </button>
                   </div>
                 </TableCell>
               </TableRow>

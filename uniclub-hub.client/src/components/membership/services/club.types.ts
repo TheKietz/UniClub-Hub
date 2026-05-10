@@ -1,3 +1,10 @@
+export interface MonthlyGrowth {
+  year: number
+  month: number
+  label: string
+  newMembers: number
+}
+
 export interface ClubDetail {
   id: number
   name: string
@@ -18,6 +25,7 @@ export interface ClubStats {
   clubId: number
   clubName: string
   totalActiveMembers: number
+  totalProbationMembers: number
   totalDepartments: number
   membersByRole: Record<string, number>
   membersByDepartment: { departmentId?: number; departmentName: string; memberCount: number }[]

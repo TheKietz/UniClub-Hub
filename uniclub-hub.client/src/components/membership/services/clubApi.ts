@@ -1,6 +1,6 @@
 import api from '@/lib/axiosInstance'
 import type {
-  ClubDetail, ClubListItem, ClubStats, MemberItem, DepartmentItem,
+  ClubDetail, ClubListItem, ClubStats, MonthlyGrowth, MemberItem, DepartmentItem,
   ApplicationItem, AddMemberDto, UpdateMemberDto, ReviewApplicationDto,
   FormSchema, SubmitApplicationDto,
 } from '@/components/membership/services/club.types'
@@ -17,6 +17,9 @@ export const getClubDetail = (clubId: number) =>
 
 export const getClubStats = (clubId: number) =>
   api.get<{ data: ClubStats }>(`${base(clubId)}/stats`).then(r => r.data.data)
+
+export const getClubGrowth = (clubId: number, months = 12) =>
+  api.get<{ data: MonthlyGrowth[] }>(`${base(clubId)}/stats/growth?months=${months}`).then(r => r.data.data)
 
 // ── Form schema ────────────────────────────────────────────────────────────
 

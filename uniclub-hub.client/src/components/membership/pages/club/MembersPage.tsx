@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { toast } from 'sonner'
-import { Plus, Search, Pencil, Trash2, Download, ShieldCheck, Upload, FileSpreadsheet, CheckCircle2, XCircle, AlertCircle } from 'lucide-react'
+import { Plus, Search, Pencil, Trash2, Download, ShieldCheck, Upload, FileSpreadsheet, CheckCircle2, XCircle, AlertCircle, ArrowUpDown, X } from 'lucide-react'
 import api from '@/lib/axiosInstance'
 
 const ROLE_LABELS: Record<string, string> = {
@@ -59,6 +59,10 @@ export default function MembersPage() {
   const [removeTarget, setRemoveTarget] = useState<MemberItem | null>(null)
   const [search, setSearch] = useState('')
   const [roleFilter, setRoleFilter] = useState('')
+  const [statusFilter, setStatusFilter] = useState('')
+  const [deptFilter, setDeptFilter] = useState('')
+  const [sortBy, setSortBy] = useState<'name' | 'joinedDate' | 'role'>('name')
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
 
   // Import state
   const [importOpen, setImportOpen] = useState(false)
@@ -222,127 +226,198 @@ export default function MembersPage() {
     }
   }
 
-  const filtered = members.filter(m => {
-    const q = search.toLowerCase()
-    const matchSearch = !q || (m.fullName ?? '').toLowerCase().includes(q)
-      || m.email.toLowerCase().includes(q)
-      || (m.studentId ?? '').toLowerCase().includes(q)
-    const matchRole = !roleFilter || m.clubRole === roleFilter
-    return matchSearch && matchRole
-  })
+  const hasFilter = !!(search || roleFilter || statusFilter || deptFilter)
+
+  const filtered = members
+    .filter(m => {
+      const q = search.toLowerCase()
+      const matchSearch = !q
+        || (m.fullName ?? '').toLowerCase().includes(q)
+        || m.email.toLowerCase().includes(q)
+        || (m.studentId ?? '').toLowerCase().includes(q)
+      const matchRole = !roleFilter || m.clubRole === roleFilter
+      const matchStatus = !statusFilter || m.status === statusFilter
+      const matchDept = !deptFilter || String(m.departmentId ?? '') === deptFilter
+      return matchSearch && matchRole && matchStatus && matchDept
+    })
+    .sort((a, b) => {
+      let cmp = 0
+      if (sortBy === 'name') cmp = (a.fullName ?? a.email).localeCompare(b.fullName ?? b.email)
+      else if (sortBy === 'joinedDate') cmp = (a.joinedDate ?? '').localeCompare(b.joinedDate ?? '')
+      else if (sortBy === 'role') cmp = a.clubRole.localeCompare(b.clubRole)
+      return sortDir === 'asc' ? cmp : -cmp
+    })
+
+  function toggleSort(col: typeof sortBy) {
+    if (sortBy === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    else { setSortBy(col); setSortDir('asc') }
+  }
+
+  function clearFilters() {
+    setSearch(''); setRoleFilter(''); setStatusFilter(''); setDeptFilter('')
+  }
 
   return (
-    <div className="px-6 pb-6 space-y-3">
+    <div className="px-6 pb-6 space-y-4">
+      {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold leading-none" style={{ color: '#0f172a' }}>Thành viên</h1>
+        <div>
+          <h1 className="text-xl font-bold" style={{ color: '#0f172a' }}>Quản lý thành viên</h1>
+          <p className="text-sm text-gray-400 mt-0.5">{members.length} thành viên trong CLB</p>
+        </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => handleExport('xlsx')} className="gap-1.5">
+          <Button variant="outline" size="sm" onClick={() => handleExport('xlsx')} className="gap-1.5 text-gray-600">
             <Download size={14} /> Excel
           </Button>
-          <Button variant="outline" size="sm" onClick={() => handleExport('csv')} className="gap-1.5">
+          <Button variant="outline" size="sm" onClick={() => handleExport('csv')} className="gap-1.5 text-gray-600">
             <Download size={14} /> CSV
           </Button>
-          <Button variant="outline" size="sm" onClick={() => { setImportOpen(true); setImportStep('upload') }} className="gap-1.5 border-emerald-300 text-emerald-700 hover:bg-emerald-50">
+          <Button variant="outline" size="sm" onClick={() => { setImportOpen(true); setImportStep('upload') }}
+            className="gap-1.5 border-emerald-300 text-emerald-700 hover:bg-emerald-50">
             <Upload size={14} /> Import
           </Button>
-          <Button onClick={() => setAddOpen(true)} className="gap-2 bg-indigo-600 hover:bg-indigo-700">
+          <Button onClick={() => setAddOpen(true)} className="gap-1.5 bg-indigo-600 hover:bg-indigo-700">
             <Plus size={16} /> Thêm thành viên
           </Button>
         </div>
       </div>
 
-      {/* Search & filter */}
-      <div className="flex items-center gap-3">
-        <div className="relative flex-1 max-w-xs">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <Input
-            placeholder="Tìm theo tên, email, MSSV..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="pl-9"
-          />
+      {/* Filter bar */}
+      <div className="bg-white rounded-xl border border-gray-200 p-3 flex flex-wrap items-center gap-2">
+        <div className="relative flex-1 min-w-52">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <Input placeholder="Tìm tên, email, MSSV..." value={search}
+            onChange={e => setSearch(e.target.value)} className="pl-8 h-9 text-sm" />
         </div>
-        <select
-          value={roleFilter}
-          onChange={e => setRoleFilter(e.target.value)}
-          className="border border-input rounded-lg px-3 py-2 text-sm bg-background"
-        >
+        <select value={roleFilter} onChange={e => setRoleFilter(e.target.value)}
+          className="h-9 border border-input rounded-lg px-3 text-sm bg-white">
           <option value="">Tất cả vai trò</option>
           {Object.entries(ROLE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
-        <span className="text-sm" style={{ color: '#9ca3af' }}>{filtered.length} thành viên</span>
+        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
+          className="h-9 border border-input rounded-lg px-3 text-sm bg-white">
+          <option value="">Tất cả trạng thái</option>
+          <option value="Active">Chính thức</option>
+          <option value="Probation">Thử việc</option>
+        </select>
+        <select value={deptFilter} onChange={e => setDeptFilter(e.target.value)}
+          className="h-9 border border-input rounded-lg px-3 text-sm bg-white">
+          <option value="">Tất cả ban</option>
+          {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+        </select>
+        <div className="flex items-center gap-2 ml-auto">
+          <select value={`${sortBy}-${sortDir}`}
+            onChange={e => { const [col, dir] = e.target.value.split('-'); setSortBy(col as typeof sortBy); setSortDir(dir as 'asc'|'desc') }}
+            className="h-9 border border-input rounded-lg px-3 text-sm bg-white gap-1">
+            <option value="name-asc">Tên A→Z</option>
+            <option value="name-desc">Tên Z→A</option>
+            <option value="joinedDate-desc">Mới nhất</option>
+            <option value="joinedDate-asc">Cũ nhất</option>
+            <option value="role-asc">Vai trò</option>
+          </select>
+          {hasFilter && (
+            <button onClick={clearFilters}
+              className="h-9 px-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors flex items-center gap-1 text-sm">
+              <X size={14} /> Xoá lọc
+            </button>
+          )}
+          <span className="text-sm text-gray-400 whitespace-nowrap">{filtered.length}/{members.length}</span>
+        </div>
       </div>
 
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         <Table>
           <TableHeader>
-            <TableRow className="bg-gray-50">
-              <TableHead className="w-12 text-center">ID</TableHead>
-              <TableHead>Họ tên</TableHead>
+            <TableRow className="bg-gray-50/80">
+              <TableHead className="w-10 text-center text-xs">#</TableHead>
+              <TableHead>
+                <button onClick={() => toggleSort('name')} className="flex items-center gap-1 hover:text-gray-900 font-medium">
+                  Họ tên <ArrowUpDown size={12} className={sortBy === 'name' ? 'text-indigo-500' : 'text-gray-300'} />
+                </button>
+              </TableHead>
               <TableHead>Email</TableHead>
               <TableHead>MSSV</TableHead>
-              <TableHead>Vai trò</TableHead>
+              <TableHead>
+                <button onClick={() => toggleSort('role')} className="flex items-center gap-1 hover:text-gray-900 font-medium">
+                  Vai trò <ArrowUpDown size={12} className={sortBy === 'role' ? 'text-indigo-500' : 'text-gray-300'} />
+                </button>
+              </TableHead>
               <TableHead>Ban</TableHead>
               <TableHead>Trạng thái</TableHead>
+              <TableHead>
+                <button onClick={() => toggleSort('joinedDate')} className="flex items-center gap-1 hover:text-gray-900 font-medium">
+                  Ngày vào <ArrowUpDown size={12} className={sortBy === 'joinedDate' ? 'text-indigo-500' : 'text-gray-300'} />
+                </button>
+              </TableHead>
               <TableHead className="text-center">Hành động</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={8} className="text-center text-gray-400 py-12">Đang tải...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={9} className="text-center text-gray-400 py-16">Đang tải...</TableCell></TableRow>
             ) : filtered.length === 0 ? (
-              <TableRow><TableCell colSpan={8} className="text-center text-gray-400 py-12">Không tìm thấy thành viên nào.</TableCell></TableRow>
-            ) : filtered.map(m => (
-              <TableRow key={m.id} className="hover:bg-gray-50/60">
-                <TableCell className="text-center text-xs font-mono" style={{ color: '#9ca3af' }}>{m.id}</TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-2">
-                    <Avatar name={m.fullName || m.email} />
-                    <span className="font-medium text-sm" style={{ color: '#111827' }}>{m.fullName ?? '—'}</span>
+              <TableRow>
+                <TableCell colSpan={9} className="py-16">
+                  <div className="flex flex-col items-center gap-2 text-gray-400">
+                    <Search size={32} className="text-gray-200" />
+                    <p className="text-sm">{hasFilter ? 'Không có thành viên khớp với bộ lọc.' : 'Chưa có thành viên nào.'}</p>
+                    {hasFilter && <button onClick={clearFilters} className="text-xs text-indigo-500 hover:underline">Xoá bộ lọc</button>}
                   </div>
                 </TableCell>
-                <TableCell className="text-sm" style={{ color: '#6b7280' }}>{m.email}</TableCell>
-                <TableCell className="text-sm" style={{ color: '#6b7280' }}>{m.studentId ?? '—'}</TableCell>
+              </TableRow>
+            ) : filtered.map(m => (
+              <TableRow key={m.id} className="hover:bg-gray-50/60 transition-colors">
+                <TableCell className="text-center text-xs font-mono text-gray-300">{m.id}</TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-2.5">
+                    <Avatar name={m.fullName || m.email} />
+                    <div>
+                      <p className="font-medium text-sm text-gray-900">{m.fullName ?? '—'}</p>
+                      {m.studentId && <p className="text-xs text-gray-400">{m.studentId}</p>}
+                    </div>
+                  </div>
+                </TableCell>
+                <TableCell className="text-sm text-gray-500">{m.email}</TableCell>
+                <TableCell className="text-sm text-gray-400">{m.studentId ?? '—'}</TableCell>
                 <TableCell>
                   {(() => {
                     const c = ROLE_BADGE[m.clubRole] ?? { bg: '#f3f4f6', text: '#374151' }
                     return (
-                      <span className="px-2 py-0.5 rounded-full text-xs font-semibold"
+                      <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold"
                         style={{ background: c.bg, color: c.text }}>
                         {ROLE_LABELS[m.clubRole] ?? m.clubRole}
                       </span>
                     )
                   })()}
                 </TableCell>
-                <TableCell className="text-sm" style={{ color: '#6b7280' }}>{m.departmentName ?? '—'}</TableCell>
+                <TableCell className="text-sm text-gray-500">{m.departmentName ?? <span className="text-gray-300">—</span>}</TableCell>
                 <TableCell>
-                  {m.status === MEMBERSHIP_STATUS.ACTIVE && (
-                    <span className="px-2 py-0.5 rounded-full text-xs font-semibold" style={{ background: '#dcfce7', color: '#16a34a' }}>Chính thức</span>
-                  )}
-                  {m.status === MEMBERSHIP_STATUS.PROBATION && (
-                    <span className="px-2 py-0.5 rounded-full text-xs font-semibold" style={{ background: '#eff6ff', color: '#2563eb' }}>Thử việc</span>
-                  )}
-                  {m.status !== 'Active' && m.status !== 'Probation' && (
-                    <span className="px-2 py-0.5 rounded-full text-xs font-semibold" style={{ background: '#f3f4f6', color: '#6b7280' }}>Đã rời</span>
-                  )}
+                  {m.status === MEMBERSHIP_STATUS.ACTIVE
+                    ? <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700">Chính thức</span>
+                    : m.status === MEMBERSHIP_STATUS.PROBATION
+                    ? <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700">Thử việc</span>
+                    : <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-500">Đã rời</span>
+                  }
+                </TableCell>
+                <TableCell className="text-sm text-gray-400">
+                  {m.joinedDate ? new Date(m.joinedDate).toLocaleDateString('vi-VN') : '—'}
                 </TableCell>
                 <TableCell>
-                  <div className="flex items-center justify-center gap-1">
+                  <div className="flex items-center justify-center gap-0.5">
                     {m.status === MEMBERSHIP_STATUS.PROBATION && (
-                      <Button variant="ghost" size="icon" className="h-7 w-7 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
-                        title="Xác nhận chính thức"
-                        onClick={() => handlePromote(m.id)}>
+                      <button title="Xác nhận chính thức" onClick={() => handlePromote(m.id)}
+                        className="p-1.5 rounded-md text-emerald-600 hover:bg-emerald-50 transition-colors">
                         <ShieldCheck size={14} />
-                      </Button>
+                      </button>
                     )}
-                    <Button variant="ghost" size="icon" className="h-7 w-7 text-indigo-500 hover:text-indigo-700 hover:bg-indigo-50"
-                      onClick={() => openEdit(m)}>
+                    <button title="Chỉnh sửa" onClick={() => openEdit(m)}
+                      className="p-1.5 rounded-md text-indigo-400 hover:bg-indigo-50 transition-colors">
                       <Pencil size={14} />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 hover:text-red-600 hover:bg-red-50"
-                      onClick={() => setRemoveTarget(m)}>
+                    </button>
+                    <button title="Xoá" onClick={() => setRemoveTarget(m)}
+                      className="p-1.5 rounded-md text-red-400 hover:bg-red-50 transition-colors">
                       <Trash2 size={14} />
-                    </Button>
+                    </button>
                   </div>
                 </TableCell>
               </TableRow>
