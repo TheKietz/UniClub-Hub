@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using UniClub_Hub.Shared.Enums;
 
 namespace UniClub_Hub.Membership.DTOs.Membership
 {
@@ -7,8 +8,8 @@ namespace UniClub_Hub.Membership.DTOs.Membership
         [Required]
         public string UserId { get; set; } = null!;
 
-        // CLUB_ADMIN / DEPT_LEAD / MEMBER
-        public string ClubRole { get; set; } = "MEMBER";
+        // ClubAdmin / DeptLead / DeptDeputy / Member
+        public ClubRole ClubRole { get; set; } = ClubRole.MEMBER;
 
         public int? DepartmentId { get; set; }
     }

@@ -1,4 +1,5 @@
 using UniClub_Hub.Shared.Common;
+using UniClub_Hub.Shared.Enums;
 
 namespace UniClub_Hub.Shared.Models
 {
@@ -12,7 +13,7 @@ namespace UniClub_Hub.Shared.Models
         public string? Description { get; set; }
         public string? ContactInfo { get; set; }
         public DateOnly? EstablishedDate { get; set; }
-        public string Status { get; set; } = "Active";
+        public ClubStatus Status { get; set; } = ClubStatus.Active;
         public string? AdvisorName { get; set; }
         public string? FormSchema { get; set; } // JSONB
 

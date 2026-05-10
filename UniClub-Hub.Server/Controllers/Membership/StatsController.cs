@@ -1,11 +1,12 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using System.Security.Claims;
 using UniClub_Hub.Membership.DTOs.Stats;
 using UniClub_Hub.Membership.Services.Interfaces;
 using UniClub_Hub.Shared.Common;
 using UniClub_Hub.Shared.Data;
+using UniClub_Hub.Shared.Enums;
 
 namespace UniClub_Hub.Server.Controllers.Membership
 {
@@ -42,10 +43,11 @@ namespace UniClub_Hub.Server.Controllers.Membership
             if (!isSuperAdmin)
             {
                 var isClubAdmin = await _db.ClubMemberships.AnyAsync(m =>
-                    m.UserId == userId &&
-                    m.ClubId == clubId &&
-                    m.ClubRole == "CLUB_ADMIN" &&
-                    m.Status == "Active");
+                    m.UserId == userId
+                    && m.ClubId == clubId
+                    && m.ClubRole == UniClub_Hub.Shared.Enums.ClubRole.CLUB_ADMIN
+                    && m.Status == MembershipStatus.Active
+                );
 
                 if (!isClubAdmin)
                     return Forbid();

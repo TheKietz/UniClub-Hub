@@ -3,6 +3,7 @@ using UniClub_Hub.Membership.DTOs.Notification;
 using UniClub_Hub.Membership.Services.Interfaces;
 using UniClub_Hub.Shared.Common;
 using UniClub_Hub.Shared.Data;
+using UniClub_Hub.Shared.Enums;
 using UniClub_Hub.Shared.Models;
 
 namespace UniClub_Hub.Membership.Services.Implements
@@ -16,7 +17,7 @@ namespace UniClub_Hub.Membership.Services.Implements
             _db = db;
         }
 
-        public async Task SendAsync(string userId, string title, string message, string type = "System")
+        public async Task SendAsync(string userId, string title, string message, NotificationType type = NotificationType.System)
         {
             _db.Notifications.Add(new Notification
             {

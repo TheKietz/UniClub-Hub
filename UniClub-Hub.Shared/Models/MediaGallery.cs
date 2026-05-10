@@ -1,3 +1,5 @@
+using UniClub_Hub.Shared.Enums;
+
 namespace UniClub_Hub.Shared.Models
 {
     public class MediaGallery
@@ -6,7 +8,7 @@ namespace UniClub_Hub.Shared.Models
         public int ClubId { get; set; }
         public int? EventId { get; set; }
         public string MediaUrl { get; set; } = null!;
-        public string MediaType { get; set; } = "Image"; // Image / Video
+        public Enums.MediaType MediaType { get; set; } = Enums.MediaType.Image;
         public string? Description { get; set; }
 
         public Club Club { get; set; } = null!;

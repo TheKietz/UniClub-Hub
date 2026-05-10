@@ -1,8 +1,9 @@
+using System.Text.Json;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
-using System.Text.Json;
 using UniClub_Hub.Shared.Common;
+using UniClub_Hub.Shared.Enums;
 using UniClub_Hub.Shared.Models;
 
 namespace UniClub_Hub.Shared.Data
@@ -16,11 +17,14 @@ namespace UniClub_Hub.Shared.Data
         [
             typeof(AuditLog),
             typeof(RefreshToken),
-            typeof(Notification)
+            typeof(Notification),
         ];
 
-        public UniClubDbContext(DbContextOptions<UniClubDbContext> options,
-            IHttpContextAccessor? httpContextAccessor = null) : base(options)
+        public UniClubDbContext(
+            DbContextOptions<UniClubDbContext> options,
+            IHttpContextAccessor? httpContextAccessor = null
+        )
+            : base(options)
         {
             _httpContextAccessor = httpContextAccessor;
         }
@@ -41,25 +45,33 @@ namespace UniClub_Hub.Shared.Data
         public DbSet<TaskAttachment> TaskAttachments { get; set; }
         public DbSet<RefreshToken> RefreshTokens { get; set; }
         public DbSet<TaskComment> TaskComments { get; set; }
+        public DbSet<Sprint> Sprints { get; set; }
+        public DbSet<TaskDependency> TaskDependencies { get; set; }
         public DbSet<AuditLog> AuditLogs { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);
+            // Tự động áp dụng tất cả các file có kế thừa IEntityTypeConfiguration trong cùng Assembly
+            builder.ApplyConfigurationsFromAssembly(typeof(UniClubDbContext).Assembly);
 
             // Global Query Filters — tự động lọc soft-deleted records
             builder.Entity<ApplicationUser>().HasQueryFilter(u => !u.IsDeleted);
             builder.Entity<Club>().HasQueryFilter(c => !c.IsDeleted);
             builder.Entity<Department>().HasQueryFilter(d => !d.IsDeleted);
+            builder.Entity<ClubEvent>().HasQueryFilter(e => !e.IsDeleted);
+            builder.Entity<ClubTask>().HasQueryFilter(t => !t.IsDeleted);
 
             // JSONB columns (PostgreSQL)
             builder.Entity<Club>().Property(c => c.FormSchema).HasColumnType("jsonb");
             builder.Entity<LandingPage>().Property(lp => lp.SocialLinks).HasColumnType("jsonb");
             builder.Entity<LandingPage>().Property(lp => lp.LayoutSettings).HasColumnType("jsonb");
             builder.Entity<ClubApplication>().Property(a => a.Answers).HasColumnType("jsonb");
+            builder.Entity<Sprint>().Property(s => s.ReviewNotes).HasColumnType("jsonb");
 
             // StudentId unique (bỏ qua NULL)
-            builder.Entity<ApplicationUser>()
+            builder
+                .Entity<ApplicationUser>()
                 .HasIndex(u => u.StudentId)
                 .IsUnique()
                 .HasFilter("\"StudentId\" IS NOT NULL");
@@ -68,29 +80,80 @@ namespace UniClub_Hub.Shared.Data
             builder.Entity<Club>().HasIndex(c => c.Code).IsUnique();
 
             // LandingPage — quan hệ 1-1 với Club
-            builder.Entity<LandingPage>()
+            builder
+                .Entity<LandingPage>()
                 .HasOne(lp => lp.Club)
                 .WithOne(c => c.LandingPage)
                 .HasForeignKey<LandingPage>(lp => lp.ClubId);
 
             // ClubTask có 2 FK vào ApplicationUser
-            builder.Entity<ClubTask>()
+            builder
+                .Entity<ClubTask>()
                 .HasOne(t => t.Assignee)
                 .WithMany()
                 .HasForeignKey(t => t.AssignedTo)
                 .OnDelete(DeleteBehavior.SetNull);
 
-            builder.Entity<ClubTask>()
+            builder
+                .Entity<ClubTask>()
                 .HasOne(t => t.Creator)
                 .WithMany()
                 .HasForeignKey(t => t.CreatedBy)
                 .OnDelete(DeleteBehavior.SetNull);
+
+            // TaskDependency — composite PK
+            builder.Entity<TaskDependency>().HasKey(td => new { td.TaskId, td.DependsOnTaskId });
+
+            builder
+                .Entity<TaskDependency>()
+                .HasOne(td => td.Task)
+                .WithMany(t => t.Dependencies)
+                .HasForeignKey(td => td.TaskId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            builder
+                .Entity<TaskDependency>()
+                .HasOne(td => td.DependsOnTask)
+                .WithMany()
+                .HasForeignKey(td => td.DependsOnTaskId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Sprint — belongs to Club, optionally scoped to an Event
+            builder
+                .Entity<Sprint>()
+                .HasOne(s => s.Club)
+                .WithMany()
+                .HasForeignKey(s => s.ClubId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            builder
+                .Entity<Sprint>()
+                .HasOne(s => s.Event)
+                .WithMany(e => e.Sprints)
+                .HasForeignKey(s => s.EventId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            // EventRegistration — one user registers once per event
+            builder
+                .Entity<EventRegistration>()
+                .HasIndex(er => new { er.EventId, er.UserId })
+                .IsUnique();
+
+            // Indexes for common Operations queries
+            builder.Entity<ClubTask>().HasIndex(t => new { t.ClubId, t.Status });
+
+            builder.Entity<ClubTask>().HasIndex(t => t.AssignedTo);
+
+            builder.Entity<Sprint>().HasIndex(s => new { s.ClubId, s.Status });
         }
 
-        public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+        public override async Task<int> SaveChangesAsync(
+            CancellationToken cancellationToken = default
+        )
         {
-            var currentUserId = _httpContextAccessor?.HttpContext?.User
-                .FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            var currentUserId = _httpContextAccessor
+                ?.HttpContext?.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)
+                ?.Value;
 
             var now = DateTime.UtcNow;
 
@@ -112,8 +175,10 @@ namespace UniClub_Hub.Shared.Data
                     }
                 }
 
-                if (entry.Entity is ISoftDeletable softDeletable
-                    && entry.State == EntityState.Deleted)
+                if (
+                    entry.Entity is ISoftDeletable softDeletable
+                    && entry.State == EntityState.Deleted
+                )
                 {
                     entry.State = EntityState.Modified;
                     softDeletable.IsDeleted = true;
@@ -128,29 +193,35 @@ namespace UniClub_Hub.Shared.Data
             }
 
             // Thu thập dữ liệu audit TRƯỚC khi save (để lấy đúng OriginalValues)
-            var auditEntries = ChangeTracker.Entries()
-                .Where(e => !_auditExcluded.Contains(e.Entity.GetType())
-                         && e.State is EntityState.Added or EntityState.Modified)
+            var auditEntries = ChangeTracker
+                .Entries()
+                .Where(e =>
+                    !_auditExcluded.Contains(e.Entity.GetType())
+                    && e.State is EntityState.Added or EntityState.Modified
+                )
                 .Select(e =>
                 {
                     // Xác định hành động
-                    string action;
+                    AuditAction action;
                     if (e.State == EntityState.Added)
                     {
-                        action = "Create";
+                        action = AuditAction.Create;
                     }
                     else
                     {
                         // Phân biệt soft delete và update thông thường
-                        var isDeletedProp = e.Properties
-                            .FirstOrDefault(p => p.Metadata.Name == "IsDeleted");
-                        action = isDeletedProp?.IsModified == true && isDeletedProp.CurrentValue is true
-                            ? "Delete"
-                            : "Update";
+                        var isDeletedProp = e.Properties.FirstOrDefault(p =>
+                            p.Metadata.Name == "IsDeleted"
+                        );
+                        action =
+                            isDeletedProp?.IsModified == true && isDeletedProp.CurrentValue is true
+                                ? AuditAction.Delete
+                                : AuditAction.Update;
                     }
 
                     // Ghi lại giá trị cũ trước khi save
-                    string? oldValue = e.State == EntityState.Modified ? SerializeValues(e.OriginalValues) : null;
+                    string? oldValue =
+                        e.State == EntityState.Modified ? SerializeValues(e.OriginalValues) : null;
 
                     return (Entry: e, Action: action, OldValue: oldValue);
                 })
@@ -161,24 +232,32 @@ namespace UniClub_Hub.Shared.Data
             // Sau khi save, ID đã được sinh ra cho các entity Added
             if (auditEntries.Count > 0)
             {
-                var logs = auditEntries.Select(a =>
-                {
-                    var keyProp = a.Entry.Metadata.FindPrimaryKey()?.Properties.FirstOrDefault();
-                    var entityId = keyProp != null
-                        ? a.Entry.Property(keyProp.Name).CurrentValue?.ToString() ?? ""
-                        : "";
-
-                    return new AuditLog
+                var logs = auditEntries
+                    .Select(a =>
                     {
-                        UserId = currentUserId,
-                        Action = a.Action,
-                        EntityName = a.Entry.Entity.GetType().Name,
-                        EntityId = entityId,
-                        OldValue = a.OldValue,
-                        NewValue = a.Action != "Delete" ? SerializeValues(a.Entry.CurrentValues) : null,
-                        Timestamp = now
-                    };
-                }).ToList();
+                        var keyProp = a
+                            .Entry.Metadata.FindPrimaryKey()
+                            ?.Properties.FirstOrDefault();
+                        var entityId =
+                            keyProp != null
+                                ? a.Entry.Property(keyProp.Name).CurrentValue?.ToString() ?? ""
+                                : "";
+
+                        return new AuditLog
+                        {
+                            UserId = currentUserId,
+                            Action = a.Action,
+                            EntityName = a.Entry.Entity.GetType().Name,
+                            EntityId = entityId,
+                            OldValue = a.OldValue,
+                            NewValue =
+                                a.Action != AuditAction.Delete
+                                    ? SerializeValues(a.Entry.CurrentValues)
+                                    : null,
+                            Timestamp = now,
+                        };
+                    })
+                    .ToList();
 
                 AuditLogs.AddRange(logs);
                 await base.SaveChangesAsync(cancellationToken);
@@ -187,11 +266,11 @@ namespace UniClub_Hub.Shared.Data
             return result;
         }
 
-        private static string SerializeValues(Microsoft.EntityFrameworkCore.ChangeTracking.PropertyValues values)
+        private static string SerializeValues(
+            Microsoft.EntityFrameworkCore.ChangeTracking.PropertyValues values
+        )
         {
-            var dict = values.Properties.ToDictionary(
-                p => p.Name,
-                p => values[p]?.ToString());
+            var dict = values.Properties.ToDictionary(p => p.Name, p => values[p]?.ToString());
             return JsonSerializer.Serialize(dict);
         }
     }

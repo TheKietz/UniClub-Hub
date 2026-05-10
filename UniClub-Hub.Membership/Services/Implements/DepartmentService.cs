@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using UniClub_Hub.Membership.DTOs.Department;
 using UniClub_Hub.Membership.Services.Interfaces;
 using UniClub_Hub.Shared.Data;
+using UniClub_Hub.Shared.Enums;
 using UniClub_Hub.Shared.Models;
 
 namespace UniClub_Hub.Membership.Services.Implements
@@ -85,7 +86,7 @@ namespace UniClub_Hub.Membership.Services.Implements
                 ?? throw new KeyNotFoundException($"Không tìm thấy ban với ID {id} trong CLB này.");
 
             var hasMembers = await _db.ClubMemberships
-                .AnyAsync(m => m.DepartmentId == id && m.Status == "Active");
+                .AnyAsync(m => m.DepartmentId == id && m.Status == MembershipStatus.Active);
             if (hasMembers)
                 throw new InvalidOperationException("Không thể xóa ban đang có thành viên hoạt động.");
 
@@ -117,7 +118,7 @@ namespace UniClub_Hub.Membership.Services.Implements
             ClubId = d.ClubId,
             Name = d.Name,
             Description = d.Description,
-            MemberCount = d.Members!.Count(m => m.Status == "Active")
+            MemberCount = d.Members!.Count(m => m.Status == MembershipStatus.Active)
         };
 
         private static AdminDepartmentDto ToAdminDto(Department d) => new()
@@ -126,7 +127,7 @@ namespace UniClub_Hub.Membership.Services.Implements
             ClubId = d.ClubId,
             Name = d.Name,
             Description = d.Description,
-            MemberCount = d.Members!.Count(m => m.Status == "Active"),
+            MemberCount = d.Members!.Count(m => m.Status == MembershipStatus.Active),
             CreatedAt = d.CreatedAt,
             CreatedBy = d.CreatedBy,
             UpdatedAt = d.UpdatedAt,
