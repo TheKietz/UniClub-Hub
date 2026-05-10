@@ -1,3 +1,5 @@
+using UniClub_Hub.Shared.Enums;
+
 namespace UniClub_Hub.Membership.DTOs.Club
 {
     public class ClubDto
@@ -5,7 +7,7 @@ namespace UniClub_Hub.Membership.DTOs.Club
         public int Id { get; set; }
         public string Name { get; set; } = null!;
         public string Code { get; set; } = null!;
-        public string Status { get; set; } = null!;
+        public ClubStatus Status { get; set; }
         public string? Description { get; set; }
         public string? LogoUrl { get; set; }
         public string? ContactInfo { get; set; }

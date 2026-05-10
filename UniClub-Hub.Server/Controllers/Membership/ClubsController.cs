@@ -1,12 +1,13 @@
+using System.Security.Claims;
+using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using System.Security.Claims;
-using System.Text.Json;
 using UniClub_Hub.Membership.DTOs.Club;
 using UniClub_Hub.Membership.Services.Interfaces;
 using UniClub_Hub.Shared.Common;
 using UniClub_Hub.Shared.Data;
+using UniClub_Hub.Shared.Enums;
 
 namespace UniClub_Hub.Server.Controllers.Membership
 {
@@ -26,7 +27,8 @@ namespace UniClub_Hub.Server.Controllers.Membership
         [HttpGet]
         public async Task<IActionResult> GetAll(
             [FromQuery] int? categoryId,
-            [FromQuery] string? status)
+            [FromQuery] string? status
+        )
         {
             var result = await _clubService.GetAllAsync(categoryId, status);
             return Ok(ApiResponse<IEnumerable<ClubDto>>.Ok(result));
@@ -51,7 +53,8 @@ namespace UniClub_Hub.Server.Controllers.Membership
         public async Task<IActionResult> GetFormSchema(int id)
         {
             var club = await _db.Clubs.FindAsync(id);
-            if (club == null) return NotFound(ApiResponse<object>.Fail("Không tìm thấy CLB."));
+            if (club == null)
+                return NotFound(ApiResponse<object>.Fail("Không tìm thấy CLB."));
 
             if (string.IsNullOrEmpty(club.FormSchema))
                 return Ok(ApiResponse<object?>.Ok(null, "CLB chưa cấu hình form."));
@@ -66,7 +69,8 @@ namespace UniClub_Hub.Server.Controllers.Membership
         public async Task<IActionResult> UpdateFormSchema(int id, [FromBody] JsonElement schema)
         {
             var club = await _db.Clubs.FindAsync(id);
-            if (club == null) return NotFound(ApiResponse<object>.Fail("Không tìm thấy CLB."));
+            if (club == null)
+                return NotFound(ApiResponse<object>.Fail("Không tìm thấy CLB."));
 
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
             var isSuperAdmin = User.IsInRole("SUPER_ADMIN");
@@ -74,10 +78,11 @@ namespace UniClub_Hub.Server.Controllers.Membership
             if (!isSuperAdmin)
             {
                 var isClubAdmin = await _db.ClubMemberships.AnyAsync(m =>
-                    m.UserId == userId &&
-                    m.ClubId == id &&
-                    m.ClubRole == "CLUB_ADMIN" &&
-                    m.Status == "Active");
+                    m.UserId == userId
+                    && m.ClubId == id
+                    && m.ClubRole == UniClub_Hub.Shared.Enums.ClubRole.CLUB_ADMIN
+                    && m.Status == MembershipStatus.Active
+                );
 
                 if (!isClubAdmin)
                     return Forbid();

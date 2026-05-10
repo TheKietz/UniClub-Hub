@@ -1,6 +1,8 @@
+using UniClub_Hub.Shared.Enums;
+
 namespace UniClub_Hub.Shared.Models
 {
-    // ClubRole lưu vai trò trong phạm vi 1 CLB: CLUB_ADMIN / DEPT_LEAD / MEMBER
+    // ClubRole lưu vai trò trong phạm vi 1 CLB: ClubAdmin / DeptLead / Member
     // Vai trò hệ thống (SUPER_ADMIN, USER) quản lý riêng bởi ASP.NET Identity (AspNetRoles)
     public class ClubMembership
     {
@@ -8,9 +10,9 @@ namespace UniClub_Hub.Shared.Models
         public string UserId { get; set; } = null!;
         public int ClubId { get; set; }
         public int? DepartmentId { get; set; }
-        public string ClubRole { get; set; } = "MEMBER";
+        public ClubRole ClubRole { get; set; } = ClubRole.MEMBER;
         public DateOnly JoinedDate { get; set; }
-        public string Status { get; set; } = "Active"; // Active / Resigned
+        public MembershipStatus Status { get; set; } = MembershipStatus.Active;
 
         public ApplicationUser User { get; set; } = null!;
         public Club Club { get; set; } = null!;

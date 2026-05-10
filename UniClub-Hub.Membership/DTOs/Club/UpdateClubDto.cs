@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using UniClub_Hub.Shared.Enums;
 
 namespace UniClub_Hub.Membership.DTOs.Club
 {
@@ -13,6 +14,6 @@ namespace UniClub_Hub.Membership.DTOs.Club
         public string? ContactInfo { get; set; }
         public DateOnly? EstablishedDate { get; set; }
         public string? AdvisorName { get; set; }
-        public string Status { get; set; } = "Active"; // Active / Inactive
+        public ClubStatus Status { get; set; } = ClubStatus.Active;
     }
 }

@@ -1,3 +1,5 @@
+using UniClub_Hub.Shared.Enums;
+
 namespace UniClub_Hub.Shared.Models
 {
     public class Contribution
@@ -7,9 +9,10 @@ namespace UniClub_Hub.Shared.Models
         public int ClubId { get; set; }
         public int? TaskId { get; set; }
         public int? EventId { get; set; }
-        public string ActivityType { get; set; } = null!; // Task / Event / Post
+        public Enums.ActivityType ActivityType { get; set; }
         public int Points { get; set; }
-        public DateTime RecordedAt { get; set; } = DateTime.UtcNow;
+        public string? Note { get; set; }
+        public DateTimeOffset RecordedAt { get; set; } = DateTimeOffset.UtcNow;
 
         public ApplicationUser User { get; set; } = null!;
         public Club Club { get; set; } = null!;

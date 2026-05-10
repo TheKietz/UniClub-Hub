@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations.Schema;
+using UniClub_Hub.Shared.Enums;
 
 namespace UniClub_Hub.Shared.Models
 {
@@ -9,7 +10,7 @@ namespace UniClub_Hub.Shared.Models
         public string UserId { get; set; } = null!;
         public int ClubId { get; set; }
         public string? Answers { get; set; } // JSONB — câu trả lời form tuyển thành viên
-        public string Status { get; set; } = "Pending"; // Pending / Interview / Accepted / Rejected
+        public ApplicationStatus Status { get; set; } = ApplicationStatus.Pending;
         public DateTime AppliedAt { get; set; } = DateTime.UtcNow;
 
         public ApplicationUser User { get; set; } = null!;
