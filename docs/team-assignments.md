@@ -4,8 +4,7 @@ MODULE DÙNG CHUNG (Áp dụng cho cả 3 đề tài)
 [x] Danh mục hệ thống (trạng thái, loại hoạt động, mức ưu tiên, lĩnh vực CLB)
 [x] Upload & quản lý tệp (ảnh, tài liệu) — Cloudinary
 [x] Logging, audit log, xử lý lỗi — tự động qua DbContext.SaveChangesAsync
-[x] Notification (web) — NotificationService
-[ ] Notification (email) — chưa làm
+[x] Notification (web) — chuông thông báo real-time trong app, đánh dấu đã đọc
 [x] Kiến trúc nhiều lớp (layered/clean), API dùng chung, CSDL dùng chung
 
 ĐỀ TÀI 1: Xây dựng hệ thống quản lý câu lạc bộ, thành viên và cơ cấu tổ chức trong môi trường đại học
