@@ -1,6 +1,7 @@
 export interface UserMembership {
   clubId: number
   clubName: string
+  clubLogoUrl?: string | null
   departmentId?: number
   departmentName?: string
   clubRole: string
@@ -36,3 +37,24 @@ export const CLUB_ROLES = {
 } as const
 
 export type ClubRole = typeof CLUB_ROLES[keyof typeof CLUB_ROLES]
+
+// Membership status
+export const MEMBERSHIP_STATUS = {
+  ACTIVE:    'Active',
+  PROBATION: 'Probation',
+  RESIGNED:  'Resigned',
+} as const
+
+// Application status
+export const APPLICATION_STATUS = {
+  PENDING:   'Pending',
+  INTERVIEW: 'Interview',
+  ACCEPTED:  'Accepted',
+  REJECTED:  'Rejected',
+} as const
+
+// Club status
+export const CLUB_STATUS = {
+  ACTIVE:   'Active',
+  INACTIVE: 'Inactive',
+} as const

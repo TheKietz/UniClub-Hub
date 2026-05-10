@@ -2,10 +2,12 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { LayoutDashboard, Users, Building2, Tag, Network, ArrowLeft } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import UserMenu from '@/components/membership/layout/UserMenu'
+import NotificationBell from '@/components/membership/layout/NotificationBell'
+import AppFooter from '@/components/membership/layout/AppFooter'
 import { Button } from '@/components/ui/button'
 
 const navItems = [
-  { to: '/admin', label: 'Dashboard', icon: LayoutDashboard, end: true },
+  { to: '/admin', label: 'Tổng quan', icon: LayoutDashboard, end: true },
   { to: '/admin/users', label: 'Người dùng', icon: Users },
   { to: '/admin/clubs', label: 'Câu lạc bộ', icon: Building2 },
   { to: '/admin/structure', label: 'Cơ cấu tổ chức', icon: Network },
@@ -18,7 +20,7 @@ export default function AdminLayout() {
     <div className="flex min-h-screen bg-gray-50">
       {/* Sidebar */}
       <aside className="w-60 bg-white border-r border-gray-200 flex flex-col fixed inset-y-0 left-0 z-10">
-        <div className="px-6 py-5 border-b border-gray-200">
+        <div className="h-16 flex items-center px-6 border-b border-gray-200 flex-shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center">
               <span className="text-white text-sm font-bold">U</span>
@@ -55,20 +57,24 @@ export default function AdminLayout() {
           <Button
             variant="ghost" size="sm"
             className="w-full justify-start gap-2 text-gray-500"
-            onClick={() => navigate('/dashboard')}
+            onClick={() => navigate('/')}
           >
-            <ArrowLeft size={16} /> Về Dashboard
+            <ArrowLeft size={16} /> Về trang chủ
           </Button>
         </div>
       </aside>
 
       {/* Right side: topbar + content */}
       <div className="flex-1 flex flex-col ml-60">
-        <header className="h-14 bg-white border-b border-gray-200 flex items-center justify-end px-6 sticky top-0 z-10">
+        <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-end gap-2 px-6 sticky top-0 z-10">
+          <NotificationBell />
           <UserMenu />
         </header>
-        <main className="flex-1 overflow-auto">
-          <Outlet />
+        <main className="flex-1 overflow-auto flex flex-col">
+          <div className="flex-1">
+            <Outlet />
+          </div>
+          <AppFooter />
         </main>
       </div>
     </div>

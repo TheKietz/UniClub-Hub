@@ -1,3 +1,4 @@
+import { MEMBERSHIP_STATUS } from '@/types/auth'
 import { useEffect, useState } from 'react'
 import { getAdminClubs, createClub, updateClub, deleteClub, getCategories } from '@/components/membership/services/adminApi'
 import type { ClubItem, CategoryItem, CreateClubDto, UpdateClubDto } from '@/components/membership/services/admin.types'
@@ -8,7 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { toast } from 'sonner'
-import { Plus, Pencil, Trash2 } from 'lucide-react'
+import { Plus, Pencil, Trash2, Search } from 'lucide-react'
 
 type FormData = {
   name: string; code: string; description: string
@@ -29,6 +30,8 @@ export default function ClubsPage() {
   const [form, setForm] = useState<FormData>(emptyForm)
   const [saving, setSaving] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<ClubItem | null>(null)
+  const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState('')
 
   useEffect(() => {
     setLoading(true)
@@ -111,10 +114,44 @@ export default function ClubsPage() {
         </Button>
       </div>
 
+      {/* Search & filter */}
+      <div className="flex items-center gap-3">
+        <div className="relative flex-1 max-w-xs">
+          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+          <Input placeholder="Tìm theo tên, mã CLB..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
+        </div>
+        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
+          className="border border-input rounded-lg px-3 py-2 text-sm bg-background">
+          <option value="">Tất cả trạng thái</option>
+          <option value="Active">Hoạt động</option>
+          <option value="Inactive">Ngừng hoạt động</option>
+        </select>
+        <select onChange={e => {
+          const v = e.target.value
+          setClubs(prev => [...prev].sort((a, b) =>
+            v === 'name' ? a.name.localeCompare(b.name)
+            : v === 'members' ? b.memberCount - a.memberCount
+            : a.id - b.id
+          ))
+        }} className="border border-input rounded-lg px-3 py-2 text-sm bg-background">
+          <option value="id">Sắp xếp: ID</option>
+          <option value="name">Sắp xếp: Tên A-Z</option>
+          <option value="members">Sắp xếp: Thành viên</option>
+        </select>
+      </div>
+
+      {(() => {
+        const filtered = clubs.filter(c => {
+          const q = search.toLowerCase()
+          return (!q || c.name.toLowerCase().includes(q) || c.code.toLowerCase().includes(q))
+            && (!statusFilter || c.status === statusFilter)
+        })
+        return (
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         <Table>
           <TableHeader>
             <TableRow className="bg-gray-50">
+              <TableHead className="w-12 text-center">ID</TableHead>
               <TableHead>Tên CLB</TableHead>
               <TableHead>Mã</TableHead>
               <TableHead>Lĩnh vực</TableHead>
@@ -125,19 +162,20 @@ export default function ClubsPage() {
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={6} className="text-center text-gray-400 py-12">Đang tải...</TableCell></TableRow>
-            ) : clubs.length === 0 ? (
-              <TableRow><TableCell colSpan={6} className="text-center text-gray-400 py-12">Chưa có CLB nào.</TableCell></TableRow>
-            ) : clubs.map(club => (
+              <TableRow><TableCell colSpan={7} className="text-center text-gray-400 py-12">Đang tải...</TableCell></TableRow>
+            ) : filtered.length === 0 ? (
+              <TableRow><TableCell colSpan={7} className="text-center text-gray-400 py-12">Không tìm thấy CLB nào.</TableCell></TableRow>
+            ) : filtered.map(club => (
               <TableRow key={club.id} className={`hover:bg-gray-50/60 ${club.isDeleted ? 'opacity-50' : ''}`}>
+                <TableCell className="text-center text-xs font-mono" style={{ color: '#9ca3af' }}>{club.id}</TableCell>
                 <TableCell className="font-medium text-sm" style={{ color: '#111827' }}>{club.name}</TableCell>
                 <TableCell className="font-mono text-xs" style={{ color: '#9ca3af' }}>{club.code}</TableCell>
                 <TableCell className="text-sm" style={{ color: '#6b7280' }}>{club.categoryName ?? '—'}</TableCell>
                 <TableCell className="text-sm" style={{ color: '#6b7280' }}>{club.memberCount}</TableCell>
                 <TableCell>
                   <span className="px-2 py-0.5 rounded-full text-xs font-semibold"
-                    style={{ background: club.status === 'Active' ? '#dcfce7' : '#f3f4f6', color: club.status === 'Active' ? '#16a34a' : '#6b7280' }}>
-                    {club.status === 'Active' ? 'Hoạt động' : 'Ngừng'}
+                    style={{ background: club.status === MEMBERSHIP_STATUS.ACTIVE ? '#dcfce7' : '#f3f4f6', color: club.status === MEMBERSHIP_STATUS.ACTIVE ? '#16a34a' : '#6b7280' }}>
+                    {club.status === MEMBERSHIP_STATUS.ACTIVE ? 'Hoạt động' : 'Ngừng'}
                   </span>
                 </TableCell>
                 <TableCell>
@@ -155,6 +193,8 @@ export default function ClubsPage() {
           </TableBody>
         </Table>
       </div>
+        )
+      })()}
 
       {/* Create / Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

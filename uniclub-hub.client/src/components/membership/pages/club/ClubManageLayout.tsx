@@ -1,10 +1,11 @@
 import { NavLink, Outlet, useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { cn } from '@/lib/utils'
-import { LayoutDashboard, Users, FileText, Building, ArrowLeft, ClipboardList } from 'lucide-react'
+import { LayoutDashboard, Users, FileText, Building, ArrowLeft, ClipboardList, Settings } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import NotificationBell from '@/components/membership/layout/NotificationBell'
 import UserMenu from '@/components/membership/layout/UserMenu'
+import AppFooter from '@/components/membership/layout/AppFooter'
 
 export default function ClubManageLayout() {
   const { clubId } = useParams<{ clubId: string }>()
@@ -20,6 +21,7 @@ export default function ClubManageLayout() {
     { to: `/clubs/${id}/manage/applications`, label: 'Đơn đăng ký', icon: FileText },
     { to: `/clubs/${id}/manage/departments`, label: 'Ban bộ phận', icon: Building },
     { to: `/clubs/${id}/manage/form`, label: 'Form đăng ký', icon: ClipboardList },
+    { to: `/clubs/${id}/manage/settings`, label: 'Cài đặt CLB', icon: Settings },
   ]
 
   const backTo = isSuperAdmin ? '/admin/clubs' : '/dashboard'
@@ -27,11 +29,22 @@ export default function ClubManageLayout() {
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50">
       <aside className="w-48 flex-shrink-0 bg-white border-r border-gray-200 flex flex-col">
-        <div className="h-16 flex flex-col justify-center px-4 border-b border-gray-200 flex-shrink-0">
-          <p className="text-xs text-gray-400 uppercase tracking-wide">Quản lý CLB</p>
-          <p className="font-semibold truncate" style={{ color: '#0f172a' }}>
-            {club?.clubName ?? '...'}
-          </p>
+        <div className="h-16 flex items-center gap-3 px-4 border-b border-gray-200 flex-shrink-0">
+          {club?.clubLogoUrl ? (
+            <img src={club.clubLogoUrl} alt="" className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />
+          ) : (
+            <div className="w-10 h-10 rounded-lg bg-indigo-100 flex items-center justify-center flex-shrink-0">
+              <span className="text-indigo-700 font-bold text-base">
+                {(club?.clubName ?? '?')[0]}
+              </span>
+            </div>
+          )}
+          <div className="min-w-0 flex-1">
+            <p className="font-semibold text-sm leading-tight" style={{ color: '#0f172a' }}>
+              {club?.clubName ?? '...'}
+            </p>
+            <p className="text-xs leading-tight" style={{ color: '#9ca3af' }}>Quản lý CLB</p>
+          </div>
         </div>
 
         <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
@@ -60,10 +73,10 @@ export default function ClubManageLayout() {
             variant="ghost"
             size="sm"
             className="w-full justify-start gap-2 text-gray-500"
-            onClick={() => navigate(backTo)}
+            onClick={() => navigate('/')}
           >
             <ArrowLeft size={16} />
-            {isSuperAdmin ? 'Quay lại Danh sách CLB' : 'Quay lại Dashboard'}
+            Về trang chủ
           </Button>
         </div>
       </aside>
@@ -73,8 +86,11 @@ export default function ClubManageLayout() {
           <NotificationBell />
           <UserMenu />
         </header>
-        <main className="flex-1 overflow-auto">
-          <Outlet />
+        <main className="flex-1 overflow-auto flex flex-col">
+          <div className="flex-1">
+            <Outlet />
+          </div>
+          <AppFooter />
         </main>
       </div>
     </div>

@@ -1,3 +1,4 @@
+import { MEMBERSHIP_STATUS } from '@/types/auth'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getClubs } from '@/components/membership/services/clubApi'
@@ -9,7 +10,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
-import { Search, Users, ArrowLeft } from 'lucide-react'
+import { Search, Users, ArrowLeft, ArrowRight } from 'lucide-react'
 
 export default function ClubListPage() {
   const { user } = useAuth()
@@ -34,7 +35,7 @@ export default function ClubListPage() {
       .finally(() => setLoading(false))
   }, [query, categoryId, refreshKey])
 
-  const myClubIds = new Set(user?.memberships.filter(m => m.status === 'Active').map(m => m.clubId))
+  const myClubIds = new Set(user?.memberships.filter(m => m.status === MEMBERSHIP_STATUS.ACTIVE).map(m => m.clubId))
 
   function handleSearch(e: { preventDefault(): void }) {
     e.preventDefault()
@@ -45,7 +46,7 @@ export default function ClubListPage() {
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-4xl mx-auto p-8 space-y-6">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/dashboard')}>
+          <Button variant="ghost" size="icon" onClick={() => navigate(user ? '/dashboard' : '/')}>
             <ArrowLeft size={18} />
           </Button>
           <div>
@@ -108,9 +109,10 @@ export default function ClubListPage() {
                       </span>
                       {club.categoryName && <span>{club.categoryName}</span>}
                     </div>
-                    {!isMember && club.status === 'Active' && (
-                      <span className="text-xs text-gray-400 italic">Đăng ký qua trang CLB</span>
-                    )}
+                    <Button variant="ghost" size="sm" className="gap-1 text-indigo-600 hover:text-indigo-700 -mr-2"
+                      onClick={() => navigate(`/clubs/${club.id}`)}>
+                      Xem chi tiết <ArrowRight size={13} />
+                    </Button>
                   </div>
                 </div>
               )
