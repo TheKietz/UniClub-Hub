@@ -21,6 +21,7 @@ namespace UniClub_Hub.Membership
             services.AddScoped<INotificationService, NotificationService>();
             services.AddScoped<IExportService, ExportService>();
             services.AddScoped<ImportService>();
+            services.AddScoped<ISupportService, SupportService>();
             return services;
         }
     }

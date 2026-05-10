@@ -34,6 +34,8 @@ import ClubListPage from '@/components/membership/pages/ClubListPage'
 import ClubDetailPage from '@/components/membership/pages/ClubDetailPage'
 import ProfilePage from '@/components/membership/pages/ProfilePage'
 import MemberHistoryPage from '@/components/membership/pages/MemberHistoryPage'
+import SupportPage from '@/components/membership/pages/SupportPage'
+import SupportAdminPage from '@/components/membership/pages/admin/SupportAdminPage'
 
 
 const Soon = ({ label }: { label: string }) => (
@@ -67,6 +69,7 @@ export default function App() {
               <Route path="/admin/clubs" element={<ClubsPage />} />
               <Route path="/admin/structure" element={<AdminStructurePage />} />
               <Route path="/admin/categories" element={<CategoriesPage />} />
+              <Route path="/admin/support" element={<SupportAdminPage />} />
             </Route>
           </Route>
 
@@ -80,6 +83,7 @@ export default function App() {
               <Route path="/dashboard" element={<MemberDashboard />} />
               <Route path="/profile" element={<ProfilePage />} />
               <Route path="/my-history" element={<MemberHistoryPage />} />
+              <Route path="/support" element={<SupportPage />} />
               <Route path="/my-tasks" element={<Soon label="Task được giao" />} />
               <Route path="/my-kpi" element={<Soon label="KPI của tôi" />} />
               <Route element={<ClubProtectedRoute requiredRoles={[CLUB_ROLES.CLUB_ADMIN, CLUB_ROLES.DEPT_LEAD]} />}>

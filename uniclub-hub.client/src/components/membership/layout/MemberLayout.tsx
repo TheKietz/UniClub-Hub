@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, Users, User, History, ClipboardList, BarChart3, Layers, Home } from 'lucide-react'
+import { LayoutDashboard, Users, User, History, ClipboardList, BarChart3, Layers, Home, LifeBuoy } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import NotificationBell from './NotificationBell'
 import UserMenu from './UserMenu'
@@ -82,6 +82,11 @@ export default function MemberLayout() {
           <NavLink to="/my-kpi" className={navCls}>
             <BarChart3 size={17} />
             KPI của tôi
+          </NavLink>
+
+          <NavLink to="/support" className={navCls}>
+            <LifeBuoy size={17} />
+            Yêu cầu hỗ trợ
           </NavLink>
 
           {/* Ban mà user đang dẫn dắt (DEPT_LEAD) */}
