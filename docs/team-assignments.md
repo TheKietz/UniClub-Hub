@@ -1,11 +1,12 @@
 MODULE DÙNG CHUNG (Áp dụng cho cả 3 đề tài)
-Xác thực & quản lý người dùng (đăng nhập, JWT/session)
-Phân quyền RBAC (Admin, Quản lý CLB, Trưởng ban, Thành viên, User công khai)
-Danh mục hệ thống (trạng thái, loại hoạt động, mức ưu tiên, lĩnh vực CLB)
-Upload & quản lý tệp (ảnh, tài liệu)
-Logging, audit log, xử lý lỗi
-Notification (email/web)
-Kiến trúc nhiều lớp (layered/clean), API dùng chung, CSDL dùng chung
+[x] Xác thực & quản lý người dùng (đăng nhập, JWT/session)
+[x] Phân quyền RBAC (Admin, Quản lý CLB, Trưởng ban, Thành viên, User công khai)
+[x] Danh mục hệ thống (trạng thái, loại hoạt động, mức ưu tiên, lĩnh vực CLB)
+[x] Upload & quản lý tệp (ảnh, tài liệu) — Cloudinary
+[x] Logging, audit log, xử lý lỗi — tự động qua DbContext.SaveChangesAsync
+[x] Notification (web) — NotificationService
+[ ] Notification (email) — chưa làm
+[x] Kiến trúc nhiều lớp (layered/clean), API dùng chung, CSDL dùng chung
 
 ĐỀ TÀI 1: Xây dựng hệ thống quản lý câu lạc bộ, thành viên và cơ cấu tổ chức trong môi trường đại học
 1. Nội dung thực hiện
@@ -15,35 +16,35 @@ Kiến trúc nhiều lớp (layered/clean), API dùng chung, CSDL dùng chung
 Phân hệ đóng vai trò nền tảng dữ liệu, cung cấp thông tin chuẩn hóa cho các phân hệ vận hành và cổng thông tin.
 
 2. Yêu cầu chức năng
-Sinh viên có thể xem danh sách câu lạc bộ, có thể đăng ký, duyệt, từ chối,...
-Quản lý câu lạc bộ:
-Tạo, cập nhật, xóa, tra cứu
-Thông tin: tên, mã, mô tả, lĩnh vực, logo, ngày thành lập, giảng viên phụ trách, trạng thái
-Quản lý cơ cấu tổ chức:
-Ban chủ nhiệm, các ban chức năng
-Vai trò trong từng ban
-Quản lý thành viên:
-Thêm, sửa, xóa, tra cứu
-Phân loại theo CLB, ban, vai trò
-Phân quyền theo vai trò người dùng
-Tra cứu danh sách thành viên theo nhiều tiêu chí
-Quản lý đa CLB trong hệ thống
-Theo dõi lịch sử tham gia của thành viên
-Quản lý vòng đời thành viên (ứng tuyển → thử việc → chính thức → rời CLB)
-Hệ thống đánh giá thành viên (KPI nội bộ)
-Import/Export dữ liệu (Excel/CSV)
-Audit log theo dõi thay đổi
-Gợi ý phân công vai trò (rule-based/AI nhẹ)
-Thống kê - Báo cáo
+[x] Sinh viên có thể xem danh sách câu lạc bộ, có thể đăng ký, duyệt, từ chối,...
+[x] Quản lý câu lạc bộ:
+    [x] Tạo, cập nhật, xóa, tra cứu
+    [x] Thông tin: tên, mã, mô tả, lĩnh vực, logo, ngày thành lập, giảng viên phụ trách, trạng thái
+[x] Quản lý cơ cấu tổ chức:
+    [x] Ban chủ nhiệm, các ban chức năng
+    [x] Vai trò trong từng ban (CLUB_ADMIN, DEPT_LEAD, MEMBER)
+[x] Quản lý thành viên:
+    [x] Thêm, sửa, xóa, tra cứu
+    [x] Phân loại theo CLB, ban, vai trò
+    [x] Phân quyền theo vai trò người dùng
+    [x] Tra cứu danh sách thành viên theo nhiều tiêu chí (search, filter, sort)
+[x] Quản lý đa CLB trong hệ thống
+[x] Theo dõi lịch sử tham gia của thành viên
+[x] Quản lý vòng đời thành viên (ứng tuyển → thử việc → chính thức → rời CLB)
+[ ] Hệ thống đánh giá thành viên (KPI nội bộ) — chưa làm
+[x] Import/Export dữ liệu (Excel/CSV)
+[x] Audit log theo dõi thay đổi — tự động qua DbContext
+[ ] Gợi ý phân công vai trò (rule-based/AI nhẹ) — chưa làm
+[x] Thống kê - Báo cáo (biểu đồ tăng trưởng, phân bổ vai trò, đơn đăng ký, top CLB)
 3. Yêu cầu phi chức năng
-Bảo mật dữ liệu và phân quyền truy cập
-Hiệu năng ổn định với số lượng lớn thành viên
-Thiết kế theo layered/clean architecture
-Dễ mở rộng và tích hợp
+[x] Bảo mật dữ liệu và phân quyền truy cập
+[x] Hiệu năng ổn định với số lượng lớn thành viên
+[x] Thiết kế theo layered/clean architecture
+[x] Dễ mở rộng và tích hợp
 4. Triển khai và đánh giá
-Xây dựng hệ thống web hoàn chỉnh
-Kiểm thử chức năng và dữ liệu
-Đánh giá hiệu quả quản lý tổ chức CLB
+[x] Xây dựng hệ thống web hoàn chỉnh
+[ ] Kiểm thử chức năng và dữ liệu
+[ ] Đánh giá hiệu quả quản lý tổ chức CLB
 
 ĐỀ TÀI 2
 Tên đề tài
