@@ -44,8 +44,8 @@ namespace UniClub_Hub.Server.Controllers.Membership
                 var isClubAdmin = await _db.ClubMemberships.AnyAsync(m =>
                     m.UserId == userId &&
                     m.ClubId == clubId &&
-                    m.ClubRole == "CLUB_ADMIN" &&
-                    m.Status == "Active");
+                    m.ClubRole == ClubRole.ClubAdmin &&
+                    m.Status == MembershipStatus.Active);
 
                 if (!isClubAdmin)
                     return Forbid();

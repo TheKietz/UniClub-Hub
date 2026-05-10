@@ -148,11 +148,12 @@ namespace UniClub_Hub.Membership.Services.Implements
             var memberships = await _db.ClubMemberships
                 .Include(m => m.Club)
                 .Include(m => m.Department)
-                .Where(m => m.UserId == userId && m.Status == "Active")
+                .Where(m => m.UserId == userId && m.Status == MembershipStatus.Active)
                 .Select(m => new UserMembershipDto
                 {
                     ClubId = m.ClubId,
                     ClubName = m.Club.Name,
+                    ClubLogoUrl = m.Club.LogoUrl,
                     DepartmentId = m.DepartmentId,
                     DepartmentName = m.Department != null ? m.Department.Name : null,
                     ClubRole = m.ClubRole,
@@ -232,6 +233,29 @@ namespace UniClub_Hub.Membership.Services.Implements
             await _userManager.AddToRoleAsync(user, role);
 
             return (await GetUserByIdAsync(user.Id))!;
+        }
+
+        public async Task<IEnumerable<MembershipHistoryDto>> GetMyHistoryAsync(string userId)
+        {
+            return await _db.ClubMemberships
+                .AsNoTracking()
+                .Include(m => m.Club)
+                .Include(m => m.Department)
+                .Where(m => m.UserId == userId)
+                .OrderByDescending(m => m.JoinedDate)
+                .Select(m => new MembershipHistoryDto
+                {
+                    MembershipId = m.Id,
+                    ClubId = m.ClubId,
+                    ClubName = m.Club.Name,
+                    ClubLogoUrl = m.Club.LogoUrl,
+                    ClubRole = m.ClubRole,
+                    DepartmentName = m.Department != null ? m.Department.Name : null,
+                    Status = m.Status,
+                    JoinedDate = m.JoinedDate,
+                    ResignedDate = m.ResignedDate,
+                })
+                .ToListAsync();
         }
     }
 }

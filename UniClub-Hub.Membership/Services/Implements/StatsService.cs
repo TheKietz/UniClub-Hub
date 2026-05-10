@@ -1,3 +1,4 @@
+using UniClub_Hub.Shared.Common;
 using Microsoft.EntityFrameworkCore;
 using UniClub_Hub.Membership.DTOs.Stats;
 using UniClub_Hub.Membership.Services.Interfaces;
@@ -18,8 +19,8 @@ namespace UniClub_Hub.Membership.Services.Implements
         {
             var totalUsers = await _db.Users.CountAsync();
             var totalClubs = await _db.Clubs.CountAsync();
-            var activeClubs = await _db.Clubs.CountAsync(c => c.Status == "Active");
-            var totalActiveMembers = await _db.ClubMemberships.CountAsync(m => m.Status == "Active");
+            var activeClubs = await _db.Clubs.CountAsync(c => c.Status == MembershipStatus.Active);
+            var totalActiveMembers = await _db.ClubMemberships.CountAsync(m => m.Status == MembershipStatus.Active);
 
             var appCounts = await _db.Applications
                 .GroupBy(a => a.Status)
@@ -39,7 +40,7 @@ namespace UniClub_Hub.Membership.Services.Implements
                 .ToListAsync();
 
             var topClubs = await _db.ClubMemberships
-                .Where(m => m.Status == "Active")
+                .Where(m => m.Status == MembershipStatus.Active)
                 .GroupBy(m => new { m.ClubId, ClubName = m.Club.Name })
                 .Select(g => new TopClubDto
                 {
@@ -69,13 +70,13 @@ namespace UniClub_Hub.Membership.Services.Implements
             if (club == null) return null;
 
             var membersByRole = await _db.ClubMemberships
-                .Where(m => m.ClubId == clubId && m.Status == "Active")
+                .Where(m => m.ClubId == clubId && m.Status == MembershipStatus.Active)
                 .GroupBy(m => m.ClubRole)
                 .Select(g => new { Role = g.Key, Count = g.Count() })
                 .ToDictionaryAsync(g => g.Role, g => g.Count);
 
             var membersByDept = await _db.ClubMemberships
-                .Where(m => m.ClubId == clubId && m.Status == "Active")
+                .Where(m => m.ClubId == clubId && m.Status == MembershipStatus.Active)
                 .GroupBy(m => new
                 {
                     m.DepartmentId,

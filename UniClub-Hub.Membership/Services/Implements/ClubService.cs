@@ -1,3 +1,4 @@
+using UniClub_Hub.Shared.Common;
 using Microsoft.EntityFrameworkCore;
 using UniClub_Hub.Membership.DTOs.Club;
 using UniClub_Hub.Membership.Services.Interfaces;
@@ -25,8 +26,7 @@ namespace UniClub_Hub.Membership.Services.Implements
 
         public async Task<ClubDto> GetByIdAsync(int id)
         {
-            return await _db.Clubs
-                .AsNoTracking()
+            return await BuildBaseQuery(null, null)
                 .Where(c => c.Id == id)
                 .Select(c => ToDto(c))
                 .FirstOrDefaultAsync()
@@ -43,8 +43,7 @@ namespace UniClub_Hub.Membership.Services.Implements
 
         public async Task<AdminClubDto> GetByIdAdminAsync(int id)
         {
-            return await _db.Clubs
-                .AsNoTracking()
+            return await BuildBaseQuery(null, null)
                 .Where(c => c.Id == id)
                 .Select(c => ToAdminDto(c))
                 .FirstOrDefaultAsync()
@@ -70,7 +69,7 @@ namespace UniClub_Hub.Membership.Services.Implements
                 ContactInfo = dto.ContactInfo,
                 EstablishedDate = dto.EstablishedDate,
                 AdvisorName = dto.AdvisorName,
-                Status = "Active"
+                Status = ClubStatus.Active
             };
 
             _db.Clubs.Add(club);
@@ -143,7 +142,7 @@ namespace UniClub_Hub.Membership.Services.Implements
             AdvisorName = c.AdvisorName,
             CategoryId = c.CategoryId,
             CategoryName = c.Category != null ? c.Category.Name : null,
-            MemberCount = c.ClubMemberships!.Count(m => m.Status == "Active"),
+            MemberCount = c.ClubMemberships!.Count(m => m.Status == MembershipStatus.Active),
             CreatedAt = c.CreatedAt
         };
 
@@ -160,7 +159,7 @@ namespace UniClub_Hub.Membership.Services.Implements
             AdvisorName = c.AdvisorName,
             CategoryId = c.CategoryId,
             CategoryName = c.Category != null ? c.Category.Name : null,
-            MemberCount = c.ClubMemberships!.Count(m => m.Status == "Active"),
+            MemberCount = c.ClubMemberships!.Count(m => m.Status == MembershipStatus.Active),
             CreatedAt = c.CreatedAt,
             CreatedBy = c.CreatedBy,
             UpdatedAt = c.UpdatedAt,

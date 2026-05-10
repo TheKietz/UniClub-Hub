@@ -12,7 +12,7 @@ namespace UniClub_Hub.Shared.Models
         public string? Description { get; set; }
         public string? ContactInfo { get; set; }
         public DateOnly? EstablishedDate { get; set; }
-        public string Status { get; set; } = "Active";
+        public string Status { get; set; } = ClubStatus.Active;
         public string? AdvisorName { get; set; }
         public string? FormSchema { get; set; } // JSONB
 

@@ -1,3 +1,4 @@
+using UniClub_Hub.Shared.Common;
 using Microsoft.EntityFrameworkCore;
 using UniClub_Hub.Membership.DTOs.Membership;
 using UniClub_Hub.Membership.Services.Interfaces;
@@ -88,7 +89,7 @@ namespace UniClub_Hub.Membership.Services.Implements
                 throw new KeyNotFoundException("Không tìm thấy người dùng.");
 
             var alreadyMember = await _db.ClubMemberships.AnyAsync(m =>
-                m.ClubId == clubId && m.UserId == dto.UserId && m.Status == "Active");
+                m.ClubId == clubId && m.UserId == dto.UserId && m.Status == MembershipStatus.Active);
             if (alreadyMember)
                 throw new InvalidOperationException("Người dùng đã là thành viên của CLB này.");
 
@@ -102,7 +103,7 @@ namespace UniClub_Hub.Membership.Services.Implements
                 ClubRole = dto.ClubRole,
                 DepartmentId = dto.DepartmentId,
                 JoinedDate = DateOnly.FromDateTime(DateTime.UtcNow),
-                Status = "Active"
+                Status = MembershipStatus.Active
             };
 
             _db.ClubMemberships.Add(membership);
@@ -139,10 +140,11 @@ namespace UniClub_Hub.Membership.Services.Implements
                 .FirstOrDefaultAsync(m => m.ClubId == clubId && m.Id == membershipId)
                 ?? throw new KeyNotFoundException("Không tìm thấy thành viên này trong CLB.");
 
-            if (membership.Status == "Resigned")
+            if (membership.Status == MembershipStatus.Resigned)
                 throw new InvalidOperationException("Thành viên này đã rời CLB.");
 
-            membership.Status = "Resigned";
+            membership.Status = MembershipStatus.Resigned;
+            membership.ResignedDate = DateOnly.FromDateTime(DateTime.UtcNow);
             await _db.SaveChangesAsync();
 
             var clubName = await _db.Clubs.Where(c => c.Id == membership.ClubId).Select(c => c.Name).FirstAsync();
@@ -150,6 +152,29 @@ namespace UniClub_Hub.Membership.Services.Implements
                 "Rời khỏi CLB",
                 $"Bạn đã được ghi nhận rời khỏi CLB {clubName}.",
                 "System");
+        }
+
+        public async Task<MemberDto> PromoteMemberAsync(int clubId, int membershipId)
+        {
+            var membership = await _db.ClubMemberships
+                .Include(m => m.User)
+                .Include(m => m.Department)
+                .FirstOrDefaultAsync(m => m.ClubId == clubId && m.Id == membershipId)
+                ?? throw new KeyNotFoundException("Không tìm thấy thành viên này trong CLB.");
+
+            if (membership.Status != "Probation")
+                throw new InvalidOperationException("Chỉ có thể xác nhận chính thức thành viên đang ở trạng thái thử việc.");
+
+            membership.Status = MembershipStatus.Active;
+            await _db.SaveChangesAsync();
+
+            var clubName = await _db.Clubs.Where(c => c.Id == clubId).Select(c => c.Name).FirstAsync();
+            await _notifications.SendAsync(membership.UserId,
+                "Xác nhận thành viên chính thức",
+                $"Chúc mừng! Bạn đã trở thành thành viên chính thức của CLB {clubName}.",
+                "System");
+
+            return ToDto(membership);
         }
 
         // ── Validation helpers ────────────────────────────────────────────
@@ -165,8 +190,8 @@ namespace UniClub_Hub.Membership.Services.Implements
             var isClubAdmin = await _db.ClubMemberships.AnyAsync(m =>
                 m.ClubId == clubId &&
                 m.UserId == userId &&
-                m.ClubRole == "CLUB_ADMIN" &&
-                m.Status == "Active");
+                m.ClubRole == ClubRole.ClubAdmin &&
+                m.Status == MembershipStatus.Active);
 
             if (!isClubAdmin)
                 throw new UnauthorizedAccessException("Bạn không có quyền quản lý thành viên trong CLB này.");

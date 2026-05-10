@@ -1,3 +1,4 @@
+using UniClub_Hub.Shared.Common;
 namespace UniClub_Hub.Shared.Models
 {
     public class MediaGallery

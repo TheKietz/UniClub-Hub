@@ -21,6 +21,7 @@ namespace UniClub_Hub.Membership.DTOs.User
     {
         public int ClubId { get; set; }
         public string ClubName { get; set; } = null!;
+        public string? ClubLogoUrl { get; set; }
         public int? DepartmentId { get; set; }
         public string? DepartmentName { get; set; }
         public string ClubRole { get; set; } = null!;

@@ -1,3 +1,4 @@
+using UniClub_Hub.Shared.Common;
 using Microsoft.EntityFrameworkCore;
 using UniClub_Hub.Membership.DTOs.Category;
 using UniClub_Hub.Membership.Services.Interfaces;

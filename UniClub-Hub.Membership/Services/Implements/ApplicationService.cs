@@ -1,3 +1,4 @@
+using UniClub_Hub.Shared.Common;
 using Microsoft.EntityFrameworkCore;
 using UniClub_Hub.Membership.DTOs.Application;
 using UniClub_Hub.Membership.Services.Interfaces;
@@ -49,13 +50,13 @@ namespace UniClub_Hub.Membership.Services.Implements
                 throw new KeyNotFoundException($"Không tìm thấy CLB với ID {clubId}.");
 
             var isMember = await _db.ClubMemberships.AnyAsync(m =>
-                m.ClubId == clubId && m.UserId == userId && m.Status == "Active");
+                m.ClubId == clubId && m.UserId == userId && m.Status == MembershipStatus.Active);
             if (isMember)
                 throw new InvalidOperationException("Bạn đã là thành viên của CLB này.");
 
             var hasPending = await _db.Applications.AnyAsync(a =>
                 a.ClubId == clubId && a.UserId == userId &&
-                (a.Status == "Pending" || a.Status == "Interview"));
+                (a.Status == ApplicationStatus.Pending || a.Status == ApplicationStatus.Interview));
             if (hasPending)
                 throw new InvalidOperationException("Bạn đang có đơn chờ duyệt cho CLB này.");
 
@@ -74,7 +75,7 @@ namespace UniClub_Hub.Membership.Services.Implements
             // Thông báo cho tất cả CLUB_ADMIN của CLB
             var clubName = await _db.Clubs.Where(c => c.Id == clubId).Select(c => c.Name).FirstAsync();
             var adminIds = await _db.ClubMemberships
-                .Where(m => m.ClubId == clubId && m.ClubRole == "CLUB_ADMIN" && m.Status == "Active")
+                .Where(m => m.ClubId == clubId && m.ClubRole == ClubRole.ClubAdmin && m.Status == MembershipStatus.Active)
                 .Select(m => m.UserId)
                 .ToListAsync();
 
@@ -102,7 +103,7 @@ namespace UniClub_Hub.Membership.Services.Implements
                 .FirstOrDefaultAsync(a => a.Id == applicationId && a.ClubId == clubId)
                 ?? throw new KeyNotFoundException("Không tìm thấy đơn ứng tuyển.");
 
-            if (application.Status is "Accepted" or "Rejected")
+            if (application.Status is ApplicationStatus.Accepted or ApplicationStatus.Rejected)
                 throw new InvalidOperationException("Đơn này đã được xử lý xong, không thể thay đổi.");
 
             if (!isSuperAdmin)
@@ -110,8 +111,8 @@ namespace UniClub_Hub.Membership.Services.Implements
                 var isClubAdmin = await _db.ClubMemberships.AnyAsync(m =>
                     m.ClubId == clubId &&
                     m.UserId == reviewerId &&
-                    m.ClubRole == "CLUB_ADMIN" &&
-                    m.Status == "Active");
+                    m.ClubRole == ClubRole.ClubAdmin &&
+                    m.Status == MembershipStatus.Active);
 
                 if (!isClubAdmin)
                     throw new UnauthorizedAccessException("Bạn không có quyền duyệt đơn của CLB này.");
@@ -132,12 +133,12 @@ namespace UniClub_Hub.Membership.Services.Implements
             await _notifications.SendAsync(application.UserId, title, message, "Application");
 
             // Khi Accepted → tự động tạo ClubMembership
-            if (dto.Status == "Accepted")
+            if (dto.Status == ApplicationStatus.Accepted)
             {
                 var alreadyMember = await _db.ClubMemberships.AnyAsync(m =>
                     m.ClubId == application.ClubId &&
                     m.UserId == application.UserId &&
-                    m.Status == "Active");
+                    (m.Status == MembershipStatus.Active || m.Status == MembershipStatus.Probation));
 
                 if (!alreadyMember)
                 {
@@ -145,9 +146,9 @@ namespace UniClub_Hub.Membership.Services.Implements
                     {
                         UserId = application.UserId,
                         ClubId = application.ClubId,
-                        ClubRole = "MEMBER",
+                        ClubRole = ClubRole.Member,
                         JoinedDate = DateOnly.FromDateTime(DateTime.UtcNow),
-                        Status = "Active"
+                        Status = MembershipStatus.Probation
                     });
                     await _db.SaveChangesAsync();
                 }

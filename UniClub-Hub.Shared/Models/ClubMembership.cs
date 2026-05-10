@@ -1,3 +1,4 @@
+using UniClub_Hub.Shared.Common;
 namespace UniClub_Hub.Shared.Models
 {
     // ClubRole lưu vai trò trong phạm vi 1 CLB: CLUB_ADMIN / DEPT_LEAD / MEMBER
@@ -10,7 +11,8 @@ namespace UniClub_Hub.Shared.Models
         public int? DepartmentId { get; set; }
         public string ClubRole { get; set; } = "MEMBER";
         public DateOnly JoinedDate { get; set; }
-        public string Status { get; set; } = "Active"; // Active / Resigned
+        public DateOnly? ResignedDate { get; set; }
+        public string Status { get; set; } = MembershipStatus.Active; // Active / Resigned / Probation / Probation
 
         public ApplicationUser User { get; set; } = null!;
         public Club Club { get; set; } = null!;

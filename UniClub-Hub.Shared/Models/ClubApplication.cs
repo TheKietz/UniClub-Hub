@@ -1,3 +1,4 @@
+using UniClub_Hub.Shared.Common;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace UniClub_Hub.Shared.Models
