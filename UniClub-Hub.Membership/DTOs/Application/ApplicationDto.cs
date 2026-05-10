@@ -1,3 +1,5 @@
+using UniClub_Hub.Shared.Enums;
+
 namespace UniClub_Hub.Membership.DTOs.Application
 {
     public class ApplicationDto
@@ -5,7 +7,7 @@ namespace UniClub_Hub.Membership.DTOs.Application
         public int Id { get; set; }
         public int ClubId { get; set; }
         public string ClubName { get; set; } = null!;
-        public string Status { get; set; } = null!; // Pending / Interview / Accepted / Rejected
+        public ApplicationStatus Status { get; set; }
         public DateTime AppliedAt { get; set; }
     }
 }

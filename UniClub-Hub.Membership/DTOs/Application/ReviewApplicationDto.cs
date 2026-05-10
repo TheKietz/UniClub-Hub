@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using UniClub_Hub.Shared.Enums;
 
 namespace UniClub_Hub.Membership.DTOs.Application
 {
@@ -6,6 +7,6 @@ namespace UniClub_Hub.Membership.DTOs.Application
     {
         [Required]
         // Interview / Accepted / Rejected
-        public string Status { get; set; } = null!;
+        public ApplicationStatus Status { get; set; }
     }
 }

@@ -1,3 +1,5 @@
+using UniClub_Hub.Shared.Enums;
+
 namespace UniClub_Hub.Membership.DTOs.User
 {
     public class UserDetailDto
@@ -24,8 +26,8 @@ namespace UniClub_Hub.Membership.DTOs.User
         public string? ClubLogoUrl { get; set; }
         public int? DepartmentId { get; set; }
         public string? DepartmentName { get; set; }
-        public string ClubRole { get; set; } = null!;
+        public ClubRole ClubRole { get; set; }
         public DateOnly JoinedDate { get; set; }
-        public string Status { get; set; } = null!;
+        public MembershipStatus Status { get; set; }
     }
 }

@@ -1,4 +1,5 @@
-using UniClub_Hub.Shared.Common;
+using UniClub_Hub.Shared.Enums;
+
 namespace UniClub_Hub.Shared.Models
 {
     public class Notification
@@ -7,7 +8,7 @@ namespace UniClub_Hub.Shared.Models
         public string UserId { get; set; } = null!;
         public string Title { get; set; } = null!;
         public string Message { get; set; } = null!;
-        public string Type { get; set; } = "System"; // Task / Event / Application / System
+        public NotificationType Type { get; set; } = NotificationType.System;
         public bool IsRead { get; set; } = false;
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 

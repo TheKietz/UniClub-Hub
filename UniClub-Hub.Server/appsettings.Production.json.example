@@ -1,6 +1,6 @@
 {
   "ConnectionStrings": {
-    "DefaultConnection": "Host=YOUR_NEON_HOST;Database=neondb;Username=YOUR_USERNAME;Password=YOUR_PASSWORD;SSL Mode=Require;Trust Server Certificate=true"
+    "DefaultConnection": "Host=ep-lingering-field-aoou842f-pooler.c-2.ap-southeast-1.aws.neon.tech;Database=neondb;Username=neondb_owner;Password=npg_AFRnE7ePQfi4;SSL Mode=Require;Trust Server Certificate=true"
   },
   "Jwt": {
     "Issuer": "UniClubHub",

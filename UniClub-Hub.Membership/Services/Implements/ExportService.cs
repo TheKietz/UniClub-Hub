@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using System.Text;
 using UniClub_Hub.Membership.Services.Interfaces;
 using UniClub_Hub.Shared.Data;
+using UniClub_Hub.Shared.Enums;
 
 namespace UniClub_Hub.Membership.Services.Implements
 {
@@ -59,10 +60,10 @@ namespace UniClub_Hub.Membership.Services.Implements
                 ws.Cell(i + 2, 3).Value = m.Email;
                 ws.Cell(i + 2, 4).Value = m.StudentId;
                 ws.Cell(i + 2, 5).Value = m.Major;
-                ws.Cell(i + 2, 6).Value = m.ClubRole;
+                ws.Cell(i + 2, 6).Value = m.ClubRole.ToString();
                 ws.Cell(i + 2, 7).Value = m.Department;
                 ws.Cell(i + 2, 8).Value = m.JoinedDate;
-                ws.Cell(i + 2, 9).Value = m.Status;
+                ws.Cell(i + 2, 9).Value = m.Status.ToString();
             }
             ws.Columns().AdjustToContents();
 
@@ -75,8 +76,8 @@ namespace UniClub_Hub.Membership.Services.Implements
                 ?? throw new KeyNotFoundException("Không tìm thấy CLB.");
 
             var query = _db.Applications.Where(a => a.ClubId == clubId);
-            if (!string.IsNullOrEmpty(status))
-                query = query.Where(a => a.Status == status);
+            if (!string.IsNullOrEmpty(status) && Enum.TryParse<ApplicationStatus>(status, true, out var parsedStatus))
+                query = query.Where(a => a.Status == parsedStatus);
 
             var applications = await query
                 .OrderByDescending(a => a.AppliedAt)
@@ -112,7 +113,7 @@ namespace UniClub_Hub.Membership.Services.Implements
                 ws.Cell(i + 2, 3).Value = a.Email;
                 ws.Cell(i + 2, 4).Value = a.StudentId;
                 ws.Cell(i + 2, 5).Value = a.AppliedAt;
-                ws.Cell(i + 2, 6).Value = a.Status;
+                ws.Cell(i + 2, 6).Value = a.Status.ToString();
             }
             ws.Columns().AdjustToContents();
 

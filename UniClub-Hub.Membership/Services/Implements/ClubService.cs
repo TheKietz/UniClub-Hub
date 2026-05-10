@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using UniClub_Hub.Membership.DTOs.Club;
 using UniClub_Hub.Membership.Services.Interfaces;
 using UniClub_Hub.Shared.Data;
+using UniClub_Hub.Shared.Enums;
 using UniClub_Hub.Shared.Models;
 
 namespace UniClub_Hub.Membership.Services.Implements
@@ -123,8 +124,8 @@ namespace UniClub_Hub.Membership.Services.Implements
             if (categoryId.HasValue)
                 query = query.Where(c => c.CategoryId == categoryId);
 
-            if (!string.IsNullOrEmpty(status))
-                query = query.Where(c => c.Status == status);
+            if (!string.IsNullOrEmpty(status) && Enum.TryParse<ClubStatus>(status, true, out var parsedStatus))
+                query = query.Where(c => c.Status == parsedStatus);
 
             return query;
         }

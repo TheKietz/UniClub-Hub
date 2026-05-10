@@ -1,8 +1,8 @@
-using UniClub_Hub.Shared.Common;
 using Microsoft.EntityFrameworkCore;
 using UniClub_Hub.Membership.DTOs.Department;
 using UniClub_Hub.Membership.Services.Interfaces;
 using UniClub_Hub.Shared.Data;
+using UniClub_Hub.Shared.Enums;
 using UniClub_Hub.Shared.Models;
 
 namespace UniClub_Hub.Membership.Services.Implements
@@ -22,7 +22,7 @@ namespace UniClub_Hub.Membership.Services.Implements
 
             return await _db.Departments
                 .AsNoTracking()
-                .Include(d => d.Members!).ThenInclude(m => m.User)
+                .Include(d => d.Members).ThenInclude(m => m.User)
                 .Where(d => d.ClubId == clubId)
                 .Select(d => ToDto(d))
                 .ToListAsync();
@@ -32,7 +32,7 @@ namespace UniClub_Hub.Membership.Services.Implements
         {
             return await _db.Departments
                 .AsNoTracking()
-                .Include(d => d.Members!).ThenInclude(m => m.User)
+                .Include(d => d.Members).ThenInclude(m => m.User)
                 .Where(d => d.ClubId == clubId && d.Id == id)
                 .Select(d => ToDto(d))
                 .FirstOrDefaultAsync()
@@ -86,7 +86,7 @@ namespace UniClub_Hub.Membership.Services.Implements
                 ?? throw new KeyNotFoundException($"Không tìm thấy ban với ID {id} trong CLB này.");
 
             var hasMembers = await _db.ClubMemberships
-                .AnyAsync(m => m.DepartmentId == id && m.Status == MembershipStatus.Active);
+                .AnyAsync(m => m.DepartmentId == id && (m.Status == MembershipStatus.Active || m.Status == MembershipStatus.Probation));
             if (hasMembers)
                 throw new InvalidOperationException("Không thể xóa ban đang có thành viên hoạt động.");
 
@@ -94,25 +94,24 @@ namespace UniClub_Hub.Membership.Services.Implements
             await _db.SaveChangesAsync();
         }
 
-        public async Task SetLeadAsync(int clubId, int departmentId, int? membershipId)
+        public async Task SetLeadAsync(int clubId, int deptId, int? membershipId)
         {
-            var dept = await _db.Departments
-                .FirstOrDefaultAsync(d => d.ClubId == clubId && d.Id == departmentId)
-                ?? throw new KeyNotFoundException($"Không tìm thấy ban với ID {departmentId}.");
+            var department = await _db.Departments.FirstOrDefaultAsync(d => d.ClubId == clubId && d.Id == deptId)
+                ?? throw new KeyNotFoundException($"Không tìm thấy ban với ID {deptId} trong CLB này.");
 
-            // Hạ cấp trưởng ban cũ (nếu có)
-            var oldLead = await _db.ClubMemberships
-                .FirstOrDefaultAsync(m => m.DepartmentId == departmentId && m.ClubRole == ClubRole.DeptLead && m.Status == MembershipStatus.Active);
+            // Hạ trưởng ban cũ
+            var oldLead = await _db.ClubMemberships.FirstOrDefaultAsync(m =>
+                m.DepartmentId == deptId && m.ClubRole == ClubRole.DEPT_LEAD);
             if (oldLead != null)
-                oldLead.ClubRole = ClubRole.Member;
+                oldLead.ClubRole = ClubRole.MEMBER;
 
             // Bổ nhiệm trưởng ban mới
             if (membershipId.HasValue)
             {
-                var newLead = await _db.ClubMemberships
-                    .FirstOrDefaultAsync(m => m.Id == membershipId && m.ClubId == clubId && m.DepartmentId == departmentId && m.Status == MembershipStatus.Active)
+                var newLead = await _db.ClubMemberships.FirstOrDefaultAsync(m =>
+                    m.Id == membershipId.Value && m.DepartmentId == deptId)
                     ?? throw new KeyNotFoundException("Thành viên không thuộc ban này.");
-                newLead.ClubRole = ClubRole.DeptLead;
+                newLead.ClubRole = ClubRole.DEPT_LEAD;
             }
 
             await _db.SaveChangesAsync();
@@ -130,7 +129,7 @@ namespace UniClub_Hub.Membership.Services.Implements
         {
             return await _db.Departments
                 .AsNoTracking()
-                .Include(d => d.Members!).ThenInclude(m => m.User)
+                .Include(d => d.Members).ThenInclude(m => m.User)
                 .Where(d => d.ClubId == clubId && d.Id == id)
                 .Select(d => ToAdminDto(d))
                 .FirstAsync();
@@ -138,14 +137,14 @@ namespace UniClub_Hub.Membership.Services.Implements
 
         private static DepartmentDto ToDto(Department d)
         {
-            var lead = d.Members?.FirstOrDefault(m => m.ClubRole == ClubRole.DeptLead && m.Status == MembershipStatus.Active);
+            var lead = d.Members?.FirstOrDefault(m => m.ClubRole == ClubRole.DEPT_LEAD && m.Status == MembershipStatus.Active);
             return new()
             {
                 Id = d.Id,
                 ClubId = d.ClubId,
                 Name = d.Name,
                 Description = d.Description,
-                MemberCount = d.Members!.Count(m => m.Status == MembershipStatus.Active),
+                MemberCount = d.Members!.Count(m => m.Status == MembershipStatus.Active || m.Status == MembershipStatus.Probation),
                 DeptLeadMembershipId = lead?.Id,
                 DeptLeadName = lead?.User?.FullName ?? lead?.User?.Email,
             };
@@ -153,14 +152,14 @@ namespace UniClub_Hub.Membership.Services.Implements
 
         private static AdminDepartmentDto ToAdminDto(Department d)
         {
-            var lead = d.Members?.FirstOrDefault(m => m.ClubRole == ClubRole.DeptLead && m.Status == MembershipStatus.Active);
+            var lead = d.Members?.FirstOrDefault(m => m.ClubRole == ClubRole.DEPT_LEAD && m.Status == MembershipStatus.Active);
             return new()
             {
                 Id = d.Id,
                 ClubId = d.ClubId,
                 Name = d.Name,
                 Description = d.Description,
-                MemberCount = d.Members!.Count(m => m.Status == MembershipStatus.Active),
+                MemberCount = d.Members!.Count(m => m.Status == MembershipStatus.Active || m.Status == MembershipStatus.Probation),
                 DeptLeadMembershipId = lead?.Id,
                 DeptLeadName = lead?.User?.FullName ?? lead?.User?.Email,
                 CreatedAt = d.CreatedAt,

@@ -5,6 +5,7 @@ using System.Security.Claims;
 using UniClub_Hub.Membership.DTOs.Membership;
 using UniClub_Hub.Membership.Services.Implements;
 using UniClub_Hub.Shared.Common;
+using UniClub_Hub.Shared.Enums;
 using UniClub_Hub.Shared.Data;
 
 namespace UniClub_Hub.Server.Controllers.Membership
@@ -61,7 +62,7 @@ namespace UniClub_Hub.Server.Controllers.Membership
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
             return await _db.ClubMemberships.AnyAsync(m =>
                 m.UserId == userId && m.ClubId == clubId &&
-                m.ClubRole == ClubRole.ClubAdmin && m.Status == MembershipStatus.Active);
+                m.ClubRole == ClubRole.CLUB_ADMIN && m.Status == MembershipStatus.Active);
         }
     }
 }

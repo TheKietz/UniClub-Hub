@@ -1,4 +1,4 @@
-using UniClub_Hub.Shared.Common;
+using UniClub_Hub.Shared.Enums;
 using ClosedXML.Excel;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
@@ -12,7 +12,7 @@ namespace UniClub_Hub.Membership.Services.Implements
     {
         private readonly UniClubDbContext _db;
 
-        private static readonly string[] ValidRoles = [ClubRole.Member, ClubRole.DeptLead, ClubRole.ClubAdmin];
+        private static readonly string[] ValidRoles = ["MEMBER", "DEPT_LEAD", "CLUB_ADMIN"];
 
         public ImportService(UniClubDbContext db)
         {
@@ -113,7 +113,7 @@ namespace UniClub_Hub.Membership.Services.Implements
                 {
                     UserId = userId,
                     ClubId = clubId,
-                    ClubRole = row.ClubRole?.ToUpper() ?? ClubRole.Member,
+                    ClubRole = Enum.Parse<ClubRole>(row.ClubRole?.ToUpper() ?? "MEMBER"),
                     DepartmentId = deptId,
                     JoinedDate = DateOnly.FromDateTime(DateTime.UtcNow),
                     Status = MembershipStatus.Active,
@@ -155,7 +155,7 @@ namespace UniClub_Hub.Membership.Services.Implements
                 {
                     RowNumber = r,
                     Email = email,
-                    ClubRole = string.IsNullOrEmpty(role) ? ClubRole.Member : role,
+                    ClubRole = string.IsNullOrEmpty(role) ? "MEMBER" : role,
                     DepartmentName = string.IsNullOrEmpty(dept) ? null : dept,
                 });
             }

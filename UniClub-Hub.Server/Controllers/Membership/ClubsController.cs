@@ -1,12 +1,13 @@
+using System.Security.Claims;
+using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using System.Security.Claims;
-using System.Text.Json;
 using UniClub_Hub.Membership.DTOs.Club;
 using UniClub_Hub.Membership.Services.Interfaces;
 using UniClub_Hub.Shared.Common;
 using UniClub_Hub.Shared.Data;
+using UniClub_Hub.Shared.Enums;
 
 namespace UniClub_Hub.Server.Controllers.Membership
 {
@@ -16,19 +17,18 @@ namespace UniClub_Hub.Server.Controllers.Membership
     {
         private readonly IClubService _clubService;
         private readonly UniClubDbContext _db;
-        private readonly IFileStorageService _storage;
 
-        public ClubsController(IClubService clubService, UniClubDbContext db, IFileStorageService storage)
+        public ClubsController(IClubService clubService, UniClubDbContext db)
         {
             _clubService = clubService;
             _db = db;
-            _storage = storage;
         }
 
         [HttpGet]
         public async Task<IActionResult> GetAll(
             [FromQuery] int? categoryId,
-            [FromQuery] string? status)
+            [FromQuery] string? status
+        )
         {
             var result = await _clubService.GetAllAsync(categoryId, status);
             return Ok(ApiResponse<IEnumerable<ClubDto>>.Ok(result));
@@ -48,73 +48,13 @@ namespace UniClub_Hub.Server.Controllers.Membership
             }
         }
 
-        // Cập nhật thông tin CLB — CLUB_ADMIN hoặc SUPER_ADMIN
-        [HttpPatch("{id}/settings")]
-        [Authorize]
-        public async Task<IActionResult> UpdateSettings(int id, [FromBody] UpdateClubSettingsDto dto)
-        {
-            var club = await _db.Clubs.FindAsync(id);
-            if (club == null) return NotFound(ApiResponse<object>.Fail("Không tìm thấy CLB."));
-
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
-            var isSuperAdmin = User.IsInRole("SUPER_ADMIN");
-
-            if (!isSuperAdmin)
-            {
-                var isClubAdmin = await _db.ClubMemberships.AnyAsync(m =>
-                    m.UserId == userId && m.ClubId == id &&
-                    m.ClubRole == ClubRole.ClubAdmin && m.Status == MembershipStatus.Active);
-                if (!isClubAdmin) return Forbid();
-            }
-
-            if (dto.Description != null) club.Description = dto.Description;
-            if (dto.ContactInfo != null) club.ContactInfo = dto.ContactInfo;
-            if (dto.AdvisorName != null) club.AdvisorName = dto.AdvisorName;
-            if (dto.LogoUrl != null) club.LogoUrl = dto.LogoUrl;
-
-            await _db.SaveChangesAsync();
-            var result = await _clubService.GetByIdAsync(id);
-            return Ok(ApiResponse<ClubDto>.Ok(result, "Cập nhật thông tin CLB thành công."));
-        }
-
-        // Upload logo CLB — CLUB_ADMIN hoặc SUPER_ADMIN
-        [HttpPost("{id}/logo")]
-        [Authorize]
-        public async Task<IActionResult> UploadLogo(int id, IFormFile file)
-        {
-            var club = await _db.Clubs.FindAsync(id);
-            if (club == null) return NotFound(ApiResponse<object>.Fail("Không tìm thấy CLB."));
-
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
-            var isSuperAdmin = User.IsInRole("SUPER_ADMIN");
-
-            if (!isSuperAdmin)
-            {
-                var isClubAdmin = await _db.ClubMemberships.AnyAsync(m =>
-                    m.UserId == userId && m.ClubId == id &&
-                    m.ClubRole == ClubRole.ClubAdmin && m.Status == MembershipStatus.Active);
-                if (!isClubAdmin) return Forbid();
-            }
-
-            try
-            {
-                var url = await _storage.UploadAsync(file, "clubs");
-                club.LogoUrl = url;
-                await _db.SaveChangesAsync();
-                return Ok(ApiResponse<object>.Ok(new { logoUrl = url }, "Upload logo thành công."));
-            }
-            catch (InvalidOperationException ex)
-            {
-                return BadRequest(ApiResponse<object>.Fail(ex.Message));
-            }
-        }
-
         // Lấy schema form đăng ký của CLB — public
         [HttpGet("{id}/form-schema")]
         public async Task<IActionResult> GetFormSchema(int id)
         {
             var club = await _db.Clubs.FindAsync(id);
-            if (club == null) return NotFound(ApiResponse<object>.Fail("Không tìm thấy CLB."));
+            if (club == null)
+                return NotFound(ApiResponse<object>.Fail("Không tìm thấy CLB."));
 
             if (string.IsNullOrEmpty(club.FormSchema))
                 return Ok(ApiResponse<object?>.Ok(null, "CLB chưa cấu hình form."));
@@ -129,7 +69,8 @@ namespace UniClub_Hub.Server.Controllers.Membership
         public async Task<IActionResult> UpdateFormSchema(int id, [FromBody] JsonElement schema)
         {
             var club = await _db.Clubs.FindAsync(id);
-            if (club == null) return NotFound(ApiResponse<object>.Fail("Không tìm thấy CLB."));
+            if (club == null)
+                return NotFound(ApiResponse<object>.Fail("Không tìm thấy CLB."));
 
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
             var isSuperAdmin = User.IsInRole("SUPER_ADMIN");
@@ -137,10 +78,11 @@ namespace UniClub_Hub.Server.Controllers.Membership
             if (!isSuperAdmin)
             {
                 var isClubAdmin = await _db.ClubMemberships.AnyAsync(m =>
-                    m.UserId == userId &&
-                    m.ClubId == id &&
-                    m.ClubRole == ClubRole.ClubAdmin &&
-                    m.Status == MembershipStatus.Active);
+                    m.UserId == userId
+                    && m.ClubId == id
+                    && m.ClubRole == UniClub_Hub.Shared.Enums.ClubRole.CLUB_ADMIN
+                    && m.Status == MembershipStatus.Active
+                );
 
                 if (!isClubAdmin)
                     return Forbid();

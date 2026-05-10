@@ -5,6 +5,7 @@ using System.Security.Claims;
 using UniClub_Hub.Membership.DTOs.Membership;
 using UniClub_Hub.Membership.Services.Interfaces;
 using UniClub_Hub.Shared.Common;
+using UniClub_Hub.Shared.Enums;
 using UniClub_Hub.Shared.Data;
 
 namespace UniClub_Hub.Server.Controllers.Membership
@@ -153,7 +154,7 @@ namespace UniClub_Hub.Server.Controllers.Membership
             {
                 var isClubAdmin = await _db.ClubMemberships.AnyAsync(m =>
                     m.UserId == currentUserId && m.ClubId == clubId &&
-                    m.ClubRole == ClubRole.ClubAdmin && m.Status == MembershipStatus.Active);
+                    m.ClubRole == ClubRole.CLUB_ADMIN && m.Status == MembershipStatus.Active);
                 if (!isClubAdmin) return Forbid();
             }
 

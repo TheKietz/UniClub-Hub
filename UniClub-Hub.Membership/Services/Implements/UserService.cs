@@ -4,6 +4,7 @@ using UniClub_Hub.Membership.DTOs.User;
 using UniClub_Hub.Membership.Services.Interfaces;
 using UniClub_Hub.Shared.Common;
 using UniClub_Hub.Shared.Data;
+using UniClub_Hub.Shared.Enums;
 using UniClub_Hub.Shared.Models;
 
 namespace UniClub_Hub.Membership.Services.Implements
@@ -249,9 +250,9 @@ namespace UniClub_Hub.Membership.Services.Implements
                     ClubId = m.ClubId,
                     ClubName = m.Club.Name,
                     ClubLogoUrl = m.Club.LogoUrl,
-                    ClubRole = m.ClubRole,
+                    ClubRole = m.ClubRole.ToString(),
                     DepartmentName = m.Department != null ? m.Department.Name : null,
-                    Status = m.Status,
+                    Status = m.Status.ToString(),
                     JoinedDate = m.JoinedDate,
                     ResignedDate = m.ResignedDate,
                 })

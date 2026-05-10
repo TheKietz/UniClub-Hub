@@ -1,8 +1,8 @@
-using UniClub_Hub.Shared.Common;
 using Microsoft.EntityFrameworkCore;
 using UniClub_Hub.Membership.DTOs.Stats;
 using UniClub_Hub.Membership.Services.Interfaces;
 using UniClub_Hub.Shared.Data;
+using UniClub_Hub.Shared.Enums;
 
 namespace UniClub_Hub.Membership.Services.Implements
 {
@@ -19,7 +19,7 @@ namespace UniClub_Hub.Membership.Services.Implements
         {
             var totalUsers = await _db.Users.CountAsync();
             var totalClubs = await _db.Clubs.CountAsync();
-            var activeClubs = await _db.Clubs.CountAsync(c => c.Status == MembershipStatus.Active);
+            var activeClubs = await _db.Clubs.CountAsync(c => c.Status == ClubStatus.Active);
             var totalActiveMembers = await _db.ClubMemberships.CountAsync(m => m.Status == MembershipStatus.Active);
 
             var appCounts = await _db.Applications
@@ -112,19 +112,19 @@ namespace UniClub_Hub.Membership.Services.Implements
 
         private sealed class StatusCount
         {
-            public string Status { get; set; } = null!;
+            public ApplicationStatus Status { get; set; }
             public int Count { get; set; }
         }
 
         private static ApplicationStatusCountDto BuildStatusCount(List<StatusCount> counts)
         {
-            int Get(string s) => counts.FirstOrDefault(x => x.Status == s)?.Count ?? 0;
+            int Get(ApplicationStatus s) => counts.FirstOrDefault(x => x.Status == s)?.Count ?? 0;
             return new ApplicationStatusCountDto
             {
-                Pending = Get("Pending"),
-                Interview = Get("Interview"),
-                Accepted = Get("Accepted"),
-                Rejected = Get("Rejected")
+                Pending = Get(ApplicationStatus.Pending),
+                Interview = Get(ApplicationStatus.Interview),
+                Accepted = Get(ApplicationStatus.Accepted),
+                Rejected = Get(ApplicationStatus.Rejected)
             };
         }
     }
