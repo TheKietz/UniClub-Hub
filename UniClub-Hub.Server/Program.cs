@@ -1,24 +1,20 @@
-﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using UniClub_Hub.Shared.Email;
 using UniClub_Hub.Membership;
 using UniClub_Hub.Operations;
 using UniClub_Hub.Portal;
 using UniClub_Hub.Shared.Common.Helper;
 using UniClub_Hub.Shared.Data;
 using UniClub_Hub.Shared.Models;
-using Npgsql;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
-using OpenTelemetry; 
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddControllers();
@@ -31,17 +27,19 @@ builder.Services.AddOpenTelemetry()
         .SetResourceBuilder(ResourceBuilder.CreateDefault().AddService("UniClubHub"))
         .AddAspNetCoreInstrumentation()
         .AddHttpClientInstrumentation()
-        .AddNpgsql()
         .AddOtlpExporter());
 
-// Cấu hình Identity
-builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options => {
-    options.Password.RequireDigit = false; 
+builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
+{
+    options.Password.RequireDigit = false;
+    options.Password.RequireLowercase = false;
+    options.Password.RequireUppercase = false;
+    options.Password.RequireNonAlphanumeric = false;
     options.Password.RequiredLength = 6;
 })
 .AddEntityFrameworkStores<UniClubDbContext>()
 .AddDefaultTokenProviders();
-// Cấu hình CORS
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowReactApp", policy =>
@@ -52,40 +50,55 @@ builder.Services.AddCors(options =>
               .AllowCredentials();
     });
 });
-// Cấu hình JWT Authentication
-// Lấy giá trị Key từ file appsettings.json
-var jwtKey = builder.Configuration["Jwt:Key"];
 
-builder.Services.AddAuthentication(options => {
+var jwtKey = builder.Configuration["Jwt:Key"]!;
+builder.Services.AddAuthentication(options =>
+{
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
     options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
 })
-.AddJwtBearer(options => {
+.AddJwtBearer(options =>
+{
     options.TokenValidationParameters = new TokenValidationParameters
     {
-        ValidateIssuer = false, // Tạm thời tắt để test cho nhanh
+        ValidateIssuer = false,
         ValidateAudience = false,
         ValidateLifetime = true,
         ValidateIssuerSigningKey = true,
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey!))
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
     };
 });
 
 builder.Services.AddAuthorization();
-
-// Đăng ký FileUploadHelper để có thể inject vào các controller hoặc service khác
+builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<FileUploadHelper>();
-// Đăng ký các service từ các module khác nhau
-builder.Services.AddOperationsServices();
+builder.Services.AddScoped<IEmailService, SmtpEmailService>();
+
 builder.Services.AddMembershipServices();
+builder.Services.AddOperationsServices();
 builder.Services.AddPortalServices();
 
 var app = builder.Build();
 
+if (app.Environment.IsDevelopment())
+{
+    await UniClub_Hub.Server.Data.DbSeeder.SeedAsync(app.Services);
+}
+else
+{
+    // Production: chỉ tạo roles, không seed sample data
+    using var scope = app.Services.CreateScope();
+    var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+    foreach (var role in new[] { "SUPER_ADMIN", "USER" })
+    {
+        if (!await roleManager.RoleExistsAsync(role))
+            await roleManager.CreateAsync(new IdentityRole(role));
+    }
+}
+
 app.UseDefaultFiles();
 app.UseStaticFiles();
 
-// Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -93,11 +106,10 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-
-
 app.UseCors("AllowReactApp");
+app.UseAuthentication();
+app.UseAuthorization();
 app.MapControllers();
 app.MapFallbackToFile("/index.html");
 
 app.Run();
-

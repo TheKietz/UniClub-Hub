@@ -1,6 +1,8 @@
+using UniClub_Hub.Shared.Common;
+
 namespace UniClub_Hub.Shared.Models
 {
-    public class Club
+    public class Club : IAuditable, ISoftDeletable
     {
         public int Id { get; set; }
         public string Name { get; set; } = null!;
@@ -12,7 +14,17 @@ namespace UniClub_Hub.Shared.Models
         public DateOnly? EstablishedDate { get; set; }
         public string Status { get; set; } = "Active";
         public string? AdvisorName { get; set; }
-        public string? FormSchema { get; set; } // JSONB — cấu trúc form tuyển thành viên
+        public string? FormSchema { get; set; } // JSONB
+
+        // IAuditable
+        public DateTime CreatedAt { get; set; }
+        public string? CreatedBy { get; set; }
+        public DateTime? UpdatedAt { get; set; }
+        public string? UpdatedBy { get; set; }
+
+        // ISoftDeletable
+        public bool IsDeleted { get; set; } = false;
+        public string? DeletedBy { get; set; }
 
         public Category? Category { get; set; }
         public LandingPage? LandingPage { get; set; }

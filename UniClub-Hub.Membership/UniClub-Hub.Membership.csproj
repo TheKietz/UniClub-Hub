@@ -13,6 +13,9 @@
     <None Remove="Mappings\**" />
   </ItemGroup>
 	<ItemGroup>
+		<PackageReference Include="ClosedXML" Version="0.105.0" />
+		<PackageReference Include="CloudinaryDotNet" Version="1.29.0" />
+		<PackageReference Include="Google.Apis.Auth" Version="1.74.0" />
 		<PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.16" />
 		<PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="8.0.16" />
 		<PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="8.0.22" />
@@ -26,11 +29,14 @@
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
 		<PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="8.0.16" />
-		<PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="8.0.16" />
 		<PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="8.0.16">
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
 		<PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\UniClub-Hub.Shared\UniClub-Hub.Shared.csproj" />
 	</ItemGroup>
 </Project>

@@ -1,9 +1,7 @@
-﻿using Microsoft.Extensions.DependencyInjection;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using Microsoft.Extensions.DependencyInjection;
+using UniClub_Hub.Membership.Services.Implements;
+using UniClub_Hub.Membership.Services.Interfaces;
+using UniClub_Hub.Shared.Common;
 
 namespace UniClub_Hub.Membership
 {
@@ -11,8 +9,17 @@ namespace UniClub_Hub.Membership
     {
         public static IServiceCollection AddMembershipServices(this IServiceCollection services)
         {
-            // Đăng ký các Service 
-            //vd: services.AddScoped<IEventService, EventService>();
+            services.AddScoped<IAuthService, AuthService>();
+            services.AddScoped<ICategoryService, CategoryService>();
+            services.AddScoped<IClubService, ClubService>();
+            services.AddScoped<IDepartmentService, DepartmentService>();
+            services.AddScoped<IClubMembershipService, ClubMembershipService>();
+            services.AddScoped<IApplicationService, ApplicationService>();
+            services.AddScoped<IFileStorageService, CloudinaryStorageService>();
+            services.AddScoped<IUserService, UserService>();
+            services.AddScoped<IStatsService, StatsService>();
+            services.AddScoped<INotificationService, NotificationService>();
+            services.AddScoped<IExportService, ExportService>();
             return services;
         }
     }
