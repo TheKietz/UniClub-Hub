@@ -115,7 +115,11 @@ namespace UniClub_Hub.Membership.Services.Implements
 
         private IQueryable<Club> BuildBaseQuery(int? categoryId, string? status)
         {
-            var query = _db.Clubs.AsNoTracking().AsQueryable();
+            var query = _db.Clubs
+                .AsNoTracking()
+                .Include(c => c.Category)
+                .Include(c => c.ClubMemberships)
+                .AsQueryable();
 
             if (categoryId.HasValue)
                 query = query.Where(c => c.CategoryId == categoryId);

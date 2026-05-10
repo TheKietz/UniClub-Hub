@@ -1,6 +1,7 @@
 export interface UserMembership {
   clubId: number
   clubName: string
+  departmentId?: number
   departmentName?: string
   clubRole: string
   joinedDate: string
@@ -11,7 +12,12 @@ export interface UserInfo {
   id: string
   email: string
   fullName: string | null
+  studentId: string | null
+  major: string | null
   avatarUrl: string | null
+  phone: string | null
+  gender: string | null
+  dateOfBirth: string | null
   roles: string[]
   memberships: UserMembership[]
 }
@@ -26,7 +32,6 @@ export const SYSTEM_ROLES = {
 export const CLUB_ROLES = {
   CLUB_ADMIN: 'CLUB_ADMIN',
   DEPT_LEAD: 'DEPT_LEAD',
-  DEPT_DEPUTY: 'DEPT_DEPUTY',
   MEMBER: 'MEMBER',
 } as const
 

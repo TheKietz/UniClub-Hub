@@ -52,10 +52,10 @@ export default function ApplicationsPage() {
   }
 
   return (
-    <div className="p-8 space-y-6">
+    <div className="px-8 pb-8 space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Đơn đăng ký</h1>
-        <p className="text-gray-500 mt-1">Xem xét và duyệt đơn tham gia CLB</p>
+        <h1 className="text-2xl font-bold" style={{ color: '#0f172a' }}>Đơn đăng ký</h1>
+        <p className="mt-1" style={{ color: '#6b7280' }}>Xem xét và duyệt đơn tham gia CLB</p>
       </div>
 
       {/* Filter */}
@@ -64,11 +64,10 @@ export default function ApplicationsPage() {
           <button
             key={opt.value}
             onClick={() => setStatusFilter(opt.value)}
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-              statusFilter === opt.value
+            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${statusFilter === opt.value
                 ? 'bg-indigo-600 text-white'
                 : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
-            }`}
+              }`}
           >
             {opt.label}
           </button>

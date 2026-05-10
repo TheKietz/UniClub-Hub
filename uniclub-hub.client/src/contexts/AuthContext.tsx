@@ -6,7 +6,8 @@ interface RegisterData {
   email: string
   password: string
   fullName: string
-  studentId?: string
+  studentId: string
+  major: string
 }
 
 interface AuthContextType {
@@ -15,10 +16,11 @@ interface AuthContextType {
   isAuthenticated: boolean
   isSuperAdmin: boolean
   hasRole: (role: string) => boolean
-  // Trả về ClubRole nếu user có membership Active trong CLB đó, null nếu không
   getClubRole: (clubId: number) => string | null
-  login: (email: string, password: string, rememberMe?: boolean) => Promise<void>
+  login: (email: string, password: string, rememberMe?: boolean) => Promise<UserInfo>
+  googleLogin: (googleAccessToken: string) => Promise<UserInfo>
   register: (data: RegisterData) => Promise<void>
+  refreshUser: () => Promise<void>
   logout: () => void
 }
 
@@ -29,7 +31,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    const token = localStorage.getItem('accessToken') || sessionStorage.getItem('accessToken')
+    const token = localStorage.getItem('accessToken')
     if (!token) { setIsLoading(false); return }
     api.get('/users/me')
       .then((res: { data: { data: UserInfo } }) => setUser(res.data.data))
@@ -40,27 +42,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .finally(() => setIsLoading(false))
   }, [])
 
-  async function login(email: string, password: string, rememberMe = true) {
-    const res = await api.post('/auth/login', { email, password })
-    const { accessToken, refreshToken } = res.data.data
-    const storage = rememberMe ? localStorage : sessionStorage
-    storage.setItem('accessToken', accessToken)
-    storage.setItem('refreshToken', refreshToken)
+  async function login(email: string, password: string, rememberMe = true): Promise<UserInfo> {
+    const res = await api.post('/auth/login', { email, password, rememberMe })
+    const { accessToken } = res.data.data
+    localStorage.setItem('accessToken', accessToken)
     const me = await api.get('/users/me')
-    setUser(me.data.data)
+    const userInfo: UserInfo = me.data.data
+    setUser(userInfo)
+    return userInfo
+  }
+
+  async function googleLogin(googleAccessToken: string): Promise<UserInfo> {
+    const res = await api.post('/auth/google', { accessToken: googleAccessToken })
+    const { accessToken } = res.data.data
+    localStorage.setItem('accessToken', accessToken)
+    const me = await api.get('/users/me')
+    const userInfo: UserInfo = me.data.data
+    setUser(userInfo)
+    return userInfo
   }
 
   async function register(data: RegisterData) {
     await api.post('/auth/register', data)
   }
 
+  async function refreshUser() {
+    const me = await api.get('/users/me')
+    setUser(me.data.data)
+  }
+
   function logout() {
-    const refreshToken = localStorage.getItem('refreshToken') || sessionStorage.getItem('refreshToken')
-    if (refreshToken) api.post('/auth/revoke', { refreshToken }).catch(() => { })
+    // Backend xoá HttpOnly cookie, frontend chỉ xoá accessToken
+    api.post('/auth/revoke').catch(() => { })
     localStorage.removeItem('accessToken')
-    localStorage.removeItem('refreshToken')
-    sessionStorage.removeItem('accessToken')
-    sessionStorage.removeItem('refreshToken')
     setUser(null)
   }
 
@@ -84,7 +98,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       hasRole,
       getClubRole,
       login,
+      googleLogin,
       register,
+      refreshUser,
       logout,
     }}>
       {children}

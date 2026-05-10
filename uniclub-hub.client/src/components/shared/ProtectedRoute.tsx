@@ -1,12 +1,14 @@
-import { Navigate, Outlet } from 'react-router-dom'
+import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
+import ForbiddenPage from '@/features/errors/ForbiddenPage'
 
 interface Props {
   requireAdmin?: boolean
 }
 
 export default function ProtectedRoute({ requireAdmin = false }: Props) {
-  const { isAuthenticated, isSuperAdmin, isLoading } = useAuth()
+  const { isAuthenticated, isSuperAdmin, isLoading, user } = useAuth()
+  const location = useLocation()
 
   if (isLoading) {
     return (
@@ -17,7 +19,12 @@ export default function ProtectedRoute({ requireAdmin = false }: Props) {
   }
 
   if (!isAuthenticated) return <Navigate to="/login" replace />
-  if (requireAdmin && !isSuperAdmin) return <Navigate to="/dashboard" replace />
+  if (requireAdmin && !isSuperAdmin) return <ForbiddenPage />
+
+  // Non-admin users must complete profile before accessing the app
+  if (!isSuperAdmin && !user?.studentId && location.pathname !== '/complete-profile') {
+    return <Navigate to="/complete-profile" replace />
+  }
 
   return <Outlet />
 }

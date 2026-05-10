@@ -20,10 +20,10 @@ export default function DepartmentsPage() {
   }, [clubId])
 
   return (
-    <div className="p-8 space-y-6">
+    <div className="px-8 pb-8 space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Ban bộ phận</h1>
-        <p className="text-gray-500 mt-1">Cơ cấu tổ chức của câu lạc bộ</p>
+        <h1 className="text-2xl font-bold" style={{ color: '#0f172a' }}>Ban bộ phận</h1>
+        <p className="mt-1" style={{ color: '#6b7280' }}>Cơ cấu tổ chức của câu lạc bộ</p>
       </div>
 
       <div className="flex items-start gap-2 bg-blue-50 border border-blue-200 rounded-lg px-4 py-3">

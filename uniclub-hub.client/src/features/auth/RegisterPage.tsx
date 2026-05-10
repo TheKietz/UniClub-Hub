@@ -1,51 +1,90 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { useGoogleLogin } from '@react-oauth/google'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Eye, EyeOff, Mail, Lock, User, Hash, Users, Calendar, Award } from 'lucide-react'
+import MajorSelect from '@/components/shared/MajorSelect'
 import { toast } from 'sonner'
 
+type F = { fullName: string; email: string; studentId: string; major: string; password: string; confirmPassword: string }
+type Errs = Partial<Record<keyof F, string>>
+
 export default function RegisterPage() {
-  const { register } = useAuth()
+  const { register, googleLogin, isSuperAdmin } = useAuth()
   const navigate = useNavigate()
 
-  const [form, setForm] = useState({ email: '', password: '', confirmPassword: '', fullName: '', studentId: '' })
+  const [form, setForm] = useState<F>({ fullName: '', email: '', studentId: '', major: '', password: '', confirmPassword: '' })
   const [showPassword, setShowPassword] = useState(false)
-  const [error, setError] = useState('')
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [errs, setErrs] = useState<Errs>({})
   const [loading, setLoading] = useState(false)
 
-  function set(field: keyof typeof form) {
-    return (e: { target: { value: string } }) =>
-      setForm(prev => ({ ...prev, [field]: e.target.value }))
+  function validate(v: F): Errs {
+    const e: Errs = {}
+    if (!v.fullName.trim()) e.fullName = 'Vui lòng nhập họ và tên.'
+    if (!v.email.trim()) e.email = 'Vui lòng nhập email.'
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.email)) e.email = 'Email không đúng định dạng.'
+    if (!v.studentId.trim()) e.studentId = 'Vui lòng nhập mã số sinh viên.'
+    if (!v.major.trim()) e.major = 'Vui lòng nhập ngành học.'
+    if (!v.password) e.password = 'Vui lòng nhập mật khẩu.'
+    else if (v.password.length < 6) e.password = 'Mật khẩu tối thiểu 6 ký tự.'
+    if (!v.confirmPassword) e.confirmPassword = 'Vui lòng xác nhận mật khẩu.'
+    else if (v.password !== v.confirmPassword) e.confirmPassword = 'Mật khẩu không khớp.'
+    return e
+  }
+
+  function onChange(field: keyof F) {
+    return (e: { target: { value: string } }) => {
+      const value = e.target.value
+      setForm(prev => ({ ...prev, [field]: value }))
+      if (errs[field]) setErrs(prev => ({ ...prev, [field]: '' }))
+    }
+  }
+
+  function onBlur(field: keyof F) {
+    const fieldErr = validate(form)[field]
+    setErrs(prev => ({ ...prev, [field]: fieldErr ?? '' }))
   }
 
   async function handleSubmit(e: { preventDefault(): void }) {
     e.preventDefault()
-    setError('')
-    if (form.password !== form.confirmPassword) {
-      setError('Mật khẩu xác nhận không khớp. Vui lòng kiểm tra lại.')
+    const fieldErrs = validate(form)
+    if (Object.keys(fieldErrs).length > 0) {
+      setErrs(fieldErrs)
       return
     }
     setLoading(true)
     try {
-      await register({
-        email: form.email,
-        password: form.password,
-        fullName: form.fullName,
-        studentId: form.studentId,
-      })
+      await register({ email: form.email, password: form.password, fullName: form.fullName, studentId: form.studentId, major: form.major })
       navigate('/login', { state: { registered: true } })
     } catch (err: any) {
-      setError(err.response?.data?.message ?? 'Đăng ký thất bại. Vui lòng thử lại.')
+      toast.error(err.response?.data?.message ?? 'Đăng ký thất bại. Vui lòng thử lại.')
     } finally {
       setLoading(false)
     }
   }
 
-  function handleGoogleRegister() {
-    toast.info('Tính năng đăng ký bằng Google đang được phát triển.')
+  const handleGoogleRegister = useGoogleLogin({
+    flow: 'implicit',
+    onSuccess: async tokenResponse => {
+      setLoading(true)
+      try {
+        await googleLogin(tokenResponse.access_token)
+        navigate(isSuperAdmin ? '/admin' : '/dashboard', { replace: true })
+      } catch (err: any) {
+        toast.error(err.response?.data?.message ?? 'Đăng ký Google thất bại.')
+      } finally {
+        setLoading(false)
+      }
+    },
+    onError: () => toast.error('Đăng ký Google thất bại. Vui lòng thử lại.'),
+  })
+
+  function inputCls(field: keyof F, extra = '') {
+    return `${extra}${errs[field] ? ' border-red-400 focus-visible:ring-red-300' : ''}`
   }
 
   return (
@@ -57,7 +96,6 @@ export default function RegisterPage() {
           background: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 30%, #312e81 65%, #4c1d95 100%)',
         }}
       >
-        {/* Background orbs */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div
             className="absolute -top-20 -right-20 w-80 h-80 rounded-full opacity-20"
@@ -69,7 +107,6 @@ export default function RegisterPage() {
           />
         </div>
 
-        {/* Logo */}
         <div className="relative z-10">
           <div className="flex items-center gap-3">
             <div
@@ -82,7 +119,6 @@ export default function RegisterPage() {
           </div>
         </div>
 
-        {/* Center content */}
         <div className="relative z-10 space-y-8">
           <div>
             <h2
@@ -125,7 +161,7 @@ export default function RegisterPage() {
 
       {/* Right form panel */}
       <div className="flex-1 flex items-center justify-center p-8 bg-white">
-        <div className="w-full max-w-sm space-y-6">
+        <div className="w-full max-w-md space-y-6">
           {/* Mobile logo */}
           <div className="lg:hidden text-center">
             <div
@@ -137,27 +173,15 @@ export default function RegisterPage() {
             <h1 className="text-2xl font-bold text-gray-900">UniClub Hub</h1>
           </div>
 
-          {/* Heading */}
           <div>
             <h1 style={{ fontSize: '2.1rem', fontWeight: 800, letterSpacing: '-0.6px', margin: '0 0 8px 0', color: '#0f172a', lineHeight: 1.2 }}>
               Tạo tài khoản
             </h1>
-            <p style={{ color: '#64748b', fontSize: '0.9rem', margin: 0 }}>Điền thông tin để đăng ký tham gia hệ thống</p>
           </div>
 
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {error && (
-              <div
-                className="flex items-start gap-2.5 rounded-lg px-4 py-3 text-sm"
-                style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#dc2626' }}
-              >
-                <span className="mt-0.5">⚠</span>
-                <span>{error}</span>
-              </div>
-            )}
-
-            <div className="space-y-2">
+          <form onSubmit={handleSubmit} noValidate className="space-y-3">
+            {/* Họ và tên */}
+            <div className="space-y-1">
               <Label htmlFor="fullName" className="text-sm font-medium text-gray-700">
                 Họ và tên <span className="text-red-500">*</span>
               </Label>
@@ -167,16 +191,18 @@ export default function RegisterPage() {
                   id="fullName"
                   type="text"
                   value={form.fullName}
-                  onChange={set('fullName')}
-                  required
+                  onChange={onChange('fullName')}
+                  onBlur={() => onBlur('fullName')}
                   placeholder="Nguyễn Văn A"
-                  className="pl-9"
+                  className={inputCls('fullName', 'pl-9')}
                   style={{ height: '42px' }}
                 />
               </div>
+              <p className="min-h-4 text-xs text-red-500">{errs.fullName}</p>
             </div>
 
-            <div className="space-y-2">
+            {/* Email */}
+            <div className="space-y-1">
               <Label htmlFor="email" className="text-sm font-medium text-gray-700">
                 Email <span className="text-red-500">*</span>
               </Label>
@@ -186,37 +212,56 @@ export default function RegisterPage() {
                   id="email"
                   type="email"
                   value={form.email}
-                  onChange={set('email')}
-                  required
+                  onChange={onChange('email')}
+                  onBlur={() => onBlur('email')}
                   placeholder="example@student.edu.vn"
-                  className="pl-9"
+                  className={inputCls('email', 'pl-9')}
                   style={{ height: '42px' }}
                 />
               </div>
+              <p className="min-h-4 text-xs text-red-500">{errs.email}</p>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="studentId" className="text-sm font-medium text-gray-700">
-                Mã số sinh viên <span className="text-red-500">*</span>
-              </Label>
-              <div className="relative">
-                <Hash size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                <Input
-                  id="studentId"
-                  type="text"
-                  value={form.studentId}
-                  onChange={set('studentId')}
-                  required
-                  placeholder="2151234567"
-                  className="pl-9"
-                  style={{ height: '42px' }}
+            {/* MSSV + Ngành — 2 cột */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label htmlFor="studentId" className="text-sm font-medium text-gray-700">
+                  Mã số SV <span className="text-red-500">*</span>
+                </Label>
+                <div className="relative">
+                  <Hash size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <Input
+                    id="studentId"
+                    type="text"
+                    value={form.studentId}
+                    onChange={onChange('studentId')}
+                    onBlur={() => onBlur('studentId')}
+                    placeholder="2151234567"
+                    className={inputCls('studentId', 'pl-9')}
+                    style={{ height: '42px' }}
+                  />
+                </div>
+                <p className="min-h-4 text-xs text-red-500">{errs.studentId}</p>
+              </div>
+
+              <div className="space-y-1">
+                <Label htmlFor="major" className="text-sm font-medium text-gray-700">
+                  Ngành <span className="text-red-500">*</span>
+                </Label>
+                <MajorSelect
+                  id="major"
+                  value={form.major}
+                  onChange={val => { setForm(p => ({ ...p, major: val })); if (errs.major) setErrs(p => ({ ...p, major: '' })) }}
+                  onBlur={() => onBlur('major')}
+                  error={!!errs.major}
                 />
+                <p className="min-h-4 text-xs text-red-500">{errs.major}</p>
               </div>
             </div>
 
             {/* 2 password fields side by side */}
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
+              <div className="space-y-1">
                 <Label htmlFor="password" className="text-sm font-medium text-gray-700">
                   Mật khẩu <span className="text-red-500">*</span>
                 </Label>
@@ -226,10 +271,10 @@ export default function RegisterPage() {
                     id="password"
                     type={showPassword ? 'text' : 'password'}
                     value={form.password}
-                    onChange={set('password')}
-                    required
+                    onChange={onChange('password')}
+                    onBlur={() => onBlur('password')}
                     placeholder="Tối thiểu 6 ký tự"
-                    className="pl-9 pr-10"
+                    className={inputCls('password', 'pl-9 pr-10')}
                     style={{ height: '42px' }}
                   />
                   <button
@@ -240,9 +285,10 @@ export default function RegisterPage() {
                     {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
                 </div>
+                <p className="min-h-4 text-xs text-red-500">{errs.password}</p>
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-1">
                 <Label htmlFor="confirmPassword" className="text-sm font-medium text-gray-700">
                   Xác nhận mật khẩu <span className="text-red-500">*</span>
                 </Label>
@@ -250,32 +296,32 @@ export default function RegisterPage() {
                   <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                   <Input
                     id="confirmPassword"
-                    type={showPassword ? 'text' : 'password'}
+                    type={showConfirmPassword ? 'text' : 'password'}
                     value={form.confirmPassword}
-                    onChange={set('confirmPassword')}
-                    required
+                    onChange={onChange('confirmPassword')}
+                    onBlur={() => onBlur('confirmPassword')}
                     placeholder="Nhập lại mật khẩu"
-                    className="pl-9"
-                    style={{
-                      height: '42px',
-                      borderColor: form.confirmPassword && form.password !== form.confirmPassword ? '#f87171' : '',
-                    }}
+                    className={inputCls('confirmPassword', 'pl-9 pr-10')}
+                    style={{ height: '42px' }}
                   />
-                  {form.confirmPassword && form.password !== form.confirmPassword && (
-                    <p style={{ color: '#ef4444', fontSize: '0.78rem', marginTop: '4px' }}>Không khớp</p>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(v => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                  >
+                    {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
                 </div>
+                <p className="min-h-4 text-xs text-red-500">{errs.confirmPassword}</p>
               </div>
             </div>
 
             <Button
               type="submit"
               disabled={loading}
-              className="w-full h-11 font-semibold text-sm mt-2 transition-all duration-200"
+              className="w-full h-11 font-semibold text-sm transition-all duration-200"
               style={{
-                background: loading
-                  ? '#9ca3af'
-                  : 'linear-gradient(135deg, #4f46e5, #7c3aed)',
+                background: loading ? '#9ca3af' : 'linear-gradient(135deg, #4f46e5, #7c3aed)',
                 border: 'none',
                 boxShadow: loading ? 'none' : '0 4px 15px rgba(79, 70, 229, 0.35)',
               }}
@@ -303,7 +349,7 @@ export default function RegisterPage() {
             {/* Google button */}
             <button
               type="button"
-              onClick={handleGoogleRegister}
+              onClick={() => handleGoogleRegister()}
               className="w-full flex items-center justify-center gap-3 h-11 rounded-lg font-medium text-sm transition-all duration-150 hover:bg-gray-50 active:scale-95"
               style={{ border: '1px solid #d1d5db', background: '#fff', color: '#374151', cursor: 'pointer' }}
             >
@@ -317,14 +363,9 @@ export default function RegisterPage() {
             </button>
           </form>
 
-          {/* Footer */}
           <p className="text-center text-sm text-gray-500">
             Đã có tài khoản?{' '}
-            <Link
-              to="/login"
-              className="font-semibold transition-colors"
-              style={{ color: '#4f46e5' }}
-            >
+            <Link to="/login" className="font-semibold transition-colors" style={{ color: '#4f46e5' }}>
               Đăng nhập
             </Link>
           </p>

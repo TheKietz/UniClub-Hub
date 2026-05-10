@@ -40,16 +40,22 @@ namespace UniClub_Hub.Membership.Services.Implements
                 .ToListAsync();
 
             var now = DateTimeOffset.UtcNow;
-            var items = users.Select(u => new UserListItemDto
+            var items = new List<UserListItemDto>();
+            foreach (var u in users)
             {
-                Id = u.Id,
-                Email = u.Email!,
-                FullName = u.FullName,
-                StudentId = u.StudentId,
-                Major = u.Major,
-                AvatarUrl = u.AvatarUrl,
-                IsLocked = u.LockoutEnabled && u.LockoutEnd.HasValue && u.LockoutEnd > now
-            }).ToList();
+                var roles = await _userManager.GetRolesAsync(u);
+                items.Add(new UserListItemDto
+                {
+                    Id = u.Id,
+                    Email = u.Email!,
+                    FullName = u.FullName,
+                    StudentId = u.StudentId,
+                    Major = u.Major,
+                    AvatarUrl = u.AvatarUrl,
+                    IsLocked = u.LockoutEnabled && u.LockoutEnd.HasValue && u.LockoutEnd > now,
+                    Roles = roles.ToList()
+                });
+            }
 
             return new PagedResult<UserListItemDto>
             {
@@ -78,6 +84,7 @@ namespace UniClub_Hub.Membership.Services.Implements
                 {
                     ClubId = m.ClubId,
                     ClubName = m.Club.Name,
+                    DepartmentId = m.DepartmentId,
                     DepartmentName = m.Department != null ? m.Department.Name : null,
                     ClubRole = m.ClubRole,
                     JoinedDate = m.JoinedDate,
@@ -95,6 +102,8 @@ namespace UniClub_Hub.Membership.Services.Implements
                 Major = user.Major,
                 AvatarUrl = user.AvatarUrl,
                 Phone = user.Phone,
+                Gender = user.Gender,
+                DateOfBirth = user.DateOfBirth,
                 IsLocked = user.LockoutEnabled && user.LockoutEnd.HasValue && user.LockoutEnd > now,
                 IsDeleted = user.IsDeleted,
                 Roles = roles.ToList(),
@@ -144,6 +153,7 @@ namespace UniClub_Hub.Membership.Services.Implements
                 {
                     ClubId = m.ClubId,
                     ClubName = m.Club.Name,
+                    DepartmentId = m.DepartmentId,
                     DepartmentName = m.Department != null ? m.Department.Name : null,
                     ClubRole = m.ClubRole,
                     JoinedDate = m.JoinedDate,
@@ -160,6 +170,8 @@ namespace UniClub_Hub.Membership.Services.Implements
                 Major = user.Major,
                 AvatarUrl = user.AvatarUrl,
                 Phone = user.Phone,
+                Gender = user.Gender,
+                DateOfBirth = user.DateOfBirth,
                 IsLocked = false,
                 IsDeleted = false,
                 Roles = roles.ToList(),
@@ -173,11 +185,53 @@ namespace UniClub_Hub.Membership.Services.Implements
                 ?? throw new KeyNotFoundException("Không tìm thấy người dùng.");
 
             if (dto.FullName != null) user.FullName = dto.FullName;
-            if (dto.Phone != null) user.Phone = dto.Phone;
-            if (dto.Major != null) user.Major = dto.Major;
             if (dto.StudentId != null) user.StudentId = dto.StudentId;
+            if (dto.Major != null) user.Major = dto.Major;
+            if (dto.Phone != null) user.Phone = dto.Phone;
+            if (dto.Gender != null) user.Gender = dto.Gender;
+            if (dto.DateOfBirth.HasValue) user.DateOfBirth = dto.DateOfBirth;
 
             await _userManager.UpdateAsync(user);
+        }
+
+        public async Task ChangeRoleAsync(string userId, string newRole)
+        {
+            var allowed = new[] { "USER", "SUPER_ADMIN" };
+            if (!allowed.Contains(newRole))
+                throw new InvalidOperationException("Role không hợp lệ.");
+
+            var user = await _userManager.FindByIdAsync(userId)
+                ?? throw new KeyNotFoundException("Không tìm thấy người dùng.");
+
+            var currentRoles = await _userManager.GetRolesAsync(user);
+            await _userManager.RemoveFromRolesAsync(user, currentRoles);
+            await _userManager.AddToRoleAsync(user, newRole);
+        }
+
+        public async Task<UserDetailDto> CreateUserAsync(CreateUserDto dto)
+        {
+            if (await _userManager.FindByEmailAsync(dto.Email) != null)
+                throw new InvalidOperationException($"Email '{dto.Email}' đã được sử dụng.");
+
+            var user = new ApplicationUser
+            {
+                UserName = dto.Email,
+                Email = dto.Email,
+                EmailConfirmed = true,
+                FullName = dto.FullName,
+                StudentId = dto.StudentId,
+                Major = dto.Major,
+                Gender = dto.Gender,
+            };
+
+            var result = await _userManager.CreateAsync(user, dto.Password);
+            if (!result.Succeeded)
+                throw new InvalidOperationException(string.Join(", ", result.Errors.Select(e => e.Description)));
+
+            var role = dto.Role == "SUPER_ADMIN" ? "SUPER_ADMIN" : "USER";
+            await _userManager.AddToRoleAsync(user, role);
+
+            return (await GetUserByIdAsync(user.Id))!;
         }
     }
 }

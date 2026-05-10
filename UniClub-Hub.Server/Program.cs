@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using UniClub_Hub.Shared.Email;
 using UniClub_Hub.Membership;
 using UniClub_Hub.Operations;
 using UniClub_Hub.Portal;
@@ -71,6 +72,7 @@ builder.Services.AddAuthentication(options =>
 builder.Services.AddAuthorization();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<FileUploadHelper>();
+builder.Services.AddScoped<IEmailService, SmtpEmailService>();
 
 builder.Services.AddMembershipServices();
 builder.Services.AddOperationsServices();
@@ -78,8 +80,14 @@ builder.Services.AddPortalServices();
 
 var app = builder.Build();
 
-using (var scope = app.Services.CreateScope())
+if (app.Environment.IsDevelopment())
 {
+    await UniClub_Hub.Server.Data.DbSeeder.SeedAsync(app.Services);
+}
+else
+{
+    // Production: chỉ tạo roles, không seed sample data
+    using var scope = app.Services.CreateScope();
     var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
     foreach (var role in new[] { "SUPER_ADMIN", "USER" })
     {

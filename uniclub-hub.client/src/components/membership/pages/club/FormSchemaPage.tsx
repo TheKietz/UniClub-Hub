@@ -61,7 +61,7 @@ export default function FormSchemaPage() {
     const next = index + dir
     if (next < 0 || next >= fields.length) return
     const arr = [...fields]
-    ;[arr[index], arr[next]] = [arr[next], arr[index]]
+      ;[arr[index], arr[next]] = [arr[next], arr[index]]
     setFields(arr)
   }
 
@@ -82,11 +82,11 @@ export default function FormSchemaPage() {
   if (loading) return <div className="p-8 text-gray-500">Đang tải...</div>
 
   return (
-    <div className="p-8 space-y-6 max-w-2xl">
+    <div className="px-8 pb-8 space-y-6 max-w-2xl">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Form đăng ký</h1>
-          <p className="text-gray-500 mt-1">Thiết lập câu hỏi cho đơn tham gia CLB</p>
+          <h1 className="text-2xl font-bold" style={{ color: '#0f172a' }}>Form đăng ký</h1>
+          <p className="mt-1" style={{ color: '#6b7280' }}>Thiết lập câu hỏi cho đơn tham gia CLB</p>
         </div>
         <Button onClick={handleSave} disabled={saving}>
           {saving ? 'Đang lưu...' : 'Lưu form'}

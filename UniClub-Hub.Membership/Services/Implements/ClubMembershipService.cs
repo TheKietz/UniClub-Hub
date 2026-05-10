@@ -23,7 +23,11 @@ namespace UniClub_Hub.Membership.Services.Implements
         {
             await EnsureClubExistsAsync(clubId);
 
-            var query = _db.ClubMemberships.AsNoTracking().Where(m => m.ClubId == clubId);
+            var query = _db.ClubMemberships
+                .AsNoTracking()
+                .Include(m => m.User)
+                .Include(m => m.Department)
+                .Where(m => m.ClubId == clubId);
 
             if (!string.IsNullOrEmpty(status))
                 query = query.Where(m => m.Status == status);
@@ -35,6 +39,8 @@ namespace UniClub_Hub.Membership.Services.Implements
         {
             return await _db.ClubMemberships
                 .AsNoTracking()
+                .Include(m => m.User)
+                .Include(m => m.Department)
                 .Where(m => m.ClubId == clubId && m.Id == membershipId)
                 .Select(m => ToDto(m))
                 .FirstOrDefaultAsync()

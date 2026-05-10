@@ -6,10 +6,18 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { toast } from 'sonner'
-import { Plus, MoreHorizontal } from 'lucide-react'
+import { Plus, Pencil, Trash2 } from 'lucide-react'
+
+const CATEGORY_COLORS = [
+  { bg: '#ede9fe', text: '#6d28d9' },
+  { bg: '#dbeafe', text: '#1d4ed8' },
+  { bg: '#dcfce7', text: '#16a34a' },
+  { bg: '#fef9c3', text: '#a16207' },
+  { bg: '#fee2e2', text: '#dc2626' },
+  { bg: '#ffedd5', text: '#c2410c' },
+]
 
 type FormData = { name: string; description: string }
 const emptyForm: FormData = { name: '', description: '' }
@@ -82,13 +90,10 @@ export default function CategoriesPage() {
   }
 
   return (
-    <div className="p-8 space-y-6">
+    <div className="px-8 pt-3 pb-8 space-y-4">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Lĩnh vực</h1>
-          <p className="text-gray-500 mt-1">Quản lý danh mục lĩnh vực hoạt động CLB</p>
-        </div>
-        <Button onClick={openCreate} className="gap-2">
+        <h1 className="text-xl font-bold leading-none" style={{ color: '#0f172a' }}>Lĩnh vực</h1>
+        <Button onClick={openCreate} className="gap-2 bg-indigo-600 hover:bg-indigo-700">
           <Plus size={16} /> Thêm lĩnh vực
         </Button>
       </div>
@@ -96,11 +101,11 @@ export default function CategoriesPage() {
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         <Table>
           <TableHeader>
-            <TableRow>
+            <TableRow className="bg-gray-50">
               <TableHead>Tên lĩnh vực</TableHead>
               <TableHead>Mô tả</TableHead>
               <TableHead>Số CLB</TableHead>
-              <TableHead className="w-12" />
+              <TableHead className="text-center">Hành động</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -108,24 +113,30 @@ export default function CategoriesPage() {
               <TableRow><TableCell colSpan={4} className="text-center text-gray-400 py-12">Đang tải...</TableCell></TableRow>
             ) : categories.length === 0 ? (
               <TableRow><TableCell colSpan={4} className="text-center text-gray-400 py-12">Chưa có lĩnh vực nào.</TableCell></TableRow>
-            ) : categories.map(cat => (
-              <TableRow key={cat.id}>
-                <TableCell className="font-medium">{cat.name}</TableCell>
-                <TableCell className="text-gray-500">{cat.description ?? '—'}</TableCell>
-                <TableCell className="text-gray-600">{cat.clubCount}</TableCell>
+            ) : categories.map((cat, i) => {
+              const c = CATEGORY_COLORS[i % CATEGORY_COLORS.length]
+              return (
+              <TableRow key={cat.id} className="hover:bg-gray-50/60">
                 <TableCell>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon"><MoreHorizontal size={16} /></Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => openEdit(cat)}>Chỉnh sửa</DropdownMenuItem>
-                      <DropdownMenuItem className="text-red-600" onClick={() => setDeleteTarget(cat)}>Xoá</DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  <span className="px-2.5 py-1 rounded-full text-xs font-semibold" style={{ background: c.bg, color: c.text }}>
+                    {cat.name}
+                  </span>
+                </TableCell>
+                <TableCell className="text-sm" style={{ color: '#6b7280' }}>{cat.description ?? '—'}</TableCell>
+                <TableCell className="text-sm" style={{ color: '#6b7280' }}>{cat.clubCount}</TableCell>
+                <TableCell>
+                  <div className="flex items-center justify-center gap-1">
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-indigo-500 hover:text-indigo-700 hover:bg-indigo-50" onClick={() => openEdit(cat)}>
+                      <Pencil size={14} />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 hover:text-red-600 hover:bg-red-50" onClick={() => setDeleteTarget(cat)}>
+                      <Trash2 size={14} />
+                    </Button>
+                  </div>
                 </TableCell>
               </TableRow>
-            ))}
+              )
+            })}
           </TableBody>
         </Table>
       </div>
@@ -134,7 +145,7 @@ export default function CategoriesPage() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>{editing ? 'Chỉnh sửa lĩnh vực' : 'Thêm lĩnh vực mới'}</DialogTitle>
+            <DialogTitle style={{ color: '#0f172a', fontWeight: 700 }}>{editing ? 'Chỉnh sửa lĩnh vực' : 'Thêm lĩnh vực mới'}</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSave} className="space-y-4 py-2">
             <div className="space-y-1.5">
@@ -145,9 +156,9 @@ export default function CategoriesPage() {
               <Label htmlFor="description">Mô tả</Label>
               <Input id="description" value={form.description} onChange={setField('description')} />
             </div>
-            <DialogFooter>
+            <DialogFooter className="border-none bg-transparent">
               <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Huỷ</Button>
-              <Button type="submit" disabled={saving}>{saving ? 'Đang lưu...' : 'Lưu'}</Button>
+              <Button type="submit" disabled={saving} className="bg-indigo-600 hover:bg-indigo-700">{saving ? 'Đang lưu...' : 'Lưu'}</Button>
             </DialogFooter>
           </form>
         </DialogContent>

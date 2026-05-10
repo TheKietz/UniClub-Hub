@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { useGoogleLogin } from '@react-oauth/google'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -8,37 +9,59 @@ import { Eye, EyeOff, Mail, Lock, Users, Calendar, Award } from 'lucide-react'
 import { toast } from 'sonner'
 
 export default function LoginPage() {
-  const { login, isSuperAdmin } = useAuth()
+  const { login, googleLogin } = useAuth()
   const navigate = useNavigate()
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [rememberMe, setRememberMe] = useState(true)
-  const [error, setError] = useState('')
+  const [errs, setErrs] = useState<{ email?: string; password?: string }>({})
   const [loading, setLoading] = useState(false)
+
+  function validate() {
+    const e: { email?: string; password?: string } = {}
+    if (!email.trim()) e.email = 'Vui lòng nhập email.'
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) e.email = 'Email không đúng định dạng.'
+    if (!password) e.password = 'Vui lòng nhập mật khẩu.'
+    return e
+  }
+
+  function onBlur(field: 'email' | 'password') {
+    const fieldErr = validate()[field]
+    setErrs(prev => ({ ...prev, [field]: fieldErr ?? '' }))
+  }
 
   async function handleSubmit(e: { preventDefault(): void }) {
     e.preventDefault()
-    setError('')
+    const fieldErrs = validate()
+    if (Object.keys(fieldErrs).length > 0) { setErrs(fieldErrs); return }
     setLoading(true)
     try {
-      await login(email, password, rememberMe)
-      navigate(isSuperAdmin ? '/admin' : '/dashboard', { replace: true })
+      const me = await login(email, password, rememberMe)
+      navigate(me.roles.includes('SUPER_ADMIN') ? '/admin' : '/dashboard', { replace: true })
     } catch (err: any) {
-      setError(err.response?.data?.message ?? 'Email hoặc mật khẩu không đúng.')
+      toast.error(err.response?.data?.message ?? 'Email hoặc mật khẩu không đúng.')
     } finally {
       setLoading(false)
     }
   }
 
-  function handleGoogleLogin() {
-    toast.info('Tính năng đăng nhập Google đang được phát triển.')
-  }
-
-  function handleForgotPassword() {
-    toast.info('Tính năng quên mật khẩu đang được phát triển.')
-  }
+  const handleGoogleLogin = useGoogleLogin({
+    flow: 'implicit',
+    onSuccess: async tokenResponse => {
+      setLoading(true)
+      try {
+        const me = await googleLogin(tokenResponse.access_token)
+        navigate(me.roles.includes('SUPER_ADMIN') ? '/admin' : '/dashboard', { replace: true })
+      } catch (err: any) {
+        toast.error(err.response?.data?.message ?? 'Đăng nhập Google thất bại.')
+      } finally {
+        setLoading(false)
+      }
+    },
+    onError: () => toast.error('Đăng nhập Google thất bại. Vui lòng thử lại.'),
+  })
 
   return (
     <div className="min-h-screen flex">
@@ -123,7 +146,7 @@ export default function LoginPage() {
 
       {/* Right form panel */}
       <div className="flex-1 flex items-center justify-center p-8 bg-white">
-        <div className="w-full max-w-sm space-y-6">
+        <div className="w-full max-w-md space-y-6">
           {/* Mobile logo */}
           <div className="lg:hidden text-center">
             <div
@@ -140,22 +163,12 @@ export default function LoginPage() {
             <h1 style={{ fontSize: '2.1rem', fontWeight: 800, letterSpacing: '-0.6px', margin: '0 0 8px 0', color: '#0f172a', lineHeight: 1.2 }}>
               Chào mừng trở lại
             </h1>
-            <p style={{ color: '#64748b', fontSize: '0.9rem', margin: 0 }}>Đăng nhập để tiếp tục vào hệ thống</p>
           </div>
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-5">
-            {error && (
-              <div
-                className="flex items-start gap-2.5 rounded-lg px-4 py-3 text-sm"
-                style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#dc2626' }}
-              >
-                <span className="mt-0.5">⚠</span>
-                <span>{error}</span>
-              </div>
-            )}
-
-            <div className="space-y-2">
+          <form onSubmit={handleSubmit} noValidate className="space-y-4">
+            {/* Email */}
+            <div className="space-y-1">
               <Label htmlFor="email" className="text-sm font-medium text-gray-700">
                 Email
               </Label>
@@ -165,31 +178,31 @@ export default function LoginPage() {
                   id="email"
                   type="email"
                   value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  required
+                  onChange={e => { setEmail(e.target.value); if (errs.email) setErrs(p => ({ ...p, email: '' })) }}
+                  onBlur={() => onBlur('email')}
                   placeholder="example@student.edu.vn"
-                  className="pl-9"
+                  className={`pl-9${errs.email ? ' border-red-400 focus-visible:ring-red-300' : ''}`}
                   style={{ height: '42px' }}
                 />
               </div>
+              <p className="min-h-4 text-xs text-red-500">{errs.email}</p>
             </div>
 
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="password" className="text-sm font-medium text-gray-700">
-                  Mật khẩu
-                </Label>
-              </div>
+            {/* Mật khẩu */}
+            <div className="space-y-1">
+              <Label htmlFor="password" className="text-sm font-medium text-gray-700">
+                Mật khẩu
+              </Label>
               <div className="relative">
                 <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                 <Input
                   id="password"
                   type={showPassword ? 'text' : 'password'}
                   value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  required
+                  onChange={e => { setPassword(e.target.value); if (errs.password) setErrs(p => ({ ...p, password: '' })) }}
+                  onBlur={() => onBlur('password')}
                   placeholder="••••••••"
-                  className="pl-9 pr-10"
+                  className={`pl-9 pr-10${errs.password ? ' border-red-400 focus-visible:ring-red-300' : ''}`}
                   style={{ height: '42px' }}
                 />
                 <button
@@ -200,9 +213,10 @@ export default function LoginPage() {
                   {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
+              <p className="min-h-4 text-xs text-red-500">{errs.password}</p>
             </div>
 
-            {/* Remember me + Forgot password */}
+            {/* Remember me + Quên mật khẩu */}
             <div className="flex items-center justify-between">
               <label className="flex items-center gap-2 cursor-pointer select-none">
                 <input
@@ -213,13 +227,9 @@ export default function LoginPage() {
                 />
                 <span style={{ fontSize: '0.85rem', color: '#374151' }}>Ghi nhớ đăng nhập</span>
               </label>
-              <button
-                type="button"
-                onClick={handleForgotPassword}
-                style={{ fontSize: '0.85rem', color: '#4f46e5', fontWeight: 500, background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
-              >
+              <Link to="/forgot-password" style={{ fontSize: '0.85rem', color: '#4f46e5', fontWeight: 500 }}>
                 Quên mật khẩu?
-              </button>
+              </Link>
             </div>
 
             <Button
@@ -257,15 +267,15 @@ export default function LoginPage() {
             {/* Google button */}
             <button
               type="button"
-              onClick={handleGoogleLogin}
+              onClick={() => handleGoogleLogin()}
               className="w-full flex items-center justify-center gap-3 h-11 rounded-lg font-medium text-sm transition-all duration-150 hover:bg-gray-50 active:scale-95"
               style={{ border: '1px solid #d1d5db', background: '#fff', color: '#374151', cursor: 'pointer' }}
             >
               <svg width="18" height="18" viewBox="0 0 18 18">
-                <path fill="#4285F4" d="M16.51 8H8.98v3h4.3c-.18 1-.74 1.48-1.6 2.04v2.01h2.6a7.8 7.8 0 002.38-5.88c0-.57-.05-.66-.15-1.18z"/>
-                <path fill="#34A853" d="M8.98 17c2.16 0 3.97-.72 5.3-1.94l-2.6-2a4.8 4.8 0 01-7.18-2.54H1.83v2.07A8 8 0 008.98 17z"/>
-                <path fill="#FBBC05" d="M4.5 10.52a4.8 4.8 0 010-3.04V5.41H1.83a8 8 0 000 7.18l2.67-2.07z"/>
-                <path fill="#EA4335" d="M8.98 4.18c1.17 0 2.23.4 3.06 1.2l2.3-2.3A8 8 0 001.83 5.4L4.5 7.49a4.77 4.77 0 014.48-3.31z"/>
+                <path fill="#4285F4" d="M16.51 8H8.98v3h4.3c-.18 1-.74 1.48-1.6 2.04v2.01h2.6a7.8 7.8 0 002.38-5.88c0-.57-.05-.66-.15-1.18z" />
+                <path fill="#34A853" d="M8.98 17c2.16 0 3.97-.72 5.3-1.94l-2.6-2a4.8 4.8 0 01-7.18-2.54H1.83v2.07A8 8 0 008.98 17z" />
+                <path fill="#FBBC05" d="M4.5 10.52a4.8 4.8 0 010-3.04V5.41H1.83a8 8 0 000 7.18l2.67-2.07z" />
+                <path fill="#EA4335" d="M8.98 4.18c1.17 0 2.23.4 3.06 1.2l2.3-2.3A8 8 0 001.83 5.4L4.5 7.49a4.77 4.77 0 014.48-3.31z" />
               </svg>
               Đăng nhập với Google
             </button>

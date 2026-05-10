@@ -10,6 +10,8 @@ namespace UniClub_Hub.Shared.Models
         public string? Major { get; set; }
         public string? AvatarUrl { get; set; }
         public string? Phone { get; set; }
+        public string? Gender { get; set; }
+        public DateOnly? DateOfBirth { get; set; }
 
         public bool IsDeleted { get; set; } = false;
         public string? DeletedBy { get; set; }

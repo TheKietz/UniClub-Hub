@@ -1,5 +1,6 @@
-import { Navigate, Outlet, useParams } from 'react-router-dom'
+import { Outlet, useParams } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
+import ForbiddenPage from '@/features/errors/ForbiddenPage'
 
 interface Props {
   // Club roles được phép vào. SUPER_ADMIN luôn bypass — tương đương CLUB_ADMIN mọi CLB.
@@ -21,9 +22,7 @@ export default function ClubProtectedRoute({ requiredRoles }: Props) {
   if (isSuperAdmin) return <Outlet />
 
   const role = getClubRole(Number(clubId))
-  if (!role || !requiredRoles.includes(role)) {
-    return <Navigate to="/dashboard" replace />
-  }
+  if (!role || !requiredRoles.includes(role)) return <ForbiddenPage />
 
   return <Outlet />
 }

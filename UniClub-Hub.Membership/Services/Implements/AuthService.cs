@@ -1,3 +1,5 @@
+using System.Net.Http.Headers;
+using System.Text.Json;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -77,6 +79,60 @@ namespace UniClub_Hub.Membership.Services.Implements
 
             if (!await _userManager.CheckPasswordAsync(user, dto.Password))
                 throw new UnauthorizedAccessException("Email hoặc mật khẩu không đúng.");
+
+            return await BuildAuthResponseAsync(user);
+        }
+
+        public async Task<AuthResponseDto> GoogleLoginAsync(string accessToken)
+        {
+            using var http = new HttpClient();
+            http.DefaultRequestHeaders.Authorization =
+                new AuthenticationHeaderValue("Bearer", accessToken);
+
+            var response = await http.GetAsync("https://www.googleapis.com/oauth2/v3/userinfo");
+            if (!response.IsSuccessStatusCode)
+                throw new UnauthorizedAccessException("Google token không hợp lệ.");
+
+            using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+            var root = doc.RootElement;
+
+            var email = root.TryGetProperty("email", out var emailProp)
+                ? emailProp.GetString() : null;
+            if (string.IsNullOrEmpty(email))
+                throw new UnauthorizedAccessException("Không lấy được email từ Google.");
+
+            var name = root.TryGetProperty("name", out var nameProp) ? nameProp.GetString() : null;
+            var picture = root.TryGetProperty("picture", out var picProp) ? picProp.GetString() : null;
+
+            var user = await _userManager.FindByEmailAsync(email);
+
+            if (user == null)
+            {
+                user = new ApplicationUser
+                {
+                    UserName = email,
+                    Email = email,
+                    FullName = name,
+                    EmailConfirmed = true,
+                    AvatarUrl = picture
+                };
+
+                var result = await _userManager.CreateAsync(user);
+                if (!result.Succeeded)
+                {
+                    var errors = string.Join(", ", result.Errors.Select(e => e.Description));
+                    throw new InvalidOperationException(errors);
+                }
+
+                if (!await _roleManager.RoleExistsAsync("USER"))
+                    await _roleManager.CreateAsync(new IdentityRole("USER"));
+
+                await _userManager.AddToRoleAsync(user, "USER");
+            }
+            else if (user.IsDeleted)
+            {
+                throw new UnauthorizedAccessException("Tài khoản đã bị vô hiệu hóa.");
+            }
 
             return await BuildAuthResponseAsync(user);
         }

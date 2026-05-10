@@ -22,6 +22,7 @@ export interface UserItem {
   major?: string
   avatarUrl?: string
   isLocked: boolean
+  roles: string[]
 }
 
 export interface PagedResult<T> {

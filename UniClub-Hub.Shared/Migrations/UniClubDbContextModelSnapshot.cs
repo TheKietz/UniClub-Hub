@@ -169,6 +169,9 @@ namespace UniClub_Hub.Shared.Migrations
                         .IsConcurrencyToken()
                         .HasColumnType("text");
 
+                    b.Property<DateOnly?>("DateOfBirth")
+                        .HasColumnType("date");
+
                     b.Property<string>("DeletedBy")
                         .HasColumnType("text");
 
@@ -180,6 +183,9 @@ namespace UniClub_Hub.Shared.Migrations
                         .HasColumnType("boolean");
 
                     b.Property<string>("FullName")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Gender")
                         .HasColumnType("text");
 
                     b.Property<bool>("IsDeleted")

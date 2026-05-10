@@ -1,37 +1,31 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { useAuth } from '@/contexts/AuthContext'
-import { LayoutDashboard, Users, Building2, Tag, LogOut } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { LayoutDashboard, Users, Building2, Tag, Network, ArrowLeft } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import UserMenu from '@/components/membership/layout/UserMenu'
+import { Button } from '@/components/ui/button'
 
 const navItems = [
   { to: '/admin', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/admin/users', label: 'Người dùng', icon: Users },
   { to: '/admin/clubs', label: 'Câu lạc bộ', icon: Building2 },
+  { to: '/admin/structure', label: 'Cơ cấu tổ chức', icon: Network },
   { to: '/admin/categories', label: 'Lĩnh vực', icon: Tag },
 ]
 
 export default function AdminLayout() {
-  const { logout } = useAuth()
   const navigate = useNavigate()
-
-  async function handleLogout() {
-    await logout()
-    navigate('/login', { replace: true })
-  }
-
   return (
     <div className="flex min-h-screen bg-gray-50">
       {/* Sidebar */}
-      <aside className="w-60 bg-white border-r border-gray-200 flex flex-col">
+      <aside className="w-60 bg-white border-r border-gray-200 flex flex-col fixed inset-y-0 left-0 z-10">
         <div className="px-6 py-5 border-b border-gray-200">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center">
               <span className="text-white text-sm font-bold">U</span>
             </div>
             <div>
-              <p className="text-sm font-semibold text-gray-900">UniClub Hub</p>
-              <p className="text-xs text-gray-400">Super Admin</p>
+              <p style={{ color: '#0f172a', fontSize: '0.875rem', fontWeight: 600 }}>UniClub Hub</p>
+              <p style={{ color: '#9ca3af', fontSize: '0.75rem' }}>Super Admin</p>
             </div>
           </div>
         </div>
@@ -57,22 +51,26 @@ export default function AdminLayout() {
           ))}
         </nav>
 
-        <div className="p-3 border-t border-gray-200">
+        <div className="px-3 py-4 border-t border-gray-200">
           <Button
-            variant="ghost"
-            className="w-full justify-start gap-3 text-gray-600 hover:text-red-600 hover:bg-red-50"
-            onClick={handleLogout}
+            variant="ghost" size="sm"
+            className="w-full justify-start gap-2 text-gray-500"
+            onClick={() => navigate('/dashboard')}
           >
-            <LogOut size={18} />
-            Đăng xuất
+            <ArrowLeft size={16} /> Về Dashboard
           </Button>
         </div>
       </aside>
 
-      {/* Main content */}
-      <main className="flex-1 overflow-auto">
-        <Outlet />
-      </main>
+      {/* Right side: topbar + content */}
+      <div className="flex-1 flex flex-col ml-60">
+        <header className="h-14 bg-white border-b border-gray-200 flex items-center justify-end px-6 sticky top-0 z-10">
+          <UserMenu />
+        </header>
+        <main className="flex-1 overflow-auto">
+          <Outlet />
+        </main>
+      </div>
     </div>
   )
 }

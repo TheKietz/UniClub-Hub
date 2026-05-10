@@ -2,15 +2,13 @@ import { useEffect, useState } from 'react'
 import { getAdminClubs, createClub, updateClub, deleteClub, getCategories } from '@/components/membership/services/adminApi'
 import type { ClubItem, CategoryItem, CreateClubDto, UpdateClubDto } from '@/components/membership/services/admin.types'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { toast } from 'sonner'
-import { Plus, MoreHorizontal } from 'lucide-react'
+import { Plus, Pencil, Trash2 } from 'lucide-react'
 
 type FormData = {
   name: string; code: string; description: string
@@ -105,13 +103,10 @@ export default function ClubsPage() {
   }
 
   return (
-    <div className="p-8 space-y-6">
+    <div className="px-8 pt-3 pb-8 space-y-4">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Câu lạc bộ</h1>
-          <p className="text-gray-500 mt-1">Quản lý tất cả CLB trong hệ thống</p>
-        </div>
-        <Button onClick={openCreate} className="gap-2">
+        <h1 className="text-xl font-bold leading-none" style={{ color: '#0f172a' }}>Câu lạc bộ</h1>
+        <Button onClick={openCreate} className="gap-2 bg-indigo-600 hover:bg-indigo-700">
           <Plus size={16} /> Thêm CLB
         </Button>
       </div>
@@ -119,13 +114,13 @@ export default function ClubsPage() {
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         <Table>
           <TableHeader>
-            <TableRow>
+            <TableRow className="bg-gray-50">
               <TableHead>Tên CLB</TableHead>
               <TableHead>Mã</TableHead>
               <TableHead>Lĩnh vực</TableHead>
               <TableHead>Thành viên</TableHead>
               <TableHead>Trạng thái</TableHead>
-              <TableHead className="w-12" />
+              <TableHead className="text-center">Hành động</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -134,26 +129,26 @@ export default function ClubsPage() {
             ) : clubs.length === 0 ? (
               <TableRow><TableCell colSpan={6} className="text-center text-gray-400 py-12">Chưa có CLB nào.</TableCell></TableRow>
             ) : clubs.map(club => (
-              <TableRow key={club.id} className={club.isDeleted ? 'opacity-50' : ''}>
-                <TableCell className="font-medium">{club.name}</TableCell>
-                <TableCell className="text-gray-500 font-mono text-xs">{club.code}</TableCell>
-                <TableCell className="text-gray-600">{club.categoryName ?? '—'}</TableCell>
-                <TableCell className="text-gray-600">{club.memberCount}</TableCell>
+              <TableRow key={club.id} className={`hover:bg-gray-50/60 ${club.isDeleted ? 'opacity-50' : ''}`}>
+                <TableCell className="font-medium text-sm" style={{ color: '#111827' }}>{club.name}</TableCell>
+                <TableCell className="font-mono text-xs" style={{ color: '#9ca3af' }}>{club.code}</TableCell>
+                <TableCell className="text-sm" style={{ color: '#6b7280' }}>{club.categoryName ?? '—'}</TableCell>
+                <TableCell className="text-sm" style={{ color: '#6b7280' }}>{club.memberCount}</TableCell>
                 <TableCell>
-                  <Badge variant={club.status === 'Active' ? 'default' : 'secondary'}>
+                  <span className="px-2 py-0.5 rounded-full text-xs font-semibold"
+                    style={{ background: club.status === 'Active' ? '#dcfce7' : '#f3f4f6', color: club.status === 'Active' ? '#16a34a' : '#6b7280' }}>
                     {club.status === 'Active' ? 'Hoạt động' : 'Ngừng'}
-                  </Badge>
+                  </span>
                 </TableCell>
                 <TableCell>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon"><MoreHorizontal size={16} /></Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => openEdit(club)}>Chỉnh sửa</DropdownMenuItem>
-                      <DropdownMenuItem className="text-red-600" onClick={() => setDeleteTarget(club)}>Xoá</DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  <div className="flex items-center justify-center gap-1">
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-indigo-500 hover:text-indigo-700 hover:bg-indigo-50" onClick={() => openEdit(club)}>
+                      <Pencil size={14} />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 hover:text-red-600 hover:bg-red-50" onClick={() => setDeleteTarget(club)}>
+                      <Trash2 size={14} />
+                    </Button>
+                  </div>
                 </TableCell>
               </TableRow>
             ))}
@@ -165,7 +160,7 @@ export default function ClubsPage() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>{editing ? 'Chỉnh sửa CLB' : 'Thêm CLB mới'}</DialogTitle>
+            <DialogTitle style={{ color: '#0f172a', fontWeight: 700 }}>{editing ? 'Chỉnh sửa CLB' : 'Thêm CLB mới'}</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSave} className="space-y-4 py-2">
             <div className="grid grid-cols-2 gap-4">
@@ -218,9 +213,9 @@ export default function ClubsPage() {
                 </select>
               </div>
             )}
-            <DialogFooter>
+            <DialogFooter className="border-none bg-transparent">
               <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Huỷ</Button>
-              <Button type="submit" disabled={saving}>{saving ? 'Đang lưu...' : 'Lưu'}</Button>
+              <Button type="submit" disabled={saving} className="bg-indigo-600 hover:bg-indigo-700">{saving ? 'Đang lưu...' : 'Lưu'}</Button>
             </DialogFooter>
           </form>
         </DialogContent>

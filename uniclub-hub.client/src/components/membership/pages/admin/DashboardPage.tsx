@@ -36,11 +36,8 @@ export default function DashboardPage() {
   if (!stats) return null
 
   return (
-    <div className="p-8 space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-        <p className="text-gray-500 mt-1">Tổng quan hệ thống UniClub Hub</p>
-      </div>
+    <div className="px-8 pt-3 pb-8 space-y-6">
+      <h1 className="text-xl font-bold leading-none" style={{ color: '#0f172a' }}>Dashboard</h1>
 
       {/* Stat cards */}
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
@@ -55,7 +52,7 @@ export default function DashboardPage() {
         <div className="bg-white rounded-xl border border-gray-200 p-5">
           <div className="flex items-center gap-2 mb-4">
             <FileText size={18} className="text-gray-400" />
-            <h2 className="font-semibold text-gray-900">Đơn đăng ký CLB</h2>
+            <h2 style={{ color: '#0f172a', fontWeight: 600 }}>Đơn đăng ký CLB</h2>
           </div>
           <div className="space-y-3">
             {[
@@ -80,7 +77,7 @@ export default function DashboardPage() {
         <div className="bg-white rounded-xl border border-gray-200 p-5">
           <div className="flex items-center gap-2 mb-4">
             <Building2 size={18} className="text-gray-400" />
-            <h2 className="font-semibold text-gray-900">CLB theo lĩnh vực</h2>
+            <h2 style={{ color: '#0f172a', fontWeight: 600 }}>CLB theo lĩnh vực</h2>
           </div>
           {stats.clubsByCategory.length === 0 ? (
             <p className="text-sm text-gray-400">Chưa có dữ liệu.</p>
@@ -100,7 +97,7 @@ export default function DashboardPage() {
       {/* Top CLB */}
       {stats.topClubsByMembers.length > 0 && (
         <div className="bg-white rounded-xl border border-gray-200 p-5">
-          <h2 className="font-semibold text-gray-900 mb-4">Top CLB nhiều thành viên nhất</h2>
+          <h2 style={{ color: '#0f172a', fontWeight: 600, marginBottom: 16 }}>Top CLB nhiều thành viên nhất</h2>
           <div className="space-y-2">
             {stats.topClubsByMembers.map((club, i) => (
               <div key={club.clubId} className="flex items-center gap-3">

@@ -21,6 +21,7 @@ namespace UniClub_Hub.Membership.Services.Implements
 
             return await _db.Departments
                 .AsNoTracking()
+                .Include(d => d.Members)
                 .Where(d => d.ClubId == clubId)
                 .Select(d => ToDto(d))
                 .ToListAsync();
@@ -30,6 +31,7 @@ namespace UniClub_Hub.Membership.Services.Implements
         {
             return await _db.Departments
                 .AsNoTracking()
+                .Include(d => d.Members)
                 .Where(d => d.ClubId == clubId && d.Id == id)
                 .Select(d => ToDto(d))
                 .FirstOrDefaultAsync()
@@ -103,6 +105,7 @@ namespace UniClub_Hub.Membership.Services.Implements
         {
             return await _db.Departments
                 .AsNoTracking()
+                .Include(d => d.Members)
                 .Where(d => d.ClubId == clubId && d.Id == id)
                 .Select(d => ToAdminDto(d))
                 .FirstAsync();

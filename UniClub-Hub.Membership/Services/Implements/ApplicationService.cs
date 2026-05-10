@@ -21,6 +21,7 @@ namespace UniClub_Hub.Membership.Services.Implements
         {
             return await _db.Applications
                 .AsNoTracking()
+                .Include(a => a.Club)
                 .Where(a => a.UserId == userId)
                 .Select(a => ToDto(a))
                 .ToListAsync();
@@ -31,7 +32,10 @@ namespace UniClub_Hub.Membership.Services.Implements
             if (!await _db.Clubs.AnyAsync(c => c.Id == clubId))
                 throw new KeyNotFoundException($"Không tìm thấy CLB với ID {clubId}.");
 
-            var query = _db.Applications.AsNoTracking().Where(a => a.ClubId == clubId);
+            var query = _db.Applications.AsNoTracking()
+                .Include(a => a.Club)
+                .Include(a => a.User)
+                .Where(a => a.ClubId == clubId);
 
             if (!string.IsNullOrEmpty(status))
                 query = query.Where(a => a.Status == status);
@@ -82,6 +86,7 @@ namespace UniClub_Hub.Membership.Services.Implements
 
             return await _db.Applications
                 .AsNoTracking()
+                .Include(a => a.Club)
                 .Where(a => a.Id == application.Id)
                 .Select(a => ToDto(a))
                 .FirstAsync();
@@ -150,6 +155,8 @@ namespace UniClub_Hub.Membership.Services.Implements
 
             return await _db.Applications
                 .AsNoTracking()
+                .Include(a => a.Club)
+                .Include(a => a.User)
                 .Where(a => a.Id == applicationId)
                 .Select(a => ToAdminDto(a))
                 .FirstAsync();

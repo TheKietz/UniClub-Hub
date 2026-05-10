@@ -65,6 +65,35 @@ namespace UniClub_Hub.Server.Controllers.Admin
             }
         }
 
+        [HttpPost]
+        public async Task<IActionResult> CreateUser([FromBody] CreateUserDto dto)
+        {
+            try
+            {
+                var result = await _userService.CreateUserAsync(dto);
+                return Ok(ApiResponse<UserDetailDto>.Ok(result, "Tạo tài khoản thành công."));
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Conflict(ApiResponse<object>.Fail(ex.Message));
+            }
+        }
+
+        [HttpPatch("{id}/role")]
+        public async Task<IActionResult> ChangeRole(string id, [FromBody] ChangeRoleDto dto)
+        {
+            var adminId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+            if (id == adminId)
+                return BadRequest(ApiResponse<object>.Fail("Không thể thay đổi role của chính mình."));
+            try
+            {
+                await _userService.ChangeRoleAsync(id, dto.Role);
+                return Ok(ApiResponse<object?>.Ok(null, "Đã cập nhật quyền."));
+            }
+            catch (KeyNotFoundException ex) { return NotFound(ApiResponse<object>.Fail(ex.Message)); }
+            catch (InvalidOperationException ex) { return BadRequest(ApiResponse<object>.Fail(ex.Message)); }
+        }
+
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteUser(string id)
         {

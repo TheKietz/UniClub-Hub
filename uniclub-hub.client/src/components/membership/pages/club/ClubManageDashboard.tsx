@@ -23,7 +23,6 @@ function StatCard({ label, value, icon: Icon, color }: {
 const ROLE_LABELS: Record<string, string> = {
   CLUB_ADMIN: 'Ban chủ nhiệm',
   DEPT_LEAD: 'Trưởng ban',
-  DEPT_DEPUTY: 'Phó ban',
   MEMBER: 'Thành viên',
 }
 
@@ -46,10 +45,10 @@ export default function ClubManageDashboard() {
   if (!stats) return null
 
   return (
-    <div className="p-8 space-y-8">
+    <div className="px-8 pb-8 space-y-8">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">{stats.clubName}</h1>
-        <p className="text-gray-500 mt-1">Tổng quan hoạt động câu lạc bộ</p>
+        <h1 className="text-2xl font-bold" style={{ color: '#0f172a' }}>{stats.clubName}</h1>
+        <p className="mt-1" style={{ color: '#6b7280' }}>Tổng quan hoạt động câu lạc bộ</p>
       </div>
 
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
@@ -62,7 +61,7 @@ export default function ClubManageDashboard() {
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         {/* Phân bổ theo vai trò */}
         <div className="bg-white rounded-xl border border-gray-200 p-5">
-          <h2 className="font-semibold text-gray-900 mb-4">Thành viên theo vai trò</h2>
+          <h2 className="font-semibold mb-4" style={{ color: '#0f172a' }}>Thành viên theo vai trò</h2>
           {Object.keys(stats.membersByRole).length === 0 ? (
             <p className="text-sm text-gray-400">Chưa có dữ liệu.</p>
           ) : (
@@ -79,7 +78,7 @@ export default function ClubManageDashboard() {
 
         {/* Phân bổ theo ban */}
         <div className="bg-white rounded-xl border border-gray-200 p-5">
-          <h2 className="font-semibold text-gray-900 mb-4">Thành viên theo ban</h2>
+          <h2 className="font-semibold mb-4" style={{ color: '#0f172a' }}>Thành viên theo ban</h2>
           {stats.membersByDepartment.length === 0 ? (
             <p className="text-sm text-gray-400">Chưa có dữ liệu.</p>
           ) : (

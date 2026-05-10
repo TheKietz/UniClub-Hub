@@ -9,5 +9,7 @@ namespace UniClub_Hub.Membership.DTOs.Auth
 
         [Required]
         public string Password { get; set; } = null!;
+
+        public bool RememberMe { get; set; } = true;
     }
 }

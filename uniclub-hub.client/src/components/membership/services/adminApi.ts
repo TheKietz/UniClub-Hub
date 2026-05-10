@@ -23,6 +23,14 @@ export const unlockUser = (id: string) =>
 export const deleteUser = (id: string) =>
   api.delete(`/admin/users/${id}`)
 
+export const changeUserRole = (id: string, role: string) =>
+  api.patch(`/admin/users/${id}/role`, { role })
+
+export const createUser = (dto: {
+  email: string; password: string; fullName?: string
+  studentId?: string; major?: string; gender?: string; role?: string
+}) => api.post<{ data: unknown }>('/admin/users', dto).then(r => r.data.data)
+
 // ── Clubs ──────────────────────────────────────────────────────────────────
 
 export const getAdminClubs = (params?: { categoryId?: number; status?: string }) =>

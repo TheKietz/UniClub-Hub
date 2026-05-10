@@ -1,6 +1,6 @@
 namespace UniClub_Hub.Shared.Models
 {
-    // ClubRole lưu vai trò trong phạm vi 1 CLB: CLUB_ADMIN / DEPT_LEAD / DEPT_DEPUTY / MEMBER
+    // ClubRole lưu vai trò trong phạm vi 1 CLB: CLUB_ADMIN / DEPT_LEAD / MEMBER
     // Vai trò hệ thống (SUPER_ADMIN, USER) quản lý riêng bởi ASP.NET Identity (AspNetRoles)
     public class ClubMembership
     {

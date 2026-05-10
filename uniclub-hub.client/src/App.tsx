@@ -1,19 +1,26 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import { AuthProvider, useAuth } from '@/contexts/AuthContext'
+import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { AuthProvider } from '@/contexts/AuthContext'
 import ProtectedRoute from '@/components/shared/ProtectedRoute'
 import ClubProtectedRoute from '@/components/shared/ClubProtectedRoute'
 import { Toaster } from '@/components/ui/sonner'
 import { CLUB_ROLES } from '@/types/auth'
 
+import LandingPage from '@/features/landing/LandingPage'
+import NotFoundPage from '@/features/errors/NotFoundPage'
 import LoginPage from '@/features/auth/LoginPage'
 import RegisterPage from '@/features/auth/RegisterPage'
+import ForgotPasswordPage from '@/features/auth/ForgotPasswordPage'
+import ResetPasswordPage from '@/features/auth/ResetPasswordPage'
+import CompleteProfilePage from '@/features/auth/CompleteProfilePage'
 
 import AdminLayout from '@/components/membership/pages/admin/AdminLayout'
 import DashboardPage from '@/components/membership/pages/admin/DashboardPage'
 import UsersPage from '@/components/membership/pages/admin/UsersPage'
 import ClubsPage from '@/components/membership/pages/admin/ClubsPage'
 import CategoriesPage from '@/components/membership/pages/admin/CategoriesPage'
+import AdminStructurePage from '@/components/membership/pages/admin/AdminStructurePage'
 
+import MemberLayout from '@/components/membership/layout/MemberLayout'
 import ClubManageLayout from '@/components/membership/pages/club/ClubManageLayout'
 import ClubManageDashboard from '@/components/membership/pages/club/ClubManageDashboard'
 import MembersPage from '@/components/membership/pages/club/MembersPage'
@@ -24,12 +31,6 @@ import FormSchemaPage from '@/components/membership/pages/club/FormSchemaPage'
 import MemberDashboard from '@/components/membership/pages/MemberDashboard'
 import ClubListPage from '@/components/membership/pages/ClubListPage'
 
-function RootRedirect() {
-  const { isAuthenticated, isSuperAdmin, isLoading } = useAuth()
-  if (isLoading) return null
-  if (!isAuthenticated) return <Navigate to="/login" replace />
-  return <Navigate to={isSuperAdmin ? '/admin' : '/dashboard'} replace />
-}
 
 const Soon = ({ label }: { label: string }) => (
   <div className="p-8 text-xl font-semibold text-gray-500">{label} — Coming soon</div>
@@ -40,9 +41,19 @@ export default function App() {
     <BrowserRouter>
       <AuthProvider>
         <Routes>
+          {/* Landing */}
+          <Route path="/" element={<LandingPage />} />
+
           {/* Public */}
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
+
+          {/* Complete profile — requires auth but not complete profile */}
+          <Route element={<ProtectedRoute />}>
+            <Route path="/complete-profile" element={<CompleteProfilePage />} />
+          </Route>
 
           {/* Admin — SUPER_ADMIN only */}
           <Route element={<ProtectedRoute requireAdmin />}>
@@ -50,20 +61,30 @@ export default function App() {
               <Route path="/admin" element={<DashboardPage />} />
               <Route path="/admin/users" element={<UsersPage />} />
               <Route path="/admin/clubs" element={<ClubsPage />} />
+              <Route path="/admin/structure" element={<AdminStructurePage />} />
               <Route path="/admin/categories" element={<CategoriesPage />} />
             </Route>
           </Route>
 
-          {/* Authenticated users */}
+          {/* Member routes — sidebar layout */}
           <Route element={<ProtectedRoute />}>
-            <Route path="/dashboard" element={<MemberDashboard />} />
-            <Route path="/clubs" element={<ClubListPage />} />
+            <Route element={<MemberLayout />}>
+              <Route path="/dashboard" element={<MemberDashboard />} />
+              <Route path="/clubs" element={<ClubListPage />} />
+              <Route path="/clubs/:clubId" element={<Soon label="Club Detail" />} />
+              <Route path="/profile" element={<Soon label="Hồ sơ cá nhân" />} />
+              <Route path="/my-history" element={<Soon label="Lịch sử hoạt động" />} />
+              <Route path="/my-tasks" element={<Soon label="Task được giao" />} />
+              <Route path="/my-kpi" element={<Soon label="KPI của tôi" />} />
+              <Route element={<ClubProtectedRoute requiredRoles={[CLUB_ROLES.CLUB_ADMIN, CLUB_ROLES.DEPT_LEAD]} />}>
+                <Route path="/clubs/:clubId/departments/:deptId" element={<Soon label="Department Detail" />} />
+              </Route>
+            </Route>
+          </Route>
 
-            {/* Club routes */}
+          {/* Club management — full-page layout riêng, không có MemberLayout */}
+          <Route element={<ProtectedRoute />}>
             <Route path="/clubs/:clubId">
-              <Route index element={<Soon label="Club Detail" />} />
-
-              {/* Club management — CLUB_ADMIN hoặc SUPER_ADMIN */}
               <Route element={<ClubProtectedRoute requiredRoles={[CLUB_ROLES.CLUB_ADMIN]} />}>
                 <Route element={<ClubManageLayout />}>
                   <Route path="manage" element={<ClubManageDashboard />} />
@@ -73,16 +94,11 @@ export default function App() {
                   <Route path="manage/form" element={<FormSchemaPage />} />
                 </Route>
               </Route>
-
-              {/* Department detail — DEPT_LEAD, DEPT_DEPUTY, CLUB_ADMIN */}
-              <Route element={<ClubProtectedRoute requiredRoles={[CLUB_ROLES.CLUB_ADMIN, CLUB_ROLES.DEPT_LEAD, CLUB_ROLES.DEPT_DEPUTY]} />}>
-                <Route path="departments/:deptId" element={<Soon label="Department Detail" />} />
-              </Route>
             </Route>
           </Route>
 
-          {/* Fallback */}
-          <Route path="*" element={<RootRedirect />} />
+          {/* 404 */}
+          <Route path="*" element={<NotFoundPage />} />
         </Routes>
         <Toaster richColors position="top-right" />
       </AuthProvider>

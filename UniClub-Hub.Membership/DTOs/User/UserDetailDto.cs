@@ -9,6 +9,8 @@ namespace UniClub_Hub.Membership.DTOs.User
         public string? Major { get; set; }
         public string? AvatarUrl { get; set; }
         public string? Phone { get; set; }
+        public string? Gender { get; set; }
+        public DateOnly? DateOfBirth { get; set; }
         public bool IsLocked { get; set; }
         public bool IsDeleted { get; set; }
         public List<string> Roles { get; set; } = [];
@@ -19,6 +21,7 @@ namespace UniClub_Hub.Membership.DTOs.User
     {
         public int ClubId { get; set; }
         public string ClubName { get; set; } = null!;
+        public int? DepartmentId { get; set; }
         public string? DepartmentName { get; set; }
         public string ClubRole { get; set; } = null!;
         public DateOnly JoinedDate { get; set; }

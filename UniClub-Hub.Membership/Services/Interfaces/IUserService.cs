@@ -12,5 +12,7 @@ namespace UniClub_Hub.Membership.Services.Interfaces
         Task SoftDeleteUserAsync(string userId, string adminId);
         Task<UserDetailDto?> GetMeAsync(string userId);
         Task UpdateMeAsync(string userId, UpdateProfileDto dto);
+        Task<UserDetailDto> CreateUserAsync(CreateUserDto dto);
+        Task ChangeRoleAsync(string userId, string newRole);
     }
 }

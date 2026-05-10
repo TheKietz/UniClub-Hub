@@ -9,16 +9,32 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { toast } from 'sonner'
-import { Plus, MoreHorizontal } from 'lucide-react'
+import { Plus, Search, Pencil, Trash2 } from 'lucide-react'
 
 const ROLE_LABELS: Record<string, string> = {
   CLUB_ADMIN: 'Ban chủ nhiệm',
   DEPT_LEAD: 'Trưởng ban',
-  DEPT_DEPUTY: 'Phó ban',
   MEMBER: 'Thành viên',
+}
+
+const ROLE_BADGE: Record<string, { bg: string; text: string }> = {
+  CLUB_ADMIN: { bg: '#ede9fe', text: '#6d28d9' },
+  DEPT_LEAD: { bg: '#dbeafe', text: '#1d4ed8' },
+  MEMBER: { bg: '#f0fdf4', text: '#16a34a' },
+}
+
+function Avatar({ name }: { name: string }) {
+  const initials = name.split(' ').slice(-2).map(w => w[0]).join('').toUpperCase()
+  const colors = ['#6366f1', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#3b82f6']
+  const color = colors[name.charCodeAt(0) % colors.length]
+  return (
+    <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-semibold flex-shrink-0"
+      style={{ background: color }}>
+      {initials}
+    </div>
+  )
 }
 
 type AddForm = { userId: string; clubRole: string; departmentId: string }
@@ -41,6 +57,8 @@ export default function MembersPage() {
   const [editForm, setEditForm] = useState<EditForm>({ clubRole: CLUB_ROLES.MEMBER, departmentId: '' })
 
   const [removeTarget, setRemoveTarget] = useState<MemberItem | null>(null)
+  const [search, setSearch] = useState('')
+  const [roleFilter, setRoleFilter] = useState('')
 
   useEffect(() => {
     setLoading(true)
@@ -126,60 +144,105 @@ export default function MembersPage() {
     </select>
   )
 
+  const filtered = members.filter(m => {
+    const q = search.toLowerCase()
+    const matchSearch = !q || (m.fullName ?? '').toLowerCase().includes(q)
+      || m.email.toLowerCase().includes(q)
+      || (m.studentId ?? '').toLowerCase().includes(q)
+    const matchRole = !roleFilter || m.clubRole === roleFilter
+    return matchSearch && matchRole
+  })
+
   return (
-    <div className="p-8 space-y-6">
+    <div className="px-6 pb-6 space-y-3">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Thành viên</h1>
-          <p className="text-gray-500 mt-1">Quản lý thành viên trong câu lạc bộ</p>
-        </div>
-        <Button onClick={() => setAddOpen(true)} className="gap-2">
+        <h1 className="text-xl font-bold leading-none" style={{ color: '#0f172a' }}>Thành viên</h1>
+        <Button onClick={() => setAddOpen(true)} className="gap-2 bg-indigo-600 hover:bg-indigo-700">
           <Plus size={16} /> Thêm thành viên
         </Button>
+      </div>
+
+      {/* Search & filter */}
+      <div className="flex items-center gap-3">
+        <div className="relative flex-1 max-w-xs">
+          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <Input
+            placeholder="Tìm theo tên, email, MSSV..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+        <select
+          value={roleFilter}
+          onChange={e => setRoleFilter(e.target.value)}
+          className="border border-input rounded-lg px-3 py-2 text-sm bg-background"
+        >
+          <option value="">Tất cả vai trò</option>
+          {Object.entries(ROLE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+        </select>
+        <span className="text-sm" style={{ color: '#9ca3af' }}>{filtered.length} thành viên</span>
       </div>
 
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         <Table>
           <TableHeader>
-            <TableRow>
+            <TableRow className="bg-gray-50">
+              <TableHead className="w-12 text-center">ID</TableHead>
               <TableHead>Họ tên</TableHead>
               <TableHead>Email</TableHead>
               <TableHead>MSSV</TableHead>
               <TableHead>Vai trò</TableHead>
               <TableHead>Ban</TableHead>
               <TableHead>Trạng thái</TableHead>
-              <TableHead className="w-12" />
+              <TableHead className="text-center">Hành động</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={7} className="text-center text-gray-400 py-12">Đang tải...</TableCell></TableRow>
-            ) : members.length === 0 ? (
-              <TableRow><TableCell colSpan={7} className="text-center text-gray-400 py-12">Chưa có thành viên nào.</TableCell></TableRow>
-            ) : members.map(m => (
-              <TableRow key={m.id}>
-                <TableCell className="font-medium">{m.fullName ?? '—'}</TableCell>
-                <TableCell className="text-gray-600">{m.email}</TableCell>
-                <TableCell className="text-gray-500">{m.studentId ?? '—'}</TableCell>
+              <TableRow><TableCell colSpan={8} className="text-center text-gray-400 py-12">Đang tải...</TableCell></TableRow>
+            ) : filtered.length === 0 ? (
+              <TableRow><TableCell colSpan={8} className="text-center text-gray-400 py-12">Không tìm thấy thành viên nào.</TableCell></TableRow>
+            ) : filtered.map(m => (
+              <TableRow key={m.id} className="hover:bg-gray-50/60">
+                <TableCell className="text-center text-xs font-mono" style={{ color: '#9ca3af' }}>{m.id}</TableCell>
                 <TableCell>
-                  <Badge variant="outline">{ROLE_LABELS[m.clubRole] ?? m.clubRole}</Badge>
+                  <div className="flex items-center gap-2">
+                    <Avatar name={m.fullName || m.email} />
+                    <span className="font-medium text-sm" style={{ color: '#111827' }}>{m.fullName ?? '—'}</span>
+                  </div>
                 </TableCell>
-                <TableCell className="text-gray-500">{m.departmentName ?? '—'}</TableCell>
+                <TableCell className="text-sm" style={{ color: '#6b7280' }}>{m.email}</TableCell>
+                <TableCell className="text-sm" style={{ color: '#6b7280' }}>{m.studentId ?? '—'}</TableCell>
                 <TableCell>
-                  <Badge variant={m.status === 'Active' ? 'default' : 'secondary'}>
-                    {m.status === 'Active' ? 'Đang tham gia' : m.status}
-                  </Badge>
+                  {(() => {
+                    const c = ROLE_BADGE[m.clubRole] ?? { bg: '#f3f4f6', text: '#374151' }
+                    return (
+                      <span className="px-2 py-0.5 rounded-full text-xs font-semibold"
+                        style={{ background: c.bg, color: c.text }}>
+                        {ROLE_LABELS[m.clubRole] ?? m.clubRole}
+                      </span>
+                    )
+                  })()}
+                </TableCell>
+                <TableCell className="text-sm" style={{ color: '#6b7280' }}>{m.departmentName ?? '—'}</TableCell>
+                <TableCell>
+                  <span className="px-2 py-0.5 rounded-full text-xs font-semibold"
+                    style={{ background: m.status === 'Active' ? '#dcfce7' : '#f3f4f6', color: m.status === 'Active' ? '#16a34a' : '#6b7280' }}>
+                    {m.status === 'Active' ? 'Đang tham gia' : 'Đã rời'}
+                  </span>
                 </TableCell>
                 <TableCell>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon"><MoreHorizontal size={16} /></Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => openEdit(m)}>Chỉnh sửa vai trò</DropdownMenuItem>
-                      <DropdownMenuItem className="text-red-600" onClick={() => setRemoveTarget(m)}>Xoá khỏi CLB</DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  <div className="flex items-center justify-center gap-1">
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-indigo-500 hover:text-indigo-700 hover:bg-indigo-50"
+                      onClick={() => openEdit(m)}>
+                      <Pencil size={14} />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 hover:text-red-600 hover:bg-red-50"
+                      onClick={() => setRemoveTarget(m)}>
+                      <Trash2 size={14} />
+                    </Button>
+                  </div>
                 </TableCell>
               </TableRow>
             ))}
