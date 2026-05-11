@@ -387,3 +387,6 @@ Thumbs.db
 # ASP.NET SPA build artifacts (auto-generated, do not commit)
 uniclub-hub.client/obj/
 uniclub-hub.client/bin/
+/uniclub-hub.client/.env
+CLAUDE.md
+TODO.md

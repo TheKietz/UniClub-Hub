@@ -1,9 +1,6 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using UniClub_Hub.Operations.Services.Implements;
+using UniClub_Hub.Operations.Services.Interfaces;
 
 namespace UniClub_Hub.Operations
 {
@@ -11,8 +8,9 @@ namespace UniClub_Hub.Operations
     {
         public static IServiceCollection AddOperationsServices(this IServiceCollection services)
         {
-            // Đăng ký các Service 
-            //vd: services.AddScoped<IEventService, EventService>();
+            services.AddScoped<IEventService, EventService>();
+            services.AddScoped<ITaskService, TaskService>();
+            services.AddScoped<ISprintService, SprintService>();
             return services;
         }
     }
