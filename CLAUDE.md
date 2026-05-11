@@ -80,10 +80,11 @@ Chạy .NET API — nó tự proxy sang Vite dev server (`https://localhost:5461
 ```
 src/
   features/
+  components/
     membership/    # Đề tài 1
     operations/    # Đề tài 2
     portal/        # Đề tài 3
-  components/shared/
+    shared/
 ```
 
 ### Key wiring trong Program.cs

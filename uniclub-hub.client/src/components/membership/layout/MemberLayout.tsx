@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, Users, User, History, ClipboardList, BarChart3, Layers, Home } from 'lucide-react'
+import { LayoutDashboard, Users, User, History, ClipboardList, BarChart3, Layers, Home, Zap, Calendar, BarChart2, Activity, AlertTriangle } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import NotificationBell from './NotificationBell'
 import UserMenu from './UserMenu'
@@ -26,6 +26,8 @@ function SectionLabel({ label }: { label: string }) {
 export default function MemberLayout() {
   const { user } = useAuth()
   const navigate = useNavigate()
+
+  const defaultClubId = user?.memberships.find(m => m.status === 'Active')?.clubId ?? 1
 
   const managedClubs = user?.memberships.filter(
     m => m.status === MEMBERSHIP_STATUS.ACTIVE && m.clubRole === CLUB_ROLES.CLUB_ADMIN
@@ -82,6 +84,38 @@ export default function MemberLayout() {
           <NavLink to="/my-kpi" className={navCls}>
             <BarChart3 size={17} />
             KPI của tôi
+          </NavLink>
+
+          {/* Vận hành */}
+          <SectionLabel label="Vận hành" />
+
+          <NavLink to={`/operations?clubId=${defaultClubId}`} end className={navCls}>
+            <Zap size={17} />
+            Tổng quan
+          </NavLink>
+          <NavLink to={`/operations/kanban?clubId=${defaultClubId}`} className={navCls}>
+            <LayoutDashboard size={17} />
+            Kanban
+          </NavLink>
+          <NavLink to={`/operations/sprints?clubId=${defaultClubId}`} className={navCls}>
+            <Layers size={17} />
+            Sprints
+          </NavLink>
+          <NavLink to={`/operations/events?clubId=${defaultClubId}`} className={navCls}>
+            <Calendar size={17} />
+            Sự kiện
+          </NavLink>
+          <NavLink to={`/operations/workload?clubId=${defaultClubId}`} className={navCls}>
+            <BarChart2 size={17} />
+            Phân công
+          </NavLink>
+          <NavLink to={`/operations/gantt?clubId=${defaultClubId}`} className={navCls}>
+            <Activity size={17} />
+            Gantt
+          </NavLink>
+          <NavLink to={`/operations/deadlines?clubId=${defaultClubId}`} className={navCls}>
+            <AlertTriangle size={17} />
+            Cảnh báo
           </NavLink>
 
           {/* Ban mà user đang dẫn dắt (DEPT_LEAD) */}
