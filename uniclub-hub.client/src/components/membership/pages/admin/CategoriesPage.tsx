@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { toast } from 'sonner'
-import { Plus, Pencil, Trash2 } from 'lucide-react'
+import { Plus, Pencil, Trash2, Search } from 'lucide-react'
 
 const CATEGORY_COLORS = [
   { bg: '#ede9fe', text: '#6d28d9' },
@@ -31,6 +31,7 @@ export default function CategoriesPage() {
   const [form, setForm] = useState<FormData>(emptyForm)
   const [saving, setSaving] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<CategoryItem | null>(null)
+  const [search, setSearch] = useState('')
 
   useEffect(() => {
     setLoading(true)
@@ -98,10 +99,22 @@ export default function CategoriesPage() {
         </Button>
       </div>
 
+      {/* Search */}
+      <div className="flex items-center gap-3">
+        <div className="relative flex-1 max-w-xs">
+          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+          <Input placeholder="Tìm theo tên lĩnh vực..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
+        </div>
+        <span className="text-sm" style={{ color: '#9ca3af' }}>
+          {categories.filter(c => !search || c.name.toLowerCase().includes(search.toLowerCase())).length} lĩnh vực
+        </span>
+      </div>
+
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         <Table>
           <TableHeader>
             <TableRow className="bg-gray-50">
+              <TableHead className="w-12 text-center">ID</TableHead>
               <TableHead>Tên lĩnh vực</TableHead>
               <TableHead>Mô tả</TableHead>
               <TableHead>Số CLB</TableHead>
@@ -110,13 +123,14 @@ export default function CategoriesPage() {
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={4} className="text-center text-gray-400 py-12">Đang tải...</TableCell></TableRow>
-            ) : categories.length === 0 ? (
-              <TableRow><TableCell colSpan={4} className="text-center text-gray-400 py-12">Chưa có lĩnh vực nào.</TableCell></TableRow>
-            ) : categories.map((cat, i) => {
+              <TableRow><TableCell colSpan={5} className="text-center text-gray-400 py-12">Đang tải...</TableCell></TableRow>
+            ) : categories.filter(c => !search || c.name.toLowerCase().includes(search.toLowerCase())).length === 0 ? (
+              <TableRow><TableCell colSpan={5} className="text-center text-gray-400 py-12">Không tìm thấy lĩnh vực nào.</TableCell></TableRow>
+            ) : categories.filter(c => !search || c.name.toLowerCase().includes(search.toLowerCase())).map((cat, i) => {
               const c = CATEGORY_COLORS[i % CATEGORY_COLORS.length]
               return (
               <TableRow key={cat.id} className="hover:bg-gray-50/60">
+                <TableCell className="text-center text-xs font-mono" style={{ color: '#9ca3af' }}>{cat.id}</TableCell>
                 <TableCell>
                   <span className="px-2.5 py-1 rounded-full text-xs font-semibold" style={{ background: c.bg, color: c.text }}>
                     {cat.name}

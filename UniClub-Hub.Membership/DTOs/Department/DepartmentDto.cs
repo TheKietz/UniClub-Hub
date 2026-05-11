@@ -7,5 +7,7 @@ namespace UniClub_Hub.Membership.DTOs.Department
         public string Name { get; set; } = null!;
         public string? Description { get; set; }
         public int MemberCount { get; set; }
+        public int? DeptLeadMembershipId { get; set; }
+        public string? DeptLeadName { get; set; }
     }
 }

@@ -1,3 +1,4 @@
+using UniClub_Hub.Shared.Common;
 using Microsoft.EntityFrameworkCore;
 using UniClub_Hub.Membership.DTOs.Club;
 using UniClub_Hub.Membership.Services.Interfaces;
@@ -26,8 +27,7 @@ namespace UniClub_Hub.Membership.Services.Implements
 
         public async Task<ClubDto> GetByIdAsync(int id)
         {
-            return await _db.Clubs
-                .AsNoTracking()
+            return await BuildBaseQuery(null, null)
                 .Where(c => c.Id == id)
                 .Select(c => ToDto(c))
                 .FirstOrDefaultAsync()
@@ -44,8 +44,7 @@ namespace UniClub_Hub.Membership.Services.Implements
 
         public async Task<AdminClubDto> GetByIdAdminAsync(int id)
         {
-            return await _db.Clubs
-                .AsNoTracking()
+            return await BuildBaseQuery(null, null)
                 .Where(c => c.Id == id)
                 .Select(c => ToAdminDto(c))
                 .FirstOrDefaultAsync()

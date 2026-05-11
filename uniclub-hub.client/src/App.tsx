@@ -27,18 +27,22 @@ import MembersPage from "@/components/membership/pages/club/MembersPage";
 import ApplicationsPage from "@/components/membership/pages/club/ApplicationsPage";
 import DepartmentsPage from "@/components/membership/pages/club/DepartmentsPage";
 import FormSchemaPage from "@/components/membership/pages/club/FormSchemaPage";
+import ClubSettingsPage from "@/components/membership/pages/club/ClubSettingsPage";
 
 import MemberDashboard from "@/components/membership/pages/MemberDashboard";
 import ClubListPage from "@/components/membership/pages/ClubListPage";
 
-import KanbanPage from '@/components/operations/pages/KanbanPage'
-import MyTasksPage from '@/components/operations/pages/MyTasksPage'
-import EventListPage from '@/components/operations/pages/EventListPage'
-import WorkloadPage from '@/components/operations/pages/WorkloadPage'
-import GanttPage from '@/components/operations/pages/GanttPage'
-import DeadlinePage from '@/components/operations/pages/DeadlinePage'
-import SprintsPage from '@/components/operations/pages/SprintsPage'
-import OperationsDashboard from '@/components/operations/pages/OperationsDashboard'
+import KanbanPage from "@/components/operations/pages/KanbanPage";
+import MyTasksPage from "@/components/operations/pages/MyTasksPage";
+import EventListPage from "@/components/operations/pages/EventListPage";
+import WorkloadPage from "@/components/operations/pages/WorkloadPage";
+import GanttPage from "@/components/operations/pages/GanttPage";
+import DeadlinePage from "@/components/operations/pages/DeadlinePage";
+import SprintsPage from "@/components/operations/pages/SprintsPage";
+import OperationsDashboard from "@/components/operations/pages/OperationsDashboard";
+import ClubDetailPage from "@/components/membership/pages/ClubDetailPage";
+import ProfilePage from "@/components/membership/pages/ProfilePage";
+import MemberHistoryPage from "@/components/membership/pages/MemberHistoryPage";
 
 const Soon = ({ label }: { label: string }) => (
   <div className="p-8 text-xl font-semibold text-gray-500">
@@ -75,6 +79,10 @@ export default function App() {
               <Route path="/admin/categories" element={<CategoriesPage />} />
             </Route>
           </Route>
+
+          {/* Public club pages — không cần đăng nhập */}
+          <Route path="/clubs" element={<ClubListPage />} />
+          <Route path="/clubs/:clubId" element={<ClubDetailPage />} />
 
           {/* Member routes — sidebar layout */}
           <Route element={<ProtectedRoute />}>
@@ -137,6 +145,10 @@ export default function App() {
                     element={<DepartmentsPage />}
                   />
                   <Route path="manage/form" element={<FormSchemaPage />} />
+                  <Route
+                    path="manage/settings"
+                    element={<ClubSettingsPage />}
+                  />
                 </Route>
               </Route>
             </Route>

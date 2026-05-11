@@ -28,6 +28,14 @@ namespace UniClub_Hub.Server.Controllers.Membership
             return Ok(ApiResponse<UserDetailDto>.Ok(user));
         }
 
+        [HttpGet("me/history")]
+        public async Task<IActionResult> GetMyHistory()
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+            var history = await _userService.GetMyHistoryAsync(userId);
+            return Ok(ApiResponse<IEnumerable<MembershipHistoryDto>>.Ok(history));
+        }
+
         [HttpPatch("me")]
         public async Task<IActionResult> UpdateMe([FromBody] UpdateProfileDto dto)
         {

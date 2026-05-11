@@ -10,7 +10,16 @@ import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { toast } from 'sonner'
-import { Plus, Pencil, Trash2, Building2 } from 'lucide-react'
+import { Plus, Pencil, Trash2, Building2, Search } from 'lucide-react'
+
+const CLUB_COLORS = [
+  { bg: '#ede9fe', icon: '#7c3aed', border: '#ddd6fe' },
+  { bg: '#dbeafe', icon: '#1d4ed8', border: '#bfdbfe' },
+  { bg: '#dcfce7', icon: '#16a34a', border: '#bbf7d0' },
+  { bg: '#fef9c3', icon: '#a16207', border: '#fef08a' },
+  { bg: '#fee2e2', icon: '#dc2626', border: '#fecaca' },
+  { bg: '#ffedd5', icon: '#c2410c', border: '#fed7aa' },
+]
 
 type DeptsByClub = Record<number, DepartmentItem[]>
 
@@ -27,6 +36,7 @@ export default function AdminStructurePage() {
   const [saving, setSaving] = useState(false)
 
   const [deleteTarget, setDeleteTarget] = useState<{ clubId: number; dept: DepartmentItem } | null>(null)
+  const [search, setSearch] = useState('')
 
   useEffect(() => {
     setLoading(true)
@@ -98,26 +108,41 @@ export default function AdminStructurePage() {
 
   if (loading) return <div className="p-8" style={{ color: '#6b7280' }}>Đang tải...</div>
 
+  const filteredClubs = clubs.filter(c =>
+    !search || c.name.toLowerCase().includes(search.toLowerCase()) || c.code.toLowerCase().includes(search.toLowerCase())
+  )
+
   return (
     <div className="px-8 pt-3 pb-8 space-y-4">
       <h1 className="text-xl font-bold leading-none" style={{ color: '#0f172a' }}>Cơ cấu tổ chức</h1>
 
+      {/* Search */}
+      <div className="flex items-center gap-3">
+        <div className="relative flex-1 max-w-xs">
+          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+          <Input placeholder="Tìm theo tên, mã CLB..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
+        </div>
+        <span className="text-sm" style={{ color: '#9ca3af' }}>{filteredClubs.length} câu lạc bộ</span>
+      </div>
+
       <div className="space-y-4">
-        {clubs.map(club => {
+        {filteredClubs.map((club, idx) => {
           const depts = deptsByClub[club.id] ?? []
+          const clr = CLUB_COLORS[idx % CLUB_COLORS.length]
           return (
-            <div key={club.id} className="bg-white rounded-xl border border-gray-200 p-5">
+            <div key={club.id} className="bg-white rounded-xl border p-5" style={{ borderColor: clr.border }}>
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-lg bg-indigo-50 flex items-center justify-center">
-                    <Building2 size={16} className="text-indigo-600" />
+                  <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: clr.bg }}>
+                    <Building2 size={16} style={{ color: clr.icon }} />
                   </div>
                   <div>
                     <p style={{ color: '#0f172a', fontWeight: 600, fontSize: '0.95rem' }}>{club.name}</p>
                     <p style={{ color: '#9ca3af', fontSize: '0.75rem', fontFamily: 'monospace' }}>{club.code}</p>
                   </div>
                 </div>
-                <Button size="sm" variant="outline" className="gap-1.5" onClick={() => openCreate(club)}>
+                <Button size="sm" className="gap-1.5" style={{ background: clr.icon, color: '#fff' }}
+                  onClick={() => openCreate(club)}>
                   <Plus size={14} /> Thêm ban
                 </Button>
               </div>
@@ -127,25 +152,26 @@ export default function AdminStructurePage() {
               ) : (
                 <div className="space-y-1.5">
                   {depts.map(dept => (
-                    <div key={dept.id} className="flex items-center justify-between py-2 px-3 rounded-lg bg-gray-50">
+                    <div key={dept.id} className="flex items-center justify-between py-2 px-3 rounded-lg"
+                      style={{ background: clr.bg + '60' }}>
                       <div className="flex items-center gap-3">
+                        <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: clr.icon }} />
                         <span style={{ color: '#374151', fontSize: '0.875rem', fontWeight: 500 }}>{dept.name}</span>
                         {dept.description && (
                           <span style={{ color: '#9ca3af', fontSize: '0.8rem' }}>{dept.description}</span>
                         )}
                       </div>
                       <div className="flex items-center gap-3">
-                        <span style={{ color: '#6b7280', fontSize: '0.8rem' }}>{dept.memberCount} thành viên</span>
-                        <Button
-                          size="icon" variant="ghost" className="h-7 w-7"
-                          onClick={() => openEdit(club, dept)}
-                        >
+                        <span className="text-xs px-2 py-0.5 rounded-full font-medium"
+                          style={{ background: clr.bg, color: clr.icon }}>
+                          {dept.memberCount} thành viên
+                        </span>
+                        <Button size="icon" variant="ghost" className="h-7 w-7 text-indigo-500 hover:text-indigo-700 hover:bg-indigo-50"
+                          onClick={() => openEdit(club, dept)}>
                           <Pencil size={13} />
                         </Button>
-                        <Button
-                          size="icon" variant="ghost" className="h-7 w-7 text-red-400 hover:text-red-600 hover:bg-red-50"
-                          onClick={() => setDeleteTarget({ clubId: club.id, dept })}
-                        >
+                        <Button size="icon" variant="ghost" className="h-7 w-7 text-red-400 hover:text-red-600 hover:bg-red-50"
+                          onClick={() => setDeleteTarget({ clubId: club.id, dept })}>
                           <Trash2 size={13} />
                         </Button>
                       </div>

@@ -44,6 +44,7 @@ Dễ mở rộng và tích hợp
 Xây dựng hệ thống web hoàn chỉnh
 Kiểm thử chức năng và dữ liệu
 Đánh giá hiệu quả quản lý tổ chức CLB
+
 ĐỀ TÀI 2
 Tên đề tài
 
@@ -89,6 +90,7 @@ Khả năng mở rộng
 Kiểm thử nghiệp vụ vận hành
 Đánh giá hiệu quả quản lý hoạt động
 So sánh trước và sau khi áp dụng hệ thống
+
 ĐỀ TÀI 3: Xây dựng cổng thông tin và hệ thống truyền thông giới thiệu hoạt động câu lạc bộ sinh viên
 
 1. Nội dung thực hiện

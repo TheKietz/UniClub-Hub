@@ -1,3 +1,4 @@
+using UniClub_Hub.Shared.Common;
 namespace UniClub_Hub.Membership.Services.Interfaces
 {
     public interface IExportService

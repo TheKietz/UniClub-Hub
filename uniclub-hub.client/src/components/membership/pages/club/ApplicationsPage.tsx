@@ -1,3 +1,4 @@
+import { APPLICATION_STATUS } from '@/types/auth'
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { getApplications, reviewApplication } from '@/components/membership/services/clubApi'
@@ -55,7 +56,6 @@ export default function ApplicationsPage() {
     <div className="px-8 pb-8 space-y-6">
       <div>
         <h1 className="text-2xl font-bold" style={{ color: '#0f172a' }}>Đơn đăng ký</h1>
-        <p className="mt-1" style={{ color: '#6b7280' }}>Xem xét và duyệt đơn tham gia CLB</p>
       </div>
 
       {/* Filter */}
@@ -65,8 +65,8 @@ export default function ApplicationsPage() {
             key={opt.value}
             onClick={() => setStatusFilter(opt.value)}
             className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${statusFilter === opt.value
-                ? 'bg-indigo-600 text-white'
-                : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
+              ? 'bg-indigo-600 text-white'
+              : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
               }`}
           >
             {opt.label}
@@ -93,7 +93,7 @@ export default function ApplicationsPage() {
               <TableRow><TableCell colSpan={6} className="text-center text-gray-400 py-12">Không có đơn nào.</TableCell></TableRow>
             ) : applications.map(app => {
               const badge = STATUS_BADGE[app.status]
-              const isPending = app.status === 'Pending' || app.status === 'Interview'
+              const isPending = app.status === APPLICATION_STATUS.PENDING || app.status === APPLICATION_STATUS.INTERVIEW
               return (
                 <TableRow key={app.id}>
                   <TableCell className="font-medium">{app.fullName ?? '—'}</TableCell>
@@ -112,7 +112,7 @@ export default function ApplicationsPage() {
                           <Button variant="ghost" size="icon"><MoreHorizontal size={16} /></Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          {app.status === 'Pending' && (
+                          {app.status === APPLICATION_STATUS.PENDING && (
                             <DropdownMenuItem onClick={() => handleReview(app.id, 'Interview')}>
                               Chuyển sang phỏng vấn
                             </DropdownMenuItem>

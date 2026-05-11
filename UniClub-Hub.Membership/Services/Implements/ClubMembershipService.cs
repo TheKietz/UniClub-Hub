@@ -94,6 +94,28 @@ namespace UniClub_Hub.Membership.Services.Implements
         public Task RemoveMemberAsAdminAsync(int clubId, int membershipId) =>
             RemoveMemberCoreAsync(clubId, membershipId);
 
+        public async Task<MemberDto> PromoteMemberAsync(int clubId, int membershipId)
+        {
+            var membership = await _db.ClubMemberships.FirstOrDefaultAsync(m =>
+                m.ClubId == clubId && m.Id == membershipId
+            ) ?? throw new KeyNotFoundException("Không tìm thấy thành viên này trong CLB.");
+
+            if (membership.Status != MembershipStatus.Probation)
+                throw new InvalidOperationException("Chỉ có thể xác nhận thành viên đang thử việc.");
+
+            membership.Status = MembershipStatus.Active;
+            await _db.SaveChangesAsync();
+
+            await _notifications.SendAsync(
+                membership.UserId,
+                "Xác nhận thành viên chính thức",
+                "Chúc mừng! Bạn đã được xác nhận là thành viên chính thức.",
+                NotificationType.System
+            );
+
+            return await GetByIdAsync(clubId, membershipId);
+        }
+
         // ── Core logic ────────────────────────────────────────────────────
 
         private async Task<MemberDto> AddMemberCoreAsync(int clubId, AddMemberDto dto)
@@ -104,7 +126,9 @@ namespace UniClub_Hub.Membership.Services.Implements
                 throw new KeyNotFoundException("Không tìm thấy người dùng.");
 
             var alreadyMember = await _db.ClubMemberships.AnyAsync(m =>
-                m.ClubId == clubId && m.UserId == dto.UserId && m.Status == MembershipStatus.Active
+                m.ClubId == clubId
+                && m.UserId == dto.UserId
+                && (m.Status == MembershipStatus.Active || m.Status == MembershipStatus.Probation)
             );
             if (alreadyMember)
                 throw new InvalidOperationException("Người dùng đã là thành viên của CLB này.");
@@ -171,6 +195,7 @@ namespace UniClub_Hub.Membership.Services.Implements
                 throw new InvalidOperationException("Thành viên này đã rời CLB.");
 
             membership.Status = MembershipStatus.Resigned;
+            membership.ResignedDate = DateOnly.FromDateTime(DateTime.UtcNow);
             await _db.SaveChangesAsync();
 
             var clubName = await _db

@@ -3,6 +3,7 @@ import { LayoutDashboard, Users, User, History, ClipboardList, BarChart3, Layers
 import { useAuth } from '@/contexts/AuthContext'
 import NotificationBell from './NotificationBell'
 import UserMenu from './UserMenu'
+import AppFooter from './AppFooter'
 import { CLUB_ROLES } from '@/types/auth'
 
 const navCls = ({ isActive }: { isActive: boolean }) =>
@@ -29,11 +30,11 @@ export default function MemberLayout() {
   const defaultClubId = user?.memberships.find(m => m.status === 'Active')?.clubId ?? 1
 
   const managedClubs = user?.memberships.filter(
-    m => m.status === 'Active' && m.clubRole === CLUB_ROLES.CLUB_ADMIN
+    m => m.status === MEMBERSHIP_STATUS.ACTIVE && m.clubRole === CLUB_ROLES.CLUB_ADMIN
   ) ?? []
 
   const ledDepts = user?.memberships.filter(
-    m => m.status === 'Active' && m.clubRole === CLUB_ROLES.DEPT_LEAD && m.departmentId
+    m => m.status === MEMBERSHIP_STATUS.ACTIVE && m.clubRole === CLUB_ROLES.DEPT_LEAD && m.departmentId
   ) ?? []
 
   return (
@@ -148,7 +149,6 @@ export default function MemberLayout() {
           >
             <Home size={17} /> Về trang chủ
           </button>
-          <p className="px-3 text-xs" style={{ color: '#d1d5db' }}>© 2026 UniClub Hub</p>
         </div>
       </aside>
 
@@ -161,8 +161,11 @@ export default function MemberLayout() {
         </header>
 
         {/* Page content */}
-        <main className="flex-1 overflow-y-auto">
-          <Outlet />
+        <main className="flex-1 overflow-y-auto flex flex-col">
+          <div className="flex-1">
+            <Outlet />
+          </div>
+          <AppFooter />
         </main>
       </div>
     </div>

@@ -511,6 +511,9 @@ namespace UniClub_Hub.Shared.Migrations
                     b.Property<DateOnly>("JoinedDate")
                         .HasColumnType("date");
 
+                    b.Property<DateOnly?>("ResignedDate")
+                        .HasColumnType("date");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
