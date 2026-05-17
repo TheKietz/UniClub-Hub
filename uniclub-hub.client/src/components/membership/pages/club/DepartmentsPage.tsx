@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { toast } from 'sonner'
-import { Plus, Pencil, Trash2, UserCog } from 'lucide-react'
+import { Plus, Pencil, Trash2, UserCog, AlertTriangle } from 'lucide-react'
 import api from '@/lib/axiosInstance'
 
 interface DeptForm { name: string; description: string }
@@ -123,7 +123,10 @@ export default function DepartmentsPage() {
   return (
     <div className="px-8 pt-4 pb-8 space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold leading-none" style={{ color: '#0f172a' }}>Ban bộ phận</h1>
+        <div>
+          <h1 className="text-xl font-bold leading-none" style={{ color: '#0f172a' }}>Ban bộ phận</h1>
+          <p className="text-sm text-gray-400 mt-0.5">{departments.length} ban tổng cộng</p>
+        </div>
         <Button onClick={openAdd} className="bg-indigo-600 hover:bg-indigo-700 gap-1.5">
           <Plus size={16} /> Thêm ban
         </Button>
@@ -154,7 +157,10 @@ export default function DepartmentsPage() {
                 <TableCell>
                   {dept.deptLeadName
                     ? <span className="text-sm font-medium" style={{ color: '#374151' }}>{dept.deptLeadName}</span>
-                    : <span className="text-sm text-gray-400">Chưa có</span>
+                    : <span className="inline-flex items-center gap-1 text-sm text-amber-600">
+                        <AlertTriangle size={13} />
+                        Chưa có trưởng ban
+                      </span>
                   }
                 </TableCell>
                 <TableCell className="text-center text-gray-600">{dept.memberCount}</TableCell>
@@ -267,14 +273,27 @@ export default function DepartmentsPage() {
           <DialogHeader>
             <DialogTitle>Xóa ban</DialogTitle>
           </DialogHeader>
-          <p className="text-sm" style={{ color: '#374151' }}>
-            Bạn có chắc muốn xóa ban <strong>"{deleteTarget?.name}"</strong>?
-            Chỉ xóa được nếu ban không còn thành viên hoạt động.
-          </p>
+          <div className="space-y-3">
+            <p className="text-sm text-gray-700">
+              Bạn có chắc muốn xóa ban <strong>"{deleteTarget?.name}"</strong>?
+            </p>
+            {deleteTarget && deleteTarget.memberCount > 0 ? (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2.5 text-sm text-amber-800 flex items-start gap-2">
+                <AlertTriangle size={15} className="mt-0.5 flex-shrink-0 text-amber-500" />
+                <span>
+                  Ban có <strong>{deleteTarget.memberCount} thành viên</strong> đang hoạt động.
+                  Họ sẽ được chuyển thành <strong>thành viên tự do</strong> của CLB và nhận thông báo.
+                  Trưởng ban sẽ bị hạ xuống thành viên thường.
+                </span>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-400">Ban này không có thành viên nào.</p>
+            )}
+          </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteTarget(null)} disabled={deleting}>Hủy</Button>
             <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
-              {deleting ? 'Đang xóa...' : 'Xóa'}
+              {deleting ? 'Đang xóa...' : 'Xóa ban'}
             </Button>
           </DialogFooter>
         </DialogContent>

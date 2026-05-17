@@ -36,7 +36,8 @@ export default function AdminStructurePage() {
   const [saving, setSaving] = useState(false)
 
   const [deleteTarget, setDeleteTarget] = useState<{ clubId: number; dept: DepartmentItem } | null>(null)
-  const [search, setSearch] = useState('')
+  const [searchName, setSearchName] = useState('')
+  const [searchCode, setSearchCode] = useState('')
 
   useEffect(() => {
     setLoading(true)
@@ -108,21 +109,32 @@ export default function AdminStructurePage() {
 
   if (loading) return <div className="p-8" style={{ color: '#6b7280' }}>Đang tải...</div>
 
-  const filteredClubs = clubs.filter(c =>
-    !search || c.name.toLowerCase().includes(search.toLowerCase()) || c.code.toLowerCase().includes(search.toLowerCase())
-  )
+  const hasFilter = searchName || searchCode
+  const filteredClubs = clubs
+    .filter(c => !searchName || c.name.toLowerCase().includes(searchName.toLowerCase()))
+    .filter(c => !searchCode || c.code.toLowerCase().includes(searchCode.toLowerCase()))
 
   return (
     <div className="px-8 pt-3 pb-8 space-y-4">
       <h1 className="text-xl font-bold leading-none" style={{ color: '#0f172a' }}>Cơ cấu tổ chức</h1>
 
       {/* Search */}
-      <div className="flex items-center gap-3">
-        <div className="relative flex-1 max-w-xs">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-          <Input placeholder="Tìm theo tên, mã CLB..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
+      <div className="bg-white rounded-xl border border-gray-200 p-3 flex flex-wrap gap-2 items-center">
+        <div className="relative flex-1 min-w-40">
+          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+          <Input placeholder="Tên CLB..." value={searchName} onChange={e => setSearchName(e.target.value)} className="pl-8 h-9 text-sm" />
         </div>
-        <span className="text-sm" style={{ color: '#9ca3af' }}>{filteredClubs.length} câu lạc bộ</span>
+        <div className="relative w-32">
+          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+          <Input placeholder="Mã CLB..." value={searchCode} onChange={e => setSearchCode(e.target.value)} className="pl-8 h-9 text-sm" />
+        </div>
+        <div className="flex items-center gap-2 ml-auto">
+          {hasFilter && (
+            <button onClick={() => { setSearchName(''); setSearchCode('') }}
+              className="text-xs text-indigo-500 hover:underline whitespace-nowrap">Xoá lọc</button>
+          )}
+          <span className="text-sm text-gray-400 whitespace-nowrap">{filteredClubs.length}/{clubs.length}</span>
+        </div>
       </div>
 
       <div className="space-y-4">

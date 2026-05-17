@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { toast } from 'sonner'
-import { Plus, Search, Pencil, Trash2, Download, ShieldCheck, Upload, FileSpreadsheet, CheckCircle2, XCircle, AlertCircle, ArrowUpDown, X } from 'lucide-react'
+import { Plus, Search, Pencil, Trash2, Download, ShieldCheck, Upload, FileSpreadsheet, CheckCircle2, XCircle, AlertCircle, ArrowUpDown, X, AlertTriangle } from 'lucide-react'
 import api from '@/lib/axiosInstance'
 
 const ROLE_LABELS: Record<string, string> = {
@@ -74,6 +74,12 @@ export default function MembersPage() {
   const [importing, setImporting] = useState(false)
   const importFileRef = useRef<HTMLInputElement>(null)
 
+  // Modal xử lý trưởng CLB duy nhất
+  type LastAdminModal = { action: 'remove' | 'update'; membershipId: number; memberName: string; updateDto?: EditForm }
+  const [lastAdminModal, setLastAdminModal] = useState<LastAdminModal | null>(null)
+  const [replacementId, setReplacementId] = useState('')
+  const [forceLoading, setForceLoading] = useState(false)
+
   useEffect(() => {
     setLoading(true)
     Promise.all([getClubMembers(id), getDepartments(id)])
@@ -127,7 +133,13 @@ export default function MembersPage() {
       setEditTarget(null)
       setRefreshKey(k => k + 1)
     } catch (err: any) {
-      toast.error(err.response?.data?.message ?? 'Cập nhật thất bại.')
+      const msg: string = err.response?.data?.message ?? ''
+      if (msg.startsWith('LAST_CLUB_ADMIN')) {
+        setLastAdminModal({ action: 'update', membershipId: editTarget.id, memberName: editTarget.fullName ?? editTarget.email, updateDto: editForm })
+        setEditTarget(null)
+      } else {
+        toast.error(msg || 'Cập nhật thất bại.')
+      }
     } finally {
       setSaving(false)
     }
@@ -194,8 +206,44 @@ export default function MembersPage() {
       toast.success('Đã xoá thành viên khỏi CLB.')
       setRemoveTarget(null)
       setRefreshKey(k => k + 1)
-    } catch {
-      toast.error('Xoá thất bại.')
+    } catch (err: any) {
+      const msg: string = err.response?.data?.message ?? ''
+      if (msg.startsWith('LAST_CLUB_ADMIN')) {
+        setLastAdminModal({ action: 'remove', membershipId: removeTarget.id, memberName: removeTarget.fullName ?? removeTarget.email })
+        setRemoveTarget(null)
+      } else {
+        toast.error(msg || 'Xoá thất bại.')
+      }
+    }
+  }
+
+  async function handleForceAction() {
+    if (!lastAdminModal) return
+    setForceLoading(true)
+    try {
+      // Bổ nhiệm người thay thế trước (nếu có chọn)
+      if (replacementId) {
+        await updateMember(id, Number(replacementId), { clubRole: CLUB_ROLES.CLUB_ADMIN })
+      }
+      // Thực hiện action gốc — nếu đã có người thay thì guard tự pass, không cần force
+      const force = !replacementId
+      if (lastAdminModal.action === 'remove') {
+        await removeMember(id, lastAdminModal.membershipId, force)
+        toast.success('Đã xoá thành viên khỏi CLB.')
+      } else if (lastAdminModal.updateDto) {
+        await updateMember(id, lastAdminModal.membershipId, {
+          clubRole: lastAdminModal.updateDto.clubRole,
+          departmentId: lastAdminModal.updateDto.departmentId ? Number(lastAdminModal.updateDto.departmentId) : undefined,
+        }, force)
+        toast.success('Đã cập nhật vai trò.')
+      }
+      setLastAdminModal(null)
+      setReplacementId('')
+      setRefreshKey(k => k + 1)
+    } catch (err: any) {
+      toast.error(err.response?.data?.message ?? 'Thao tác thất bại.')
+    } finally {
+      setForceLoading(false)
     }
   }
 
@@ -237,7 +285,8 @@ export default function MembersPage() {
         || (m.studentId ?? '').toLowerCase().includes(q)
       const matchRole = !roleFilter || m.clubRole === roleFilter
       const matchStatus = !statusFilter || m.status === statusFilter
-      const matchDept = !deptFilter || String(m.departmentId ?? '') === deptFilter
+      const matchDept = !deptFilter
+        || (deptFilter === '__none__' ? !m.departmentId && m.clubRole !== CLUB_ROLES.CLUB_ADMIN : String(m.departmentId ?? '') === deptFilter)
       return matchSearch && matchRole && matchStatus && matchDept
     })
     .sort((a, b) => {
@@ -258,7 +307,7 @@ export default function MembersPage() {
   }
 
   return (
-    <div className="px-6 pb-6 space-y-4">
+    <div className="px-8 pt-4 pb-8 space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -303,11 +352,12 @@ export default function MembersPage() {
         <select value={deptFilter} onChange={e => setDeptFilter(e.target.value)}
           className="h-9 border border-input rounded-lg px-3 text-sm bg-white">
           <option value="">Tất cả ban</option>
+          <option value="__none__">⚠ Chưa có ban</option>
           {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
         </select>
         <div className="flex items-center gap-2 ml-auto">
           <select value={`${sortBy}-${sortDir}`}
-            onChange={e => { const [col, dir] = e.target.value.split('-'); setSortBy(col as typeof sortBy); setSortDir(dir as 'asc'|'desc') }}
+            onChange={e => { const [col, dir] = e.target.value.split('-'); setSortBy(col as typeof sortBy); setSortDir(dir as 'asc' | 'desc') }}
             className="h-9 border border-input rounded-lg px-3 text-sm bg-white gap-1">
             <option value="name-asc">Tên A→Z</option>
             <option value="name-desc">Tên Z→A</option>
@@ -390,13 +440,22 @@ export default function MembersPage() {
                     )
                   })()}
                 </TableCell>
-                <TableCell className="text-sm text-gray-500">{m.departmentName ?? <span className="text-gray-300">—</span>}</TableCell>
+                <TableCell className="text-sm text-gray-500">
+                  {m.departmentName
+                    ? m.departmentName
+                    : m.clubRole !== CLUB_ROLES.CLUB_ADMIN
+                      ? <span className="inline-flex items-center gap-1 text-xs text-amber-600 font-medium">
+                          <AlertTriangle size={11} /> Chưa có ban
+                        </span>
+                      : <span className="text-gray-300">—</span>
+                  }
+                </TableCell>
                 <TableCell>
                   {m.status === MEMBERSHIP_STATUS.ACTIVE
                     ? <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700">Chính thức</span>
                     : m.status === MEMBERSHIP_STATUS.PROBATION
-                    ? <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700">Thử việc</span>
-                    : <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-500">Đã rời</span>
+                      ? <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700">Thử việc</span>
+                      : <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-500">Đã rời</span>
                   }
                 </TableCell>
                 <TableCell className="text-sm text-gray-400">
@@ -611,6 +670,58 @@ export default function MembersPage() {
               </DialogFooter>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal: Trưởng CLB duy nhất */}
+      <Dialog open={!!lastAdminModal} onOpenChange={open => { if (!open) { setLastAdminModal(null); setReplacementId('') } }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-amber-600">
+              <AlertCircle size={18} /> CLB sẽ không có Trưởng CLB
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-1">
+            <p className="text-sm text-gray-600">
+              <strong>{lastAdminModal?.memberName}</strong> là Trưởng CLB duy nhất.
+              {lastAdminModal?.action === 'remove' ? ' Nếu xoá người này' : ' Nếu hạ cấp người này'},
+              {' '}CLB sẽ không có người quản lý.
+            </p>
+            <div className="space-y-1.5">
+              <Label className="text-sm">Bổ nhiệm Trưởng CLB mới (khuyến nghị)</Label>
+              <select
+                value={replacementId}
+                onChange={e => setReplacementId(e.target.value)}
+                className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-white"
+              >
+                <option value="">— Bỏ qua, không bổ nhiệm ai —</option>
+                {members
+                  .filter(m => m.id !== lastAdminModal?.membershipId && m.status === MEMBERSHIP_STATUS.ACTIVE)
+                  .map(m => (
+                    <option key={m.id} value={m.id}>
+                      {m.fullName ?? m.email} ({ROLE_LABELS[m.clubRole] ?? m.clubRole})
+                    </option>
+                  ))}
+              </select>
+            </div>
+            {!replacementId && (
+              <p className="text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2">
+                Nếu không chọn người thay thế, CLB sẽ tạm thời không có Trưởng CLB.
+              </p>
+            )}
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => { setLastAdminModal(null); setReplacementId('') }}>
+              Huỷ
+            </Button>
+            <Button
+              onClick={handleForceAction}
+              disabled={forceLoading}
+              className={replacementId ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-red-600 hover:bg-red-700'}
+            >
+              {forceLoading ? 'Đang xử lý...' : replacementId ? 'Bổ nhiệm và tiếp tục' : 'Vẫn tiếp tục'}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
