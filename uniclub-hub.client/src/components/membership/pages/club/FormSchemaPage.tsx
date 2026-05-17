@@ -82,7 +82,7 @@ export default function FormSchemaPage() {
   if (loading) return <div className="p-8 text-gray-500">Đang tải...</div>
 
   return (
-    <div className="px-8 pb-8 space-y-6">
+    <div className="px-8 pt-4 pb-8 space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold" style={{ color: '#0f172a' }}>Form đăng ký</h1>

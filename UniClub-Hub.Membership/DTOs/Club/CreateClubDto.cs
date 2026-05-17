@@ -16,5 +16,8 @@ namespace UniClub_Hub.Membership.DTOs.Club
         public string? ContactInfo { get; set; }
         public DateOnly? EstablishedDate { get; set; }
         public string? AdvisorName { get; set; }
+
+        [Required]
+        public string ClubAdminId { get; set; } = null!;
     }
 }

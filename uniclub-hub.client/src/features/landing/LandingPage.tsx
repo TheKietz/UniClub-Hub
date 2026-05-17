@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import { Users, Calendar, Award, ArrowRight, BarChart3, Shield, Bell } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
-import UserMenu from '@/components/membership/layout/UserMenu'
+import PublicHeader from '@/components/membership/layout/PublicHeader'
 
 const FEATURES = [
   { icon: Users, title: 'Quản lý thành viên', desc: 'Phân quyền linh hoạt theo vai trò: Quản lý CLB, Trưởng ban, Thành viên.' },
@@ -17,49 +17,7 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen bg-white flex flex-col">
-      {/* Navbar */}
-      <header className="sticky top-0 z-30 bg-white/80 backdrop-blur border-b border-gray-100">
-        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div
-              className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-sm"
-              style={{ background: 'linear-gradient(135deg, #4f46e5, #7c3aed)' }}
-            >
-              U
-            </div>
-            <span className="font-semibold text-gray-900">UniClub Hub</span>
-          </div>
-
-          <nav className="flex items-center gap-1">
-            <Link
-              to="/clubs"
-              className="h-9 px-4 rounded-lg text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors flex items-center"
-            >
-              Câu lạc bộ
-            </Link>
-            <div className="w-px h-5 bg-gray-200 mx-1" />
-            {isAuthenticated ? (
-              <UserMenu />
-            ) : (
-              <>
-                <Link
-                  to="/login"
-                  className="h-9 px-4 rounded-lg text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors flex items-center"
-                >
-                  Đăng nhập
-                </Link>
-                <Link
-                  to="/register"
-                  className="h-9 px-4 rounded-lg text-sm font-medium text-white flex items-center transition-opacity hover:opacity-90"
-                  style={{ background: 'linear-gradient(135deg, #4f46e5, #7c3aed)' }}
-                >
-                  Đăng ký
-                </Link>
-              </>
-            )}
-          </nav>
-        </div>
-      </header>
+      <PublicHeader />
 
       {/* Hero */}
       <section

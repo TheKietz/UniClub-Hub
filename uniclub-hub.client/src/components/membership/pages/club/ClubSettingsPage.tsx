@@ -123,8 +123,10 @@ export default function ClubSettingsPage() {
   if (loading) return <div className="px-8 pt-6 text-sm" style={{ color: '#6b7280' }}>Đang tải...</div>
 
   return (
-    <div className="px-8 pt-4 pb-8">
-      <h1 className="text-xl font-bold leading-none mb-6" style={{ color: '#0f172a' }}>Cài đặt CLB</h1>
+    <div className="px-8 pt-4 pb-8 space-y-4">
+      <div>
+        <h1 className="text-xl font-bold leading-none" style={{ color: '#0f172a' }}>Cài đặt CLB</h1>
+      </div>
 
       <form onSubmit={handleSave} className="space-y-6">
         {/* Logo */}
