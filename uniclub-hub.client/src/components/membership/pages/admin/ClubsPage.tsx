@@ -9,7 +9,8 @@ import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { toast } from 'sonner'
-import { Plus, Pencil, Trash2, Search } from 'lucide-react'
+import { Plus, Pencil, Trash2, Search, AlertTriangle, FileDown } from 'lucide-react'
+import api from '@/lib/axiosInstance'
 
 type FormData = {
   name: string; code: string; description: string
@@ -30,8 +31,10 @@ export default function ClubsPage() {
   const [form, setForm] = useState<FormData>(emptyForm)
   const [saving, setSaving] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<ClubItem | null>(null)
-  const [search, setSearch] = useState('')
+  const [searchName, setSearchName] = useState('')
+  const [searchCode, setSearchCode] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+  const [sortBy, setSortBy] = useState<'id' | 'name' | 'members'>('id')
 
   useEffect(() => {
     setLoading(true)
@@ -107,46 +110,75 @@ export default function ClubsPage() {
 
   return (
     <div className="px-8 pt-3 pb-8 space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-4">
         <h1 className="text-xl font-bold leading-none" style={{ color: '#0f172a' }}>Câu lạc bộ</h1>
-        <Button onClick={openCreate} className="gap-2 bg-indigo-600 hover:bg-indigo-700">
-          <Plus size={16} /> Thêm CLB
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" className="gap-1.5 text-gray-600"
+            onClick={async () => {
+              const res = await api.get('/admin/export/clubs?format=xlsx', { responseType: 'blob' })
+              const url = URL.createObjectURL(res.data)
+              const a = document.createElement('a'); a.href = url; a.download = 'clubs.xlsx'; a.click()
+              URL.revokeObjectURL(url)
+            }}>
+            <FileDown size={14} /> Excel
+          </Button>
+          <Button variant="outline" size="sm" className="gap-1.5 text-gray-600"
+            onClick={async () => {
+              const res = await api.get('/admin/export/clubs?format=csv', { responseType: 'blob' })
+              const url = URL.createObjectURL(res.data)
+              const a = document.createElement('a'); a.href = url; a.download = 'clubs.csv'; a.click()
+              URL.revokeObjectURL(url)
+            }}>
+            <FileDown size={14} /> CSV
+          </Button>
+          <Button onClick={openCreate} className="gap-2 bg-indigo-600 hover:bg-indigo-700">
+            <Plus size={16} /> Thêm CLB
+          </Button>
+        </div>
       </div>
 
       {/* Search & filter */}
-      <div className="flex items-center gap-3">
-        <div className="relative flex-1 max-w-xs">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-          <Input placeholder="Tìm theo tên, mã CLB..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
+      {(() => {
+        const hasFilter = searchName || searchCode || statusFilter
+        const filtered = clubs
+          .filter(c => !searchName || c.name.toLowerCase().includes(searchName.toLowerCase()))
+          .filter(c => !searchCode || c.code.toLowerCase().includes(searchCode.toLowerCase()))
+          .filter(c => !statusFilter || c.status === statusFilter)
+          .sort((a, b) =>
+            sortBy === 'name' ? a.name.localeCompare(b.name)
+            : sortBy === 'members' ? b.memberCount - a.memberCount
+            : a.id - b.id
+          )
+        return (<>
+      <div className="bg-white rounded-xl border border-gray-200 p-3 flex flex-wrap gap-2 items-center">
+        <div className="relative flex-1 min-w-40">
+          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+          <Input placeholder="Tên CLB..." value={searchName} onChange={e => setSearchName(e.target.value)} className="pl-8 h-9 text-sm" />
+        </div>
+        <div className="relative w-32">
+          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+          <Input placeholder="Mã CLB..." value={searchCode} onChange={e => setSearchCode(e.target.value)} className="pl-8 h-9 text-sm" />
         </div>
         <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
-          className="border border-input rounded-lg px-3 py-2 text-sm bg-background">
+          className="h-9 border border-input rounded-lg px-3 text-sm bg-white">
           <option value="">Tất cả trạng thái</option>
           <option value="Active">Hoạt động</option>
           <option value="Inactive">Ngừng hoạt động</option>
         </select>
-        <select onChange={e => {
-          const v = e.target.value
-          setClubs(prev => [...prev].sort((a, b) =>
-            v === 'name' ? a.name.localeCompare(b.name)
-            : v === 'members' ? b.memberCount - a.memberCount
-            : a.id - b.id
-          ))
-        }} className="border border-input rounded-lg px-3 py-2 text-sm bg-background">
+        <select value={sortBy} onChange={e => setSortBy(e.target.value as any)}
+          className="h-9 border border-input rounded-lg px-3 text-sm bg-white">
           <option value="id">Sắp xếp: ID</option>
-          <option value="name">Sắp xếp: Tên A-Z</option>
-          <option value="members">Sắp xếp: Thành viên</option>
+          <option value="name">Tên A-Z</option>
+          <option value="members">Thành viên</option>
         </select>
+        <div className="flex items-center gap-2 ml-auto">
+          {hasFilter && (
+            <button onClick={() => { setSearchName(''); setSearchCode(''); setStatusFilter('') }}
+              className="text-xs text-indigo-500 hover:underline whitespace-nowrap">Xoá lọc</button>
+          )}
+          <span className="text-sm text-gray-400 whitespace-nowrap">{filtered.length}/{clubs.length}</span>
+        </div>
       </div>
-
-      {(() => {
-        const filtered = clubs.filter(c => {
-          const q = search.toLowerCase()
-          return (!q || c.name.toLowerCase().includes(q) || c.code.toLowerCase().includes(q))
-            && (!statusFilter || c.status === statusFilter)
-        })
-        return (
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         <Table>
           <TableHeader>
@@ -171,7 +203,14 @@ export default function ClubsPage() {
                 <TableCell className="font-medium text-sm" style={{ color: '#111827' }}>{club.name}</TableCell>
                 <TableCell className="font-mono text-xs" style={{ color: '#9ca3af' }}>{club.code}</TableCell>
                 <TableCell className="text-sm" style={{ color: '#6b7280' }}>{club.categoryName ?? '—'}</TableCell>
-                <TableCell className="text-sm" style={{ color: '#6b7280' }}>{club.memberCount}</TableCell>
+                <TableCell className="text-sm" style={{ color: '#6b7280' }}>
+                  <span>{club.memberCount}</span>
+                  {!club.hasAdmin && (
+                    <span className="ml-2 inline-flex items-center gap-1 text-xs text-amber-600" title="CLB chưa có Trưởng CLB">
+                      <AlertTriangle size={12} /> Chưa có trưởng
+                    </span>
+                  )}
+                </TableCell>
                 <TableCell>
                   <span className="px-2 py-0.5 rounded-full text-xs font-semibold"
                     style={{ background: club.status === MEMBERSHIP_STATUS.ACTIVE ? '#dcfce7' : '#f3f4f6', color: club.status === MEMBERSHIP_STATUS.ACTIVE ? '#16a34a' : '#6b7280' }}>
@@ -193,7 +232,7 @@ export default function ClubsPage() {
           </TableBody>
         </Table>
       </div>
-        )
+        </>)
       })()}
 
       {/* Create / Edit Dialog */}

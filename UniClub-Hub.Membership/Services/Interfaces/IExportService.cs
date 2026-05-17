@@ -5,5 +5,7 @@ namespace UniClub_Hub.Membership.Services.Interfaces
     {
         Task<(byte[] Content, string ContentType, string FileName)> ExportMembersAsync(int clubId, string format);
         Task<(byte[] Content, string ContentType, string FileName)> ExportApplicationsAsync(int clubId, string? status, string format);
+        Task<(byte[] Content, string ContentType, string FileName)> ExportAllUsersAsync(string format);
+        Task<(byte[] Content, string ContentType, string FileName)> ExportAllClubsAsync(string format);
     }
 }

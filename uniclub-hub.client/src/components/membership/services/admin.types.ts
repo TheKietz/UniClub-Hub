@@ -56,6 +56,7 @@ export interface ClubItem {
   memberCount: number
   createdAt: string
   isDeleted: boolean
+  hasAdmin: boolean
 }
 
 export interface CategoryItem {

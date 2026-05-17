@@ -79,6 +79,22 @@ namespace UniClub_Hub.Server.Controllers.Membership
             }
         }
 
+        [HttpGet("/api/admin/export/users")]
+        [Authorize(Roles = "SUPER_ADMIN")]
+        public async Task<IActionResult> ExportAllUsers([FromQuery] string format = "xlsx")
+        {
+            var (content, contentType, fileName) = await _exportService.ExportAllUsersAsync(format.ToLower());
+            return File(content, contentType, fileName);
+        }
+
+        [HttpGet("/api/admin/export/clubs")]
+        [Authorize(Roles = "SUPER_ADMIN")]
+        public async Task<IActionResult> ExportAllClubs([FromQuery] string format = "xlsx")
+        {
+            var (content, contentType, fileName) = await _exportService.ExportAllClubsAsync(format.ToLower());
+            return File(content, contentType, fileName);
+        }
+
         // Kiểm tra quyền: CLUB_ADMIN của CLB hoặc SUPER_ADMIN
         private async Task<IActionResult?> AuthorizeClubAsync(int clubId)
         {

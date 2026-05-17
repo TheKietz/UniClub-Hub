@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { getUsers, lockUser, unlockUser, deleteUser, createUser, changeUserRole } from '@/components/membership/services/adminApi'
 import type { UserItem } from '@/components/membership/services/admin.types'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -8,7 +8,8 @@ import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { toast } from 'sonner'
-import { Plus, Search, Trash2, LockKeyhole, LockKeyholeOpen, ShieldCheck, ShieldOff, ArrowUpDown } from 'lucide-react'
+import { Plus, Search, Trash2, LockKeyhole, LockKeyholeOpen, ShieldCheck, ShieldOff, ArrowUpDown, FileDown, Upload, Download, FileSpreadsheet, CheckCircle2, XCircle, AlertCircle } from 'lucide-react'
+import api from '@/lib/axiosInstance'
 
 const PAGE_SIZE = 20
 
@@ -32,8 +33,9 @@ export default function UsersPage() {
   const [users, setUsers] = useState<UserItem[]>([])
   const [totalPages, setTotalPages] = useState(1)
   const [page, setPage] = useState(1)
-  const [search, setSearch] = useState('')
-  const [query, setQuery] = useState('')
+  const [searchName, setSearchName] = useState('')
+  const [searchEmail, setSearchEmail] = useState('')
+  const [searchStudentId, setSearchStudentId] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [loading, setLoading] = useState(true)
   const [refreshKey, setRefreshKey] = useState(0)
@@ -44,19 +46,63 @@ export default function UsersPage() {
 
   const [deleteTarget, setDeleteTarget] = useState<UserItem | null>(null)
 
+  // Import state
+  type ImportUserRow = { rowNumber: number; email: string; fullName?: string; studentId?: string; major?: string; isValid: boolean; error?: string }
+  type ImportUserPreview = { validRows: ImportUserRow[]; invalidRows: ImportUserRow[]; totalRows: number; defaultPassword: string }
+  const [importOpen, setImportOpen] = useState(false)
+  const [importStep, setImportStep] = useState<'upload' | 'preview' | 'done'>('upload')
+  const [importPreview, setImportPreview] = useState<ImportUserPreview | null>(null)
+  const [importResult, setImportResult] = useState<{ imported: number; skipped: number } | null>(null)
+  const [importing, setImporting] = useState(false)
+  const importFileRef = useRef<HTMLInputElement>(null)
+
+  function resetImport() {
+    setImportStep('upload'); setImportPreview(null); setImportResult(null); setImportOpen(false)
+    if (importFileRef.current) importFileRef.current.value = ''
+  }
+
+  async function handleImportPreview(file: File) {
+    setImporting(true)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      const res = await api.post<{ data: ImportUserPreview }>('/admin/import/users/preview', fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      setImportPreview(res.data.data)
+      setImportStep('preview')
+    } catch (err: any) {
+      toast.error(err.response?.data?.message ?? 'Không thể đọc file. Kiểm tra định dạng.')
+    } finally {
+      setImporting(false)
+    }
+  }
+
+  async function handleImportConfirm() {
+    if (!importPreview) return
+    setImporting(true)
+    try {
+      const rows = importPreview.validRows.map(r => ({
+        email: r.email, fullName: r.fullName, studentId: r.studentId, major: r.major,
+      }))
+      const res = await api.post<{ data: { imported: number; skipped: number } }>('/admin/import/users/confirm', { rows })
+      setImportResult(res.data.data)
+      setImportStep('done')
+      setRefreshKey(k => k + 1)
+    } catch (err: any) {
+      toast.error(err.response?.data?.message ?? 'Import thất bại.')
+    } finally {
+      setImporting(false)
+    }
+  }
+
   useEffect(() => {
     setLoading(true)
-    getUsers({ search: query || undefined, page, pageSize: PAGE_SIZE })
+    getUsers({ page, pageSize: PAGE_SIZE })
       .then(r => { setUsers(r.items); setTotalPages(r.totalPages) })
       .catch(() => toast.error('Không thể tải danh sách người dùng.'))
       .finally(() => setLoading(false))
-  }, [query, page, refreshKey])
-
-  // debounce search
-  useEffect(() => {
-    const t = setTimeout(() => { setPage(1); setQuery(search) }, 400)
-    return () => clearTimeout(t)
-  }, [search])
+  }, [page, refreshKey])
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault()
@@ -113,7 +159,11 @@ export default function UsersPage() {
   const [sortBy, setSortBy] = useState<'name' | 'email' | 'role'>('name')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
 
+  const hasFilter = searchName || searchEmail || searchStudentId || statusFilter
   const filtered = users
+    .filter(u => !searchName || (u.fullName ?? '').toLowerCase().includes(searchName.toLowerCase()))
+    .filter(u => !searchEmail || u.email.toLowerCase().includes(searchEmail.toLowerCase()))
+    .filter(u => !searchStudentId || (u.studentId ?? '').toLowerCase().includes(searchStudentId.toLowerCase()))
     .filter(u => statusFilter === 'locked' ? u.isLocked : statusFilter === 'active' ? !u.isLocked : true)
     .sort((a, b) => {
       let cmp = 0
@@ -134,30 +184,74 @@ export default function UsersPage() {
   return (
     <div className="px-6 pt-3 pb-8 space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-xl font-bold text-gray-900">Người dùng</h1>
           <p className="text-sm text-gray-400 mt-0.5">Quản lý tài khoản hệ thống</p>
         </div>
-        <Button onClick={() => setAddOpen(true)} className="gap-1.5 bg-indigo-600 hover:bg-indigo-700">
-          <Plus size={16} /> Thêm người dùng
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" className="gap-1.5 text-gray-600"
+            onClick={async () => {
+              const res = await api.get('/admin/export/users?format=xlsx', { responseType: 'blob' })
+              const url = URL.createObjectURL(res.data)
+              const a = document.createElement('a'); a.href = url; a.download = 'users.xlsx'; a.click()
+              URL.revokeObjectURL(url)
+            }}>
+            <FileDown size={14} /> Excel
+          </Button>
+          <Button variant="outline" size="sm" className="gap-1.5 text-gray-600"
+            onClick={async () => {
+              const res = await api.get('/admin/export/users?format=csv', { responseType: 'blob' })
+              const url = URL.createObjectURL(res.data)
+              const a = document.createElement('a'); a.href = url; a.download = 'users.csv'; a.click()
+              URL.revokeObjectURL(url)
+            }}>
+            <FileDown size={14} /> CSV
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}
+            className="gap-1.5 text-emerald-700 border-emerald-200 hover:bg-emerald-50">
+            <Upload size={14} /> Import
+          </Button>
+          <Button onClick={() => setAddOpen(true)} className="gap-1.5 bg-indigo-600 hover:bg-indigo-700">
+            <Plus size={16} /> Thêm người dùng
+          </Button>
+        </div>
       </div>
 
       {/* Filter bar */}
-      <div className="bg-white rounded-xl border border-gray-200 p-3 flex flex-wrap items-center gap-2">
-        <div className="relative flex-1 min-w-52">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-          <Input placeholder="Tìm email, tên, MSSV..." value={search}
-            onChange={e => setSearch(e.target.value)} className="pl-8 h-9 text-sm" />
+      <div className="bg-white rounded-xl border border-gray-200 p-3 space-y-2">
+        <div className="flex flex-wrap gap-2">
+          <div className="relative flex-1 min-w-40">
+            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+            <Input placeholder="Họ tên..." value={searchName}
+              onChange={e => setSearchName(e.target.value)} className="pl-8 h-9 text-sm" />
+          </div>
+          <div className="relative flex-1 min-w-44">
+            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+            <Input placeholder="Email..." value={searchEmail}
+              onChange={e => setSearchEmail(e.target.value)} className="pl-8 h-9 text-sm" />
+          </div>
+          <div className="relative w-36">
+            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+            <Input placeholder="MSSV..." value={searchStudentId}
+              onChange={e => setSearchStudentId(e.target.value)} className="pl-8 h-9 text-sm" />
+          </div>
+          <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
+            className="h-9 border border-input rounded-lg px-3 text-sm bg-white">
+            <option value="">Tất cả trạng thái</option>
+            <option value="active">Hoạt động</option>
+            <option value="locked">Đã khoá</option>
+          </select>
+          <div className="flex items-center gap-2 ml-auto">
+            {hasFilter && (
+              <button onClick={() => { setSearchName(''); setSearchEmail(''); setSearchStudentId(''); setStatusFilter('') }}
+                className="text-xs text-indigo-500 hover:underline whitespace-nowrap">
+                Xoá lọc
+              </button>
+            )}
+            <span className="text-sm text-gray-400 whitespace-nowrap">{filtered.length}/{users.length}</span>
+          </div>
         </div>
-        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
-          className="h-9 border border-input rounded-lg px-3 text-sm bg-white">
-          <option value="">Tất cả trạng thái</option>
-          <option value="active">Hoạt động</option>
-          <option value="locked">Đã khoá</option>
-        </select>
-        <span className="text-sm text-gray-400 ml-auto whitespace-nowrap">{filtered.length}/{users.length}</span>
       </div>
 
       {/* Table */}
@@ -303,6 +397,129 @@ export default function UsersPage() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Import dialog */}
+      <Dialog open={importOpen} onOpenChange={open => { if (!open) resetImport() }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileSpreadsheet size={18} className="text-emerald-600" />
+              Import người dùng từ file
+            </DialogTitle>
+          </DialogHeader>
+
+          {importStep === 'upload' && (
+            <div className="space-y-4 py-2">
+              <div className="bg-gray-50 rounded-lg p-4 space-y-2 text-sm text-gray-600">
+                <p className="font-medium text-gray-800">Hướng dẫn:</p>
+                <ol className="list-decimal list-inside space-y-1">
+                  <li>Tải file template về, điền dữ liệu theo đúng cột</li>
+                  <li>Upload file (.xlsx hoặc .csv)</li>
+                  <li>Kiểm tra preview và xác nhận tạo tài khoản</li>
+                </ol>
+                <p className="text-xs text-gray-400 mt-2">
+                  Cột: <strong>Email</strong> (bắt buộc), <strong>HoTen</strong>, <strong>MaSoSinhVien</strong>, <strong>Nganh</strong>
+                </p>
+                <p className="text-xs text-amber-600 mt-1">
+                  Mật khẩu mặc định: <strong>UniClub@2026</strong> — yêu cầu người dùng đổi sau lần đăng nhập đầu tiên.
+                </p>
+              </div>
+              <Button variant="outline" size="sm" className="gap-1.5"
+                onClick={() => window.open('/api/admin/import/users/template')}>
+                <Download size={14} /> Tải template CSV
+              </Button>
+              <div className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center cursor-pointer hover:border-emerald-400 hover:bg-emerald-50 transition-colors"
+                onClick={() => importFileRef.current?.click()}>
+                {importing
+                  ? <div className="flex flex-col items-center gap-2">
+                      <div className="w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                      <p className="text-sm text-gray-500">Đang phân tích file...</p>
+                    </div>
+                  : <div className="flex flex-col items-center gap-2">
+                      <Upload size={28} className="text-gray-400" />
+                      <p className="text-sm font-medium text-gray-700">Nhấn để chọn file hoặc kéo thả vào đây</p>
+                      <p className="text-xs text-gray-400">Hỗ trợ .xlsx và .csv</p>
+                    </div>
+                }
+              </div>
+              <input ref={importFileRef} type="file" hidden accept=".xlsx,.xls,.csv"
+                onChange={e => { const f = e.target.files?.[0]; if (f) handleImportPreview(f); e.target.value = '' }} />
+            </div>
+          )}
+
+          {importStep === 'preview' && importPreview && (
+            <div className="space-y-4 py-2">
+              <div className="flex items-center gap-4 text-sm">
+                <span className="flex items-center gap-1.5 text-emerald-600 font-medium">
+                  <CheckCircle2 size={15} /> {importPreview.validRows.length} dòng hợp lệ
+                </span>
+                {importPreview.invalidRows.length > 0 && (
+                  <span className="flex items-center gap-1.5 text-red-500 font-medium">
+                    <XCircle size={15} /> {importPreview.invalidRows.length} dòng lỗi
+                  </span>
+                )}
+                <span className="text-gray-400">/ {importPreview.totalRows} tổng</span>
+              </div>
+              <div className="max-h-72 overflow-y-auto rounded-lg border border-gray-200">
+                <table className="w-full text-xs">
+                  <thead className="bg-gray-50 sticky top-0">
+                    <tr>
+                      <th className="px-3 py-2 text-left font-medium text-gray-600">Dòng</th>
+                      <th className="px-3 py-2 text-left font-medium text-gray-600">Email</th>
+                      <th className="px-3 py-2 text-left font-medium text-gray-600">Họ tên</th>
+                      <th className="px-3 py-2 text-left font-medium text-gray-600">MSSV</th>
+                      <th className="px-3 py-2 text-left font-medium text-gray-600">Ngành</th>
+                      <th className="px-3 py-2 text-left font-medium text-gray-600">Kết quả</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {[...importPreview.validRows, ...importPreview.invalidRows]
+                      .sort((a, b) => a.rowNumber - b.rowNumber)
+                      .map(row => (
+                        <tr key={row.rowNumber} className={row.isValid ? 'bg-white' : 'bg-red-50'}>
+                          <td className="px-3 py-2 text-gray-400">{row.rowNumber}</td>
+                          <td className="px-3 py-2 text-gray-700">{row.email}</td>
+                          <td className="px-3 py-2 text-gray-600">{row.fullName ?? '—'}</td>
+                          <td className="px-3 py-2 text-gray-600">{row.studentId ?? '—'}</td>
+                          <td className="px-3 py-2 text-gray-500 max-w-24 truncate">{row.major ?? '—'}</td>
+                          <td className="px-3 py-2">
+                            {row.isValid
+                              ? <span className="flex items-center gap-1 text-emerald-600"><CheckCircle2 size={12} /> OK</span>
+                              : <span className="flex items-center gap-1 text-red-500"><AlertCircle size={12} /> {row.error}</span>
+                            }
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setImportStep('upload')}>Chọn file khác</Button>
+                <Button disabled={importPreview.validRows.length === 0 || importing}
+                  className="bg-emerald-600 hover:bg-emerald-700 gap-1.5"
+                  onClick={handleImportConfirm}>
+                  {importing ? 'Đang tạo tài khoản...' : `Tạo ${importPreview.validRows.length} tài khoản`}
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+
+          {importStep === 'done' && importResult && (
+            <div className="py-6 text-center space-y-3">
+              <CheckCircle2 size={40} className="mx-auto text-emerald-500" />
+              <p className="font-semibold text-gray-900">Import hoàn tất!</p>
+              <p className="text-sm text-gray-500">
+                Đã tạo <strong className="text-emerald-600">{importResult.imported}</strong> tài khoản
+                {importResult.skipped > 0 && `, bỏ qua ${importResult.skipped} dòng trùng.`}
+              </p>
+              <p className="text-xs text-amber-600">Mật khẩu mặc định: <strong>UniClub@2026</strong></p>
+              <DialogFooter className="justify-center pt-2">
+                <Button onClick={resetImport}>Đóng</Button>
+              </DialogFooter>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 

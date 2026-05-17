@@ -6,15 +6,17 @@ import type { ApplicationItem } from '@/components/membership/services/club.type
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { Label } from '@/components/ui/label'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { toast } from 'sonner'
-import { MoreHorizontal, Search, Clock, MessageCircle, CheckCircle2, XCircle, ArrowUpDown } from 'lucide-react'
+import { Search, Clock, MessageCircle, CheckCircle2, XCircle, ArrowUpDown, FileDown } from 'lucide-react'
+import api from '@/lib/axiosInstance'
 
 const STATUS_CONFIG: Record<string, { label: string; bg: string; text: string; icon: React.ElementType }> = {
-  Pending:   { label: 'Chờ duyệt',  bg: '#fef3c7', text: '#b45309', icon: Clock },
-  Interview: { label: 'Phỏng vấn',  bg: '#dbeafe', text: '#1d4ed8', icon: MessageCircle },
-  Accepted:  { label: 'Đã duyệt',   bg: '#dcfce7', text: '#15803d', icon: CheckCircle2 },
-  Rejected:  { label: 'Từ chối',    bg: '#fee2e2', text: '#b91c1c', icon: XCircle },
+  Pending: { label: 'Chờ duyệt', bg: '#fef3c7', text: '#b45309', icon: Clock },
+  Interview: { label: 'Phỏng vấn', bg: '#dbeafe', text: '#1d4ed8', icon: MessageCircle },
+  Accepted: { label: 'Đã duyệt', bg: '#dcfce7', text: '#15803d', icon: CheckCircle2 },
+  Rejected: { label: 'Từ chối', bg: '#fee2e2', text: '#b91c1c', icon: XCircle },
 }
 
 const STATUS_TABS = [
@@ -44,13 +46,27 @@ export default function ApplicationsPage() {
       .finally(() => setLoading(false))
   }, [id, statusFilter, refreshKey])
 
-  async function handleReview(appId: number, status: string) {
+  const [selected, setSelected] = useState<ApplicationItem | null>(null)
+  const [reviewNote, setReviewNote] = useState('')
+  const [reviewing, setReviewing] = useState(false)
+
+  function openDetail(app: ApplicationItem) {
+    setSelected(app)
+    setReviewNote('')
+  }
+
+  async function handleReview(status: string) {
+    if (!selected) return
+    setReviewing(true)
     try {
-      await reviewApplication(id, appId, { status })
+      await reviewApplication(id, selected.id, { status, reviewNote: reviewNote || undefined })
       toast.success(`Đã cập nhật: ${STATUS_CONFIG[status]?.label ?? status}`)
+      setSelected(null)
       setRefreshKey(k => k + 1)
     } catch (err: any) {
       toast.error(err.response?.data?.message ?? 'Thao tác thất bại.')
+    } finally {
+      setReviewing(false)
     }
   }
 
@@ -72,28 +88,52 @@ export default function ApplicationsPage() {
     return acc
   }, {} as Record<string, number>)
 
+  async function handleExport(format: 'xlsx' | 'csv') {
+    try {
+      const params = new URLSearchParams({ format })
+      if (statusFilter) params.set('status', statusFilter)
+      const res = await api.get(`/clubs/${id}/applications/export?${params}`, { responseType: 'blob' })
+      const url = URL.createObjectURL(res.data)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = res.headers['content-disposition']?.split('filename=')[1] ?? `applications.${format}`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      toast.error('Xuất file thất bại.')
+    }
+  }
+
   return (
-    <div className="px-6 pb-6 space-y-4">
+    <div className="px-8 pt-4 pb-8 space-y-4">
       {/* Header */}
-      <div>
-        <h1 className="text-xl font-bold text-gray-900">Đơn đăng ký</h1>
-        <p className="text-sm text-gray-400 mt-0.5">{applications.length} đơn tổng cộng</p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-bold text-gray-900">Đơn đăng ký</h1>
+          <p className="text-sm text-gray-400 mt-0.5">{applications.length} đơn tổng cộng</p>
+        </div>
+        <div className="flex gap-2 flex-shrink-0">
+          <Button variant="outline" size="sm" onClick={() => handleExport('xlsx')} className="gap-1.5 text-gray-600">
+            <FileDown size={14} /> Excel
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => handleExport('csv')} className="gap-1.5 text-gray-600">
+            <FileDown size={14} /> CSV
+          </Button>
+        </div>
       </div>
 
       {/* Status tabs */}
       <div className="flex gap-1.5 flex-wrap">
         {STATUS_TABS.map(tab => (
           <button key={tab.value} onClick={() => setStatusFilter(tab.value)}
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 ${
-              statusFilter === tab.value
-                ? 'bg-indigo-600 text-white shadow-sm'
-                : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
-            }`}>
+            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 ${statusFilter === tab.value
+              ? 'bg-indigo-600 text-white shadow-sm'
+              : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
+              }`}>
             {tab.label}
             {tab.value && counts[tab.value] ? (
-              <span className={`text-xs px-1.5 py-0.5 rounded-full font-semibold ${
-                statusFilter === tab.value ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500'
-              }`}>{counts[tab.value]}</span>
+              <span className={`text-xs px-1.5 py-0.5 rounded-full font-semibold ${statusFilter === tab.value ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500'
+                }`}>{counts[tab.value]}</span>
             ) : null}
           </button>
         ))}
@@ -162,29 +202,10 @@ export default function ApplicationsPage() {
                     )}
                   </TableCell>
                   <TableCell>
-                    {isPending && (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-7 w-7">
-                            <MoreHorizontal size={15} />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          {app.status === APPLICATION_STATUS.PENDING && (
-                            <DropdownMenuItem onClick={() => handleReview(app.id, 'Interview')}>
-                              Chuyển sang phỏng vấn
-                            </DropdownMenuItem>
-                          )}
-                          <DropdownMenuItem onClick={() => handleReview(app.id, 'Accepted')}>
-                            Duyệt chấp nhận
-                          </DropdownMenuItem>
-                          <DropdownMenuItem className="text-red-600"
-                            onClick={() => handleReview(app.id, 'Rejected')}>
-                            Từ chối
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    )}
+                    <Button variant="ghost" size="sm" className="h-7 text-xs text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
+                      onClick={() => openDetail(app)}>
+                      {isPending ? 'Xem & duyệt' : 'Chi tiết'}
+                    </Button>
                   </TableCell>
                 </TableRow>
               )
@@ -192,6 +213,99 @@ export default function ApplicationsPage() {
           </TableBody>
         </Table>
       </div>
+
+      {/* Dialog xem chi tiết & duyệt */}
+      <Dialog open={!!selected} onOpenChange={open => !open && setSelected(null)}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>
+              Đơn đăng ký — {selected?.fullName ?? selected?.email}
+            </DialogTitle>
+          </DialogHeader>
+
+          {selected && (
+            <div className="space-y-4 py-1">
+              {/* Thông tin người nộp */}
+              <div className="bg-gray-50 rounded-lg px-4 py-3 text-sm space-y-1">
+                <p className="text-gray-500">Email: <span className="text-gray-800">{selected.email}</span></p>
+                {selected.studentId && <p className="text-gray-500">MSSV: <span className="text-gray-800">{selected.studentId}</span></p>}
+                <p className="text-gray-500">Ngày nộp: <span className="text-gray-800">{new Date(selected.appliedAt).toLocaleDateString('vi-VN')}</span></p>
+              </div>
+
+              {/* Câu trả lời form */}
+              {selected.answers && (() => {
+                try {
+                  const parsed = JSON.parse(selected.answers)
+                  const entries = Object.entries(parsed)
+                  if (entries.length > 0) return (
+                    <div className="space-y-2">
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Câu trả lời</p>
+                      {entries.map(([k, v]) => (
+                        <div key={k} className="bg-gray-50 rounded-lg px-4 py-3">
+                          <p className="text-xs text-gray-400 mb-0.5">{k}</p>
+                          <p className="text-sm text-gray-800">{String(v)}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )
+                } catch { return null }
+              })()}
+
+              {/* Kết quả duyệt (nếu đã xử lý) */}
+              {(selected.status === 'Accepted' || selected.status === 'Rejected') && (
+                <div className="rounded-lg border px-4 py-3 space-y-1 text-sm"
+                  style={{ borderColor: selected.status === 'Accepted' ? '#bbf7d0' : '#fecaca', background: selected.status === 'Accepted' ? '#f0fdf4' : '#fff1f2' }}>
+                  <p className="font-medium" style={{ color: selected.status === 'Accepted' ? '#15803d' : '#b91c1c' }}>
+                    {selected.status === 'Accepted' ? 'Đã chấp nhận' : 'Đã từ chối'}
+                  </p>
+                  {selected.reviewerName && <p className="text-gray-500">Bởi: {selected.reviewerName}</p>}
+                  {selected.reviewedAt && <p className="text-gray-400 text-xs">{new Date(selected.reviewedAt).toLocaleString('vi-VN')}</p>}
+                  {selected.reviewNote && <p className="text-gray-700 mt-1 whitespace-pre-wrap">{selected.reviewNote}</p>}
+                </div>
+              )}
+
+              {/* Ghi chú + actions (chỉ khi đang chờ) */}
+              {(selected.status === 'Pending' || selected.status === 'Interview') && (
+                <div className="space-y-2">
+                  <Label className="text-sm">Ghi chú phản hồi <span className="text-gray-400 font-normal">(tuỳ chọn)</span></Label>
+                  <textarea
+                    rows={3}
+                    value={reviewNote}
+                    onChange={e => setReviewNote(e.target.value)}
+                    placeholder="Lý do từ chối, hướng dẫn phỏng vấn..."
+                    className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
+          <DialogFooter className="flex-wrap gap-2">
+            {selected && (selected.status === 'Pending' || selected.status === 'Interview') && (
+              <>
+                {selected.status === 'Pending' && (
+                  <Button variant="outline" disabled={reviewing}
+                    className="border-blue-200 text-blue-700 hover:bg-blue-50"
+                    onClick={() => handleReview('Interview')}>
+                    Mời phỏng vấn
+                  </Button>
+                )}
+                <Button disabled={reviewing}
+                  className="bg-emerald-600 hover:bg-emerald-700"
+                  onClick={() => handleReview('Accepted')}>
+                  {reviewing ? 'Đang xử lý...' : 'Chấp nhận'}
+                </Button>
+                <Button variant="outline" disabled={reviewing}
+                  className="border-red-200 text-red-600 hover:bg-red-50"
+                  onClick={() => handleReview('Rejected')}>
+                  Từ chối
+                </Button>
+              </>
+            )}
+            <Button variant="outline" onClick={() => setSelected(null)}>Đóng</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
