@@ -7,5 +7,6 @@ namespace UniClub_Hub.Membership.DTOs.Club
         public string? UpdatedBy { get; set; }
         public string? DeletedBy { get; set; }
         public bool IsDeleted { get; set; }
+        public bool HasAdmin { get; set; }
     }
 }

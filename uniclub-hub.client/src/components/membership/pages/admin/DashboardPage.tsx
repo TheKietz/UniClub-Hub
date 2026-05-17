@@ -1,16 +1,20 @@
 import { useEffect, useState } from 'react'
-import { getSystemStats } from '@/components/membership/services/adminApi'
-import type { SystemStats } from '@/components/membership/services/admin.types'
-import { Users, Building2, UserCheck, FileText } from 'lucide-react'
+import { getSystemStats, getSystemGrowth } from '@/components/membership/services/adminApi'
+import type { SystemStats, MonthlyGrowth } from '@/components/membership/services/admin.types'
+import { Users, Building2, UserCheck, FileText, Clock } from 'lucide-react'
 // eslint-disable-next-line @typescript-eslint/no-deprecated
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts'
+import {
+  PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid,
+  AreaChart, Area,
+} from 'recharts'
 
 function StatCard({ label, value, icon: Icon, color, sub }: {
   label: string; value: number; icon: React.ElementType; color: string; sub?: string
 }) {
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-5 flex items-center gap-4">
-      <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${color}`}>
+      <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${color}`}>
         <Icon size={22} className="text-white" />
       </div>
       <div>
@@ -28,17 +32,17 @@ const APP_COLORS: Record<string, string> = {
   'Đã duyệt':  '#10b981',
   'Từ chối':   '#ef4444',
 }
-
 const BAR_COLORS = ['#6366f1','#8b5cf6','#ec4899','#f59e0b','#10b981','#3b82f6']
 
 export default function DashboardPage() {
   const [stats, setStats] = useState<SystemStats | null>(null)
+  const [growth, setGrowth] = useState<MonthlyGrowth[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
   useEffect(() => {
-    getSystemStats()
-      .then(setStats)
+    Promise.all([getSystemStats(), getSystemGrowth(12)])
+      .then(([s, g]) => { setStats(s); setGrowth(g) })
       .catch(() => setError('Không thể tải dữ liệu thống kê.'))
       .finally(() => setLoading(false))
   }, [])
@@ -64,43 +68,76 @@ export default function DashboardPage() {
     'Thành viên': c.memberCount,
   }))
 
-  const activeRate = stats.totalClubs > 0
-    ? Math.round((stats.activeClubs / stats.totalClubs) * 100)
-    : 0
+  const growthData = growth.map(g => ({ name: g.label, 'Thành viên mới': g.newMembers }))
+  const totalNewThisYear = growth.reduce((s, g) => s + g.newMembers, 0)
+  const activeRate = stats.totalClubs > 0 ? Math.round((stats.activeClubs / stats.totalClubs) * 100) : 0
 
   return (
     <div className="px-8 pt-3 pb-8 space-y-6">
-      <h1 className="text-xl font-bold leading-none" style={{ color: '#0f172a' }}>Tổng quan hệ thống</h1>
+      <div>
+        <h1 className="text-xl font-bold text-gray-900">Tổng quan hệ thống</h1>
+        <p className="text-sm text-gray-400 mt-0.5">Thống kê toàn bộ hệ thống câu lạc bộ</p>
+      </div>
 
       {/* Stat cards */}
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
         <StatCard label="Người dùng" value={stats.totalUsers} icon={Users} color="bg-indigo-500" />
         <StatCard label="Câu lạc bộ" value={stats.totalClubs} icon={Building2} color="bg-emerald-500"
           sub={`${stats.activeClubs} đang hoạt động (${activeRate}%)`} />
-        <StatCard label="Thành viên tích cực" value={stats.totalActiveMembers} icon={UserCheck} color="bg-violet-500" />
+        <StatCard label="Thành viên chính thức" value={stats.totalActiveMembers} icon={UserCheck} color="bg-violet-500"
+          sub={stats.totalProbationMembers > 0 ? `+ ${stats.totalProbationMembers} đang thử việc` : undefined} />
         <StatCard label="Tổng đơn đăng ký" value={stats.applications.total} icon={FileText} color="bg-amber-500"
           sub={`${stats.applications.pending} đang chờ duyệt`} />
       </div>
 
-      {/* Row 1: Pie đơn + Bar lĩnh vực */}
+      {/* Biểu đồ tăng trưởng */}
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div className="px-5 py-3 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
+          <div>
+            <p className="text-sm font-semibold text-gray-900">Tăng trưởng thành viên</p>
+            <p className="text-xs text-gray-400 mt-0.5">12 tháng gần nhất</p>
+          </div>
+          <div className="flex items-center gap-1.5 text-sm font-semibold text-indigo-600">
+            <Clock size={14} />
+            {totalNewThisYear} thành viên mới
+          </div>
+        </div>
+        <div className="p-5">
+          <ResponsiveContainer width="100%" height={220}>
+            <AreaChart data={growthData} margin={{ top: 4, right: 8, left: -16, bottom: 4 }}>
+              <defs>
+                <linearGradient id="growthGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#6366f1" stopOpacity={0.15} />
+                  <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+              <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#9ca3af' }} />
+              <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#9ca3af' }} />
+              <Tooltip formatter={(v) => [`${v} thành viên`, 'Mới']} />
+              <Area type="monotone" dataKey="Thành viên mới"
+                stroke="#6366f1" strokeWidth={2}
+                fill="url(#growthGrad)" dot={{ r: 3, fill: '#6366f1' }} activeDot={{ r: 5 }} />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* Row: Pie đơn + Bar lĩnh vực */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        {/* Pie — đơn đăng ký */}
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
           <div className="px-5 py-3 border-b border-gray-100 bg-gray-50">
-            <p className="text-sm font-semibold" style={{ color: '#111827' }}>Tình trạng đơn đăng ký</p>
+            <p className="text-sm font-semibold text-gray-900">Tình trạng đơn đăng ký</p>
           </div>
           <div className="p-5">
             {appPieData.length === 0 ? (
               <p className="text-sm text-gray-400 text-center py-8">Chưa có đơn nào.</p>
             ) : (
-              <ResponsiveContainer width="100%" height={240}>
+              <ResponsiveContainer width="100%" height={220}>
                 <PieChart>
                   <Pie data={appPieData} dataKey="value" nameKey="name"
-                    cx="50%" cy="50%" outerRadius={85} innerRadius={45}
-                    paddingAngle={3}>
-                    {appPieData.map((d, i) => (
-                      <Cell key={i} fill={APP_COLORS[d.name] ?? BAR_COLORS[i]} />
-                    ))}
+                    cx="50%" cy="50%" outerRadius={80} innerRadius={42} paddingAngle={3}>
+                    {appPieData.map((d, i) => <Cell key={i} fill={APP_COLORS[d.name] ?? BAR_COLORS[i]} />)}
                   </Pie>
                   <Tooltip formatter={(v) => [`${v} đơn`, '']} />
                   <Legend iconType="circle" iconSize={8}
@@ -108,13 +145,12 @@ export default function DashboardPage() {
                 </PieChart>
               </ResponsiveContainer>
             )}
-            {/* Summary row */}
-            <div className="grid grid-cols-4 gap-2 mt-2">
+            <div className="grid grid-cols-4 gap-2 mt-1">
               {[
-                { label: 'Chờ duyệt', value: stats.applications.pending, color: '#f59e0b' },
+                { label: 'Chờ duyệt', value: stats.applications.pending,  color: '#f59e0b' },
                 { label: 'Phỏng vấn', value: stats.applications.interview, color: '#3b82f6' },
-                { label: 'Đã duyệt',  value: stats.applications.accepted, color: '#10b981' },
-                { label: 'Từ chối',   value: stats.applications.rejected, color: '#ef4444' },
+                { label: 'Đã duyệt',  value: stats.applications.accepted,  color: '#10b981' },
+                { label: 'Từ chối',   value: stats.applications.rejected,  color: '#ef4444' },
               ].map(item => (
                 <div key={item.label} className="text-center p-2 rounded-lg bg-gray-50">
                   <p className="text-lg font-bold" style={{ color: item.color }}>{item.value}</p>
@@ -125,10 +161,9 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Bar — CLB theo lĩnh vực */}
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
           <div className="px-5 py-3 border-b border-gray-100 bg-gray-50">
-            <p className="text-sm font-semibold" style={{ color: '#111827' }}>CLB theo lĩnh vực</p>
+            <p className="text-sm font-semibold text-gray-900">CLB theo lĩnh vực</p>
           </div>
           <div className="p-5">
             {categoryBarData.length === 0 ? (
@@ -137,13 +172,11 @@ export default function DashboardPage() {
               <ResponsiveContainer width="100%" height={240}>
                 <BarChart data={categoryBarData} margin={{ top: 4, right: 8, left: -16, bottom: 4 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                  <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#6b7280' }} />
-                  <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#6b7280' }} />
+                  <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#9ca3af' }} />
+                  <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#9ca3af' }} />
                   <Tooltip />
                   <Bar dataKey="Số CLB" radius={[4, 4, 0, 0]}>
-                    {categoryBarData.map((_, i) => (
-                      <Cell key={i} fill={BAR_COLORS[i % BAR_COLORS.length]} />
-                    ))}
+                    {categoryBarData.map((_, i) => <Cell key={i} fill={BAR_COLORS[i % BAR_COLORS.length]} />)}
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
@@ -152,22 +185,22 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Row 2: Bar top CLB */}
+      {/* Top CLB */}
       {topClubsData.length > 0 && (
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
           <div className="px-5 py-3 border-b border-gray-100 bg-gray-50">
-            <p className="text-sm font-semibold" style={{ color: '#111827' }}>Top CLB nhiều thành viên nhất</p>
+            <p className="text-sm font-semibold text-gray-900">Top CLB nhiều thành viên nhất</p>
           </div>
           <div className="p-5">
-            <ResponsiveContainer width="100%" height={220}>
+            <ResponsiveContainer width="100%" height={200}>
               <BarChart data={topClubsData} layout="vertical"
                 margin={{ top: 4, right: 40, left: 8, bottom: 4 }}>
                 <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f0f0f0" />
-                <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11, fill: '#6b7280' }} />
+                <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11, fill: '#9ca3af' }} />
                 <YAxis type="category" dataKey="name" width={130} tick={{ fontSize: 11, fill: '#6b7280' }} />
                 <Tooltip />
                 <Bar dataKey="Thành viên" fill="#6366f1" radius={[0, 4, 4, 0]}
-                  label={{ position: 'right', fontSize: 11, fill: '#6b7280' }} />
+                  label={{ position: 'right', fontSize: 11, fill: '#9ca3af' }} />
               </BarChart>
             </ResponsiveContainer>
           </div>

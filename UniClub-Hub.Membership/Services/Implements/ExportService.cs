@@ -120,6 +120,86 @@ namespace UniClub_Hub.Membership.Services.Implements
             return (ToBytes(wb), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"applications_{club.Code}{suffix}.xlsx");
         }
 
+        public async Task<(byte[] Content, string ContentType, string FileName)> ExportAllUsersAsync(string format)
+        {
+            var users = await _db.Users
+                .OrderBy(u => u.FullName)
+                .Select(u => new
+                {
+                    FullName  = u.FullName ?? "",
+                    Email     = u.Email ?? "",
+                    StudentId = u.StudentId ?? "",
+                    Major     = u.Major ?? "",
+                })
+                .ToListAsync();
+
+            string[] headers = ["STT", "Họ tên", "Email", "MSSV", "Chuyên ngành"];
+            var date = DateTime.Now.ToString("yyyyMMdd");
+
+            if (format == "csv")
+            {
+                var csv = BuildCsv(headers, users.Select((u, i) => new object?[]
+                    { i + 1, u.FullName, u.Email, u.StudentId, u.Major }));
+                return (Encoding.UTF8.GetBytes(csv), "text/csv", $"users_{date}.csv");
+            }
+
+            using var wb = new XLWorkbook();
+            var ws = wb.Worksheets.Add("Người dùng");
+            WriteExcelHeaders(ws, headers);
+            for (int i = 0; i < users.Count; i++)
+            {
+                var u = users[i];
+                ws.Cell(i + 2, 1).Value = i + 1;
+                ws.Cell(i + 2, 2).Value = u.FullName;
+                ws.Cell(i + 2, 3).Value = u.Email;
+                ws.Cell(i + 2, 4).Value = u.StudentId;
+                ws.Cell(i + 2, 5).Value = u.Major;
+            }
+            ws.Columns().AdjustToContents();
+            return (ToBytes(wb), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"users_{date}.xlsx");
+        }
+
+        public async Task<(byte[] Content, string ContentType, string FileName)> ExportAllClubsAsync(string format)
+        {
+            var clubs = await _db.Clubs
+                .Include(c => c.Category)
+                .Include(c => c.ClubMemberships)
+                .OrderBy(c => c.Name)
+                .ToListAsync();
+
+            string[] headers = ["STT", "Tên CLB", "Mã", "Lĩnh vực", "Trạng thái", "Thành viên", "Ngày tạo"];
+            var date = DateTime.Now.ToString("yyyyMMdd");
+
+            if (format == "csv")
+            {
+                var csv = BuildCsv(headers, clubs.Select((c, i) => new object?[] {
+                    i + 1, c.Name, c.Code,
+                    c.Category?.Name ?? "",
+                    c.Status.ToString(),
+                    c.ClubMemberships!.Count(m => m.Status == MembershipStatus.Active),
+                    c.CreatedAt.ToString("dd/MM/yyyy")
+                }));
+                return (Encoding.UTF8.GetBytes(csv), "text/csv", $"clubs_{date}.csv");
+            }
+
+            using var wb = new XLWorkbook();
+            var ws = wb.Worksheets.Add("Câu lạc bộ");
+            WriteExcelHeaders(ws, headers);
+            for (int i = 0; i < clubs.Count; i++)
+            {
+                var c = clubs[i];
+                ws.Cell(i + 2, 1).Value = i + 1;
+                ws.Cell(i + 2, 2).Value = c.Name;
+                ws.Cell(i + 2, 3).Value = c.Code;
+                ws.Cell(i + 2, 4).Value = c.Category?.Name ?? "";
+                ws.Cell(i + 2, 5).Value = c.Status.ToString();
+                ws.Cell(i + 2, 6).Value = c.ClubMemberships!.Count(m => m.Status == MembershipStatus.Active);
+                ws.Cell(i + 2, 7).Value = c.CreatedAt.ToString("dd/MM/yyyy");
+            }
+            ws.Columns().AdjustToContents();
+            return (ToBytes(wb), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"clubs_{date}.xlsx");
+        }
+
         // ── Helpers ──────────────────────────────────────────────────────────
 
         private static void WriteExcelHeaders(IXLWorksheet ws, string[] headers)

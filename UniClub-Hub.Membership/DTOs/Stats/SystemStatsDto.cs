@@ -6,9 +6,18 @@ namespace UniClub_Hub.Membership.DTOs.Stats
         public int TotalClubs { get; set; }
         public int ActiveClubs { get; set; }
         public int TotalActiveMembers { get; set; }
+        public int TotalProbationMembers { get; set; }
         public ApplicationStatusCountDto Applications { get; set; } = new();
         public List<CategoryStatDto> ClubsByCategory { get; set; } = [];
         public List<TopClubDto> TopClubsByMembers { get; set; } = [];
+    }
+
+    public class MonthlyGrowthDto
+    {
+        public int Year { get; set; }
+        public int Month { get; set; }
+        public string Label { get; set; } = null!; // "Th1", "Th2"...
+        public int NewMembers { get; set; }
     }
 
     public class ApplicationStatusCountDto

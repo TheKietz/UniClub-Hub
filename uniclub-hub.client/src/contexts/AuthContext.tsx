@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import api from '@/lib/axiosInstance'
-import { SYSTEM_ROLES, type UserInfo } from '@/types/auth'
+import { SYSTEM_ROLES, MEMBERSHIP_STATUS, type UserInfo } from '@/types/auth'
 
 interface RegisterData {
   email: string

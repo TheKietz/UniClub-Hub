@@ -2,6 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(dotnet build *)",
+      "Bash(npm run *)",
+      "Bash(npx tsc *)",
       "Bash(Get-ChildItem -Path \"d:\\\\Web-core\\\\UniClub-Hub\\\\UniClub-Hub.Membership\\\\\" -Recurse | Select-Object -ExpandProperty FullName | Sort-Object)"
     ]
   }

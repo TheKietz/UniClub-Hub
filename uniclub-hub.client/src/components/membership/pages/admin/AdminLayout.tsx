@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, Users, Building2, Tag, Network, ArrowLeft } from 'lucide-react'
+import { LayoutDashboard, Users, Building2, Tag, Network, ArrowLeft, LifeBuoy, LogOut } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import UserMenu from '@/components/membership/layout/UserMenu'
 import NotificationBell from '@/components/membership/layout/NotificationBell'
@@ -12,6 +12,8 @@ const navItems = [
   { to: '/admin/clubs', label: 'Câu lạc bộ', icon: Building2 },
   { to: '/admin/structure', label: 'Cơ cấu tổ chức', icon: Network },
   { to: '/admin/categories', label: 'Lĩnh vực', icon: Tag },
+  { to: '/admin/support', label: 'Hỗ trợ', icon: LifeBuoy },
+  { to: '/admin/resignations', label: 'Đơn từ chức', icon: LogOut },
 ]
 
 export default function AdminLayout() {

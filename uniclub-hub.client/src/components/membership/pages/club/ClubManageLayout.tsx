@@ -1,7 +1,7 @@
 import { NavLink, Outlet, useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { cn } from '@/lib/utils'
-import { LayoutDashboard, Users, FileText, Building, ArrowLeft, ClipboardList, Settings } from 'lucide-react'
+import { LayoutDashboard, Users, FileText, Building, ArrowLeft, ClipboardList, Settings, LogOut } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import NotificationBell from '@/components/membership/layout/NotificationBell'
 import UserMenu from '@/components/membership/layout/UserMenu'
@@ -9,7 +9,7 @@ import AppFooter from '@/components/membership/layout/AppFooter'
 
 export default function ClubManageLayout() {
   const { clubId } = useParams<{ clubId: string }>()
-  const { isSuperAdmin, user } = useAuth()
+  const { user } = useAuth()
   const navigate = useNavigate()
 
   const club = user?.memberships.find(m => m.clubId === Number(clubId))
@@ -21,10 +21,9 @@ export default function ClubManageLayout() {
     { to: `/clubs/${id}/manage/applications`, label: 'Đơn đăng ký', icon: FileText },
     { to: `/clubs/${id}/manage/departments`, label: 'Ban bộ phận', icon: Building },
     { to: `/clubs/${id}/manage/form`, label: 'Form đăng ký', icon: ClipboardList },
+    { to: `/clubs/${id}/manage/resignations`, label: 'Đơn từ chức', icon: LogOut },
     { to: `/clubs/${id}/manage/settings`, label: 'Cài đặt CLB', icon: Settings },
   ]
-
-  const backTo = isSuperAdmin ? '/admin/clubs' : '/dashboard'
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50">

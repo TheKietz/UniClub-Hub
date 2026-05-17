@@ -550,6 +550,149 @@ namespace UniClub_Hub.Server.Data
                 await db.SaveChangesAsync();
             }
 
+            // ── Probation members ─────────────────────────────────────────
+            if (!await db.ClubMemberships.AnyAsync(m => m.Status == MembershipStatus.Probation))
+            {
+                var allClubs = await db.Clubs.IgnoreQueryFilters().ToListAsync();
+                var clubTechId = allClubs.First(c => c.Code == "TECH").Id;
+                var clubMusicId = allClubs.First(c => c.Code == "MUSIC").Id;
+                var clubEnglishId = allClubs.First(c => c.Code == "ENGLISH").Id;
+
+                db.ClubMemberships.AddRange(
+                    new ClubMembership
+                    {
+                        UserId = createdUsers["duc.clb@uef.edu.vn"].Id,
+                        ClubId = clubTechId,
+                        ClubRole = ClubRole.MEMBER,
+                        JoinedDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-14)),
+                        Status = MembershipStatus.Probation,
+                    },
+                    new ClubMembership
+                    {
+                        UserId = createdUsers["thu.clb@uef.edu.vn"].Id,
+                        ClubId = clubTechId,
+                        ClubRole = ClubRole.MEMBER,
+                        JoinedDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-7)),
+                        Status = MembershipStatus.Probation,
+                    },
+                    new ClubMembership
+                    {
+                        UserId = createdUsers["khoa.clb@uef.edu.vn"].Id,
+                        ClubId = clubMusicId,
+                        ClubRole = ClubRole.MEMBER,
+                        JoinedDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-10)),
+                        Status = MembershipStatus.Probation,
+                    },
+                    new ClubMembership
+                    {
+                        UserId = createdUsers["an.clb@uef.edu.vn"].Id,
+                        ClubId = clubEnglishId,
+                        ClubRole = ClubRole.MEMBER,
+                        JoinedDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-5)),
+                        Status = MembershipStatus.Probation,
+                    }
+                );
+                await db.SaveChangesAsync();
+            }
+
+            // ── Resigned members ──────────────────────────────────────────
+            if (!await db.ClubMemberships.AnyAsync(m => m.Status == MembershipStatus.Resigned))
+            {
+                var resignedClubs = await db.Clubs.IgnoreQueryFilters().ToListAsync();
+                var clubTechId = resignedClubs.First(c => c.Code == "TECH").Id;
+                var clubFootballId = resignedClubs.First(c => c.Code == "FOOTBALL").Id;
+
+                db.ClubMemberships.AddRange(
+                    new ClubMembership
+                    {
+                        UserId = createdUsers["mai.clb@uef.edu.vn"].Id,
+                        ClubId = clubTechId,
+                        ClubRole = ClubRole.MEMBER,
+                        JoinedDate = new DateOnly(2022, 9, 1),
+                        ResignedDate = new DateOnly(2023, 6, 30),
+                        Status = MembershipStatus.Resigned,
+                    },
+                    new ClubMembership
+                    {
+                        UserId = createdUsers["thu.clb@uef.edu.vn"].Id,
+                        ClubId = clubFootballId,
+                        ClubRole = ClubRole.MEMBER,
+                        JoinedDate = new DateOnly(2021, 9, 1),
+                        ResignedDate = new DateOnly(2022, 12, 31),
+                        Status = MembershipStatus.Resigned,
+                    }
+                );
+                await db.SaveChangesAsync();
+            }
+
+            // ── Applications ──────────────────────────────────────────────
+            if (!await db.Applications.AnyAsync())
+            {
+                var appClubs = await db.Clubs.IgnoreQueryFilters().ToListAsync();
+                var clubTechId = appClubs.First(c => c.Code == "TECH").Id;
+                var clubMusicId = appClubs.First(c => c.Code == "MUSIC").Id;
+                var clubVolunteerId = appClubs.First(c => c.Code == "VOLUNTEER").Id;
+
+                static string J(string note) =>
+                    System.Text.Json.JsonSerializer.Serialize(new { note });
+
+                db.Applications.AddRange(
+                    // Pending — chờ duyệt
+                    new ClubApplication
+                    {
+                        UserId = createdUsers["duc.clb@uef.edu.vn"].Id,
+                        ClubId = clubMusicId,
+                        Status = ApplicationStatus.Pending,
+                        AppliedAt = DateTime.UtcNow.AddDays(-3),
+                        Answers = J("Tôi rất đam mê âm nhạc và muốn được học hỏi thêm."),
+                    },
+                    new ClubApplication
+                    {
+                        UserId = createdUsers["khoa.clb@uef.edu.vn"].Id,
+                        ClubId = clubVolunteerId,
+                        Status = ApplicationStatus.Pending,
+                        AppliedAt = DateTime.UtcNow.AddDays(-1),
+                        Answers = J("Tôi muốn đóng góp cho cộng đồng và phát triển kỹ năng mềm."),
+                    },
+                    // Interview — được mời phỏng vấn
+                    new ClubApplication
+                    {
+                        UserId = createdUsers["mai.clb@uef.edu.vn"].Id,
+                        ClubId = clubVolunteerId,
+                        Status = ApplicationStatus.Interview,
+                        AppliedAt = DateTime.UtcNow.AddDays(-7),
+                        Answers = J("Tôi từng tham gia nhiều hoạt động từ thiện tại địa phương."),
+                    },
+                    // Accepted
+                    new ClubApplication
+                    {
+                        UserId = createdUsers["duc.clb@uef.edu.vn"].Id,
+                        ClubId = clubTechId,
+                        Status = ApplicationStatus.Accepted,
+                        AppliedAt = DateTime.UtcNow.AddDays(-20),
+                        Answers = J("Tôi có kinh nghiệm lập trình web và muốn tham gia các dự án của CLB."),
+                    },
+                    new ClubApplication
+                    {
+                        UserId = createdUsers["thu.clb@uef.edu.vn"].Id,
+                        ClubId = clubTechId,
+                        Status = ApplicationStatus.Accepted,
+                        AppliedAt = DateTime.UtcNow.AddDays(-14),
+                        Answers = J("Tôi muốn cải thiện kỹ năng lập trình và networking."),
+                    },
+                    // Rejected
+                    new ClubApplication
+                    {
+                        UserId = createdUsers["an.clb@uef.edu.vn"].Id,
+                        ClubId = clubMusicId,
+                        Status = ApplicationStatus.Rejected,
+                        AppliedAt = DateTime.UtcNow.AddDays(-30),
+                        Answers = J("Tôi muốn học đàn guitar."),
+                    }
+                );
+                await db.SaveChangesAsync();
+            }
+
             Console.WriteLine("[Seeder] Done.");
         }
     }

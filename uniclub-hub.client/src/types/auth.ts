@@ -6,6 +6,7 @@ export interface UserMembership {
   departmentName?: string
   clubRole: string
   joinedDate: string
+  resignedDate?: string | null
   status: string
 }
 

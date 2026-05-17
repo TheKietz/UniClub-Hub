@@ -59,5 +59,34 @@ namespace UniClub_Hub.Server.Controllers.Membership
 
             return Ok(ApiResponse<ClubStatsDto>.Ok(stats));
         }
+
+        // Biểu đồ tăng trưởng thành viên theo tháng — hệ thống
+        [HttpGet("admin/stats/growth")]
+        [Authorize(Roles = "SUPER_ADMIN")]
+        public async Task<IActionResult> GetSystemGrowth([FromQuery] int months = 12)
+        {
+            var data = await _statsService.GetMemberGrowthAsync(null, months);
+            return Ok(ApiResponse<List<MonthlyGrowthDto>>.Ok(data));
+        }
+
+        // Biểu đồ tăng trưởng thành viên theo tháng — CLB
+        [HttpGet("clubs/{clubId}/stats/growth")]
+        public async Task<IActionResult> GetClubGrowth(int clubId, [FromQuery] int months = 12)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+            var isSuperAdmin = User.IsInRole("SUPER_ADMIN");
+
+            if (!isSuperAdmin)
+            {
+                var isClubAdmin = await _db.ClubMemberships.AnyAsync(m =>
+                    m.UserId == userId && m.ClubId == clubId
+                    && m.ClubRole == UniClub_Hub.Shared.Enums.ClubRole.CLUB_ADMIN
+                    && m.Status == MembershipStatus.Active);
+                if (!isClubAdmin) return Forbid();
+            }
+
+            var data = await _statsService.GetMemberGrowthAsync(clubId, months);
+            return Ok(ApiResponse<List<MonthlyGrowthDto>>.Ok(data));
+        }
     }
 }

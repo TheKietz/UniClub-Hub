@@ -13,10 +13,24 @@ namespace UniClub_Hub.Server.Controllers.Membership
     public class UsersController : ControllerBase
     {
         private readonly IUserService _userService;
+        private readonly IApplicationService _applicationService;
+        private readonly IResignationService _resignationService;
 
-        public UsersController(IUserService userService)
+        public UsersController(
+            IUserService userService,
+            IApplicationService applicationService,
+            IResignationService resignationService)
         {
             _userService = userService;
+            _applicationService = applicationService;
+            _resignationService = resignationService;
+        }
+
+        // Chỉ cho phép user xem data của chính mình (trừ SUPER_ADMIN)
+        private bool CanAccessUser(string targetUserId)
+        {
+            var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+            return currentUserId == targetUserId || User.IsInRole("SUPER_ADMIN");
         }
 
         [HttpGet("me")]
@@ -49,6 +63,22 @@ namespace UniClub_Hub.Server.Controllers.Membership
             {
                 return NotFound(ApiResponse<object>.Fail(ex.Message));
             }
+        }
+
+        [HttpGet("{userId}/applications")]
+        public async Task<IActionResult> GetUserApplications(string userId)
+        {
+            if (!CanAccessUser(userId)) return Forbid();
+            var result = await _applicationService.GetMyApplicationsAsync(userId);
+            return Ok(ApiResponse<object>.Ok(result));
+        }
+
+        [HttpGet("{userId}/resignations")]
+        public async Task<IActionResult> GetUserResignations(string userId)
+        {
+            if (!CanAccessUser(userId)) return Forbid();
+            var result = await _resignationService.GetAllMyRequestsAsync(userId);
+            return Ok(ApiResponse<object>.Ok(result));
         }
     }
 }

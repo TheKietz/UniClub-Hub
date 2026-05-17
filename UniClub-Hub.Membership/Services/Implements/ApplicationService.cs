@@ -48,7 +48,18 @@ namespace UniClub_Hub.Membership.Services.Implements
             )
                 query = query.Where(a => a.Status == parsedStatus);
 
-            return await query.Select(a => ToAdminDto(a)).ToListAsync();
+            var apps = await query.ToListAsync();
+
+            // Lấy tên reviewer trong 1 query (tránh N+1)
+            var reviewerIds = apps.Where(a => a.ReviewerId != null)
+                                  .Select(a => a.ReviewerId!).Distinct().ToList();
+            var reviewers = reviewerIds.Any()
+                ? await _db.Users.Where(u => reviewerIds.Contains(u.Id))
+                    .ToDictionaryAsync(u => u.Id, u => u.FullName ?? u.Email ?? u.Id)
+                : new Dictionary<string, string>();
+
+            return apps.Select(a => ToAdminDto(a,
+                a.ReviewerId != null ? reviewers.GetValueOrDefault(a.ReviewerId) : null));
         }
 
         public async Task<ApplicationDto> SubmitAsync(
@@ -165,6 +176,9 @@ namespace UniClub_Hub.Membership.Services.Implements
             }
 
             application.Status = dto.Status;
+            application.ReviewNote = dto.ReviewNote;
+            application.ReviewedAt = DateTime.UtcNow;
+            application.ReviewerId = reviewerId;
             await _db.SaveChangesAsync();
 
             // Thông báo cho người nộp đơn
@@ -220,13 +234,18 @@ namespace UniClub_Hub.Membership.Services.Implements
                 }
             }
 
-            return await _db
-                .Applications.AsNoTracking()
-                .Include(a => a.Club)
-                .Include(a => a.User)
+            var app = await _db.Applications.AsNoTracking()
+                .Include(a => a.Club).Include(a => a.User)
                 .Where(a => a.Id == applicationId)
-                .Select(a => ToAdminDto(a))
                 .FirstAsync();
+
+            string? reviewerName = null;
+            if (app.ReviewerId != null)
+                reviewerName = await _db.Users.Where(u => u.Id == app.ReviewerId)
+                    .Select(u => u.FullName ?? u.Email)
+                    .FirstOrDefaultAsync();
+
+            return ToAdminDto(app, reviewerName);
         }
 
         // ── Helpers ───────────────────────────────────────────────────────
@@ -239,9 +258,10 @@ namespace UniClub_Hub.Membership.Services.Implements
                 ClubName = a.Club?.Name ?? "",
                 Status = a.Status,
                 AppliedAt = a.AppliedAt,
+                ReviewNote = a.ReviewNote,
             };
 
-        private static AdminApplicationDto ToAdminDto(ClubApplication a) =>
+        private static AdminApplicationDto ToAdminDto(ClubApplication a, string? reviewerName = null) =>
             new()
             {
                 Id = a.Id,
@@ -249,6 +269,9 @@ namespace UniClub_Hub.Membership.Services.Implements
                 ClubName = a.Club?.Name ?? "",
                 Status = a.Status,
                 AppliedAt = a.AppliedAt,
+                ReviewNote = a.ReviewNote,
+                ReviewedAt = a.ReviewedAt,
+                ReviewerName = reviewerName,
                 UserId = a.UserId,
                 FullName = a.User?.FullName ?? a.User?.Email ?? "",
                 Email = a.User?.Email ?? "",

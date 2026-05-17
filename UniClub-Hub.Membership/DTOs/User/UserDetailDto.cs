@@ -28,6 +28,7 @@ namespace UniClub_Hub.Membership.DTOs.User
         public string? DepartmentName { get; set; }
         public ClubRole ClubRole { get; set; }
         public DateOnly JoinedDate { get; set; }
+        public DateOnly? ResignedDate { get; set; }
         public MembershipStatus Status { get; set; }
     }
 }

@@ -7,5 +7,6 @@ namespace UniClub_Hub.Membership.Services.Interfaces
     {
         Task<SystemStatsDto> GetSystemStatsAsync();
         Task<ClubStatsDto?> GetClubStatsAsync(int clubId);
+        Task<List<MonthlyGrowthDto>> GetMemberGrowthAsync(int? clubId, int months = 12);
     }
 }

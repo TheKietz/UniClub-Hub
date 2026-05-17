@@ -10,10 +10,12 @@ namespace UniClub_Hub.Membership.Services.Implements
     public class DepartmentService : IDepartmentService
     {
         private readonly UniClubDbContext _db;
+        private readonly INotificationService _notifications;
 
-        public DepartmentService(UniClubDbContext db)
+        public DepartmentService(UniClubDbContext db, INotificationService notifications)
         {
             _db = db;
+            _notifications = notifications;
         }
 
         public async Task<IEnumerable<DepartmentDto>> GetAllAsync(int clubId)
@@ -85,13 +87,33 @@ namespace UniClub_Hub.Membership.Services.Implements
                 .FirstOrDefaultAsync(d => d.ClubId == clubId && d.Id == id)
                 ?? throw new KeyNotFoundException($"Không tìm thấy ban với ID {id} trong CLB này.");
 
-            var hasMembers = await _db.ClubMemberships
-                .AnyAsync(m => m.DepartmentId == id && (m.Status == MembershipStatus.Active || m.Status == MembershipStatus.Probation));
-            if (hasMembers)
-                throw new InvalidOperationException("Không thể xóa ban đang có thành viên hoạt động.");
+            // Lấy tất cả thành viên đang hoạt động trong ban
+            var affected = await _db.ClubMemberships
+                .Where(m => m.DepartmentId == id &&
+                    (m.Status == MembershipStatus.Active || m.Status == MembershipStatus.Probation))
+                .ToListAsync();
+
+            // Auto-demote: xóa department, hạ DEPT_LEAD → MEMBER
+            foreach (var m in affected)
+            {
+                m.DepartmentId = null;
+                if (m.ClubRole == ClubRole.DEPT_LEAD)
+                    m.ClubRole = ClubRole.MEMBER;
+            }
 
             _db.Departments.Remove(department);
             await _db.SaveChangesAsync();
+
+            // Thông báo cho từng người bị ảnh hưởng
+            foreach (var m in affected)
+            {
+                await _notifications.SendAsync(
+                    m.UserId,
+                    "Ban bộ phận đã bị giải thể",
+                    $"Ban \"{department.Name}\" đã bị xóa. Bạn vẫn là thành viên của CLB và có thể được gán vào ban khác.",
+                    NotificationType.System
+                );
+            }
         }
 
         public async Task SetLeadAsync(int clubId, int deptId, int? membershipId)

@@ -1,8 +1,16 @@
+export interface MonthlyGrowth {
+  year: number
+  month: number
+  label: string
+  newMembers: number
+}
+
 export interface SystemStats {
   totalUsers: number
   totalClubs: number
   activeClubs: number
   totalActiveMembers: number
+  totalProbationMembers: number
   applications: {
     pending: number
     interview: number
@@ -48,6 +56,7 @@ export interface ClubItem {
   memberCount: number
   createdAt: string
   isDeleted: boolean
+  hasAdmin: boolean
 }
 
 export interface CategoryItem {

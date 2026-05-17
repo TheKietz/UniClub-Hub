@@ -13,6 +13,9 @@ namespace UniClub_Hub.Shared.Models
         public string? Answers { get; set; } // JSONB — câu trả lời form tuyển thành viên
         public ApplicationStatus Status { get; set; } = ApplicationStatus.Pending;
         public DateTime AppliedAt { get; set; } = DateTime.UtcNow;
+        public string? ReviewNote { get; set; }
+        public DateTime? ReviewedAt { get; set; }
+        public string? ReviewerId { get; set; }
 
         public ApplicationUser User { get; set; } = null!;
         public Club Club { get; set; } = null!;

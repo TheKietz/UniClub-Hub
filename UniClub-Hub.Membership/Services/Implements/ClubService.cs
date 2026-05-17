@@ -11,10 +11,12 @@ namespace UniClub_Hub.Membership.Services.Implements
     public class ClubService : IClubService
     {
         private readonly UniClubDbContext _db;
+        private readonly IClubMembershipService _membershipService; // Inject IClubMembershipService
 
-        public ClubService(UniClubDbContext db)
+        public ClubService(UniClubDbContext db, IClubMembershipService membershipService)
         {
             _db = db;
+            _membershipService = membershipService;
         }
 
         // ── Public ───────────────────────────────────────────────────────
@@ -51,8 +53,11 @@ namespace UniClub_Hub.Membership.Services.Implements
                 ?? throw new KeyNotFoundException($"Không tìm thấy CLB với ID {id}.");
         }
 
+        // ── Admin ─────────────────────────────────────────────────────────
+
         public async Task<AdminClubDto> CreateAsync(CreateClubDto dto)
         {
+            // 1. Kiểm tra mã CLB và các ràng buộc khác
             if (await _db.Clubs.AnyAsync(c => c.Code == dto.Code.ToUpper()))
                 throw new InvalidOperationException($"Mã CLB '{dto.Code}' đã tồn tại.");
 
@@ -60,23 +65,43 @@ namespace UniClub_Hub.Membership.Services.Implements
                 !await _db.Categories.AnyAsync(c => c.Id == dto.CategoryId))
                 throw new KeyNotFoundException("Lĩnh vực không tồn tại.");
 
-            var club = new Club
+            // Kiểm tra ClubAdminId có hợp lệ không
+            if (string.IsNullOrEmpty(dto.ClubAdminId)) // This check is redundant if [Required] is used in DTO and model validation is enabled. Keeping for defensive programming.
+                throw new ArgumentException("ID của Trưởng câu lạc bộ là bắt buộc."); // Changed "Chủ nhiệm CLB" to "Trưởng câu lạc bộ"
+            if (!await _db.Users.AnyAsync(u => u.Id == dto.ClubAdminId))
+                throw new KeyNotFoundException($"Không tìm thấy người dùng với ID {dto.ClubAdminId} để gán làm Trưởng câu lạc bộ."); // Changed "Chủ nhiệm" to "Trưởng câu lạc bộ"
+
+            // Sử dụng Transaction để đảm bảo tính toàn vẹn dữ liệu
+            using var transaction = await _db.Database.BeginTransactionAsync();
+            try
             {
-                Name = dto.Name,
-                Code = dto.Code.ToUpper(),
-                CategoryId = dto.CategoryId,
-                Description = dto.Description,
-                LogoUrl = dto.LogoUrl,
-                ContactInfo = dto.ContactInfo,
-                EstablishedDate = dto.EstablishedDate,
-                AdvisorName = dto.AdvisorName,
-                Status = ClubStatus.Active
-            };
+                var club = new Club
+                {
+                    Name = dto.Name,
+                    Code = dto.Code.ToUpper(),
+                    CategoryId = dto.CategoryId,
+                    Description = dto.Description,
+                    LogoUrl = dto.LogoUrl,
+                    ContactInfo = dto.ContactInfo,
+                    EstablishedDate = dto.EstablishedDate,
+                    AdvisorName = dto.AdvisorName,
+                    Status = ClubStatus.Active
+                };
 
-            _db.Clubs.Add(club);
-            await _db.SaveChangesAsync();
+                _db.Clubs.Add(club);
+                await _db.SaveChangesAsync(); // Lưu để có club.Id
 
-            return await GetByIdAdminAsync(club.Id);
+                // Gán Trưởng câu lạc bộ ngay lập tức bằng dịch vụ ClubMembershipService
+                await _membershipService.AssignClubAdminAsync(club.Id, dto.ClubAdminId);
+
+                await transaction.CommitAsync(); // Hoàn tất transaction
+                return await GetByIdAdminAsync(club.Id);
+            }
+            catch
+            {
+                await transaction.RollbackAsync(); // Rollback nếu có lỗi
+                throw; // Ném lại lỗi để xử lý ở tầng trên
+            }
         }
 
         public async Task<AdminClubDto> UpdateAsync(int id, UpdateClubDto dto)
@@ -161,6 +186,9 @@ namespace UniClub_Hub.Membership.Services.Implements
             CategoryId = c.CategoryId,
             CategoryName = c.Category != null ? c.Category.Name : null,
             MemberCount = c.ClubMemberships!.Count(m => m.Status == MembershipStatus.Active),
+            HasAdmin = c.ClubMemberships!.Any(m =>
+                m.ClubRole == UniClub_Hub.Shared.Enums.ClubRole.CLUB_ADMIN &&
+                m.Status == MembershipStatus.Active),
             CreatedAt = c.CreatedAt,
             CreatedBy = c.CreatedBy,
             UpdatedAt = c.UpdatedAt,

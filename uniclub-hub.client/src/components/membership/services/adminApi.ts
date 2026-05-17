@@ -1,6 +1,6 @@
 import api from '@/lib/axiosInstance'
 import type {
-  SystemStats, UserItem, PagedResult, ClubItem, CategoryItem,
+  SystemStats, MonthlyGrowth, UserItem, PagedResult, ClubItem, CategoryItem,
   CreateClubDto, UpdateClubDto, CreateCategoryDto,
 } from '@/components/membership/services/admin.types'
 
@@ -8,6 +8,9 @@ import type {
 
 export const getSystemStats = () =>
   api.get<{ data: SystemStats }>('/admin/stats').then(r => r.data.data)
+
+export const getSystemGrowth = (months = 12) =>
+  api.get<{ data: MonthlyGrowth[] }>(`/admin/stats/growth?months=${months}`).then(r => r.data.data)
 
 // ── Users ──────────────────────────────────────────────────────────────────
 

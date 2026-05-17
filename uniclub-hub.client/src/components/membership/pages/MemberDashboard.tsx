@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
-import { CLUB_ROLES } from '@/types/auth'
+import { CLUB_ROLES, MEMBERSHIP_STATUS } from '@/types/auth'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Building2, Users, ChevronRight, Search } from 'lucide-react'

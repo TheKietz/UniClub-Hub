@@ -21,6 +21,7 @@ namespace UniClub_Hub.Membership.Services.Implements
             var totalClubs = await _db.Clubs.CountAsync();
             var activeClubs = await _db.Clubs.CountAsync(c => c.Status == ClubStatus.Active);
             var totalActiveMembers = await _db.ClubMemberships.CountAsync(m => m.Status == MembershipStatus.Active);
+            var totalProbationMembers = await _db.ClubMemberships.CountAsync(m => m.Status == MembershipStatus.Probation);
 
             var appCounts = await _db.Applications
                 .GroupBy(a => a.Status)
@@ -58,6 +59,7 @@ namespace UniClub_Hub.Membership.Services.Implements
                 TotalClubs = totalClubs,
                 ActiveClubs = activeClubs,
                 TotalActiveMembers = totalActiveMembers,
+                TotalProbationMembers = totalProbationMembers,
                 Applications = BuildStatusCount(appCounts),
                 ClubsByCategory = clubsByCategory,
                 TopClubsByMembers = topClubs
@@ -68,6 +70,9 @@ namespace UniClub_Hub.Membership.Services.Implements
         {
             var club = await _db.Clubs.FindAsync(clubId);
             if (club == null) return null;
+
+            var totalProbation = await _db.ClubMemberships
+                .CountAsync(m => m.ClubId == clubId && m.Status == MembershipStatus.Probation);
 
             var membersByRole = await _db.ClubMemberships
                 .Where(m => m.ClubId == clubId && m.Status == MembershipStatus.Active)
@@ -103,11 +108,40 @@ namespace UniClub_Hub.Membership.Services.Implements
                 ClubId = clubId,
                 ClubName = club.Name,
                 TotalActiveMembers = membersByRole.Values.Sum(),
+                TotalProbationMembers = totalProbation,
                 TotalDepartments = totalDepartments,
                 MembersByRole = membersByRole,
                 MembersByDepartment = membersByDept,
                 Applications = BuildStatusCount(appCounts)
             };
+        }
+
+        public async Task<List<MonthlyGrowthDto>> GetMemberGrowthAsync(int? clubId, int months = 12)
+        {
+            var cutoff = DateOnly.FromDateTime(DateTime.UtcNow.AddMonths(-months + 1));
+            cutoff = new DateOnly(cutoff.Year, cutoff.Month, 1);
+
+            var raw = await _db.ClubMemberships
+                .Where(m => m.JoinedDate >= cutoff && (clubId == null || m.ClubId == clubId))
+                .GroupBy(m => new { m.JoinedDate.Year, m.JoinedDate.Month })
+                .Select(g => new { g.Key.Year, g.Key.Month, Count = g.Count() })
+                .ToListAsync();
+
+            var result = new List<MonthlyGrowthDto>();
+            var now = DateTime.UtcNow;
+            for (int i = months - 1; i >= 0; i--)
+            {
+                var d = now.AddMonths(-i);
+                var count = raw.FirstOrDefault(r => r.Year == d.Year && r.Month == d.Month)?.Count ?? 0;
+                result.Add(new MonthlyGrowthDto
+                {
+                    Year = d.Year,
+                    Month = d.Month,
+                    Label = $"Th{d.Month}/{d.Year % 100:D2}",
+                    NewMembers = count,
+                });
+            }
+            return result;
         }
 
         private sealed class StatusCount

@@ -149,7 +149,9 @@ namespace UniClub_Hub.Membership.Services.Implements
             var memberships = await _db.ClubMemberships
                 .Include(m => m.Club)
                 .Include(m => m.Department)
-                .Where(m => m.UserId == userId && m.Status == MembershipStatus.Active)
+                .Where(m => m.UserId == userId)
+                .OrderBy(m => m.Status == MembershipStatus.Resigned ? 1 : 0)
+                .ThenByDescending(m => m.JoinedDate)
                 .Select(m => new UserMembershipDto
                 {
                     ClubId = m.ClubId,
@@ -159,6 +161,7 @@ namespace UniClub_Hub.Membership.Services.Implements
                     DepartmentName = m.Department != null ? m.Department.Name : null,
                     ClubRole = m.ClubRole,
                     JoinedDate = m.JoinedDate,
+                    ResignedDate = m.ResignedDate,
                     Status = m.Status
                 })
                 .ToListAsync();

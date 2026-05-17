@@ -100,14 +100,20 @@ export default function CategoriesPage() {
       </div>
 
       {/* Search */}
-      <div className="flex items-center gap-3">
-        <div className="relative flex-1 max-w-xs">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-          <Input placeholder="Tìm theo tên lĩnh vực..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9" />
+      {(() => {
+        const filtered = categories.filter(c => !search || c.name.toLowerCase().includes(search.toLowerCase()) || (c.description ?? '').toLowerCase().includes(search.toLowerCase()))
+        return (<>
+      <div className="bg-white rounded-xl border border-gray-200 p-3 flex gap-2 items-center">
+        <div className="relative flex-1">
+          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+          <Input placeholder="Tìm tên hoặc mô tả lĩnh vực..." value={search} onChange={e => setSearch(e.target.value)} className="pl-8 h-9 text-sm" />
         </div>
-        <span className="text-sm" style={{ color: '#9ca3af' }}>
-          {categories.filter(c => !search || c.name.toLowerCase().includes(search.toLowerCase())).length} lĩnh vực
-        </span>
+        <div className="flex items-center gap-2">
+          {search && (
+            <button onClick={() => setSearch('')} className="text-xs text-indigo-500 hover:underline whitespace-nowrap">Xoá lọc</button>
+          )}
+          <span className="text-sm text-gray-400 whitespace-nowrap">{filtered.length}/{categories.length}</span>
+        </div>
       </div>
 
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
@@ -124,9 +130,9 @@ export default function CategoriesPage() {
           <TableBody>
             {loading ? (
               <TableRow><TableCell colSpan={5} className="text-center text-gray-400 py-12">Đang tải...</TableCell></TableRow>
-            ) : categories.filter(c => !search || c.name.toLowerCase().includes(search.toLowerCase())).length === 0 ? (
+            ) : filtered.length === 0 ? (
               <TableRow><TableCell colSpan={5} className="text-center text-gray-400 py-12">Không tìm thấy lĩnh vực nào.</TableCell></TableRow>
-            ) : categories.filter(c => !search || c.name.toLowerCase().includes(search.toLowerCase())).map((cat, i) => {
+            ) : filtered.map((cat, i) => {
               const c = CATEGORY_COLORS[i % CATEGORY_COLORS.length]
               return (
               <TableRow key={cat.id} className="hover:bg-gray-50/60">
@@ -154,6 +160,8 @@ export default function CategoriesPage() {
           </TableBody>
         </Table>
       </div>
+        </>)
+      })()}
 
       {/* Create / Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
