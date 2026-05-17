@@ -49,6 +49,7 @@ namespace UniClub_Hub.Shared.Data
         public DbSet<TaskDependency> TaskDependencies { get; set; }
         public DbSet<AuditLog> AuditLogs { get; set; }
         public DbSet<SupportTicket> SupportTickets { get; set; }
+        public DbSet<ResignationRequest> ResignationRequests { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {

@@ -88,7 +88,10 @@ namespace UniClub_Hub.Server.Controllers.Membership
 
         [HttpPut("{membershipId}")]
         [Authorize]
-        public async Task<IActionResult> UpdateMember(int clubId, int membershipId, [FromBody] UpdateMemberDto dto)
+        public async Task<IActionResult> UpdateMember(
+            int clubId, int membershipId,
+            [FromBody] UpdateMemberDto dto,
+            [FromQuery] bool force = false)
         {
             var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
             var isSuperAdmin = User.IsInRole("SUPER_ADMIN");
@@ -97,25 +100,22 @@ namespace UniClub_Hub.Server.Controllers.Membership
             {
                 MemberDto result;
                 if (isSuperAdmin)
-                    result = await _membershipService.UpdateMemberAsAdminAsync(clubId, membershipId, dto);
+                    result = await _membershipService.UpdateMemberAsAdminAsync(clubId, membershipId, dto, force);
                 else
                     result = await _membershipService.UpdateMemberAsync(clubId, membershipId, dto, currentUserId);
 
                 return Ok(ApiResponse<MemberDto>.Ok(result, "Cập nhật thành viên thành công."));
             }
-            catch (UnauthorizedAccessException)
-            {
-                return Forbid();
-            }
-            catch (KeyNotFoundException ex)
-            {
-                return NotFound(ApiResponse<object>.Fail(ex.Message));
-            }
+            catch (UnauthorizedAccessException) { return Forbid(); }
+            catch (KeyNotFoundException ex) { return NotFound(ApiResponse<object>.Fail(ex.Message)); }
+            catch (InvalidOperationException ex) { return Conflict(ApiResponse<object>.Fail(ex.Message)); }
         }
 
         [HttpDelete("{membershipId}")]
         [Authorize]
-        public async Task<IActionResult> RemoveMember(int clubId, int membershipId)
+        public async Task<IActionResult> RemoveMember(
+            int clubId, int membershipId,
+            [FromQuery] bool force = false)
         {
             var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
             var isSuperAdmin = User.IsInRole("SUPER_ADMIN");
@@ -123,24 +123,29 @@ namespace UniClub_Hub.Server.Controllers.Membership
             try
             {
                 if (isSuperAdmin)
-                    await _membershipService.RemoveMemberAsAdminAsync(clubId, membershipId);
+                    await _membershipService.RemoveMemberAsAdminAsync(clubId, membershipId, force);
                 else
                     await _membershipService.RemoveMemberAsync(clubId, membershipId, currentUserId);
 
                 return Ok(ApiResponse<object>.Ok(null!, "Đã xóa thành viên khỏi CLB."));
             }
-            catch (UnauthorizedAccessException)
+            catch (UnauthorizedAccessException) { return Forbid(); }
+            catch (KeyNotFoundException ex) { return NotFound(ApiResponse<object>.Fail(ex.Message)); }
+            catch (InvalidOperationException ex) { return Conflict(ApiResponse<object>.Fail(ex.Message)); }
+        }
+
+        [HttpDelete("me")]
+        [Authorize]
+        public async Task<IActionResult> Resign(int clubId)
+        {
+            var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+            try
             {
-                return Forbid();
+                await _membershipService.ResignAsync(clubId, currentUserId);
+                return Ok(ApiResponse<object>.Ok(null!, "Bạn đã rời khỏi CLB."));
             }
-            catch (KeyNotFoundException ex)
-            {
-                return NotFound(ApiResponse<object>.Fail(ex.Message));
-            }
-            catch (InvalidOperationException ex)
-            {
-                return Conflict(ApiResponse<object>.Fail(ex.Message));
-            }
+            catch (KeyNotFoundException ex) { return NotFound(ApiResponse<object>.Fail(ex.Message)); }
+            catch (InvalidOperationException ex) { return Conflict(ApiResponse<object>.Fail(ex.Message)); }
         }
 
         [HttpPatch("{membershipId}/promote")]

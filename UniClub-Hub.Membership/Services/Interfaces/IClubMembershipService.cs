@@ -14,12 +14,18 @@ namespace UniClub_Hub.Membership.Services.Interfaces
         Task<MemberDto> UpdateMemberAsync(int clubId, int membershipId, UpdateMemberDto dto, string requestUserId);
         Task RemoveMemberAsync(int clubId, int membershipId, string requestUserId);
 
-        // SUPER_ADMIN (bypass kiểm tra quyền)
+        // SUPER_ADMIN (bypass kiểm tra quyền, force = bỏ qua guard trưởng CLB duy nhất)
         Task<MemberDto> AddMemberAsAdminAsync(int clubId, AddMemberDto dto);
-        Task<MemberDto> UpdateMemberAsAdminAsync(int clubId, int membershipId, UpdateMemberDto dto);
-        Task RemoveMemberAsAdminAsync(int clubId, int membershipId);
+        Task<MemberDto> UpdateMemberAsAdminAsync(int clubId, int membershipId, UpdateMemberDto dto, bool force = false);
+        Task RemoveMemberAsAdminAsync(int clubId, int membershipId, bool force = false);
 
         // Xác nhận chính thức (Probation → Active)
         Task<MemberDto> PromoteMemberAsync(int clubId, int membershipId);
+
+        // Thành viên tự rời CLB
+        Task ResignAsync(int clubId, string userId);
+
+        // Bổ nhiệm Trưởng CLB (dùng bởi ClubService khi tạo CLB mới)
+        Task<MemberDto> AssignClubAdminAsync(int clubId, string userId);
     }
 }

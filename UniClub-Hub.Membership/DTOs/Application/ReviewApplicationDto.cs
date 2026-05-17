@@ -8,5 +8,6 @@ namespace UniClub_Hub.Membership.DTOs.Application
         [Required]
         // Interview / Accepted / Rejected
         public ApplicationStatus Status { get; set; }
+        public string? ReviewNote { get; set; }
     }
 }

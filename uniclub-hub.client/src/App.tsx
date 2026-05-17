@@ -28,14 +28,17 @@ import ApplicationsPage from '@/components/membership/pages/club/ApplicationsPag
 import DepartmentsPage from '@/components/membership/pages/club/DepartmentsPage'
 import FormSchemaPage from '@/components/membership/pages/club/FormSchemaPage'
 import ClubSettingsPage from '@/components/membership/pages/club/ClubSettingsPage'
+import ResignationPage from '@/components/membership/pages/club/ResignationPage'
 
 import MemberDashboard from '@/components/membership/pages/MemberDashboard'
 import ClubListPage from '@/components/membership/pages/ClubListPage'
 import ClubDetailPage from '@/components/membership/pages/ClubDetailPage'
 import ProfilePage from '@/components/membership/pages/ProfilePage'
 import MemberHistoryPage from '@/components/membership/pages/MemberHistoryPage'
+import MyActivityPage from '@/components/membership/pages/MyActivityPage'
 import SupportPage from '@/components/membership/pages/SupportPage'
 import SupportAdminPage from '@/components/membership/pages/admin/SupportAdminPage'
+import AdminResignationPage from '@/components/membership/pages/admin/AdminResignationPage'
 
 
 const Soon = ({ label }: { label: string }) => (
@@ -70,6 +73,7 @@ export default function App() {
               <Route path="/admin/structure" element={<AdminStructurePage />} />
               <Route path="/admin/categories" element={<CategoriesPage />} />
               <Route path="/admin/support" element={<SupportAdminPage />} />
+              <Route path="/admin/resignations" element={<AdminResignationPage />} />
             </Route>
           </Route>
 
@@ -83,6 +87,7 @@ export default function App() {
               <Route path="/dashboard" element={<MemberDashboard />} />
               <Route path="/profile" element={<ProfilePage />} />
               <Route path="/my-history" element={<MemberHistoryPage />} />
+              <Route path="/my-activity" element={<MyActivityPage />} />
               <Route path="/support" element={<SupportPage />} />
               <Route path="/my-tasks" element={<Soon label="Task được giao" />} />
               <Route path="/my-kpi" element={<Soon label="KPI của tôi" />} />
@@ -102,6 +107,7 @@ export default function App() {
                   <Route path="manage/applications" element={<ApplicationsPage />} />
                   <Route path="manage/departments" element={<DepartmentsPage />} />
                   <Route path="manage/form" element={<FormSchemaPage />} />
+                  <Route path="manage/resignations" element={<ResignationPage />} />
                   <Route path="manage/settings" element={<ClubSettingsPage />} />
                 </Route>
               </Route>

@@ -68,6 +68,9 @@ export interface ApplicationItem {
   email?: string
   studentId?: string
   answers?: string
+  reviewNote?: string
+  reviewedAt?: string
+  reviewerName?: string
 }
 
 export interface AddMemberDto {
@@ -83,6 +86,7 @@ export interface UpdateMemberDto {
 
 export interface ReviewApplicationDto {
   status: string // Accepted | Rejected | Interview
+  reviewNote?: string
 }
 
 // Form schema cho đơn đăng ký
@@ -102,6 +106,38 @@ export interface FormSchema {
 
 export interface SubmitApplicationDto {
   answers: Record<string, string> // fieldId → answer
+}
+
+// Resignation requests
+export type ResignationPreference = 'LeaveClub' | 'BecomeMember'
+export type ResignationStatus = 'Pending' | 'Approved' | 'Rejected'
+
+export interface ResignationRequestItem {
+  id: number
+  clubId: number
+  clubName: string
+  membershipId: number
+  clubRole: string
+  preference: ResignationPreference
+  status: ResignationStatus
+  requestedAt: string
+  reviewedAt?: string
+  reviewNote?: string
+  reviewerName?: string
+  // Admin view extras
+  userId?: string
+  fullName?: string
+  email?: string
+  studentId?: string
+}
+
+export interface SubmitResignationDto {
+  preference: ResignationPreference
+}
+
+export interface ReviewResignationDto {
+  status: 'Approved' | 'Rejected'
+  reviewNote?: string
 }
 
 // Public club list item (GET /api/clubs)
