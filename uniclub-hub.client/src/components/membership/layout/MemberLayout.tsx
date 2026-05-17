@@ -1,10 +1,10 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, Users, User, History, ClipboardList, BarChart3, Layers, Home, LifeBuoy } from 'lucide-react'
+import { LayoutDashboard, Users, User, History, ClipboardList, BarChart3, Layers, Home, LifeBuoy, Activity } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import NotificationBell from './NotificationBell'
 import UserMenu from './UserMenu'
 import AppFooter from './AppFooter'
-import { CLUB_ROLES } from '@/types/auth'
+import { CLUB_ROLES, MEMBERSHIP_STATUS } from '@/types/auth'
 
 const navCls = ({ isActive }: { isActive: boolean }) =>
   `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
@@ -66,9 +66,14 @@ export default function MemberLayout() {
           {/* Câu lạc bộ */}
           <SectionLabel label="Câu lạc bộ" />
 
+          <NavLink to="/my-activity" className={navCls}>
+            <Activity size={17} />
+            Hoạt động của tôi
+          </NavLink>
+
           <NavLink to="/my-history" className={navCls}>
             <History size={17} />
-            Lịch sử hoạt động
+            Lịch sử thành viên
           </NavLink>
 
           {/* Cá nhân */}
