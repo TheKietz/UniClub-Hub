@@ -11,6 +11,7 @@ namespace UniClub_Hub.Operations
             services.AddScoped<IEventService, EventService>();
             services.AddScoped<ITaskService, TaskService>();
             services.AddScoped<ISprintService, SprintService>();
+            services.AddScoped<IAuditLogService, AuditLogService>();
             return services;
         }
     }

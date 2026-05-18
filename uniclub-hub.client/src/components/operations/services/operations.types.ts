@@ -34,6 +34,27 @@ export interface TaskDependencyItem {
   status: TaskStatus
 }
 
+export interface EventSessionItem {
+  id: number
+  eventId: number
+  title: string
+  startTime: string
+  endTime: string
+  description?: string
+  location?: string
+  sortOrder: number
+}
+
+export interface EventStaffItem {
+  id: number
+  eventId: number
+  userId: string
+  userName: string
+  avatarUrl?: string
+  role: string
+  assignedAt: string
+}
+
 export interface EventItem {
   id: number
   clubId: number
@@ -45,7 +66,11 @@ export interface EventItem {
   endTime?: string
   maxParticipants?: number
   status: EventStatus
+  budget?: number
+  category?: string
   participantCount: number
+  sessions: EventSessionItem[]
+  staff: EventStaffItem[]
   createdAt: string
   createdBy?: string
 }
@@ -61,6 +86,20 @@ export interface SprintItem {
   status: SprintStatus
   createdAt: string
   taskCount: number
+}
+
+export interface AuditLogItem {
+  id: number
+  userId?: string
+  userName: string
+  userAvatarUrl?: string
+  action: 'Create' | 'Update' | 'Delete'
+  module: string
+  entityId: string
+  entityTitle?: string
+  oldValue?: string
+  newValue?: string
+  timestamp: string
 }
 
 export interface PagedResult<T> {
@@ -107,10 +146,26 @@ export interface CreateEventDto {
   startTime?: string
   endTime?: string
   maxParticipants?: number
+  budget?: number
+  category?: string
 }
 
 export interface UpdateEventDto extends CreateEventDto {
   status: EventStatus
+}
+
+export interface CreateEventSessionDto {
+  title: string
+  startTime: string
+  endTime: string
+  description?: string
+  location?: string
+  sortOrder?: number
+}
+
+export interface AssignEventStaffDto {
+  userId: string
+  role?: string
 }
 
 export interface CreateSprintDto {

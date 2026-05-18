@@ -1,23 +1,32 @@
-import { NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, Users, Building2, Tag, Network, ArrowLeft, LifeBuoy, LogOut } from 'lucide-react'
-import { cn } from '@/lib/utils'
-import UserMenu from '@/components/membership/layout/UserMenu'
-import NotificationBell from '@/components/membership/layout/NotificationBell'
-import AppFooter from '@/components/membership/layout/AppFooter'
-import { Button } from '@/components/ui/button'
+import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import {
+  LayoutDashboard,
+  Users,
+  Building2,
+  Tag,
+  Network,
+  ArrowLeft,
+  LifeBuoy,
+  LogOut,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import UserMenu from "@/components/shared/UserMenu";
+import NotificationBell from "@/components/shared/NotificationBell";
+import AppFooter from "@/components/shared/AppFooter";
+import { Button } from "@/components/ui/button";
 
 const navItems = [
-  { to: '/admin', label: 'Tổng quan', icon: LayoutDashboard, end: true },
-  { to: '/admin/users', label: 'Người dùng', icon: Users },
-  { to: '/admin/clubs', label: 'Câu lạc bộ', icon: Building2 },
-  { to: '/admin/structure', label: 'Cơ cấu tổ chức', icon: Network },
-  { to: '/admin/categories', label: 'Lĩnh vực', icon: Tag },
-  { to: '/admin/support', label: 'Hỗ trợ', icon: LifeBuoy },
-  { to: '/admin/resignations', label: 'Đơn từ chức', icon: LogOut },
-]
+  { to: "/admin", label: "Tổng quan", icon: LayoutDashboard, end: true },
+  { to: "/admin/users", label: "Người dùng", icon: Users },
+  { to: "/admin/clubs", label: "Câu lạc bộ", icon: Building2 },
+  { to: "/admin/structure", label: "Cơ cấu tổ chức", icon: Network },
+  { to: "/admin/categories", label: "Lĩnh vực", icon: Tag },
+  { to: "/admin/support", label: "Hỗ trợ", icon: LifeBuoy },
+  { to: "/admin/resignations", label: "Đơn từ chức", icon: LogOut },
+];
 
 export default function AdminLayout() {
-  const navigate = useNavigate()
+  const navigate = useNavigate();
   return (
     <div className="flex min-h-screen bg-gray-50">
       {/* Sidebar */}
@@ -28,8 +37,18 @@ export default function AdminLayout() {
               <span className="text-white text-sm font-bold">U</span>
             </div>
             <div>
-              <p style={{ color: '#0f172a', fontSize: '0.875rem', fontWeight: 600 }}>UniClub Hub</p>
-              <p style={{ color: '#9ca3af', fontSize: '0.75rem' }}>Super Admin</p>
+              <p
+                style={{
+                  color: "#0f172a",
+                  fontSize: "0.875rem",
+                  fontWeight: 600,
+                }}
+              >
+                UniClub Hub
+              </p>
+              <p style={{ color: "#9ca3af", fontSize: "0.75rem" }}>
+                Super Admin
+              </p>
             </div>
           </div>
         </div>
@@ -42,10 +61,10 @@ export default function AdminLayout() {
               end={end}
               className={({ isActive }) =>
                 cn(
-                  'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+                  "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
                   isActive
-                    ? 'bg-indigo-50 text-indigo-700'
-                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                    ? "bg-indigo-50 text-indigo-700"
+                    : "text-gray-600 hover:bg-gray-100 hover:text-gray-900",
                 )
               }
             >
@@ -57,9 +76,10 @@ export default function AdminLayout() {
 
         <div className="px-3 py-4 border-t border-gray-200">
           <Button
-            variant="ghost" size="sm"
+            variant="ghost"
+            size="sm"
             className="w-full justify-start gap-2 text-gray-500"
-            onClick={() => navigate('/')}
+            onClick={() => navigate("/")}
           >
             <ArrowLeft size={16} /> Về trang chủ
           </Button>
@@ -80,5 +100,5 @@ export default function AdminLayout() {
         </main>
       </div>
     </div>
-  )
+  );
 }
