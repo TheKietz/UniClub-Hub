@@ -1,0 +1,28 @@
+/* Dynamic layout driven by CSS custom properties set in JSX */
+
+.gantt-area       { width: var(--chart-w, 100%); min-width: 100%; }
+.gantt-week-cell  { width: calc(var(--days, 7) * 36px); }
+
+/* Overall progress bar */
+.gantt-progress-fill {
+  height: 100%;
+  border-radius: 9999px;
+  background: var(--bar-color, #1a3a6c);
+  width: var(--bar-pct, 0%);
+  transition: width 0.7s ease;
+}
+
+/* Today marker */
+.gantt-today-line { left: var(--today-px, 0); }
+
+/* Task bar */
+.gantt-bar-wrap { left: var(--bar-left, 0); width: var(--bar-w, 36px); }
+.gantt-bar-bg   { background: var(--bar-color, #4f46e5); }
+.gantt-bar-fill { background: var(--bar-color, #4f46e5); width: var(--bar-pct, 0%); transition: width 0.5s ease; }
+
+/* Dependency SVG overlay */
+.gantt-dep-svg { width: var(--svg-w, 100%); height: var(--svg-h, 100%); }
+
+/* Legend + avatar driven by one custom prop */
+.gantt-dot    { background: var(--dot-color, #4f46e5); }
+.gantt-avatar { background: var(--avatar-bg, #4f46e5); }

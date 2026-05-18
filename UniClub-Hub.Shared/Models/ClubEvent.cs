@@ -1,4 +1,4 @@
-using UniClub_Hub.Shared.Common;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using UniClub_Hub.Shared.Common;
 using UniClub_Hub.Shared.Enums;
@@ -29,11 +29,18 @@ namespace UniClub_Hub.Shared.Models
         public bool IsDeleted { get; set; }
         public string? DeletedBy { get; set; }
 
+        public decimal? Budget { get; set; }
+
+        [MaxLength(100)]
+        public string? Category { get; set; }
+
         public Club Club { get; set; } = null!;
         public ICollection<EventRegistration>? Registrations { get; set; }
         public ICollection<ClubTask>? Tasks { get; set; }
         public ICollection<Sprint>? Sprints { get; set; }
         public ICollection<MediaGallery>? MediaGalleries { get; set; }
         public ICollection<Contribution>? Contributions { get; set; }
+        public ICollection<EventSession>? Sessions { get; set; }
+        public ICollection<EventStaff>? Staff { get; set; }
     }
 }

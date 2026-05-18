@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { Plus, Calendar, MapPin, Users, Pencil, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -16,10 +16,11 @@ const STATUS_BADGE: Record<EventStatus, { label: string; bg: string; text: strin
   Cancelled:  { label: 'Đã hủy',     bg: '#fee2e2', text: '#991b1b' },
 }
 
-const EMPTY_FORM: CreateEventDto = { name: '', description: '', location: '', startTime: '', endTime: '' }
+const EMPTY_FORM: CreateEventDto = { name: '', description: '', location: '', startTime: '', endTime: '', budget: undefined, category: '' }
 
 export default function EventListPage() {
   const [searchParams] = useSearchParams()
+  const navigate = useNavigate()
   const clubId = Number(searchParams.get('clubId') ?? 1)
 
   const [events, setEvents] = useState<EventItem[]>([])
@@ -55,6 +56,8 @@ export default function EventListPage() {
       startTime: ev.startTime ? ev.startTime.slice(0, 16) : '',
       endTime: ev.endTime ? ev.endTime.slice(0, 16) : '',
       maxParticipants: ev.maxParticipants,
+      budget: ev.budget,
+      category: ev.category ?? '',
     })
     setModalOpen(true)
   }
@@ -132,16 +135,20 @@ export default function EventListPage() {
           {events.map(ev => {
             const badge = STATUS_BADGE[ev.status] ?? STATUS_BADGE.Draft
             return (
-              <div key={ev.id} className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 hover:shadow-md transition-shadow">
+              <div
+                key={ev.id}
+                className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 hover:shadow-md transition-shadow cursor-pointer"
+                onClick={() => navigate(`/operations/events/${ev.id}?clubId=${clubId}`)}
+              >
                 <div className="flex items-start justify-between mb-3">
                   <span className="text-xs font-medium px-2 py-0.5 rounded-full" style={{ background: badge.bg, color: badge.text }}>
                     {badge.label}
                   </span>
                   <div className="flex gap-1">
-                    <button className="p-1 text-gray-400 hover:text-indigo-600" onClick={() => openEdit(ev)}>
+                    <button className="p-1 text-gray-400 hover:text-indigo-600" onClick={e => { e.stopPropagation(); openEdit(ev) }}>
                       <Pencil size={14} />
                     </button>
-                    <button className="p-1 text-gray-400 hover:text-red-500" onClick={() => handleDelete(ev)}>
+                    <button className="p-1 text-gray-400 hover:text-red-500" onClick={e => { e.stopPropagation(); handleDelete(ev) }}>
                       <Trash2 size={14} />
                     </button>
                   </div>
@@ -215,6 +222,26 @@ export default function EventListPage() {
                 onChange={e => set('maxParticipants', e.target.value ? Number(e.target.value) : undefined)}
                 placeholder="Không giới hạn"
               />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Ngân sách (VNĐ)</Label>
+                <Input
+                  className="mt-1" type="number" min={0}
+                  value={form.budget ?? ''}
+                  onChange={e => set('budget', e.target.value ? Number(e.target.value) : undefined)}
+                  placeholder="Chưa xác định"
+                />
+              </div>
+              <div>
+                <Label>Danh mục</Label>
+                <Input
+                  className="mt-1"
+                  value={form.category ?? ''}
+                  onChange={e => set('category', e.target.value)}
+                  placeholder="VD: Văn hoá, Học thuật..."
+                />
+              </div>
             </div>
           </div>
           <DialogFooter>

@@ -1,10 +1,11 @@
 import api from '@/lib/axiosInstance'
 import type {
-  TaskItem, EventItem, SprintItem, PagedResult,
+  TaskItem, EventItem, EventSessionItem, EventStaffItem, SprintItem, PagedResult,
   TaskDependencyItem, AddDependencyDto,
   CreateTaskDto, UpdateTaskDto, UpdateTaskStatusDto,
-  CreateEventDto, UpdateEventDto,
+  CreateEventDto, UpdateEventDto, CreateEventSessionDto, AssignEventStaffDto,
   CreateSprintDto, UpdateSprintDto,
+  AuditLogItem,
 } from './operations.types'
 
 type ApiResponse<T> = { data: T; success: boolean; message: string }
@@ -61,6 +62,27 @@ export const updateEvent = (id: number, dto: UpdateEventDto) =>
 export const deleteEvent = (id: number) =>
   api.delete(`/v1/operations/events/${id}`)
 
+export const getEventSessions = (eventId: number) =>
+  api.get<ApiResponse<EventSessionItem[]>>(`/v1/operations/events/${eventId}/sessions`).then(r => r.data.data)
+
+export const addEventSession = (eventId: number, dto: CreateEventSessionDto) =>
+  api.post<ApiResponse<EventSessionItem>>(`/v1/operations/events/${eventId}/sessions`, dto).then(r => r.data.data)
+
+export const deleteEventSession = (eventId: number, sessionId: number) =>
+  api.delete(`/v1/operations/events/${eventId}/sessions/${sessionId}`)
+
+export const reorderEventSessions = (eventId: number, orderedIds: number[]) =>
+  api.patch(`/v1/operations/events/${eventId}/sessions/reorder`, { orderedIds })
+
+export const getEventStaff = (eventId: number) =>
+  api.get<ApiResponse<EventStaffItem[]>>(`/v1/operations/events/${eventId}/staff`).then(r => r.data.data)
+
+export const assignEventStaff = (eventId: number, dto: AssignEventStaffDto) =>
+  api.post<ApiResponse<EventStaffItem>>(`/v1/operations/events/${eventId}/staff`, dto).then(r => r.data.data)
+
+export const removeEventStaff = (eventId: number, userId: string) =>
+  api.delete(`/v1/operations/events/${eventId}/staff/${userId}`)
+
 // ── Sprints ───────────────────────────────────────────────────────────────────
 
 export const getSprints = (params: {
@@ -76,3 +98,10 @@ export const updateSprint = (id: number, dto: UpdateSprintDto) =>
 
 export const deleteSprint = (id: number) =>
   api.delete(`/v1/operations/sprints/${id}`)
+
+// ── Audit Logs ────────────────────────────────────────────────────────────────
+
+export const getAuditLogs = (params: {
+  clubId: number; module?: string; page?: number; pageSize?: number
+}) =>
+  api.get<ApiResponse<PagedResult<AuditLogItem>>>('/v1/operations/audit-logs', { params }).then(r => r.data.data)
