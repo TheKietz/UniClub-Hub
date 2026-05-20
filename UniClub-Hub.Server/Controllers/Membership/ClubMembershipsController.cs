@@ -23,9 +23,21 @@ namespace UniClub_Hub.Server.Controllers.Membership
             _db = db;
         }
 
+        // Chỉ CLUB_ADMIN của CLB này hoặc SUPER_ADMIN mới xem được danh sách thành viên đầy đủ
         [HttpGet]
+        [Authorize]
         public async Task<IActionResult> GetAll(int clubId, [FromQuery] string? status)
         {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+            var isSuperAdmin = User.IsInRole("SUPER_ADMIN");
+            if (!isSuperAdmin)
+            {
+                var isClubAdmin = await _db.ClubMemberships.AnyAsync(m =>
+                    m.ClubId == clubId && m.UserId == userId &&
+                    m.ClubRole == ClubRole.CLUB_ADMIN && m.Status == MembershipStatus.Active);
+                if (!isClubAdmin) return Forbid();
+            }
+
             try
             {
                 var result = await _membershipService.GetAllAsync(clubId, status);
@@ -38,8 +50,19 @@ namespace UniClub_Hub.Server.Controllers.Membership
         }
 
         [HttpGet("{membershipId}")]
+        [Authorize]
         public async Task<IActionResult> GetById(int clubId, int membershipId)
         {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+            var isSuperAdmin = User.IsInRole("SUPER_ADMIN");
+            if (!isSuperAdmin)
+            {
+                var isClubAdmin = await _db.ClubMemberships.AnyAsync(m =>
+                    m.ClubId == clubId && m.UserId == userId &&
+                    m.ClubRole == ClubRole.CLUB_ADMIN && m.Status == MembershipStatus.Active);
+                if (!isClubAdmin) return Forbid();
+            }
+
             try
             {
                 var result = await _membershipService.GetByIdAsync(clubId, membershipId);

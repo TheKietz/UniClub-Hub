@@ -160,6 +160,15 @@ namespace UniClub_Hub.Membership.Services.Implements
             }
 
             await _db.SaveChangesAsync();
+
+            var clubNameForAdmin = await _db.Clubs.Where(c => c.Id == clubId).Select(c => c.Name).FirstAsync();
+            await _notifications.SendAsync(
+                userId,
+                "Bổ nhiệm Trưởng CLB",
+                $"Bạn đã được bổ nhiệm làm Trưởng câu lạc bộ {clubNameForAdmin}.",
+                NotificationType.System
+            );
+
             return await GetByIdAsync(clubId, membership.Id);
         }
 
@@ -190,6 +199,16 @@ namespace UniClub_Hub.Membership.Services.Implements
             membership.Status = MembershipStatus.Active;
 
             await _db.SaveChangesAsync();
+
+            var deptName = await _db.Departments.Where(d => d.Id == departmentId).Select(d => d.Name).FirstOrDefaultAsync() ?? "ban";
+            var clubNameForLead = await _db.Clubs.Where(c => c.Id == clubId).Select(c => c.Name).FirstAsync();
+            await _notifications.SendAsync(
+                userId,
+                "Bổ nhiệm Trưởng ban",
+                $"Bạn đã được bổ nhiệm làm Trưởng {deptName} trong CLB {clubNameForLead}.",
+                NotificationType.System
+            );
+
             return await GetByIdAsync(clubId, membership.Id);
         }
 

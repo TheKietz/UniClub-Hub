@@ -18,7 +18,7 @@ api.interceptors.response.use(
   async error => {
     const original = error.config
 
-    const isAuthEndpoint = /\/auth\/(login|register|google)/.test(original.url ?? '')
+    const isAuthEndpoint = /\/auth\/(login|register|google|revoke)/.test(original.url ?? '')
     if (error.response?.status === 401 && !original._retry && !isAuthEndpoint) {
       if (isRefreshing) {
         return new Promise(resolve => {

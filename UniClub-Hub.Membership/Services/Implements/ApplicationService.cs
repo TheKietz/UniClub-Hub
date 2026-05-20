@@ -1,7 +1,9 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using UniClub_Hub.Membership.DTOs.Application;
 using UniClub_Hub.Membership.Services.Interfaces;
 using UniClub_Hub.Shared.Data;
+using UniClub_Hub.Shared.Email;
 using UniClub_Hub.Shared.Enums;
 using UniClub_Hub.Shared.Models;
 
@@ -11,11 +13,15 @@ namespace UniClub_Hub.Membership.Services.Implements
     {
         private readonly UniClubDbContext _db;
         private readonly INotificationService _notifications;
+        private readonly IEmailService _email;
+        private readonly IConfiguration _config;
 
-        public ApplicationService(UniClubDbContext db, INotificationService notifications)
+        public ApplicationService(UniClubDbContext db, INotificationService notifications, IEmailService email, IConfiguration config)
         {
             _db = db;
             _notifications = notifications;
+            _email = email;
+            _config = config;
         }
 
         public async Task<IEnumerable<ApplicationDto>> GetMyApplicationsAsync(string userId)
@@ -208,6 +214,32 @@ namespace UniClub_Hub.Membership.Services.Implements
                 message,
                 NotificationType.Application
             );
+
+            // Gửi email cho kết quả đơn (Interview, Accepted, Rejected)
+            var applicant = await _db.Users.FindAsync(application.UserId);
+            if (applicant?.Email != null)
+            {
+                try
+                {
+                    var appUrl = _config["AppUrl"] ?? "https://localhost:54610";
+                    var html = EmailTemplates.ApplicationResult(
+                        applicant.FullName ?? applicant.Email,
+                        clubName,
+                        dto.Status.ToString(),
+                        dto.ReviewNote,
+                        $"{appUrl}/my-activity"
+                    );
+                    var subject = dto.Status switch
+                    {
+                        ApplicationStatus.Interview => $"Mời phỏng vấn – {clubName}",
+                        ApplicationStatus.Accepted  => $"Đơn được chấp nhận – {clubName}",
+                        ApplicationStatus.Rejected  => $"Kết quả đơn đăng ký – {clubName}",
+                        _ => $"Cập nhật đơn đăng ký – {clubName}"
+                    };
+                    await _email.SendAsync(applicant.Email, subject, html);
+                }
+                catch { /* Không block nếu email thất bại */ }
+            }
 
             // Khi Accepted → tự động tạo ClubMembership
             if (dto.Status == ApplicationStatus.Accepted)

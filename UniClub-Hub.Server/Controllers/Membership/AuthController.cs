@@ -38,13 +38,77 @@ namespace UniClub_Hub.Server.Controllers.Membership
         {
             try
             {
-                var result = await _authService.RegisterAsync(dto);
-                return Ok(ApiResponse<AuthResponseDto>.Ok(result, "Đăng ký thành công."));
+                await _authService.RegisterAsync(dto);
+
+                var user = await _userManager.FindByEmailAsync(dto.Email);
+                if (user != null)
+                {
+                    try
+                    {
+                        var token = await _userManager.GenerateEmailConfirmationTokenAsync(user);
+                        var encodedToken = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
+                        var appUrl = _config["AppUrl"] ?? "https://localhost:54610";
+                        var confirmLink = $"{appUrl}/confirm-email?email={Uri.EscapeDataString(dto.Email)}&token={encodedToken}";
+                        var html = EmailTemplates.EmailVerification(user.FullName ?? user.Email!, confirmLink);
+                        await _emailService.SendAsync(dto.Email, "Xác thực tài khoản – UniClub Hub", html);
+                    }
+                    catch { /* Không chặn đăng ký nếu gửi mail thất bại */ }
+                }
+
+                return Ok(ApiResponse<object>.Ok(null!, "Đăng ký thành công. Vui lòng kiểm tra email để xác thực tài khoản."));
             }
             catch (InvalidOperationException ex)
             {
                 return BadRequest(ApiResponse<object>.Fail(ex.Message));
             }
+        }
+
+        [HttpGet("confirm-email")]
+        public async Task<IActionResult> ConfirmEmail([FromQuery] string email, [FromQuery] string token)
+        {
+            var user = await _userManager.FindByEmailAsync(email);
+            if (user == null || user.IsDeleted)
+                return BadRequest(ApiResponse<object>.Fail("Liên kết xác thực không hợp lệ."));
+
+            if (user.EmailConfirmed)
+                return Ok(ApiResponse<object>.Ok(null!, "Email đã được xác thực trước đó."));
+
+            try
+            {
+                var decoded = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(token));
+                var result = await _userManager.ConfirmEmailAsync(user, decoded);
+                if (!result.Succeeded)
+                    return BadRequest(ApiResponse<object>.Fail("Liên kết xác thực không hợp lệ hoặc đã hết hạn."));
+            }
+            catch
+            {
+                return BadRequest(ApiResponse<object>.Fail("Liên kết xác thực không hợp lệ hoặc đã hết hạn."));
+            }
+
+            return Ok(ApiResponse<object>.Ok(null!, "Xác thực email thành công. Bạn có thể đăng nhập ngay bây giờ."));
+        }
+
+        [HttpPost("resend-confirmation")]
+        public async Task<IActionResult> ResendConfirmation([FromBody] ForgotPasswordDto dto)
+        {
+            const string safeMsg = "Nếu email tồn tại và chưa xác thực, email xác thực đã được gửi lại.";
+
+            var user = await _userManager.FindByEmailAsync(dto.Email);
+            if (user == null || user.IsDeleted || user.EmailConfirmed)
+                return Ok(ApiResponse<object>.Ok(null!, safeMsg));
+
+            try
+            {
+                var token = await _userManager.GenerateEmailConfirmationTokenAsync(user);
+                var encodedToken = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
+                var appUrl = _config["AppUrl"] ?? "https://localhost:54610";
+                var confirmLink = $"{appUrl}/confirm-email?email={Uri.EscapeDataString(dto.Email)}&token={encodedToken}";
+                var html = EmailTemplates.EmailVerification(user.FullName ?? user.Email!, confirmLink);
+                await _emailService.SendAsync(dto.Email, "Xác thực tài khoản – UniClub Hub", html);
+            }
+            catch { }
+
+            return Ok(ApiResponse<object>.Ok(null!, safeMsg));
         }
 
         [HttpPost("login")]

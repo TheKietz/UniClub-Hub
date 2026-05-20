@@ -81,6 +81,9 @@ namespace UniClub_Hub.Membership.Services.Implements
             if (!await _userManager.CheckPasswordAsync(user, dto.Password))
                 throw new UnauthorizedAccessException("Email hoặc mật khẩu không đúng.");
 
+            if (!user.EmailConfirmed)
+                throw new UnauthorizedAccessException("EMAIL_NOT_CONFIRMED");
+
             return await BuildAuthResponseAsync(user);
         }
 

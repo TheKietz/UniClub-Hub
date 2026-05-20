@@ -99,7 +99,7 @@ builder
 builder.Services.AddAuthorization();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<FileUploadHelper>();
-builder.Services.AddScoped<IEmailService, SmtpEmailService>();
+builder.Services.AddScoped<IEmailService, SendGridEmailService>();
 builder.Services.AddMembershipServices();
 builder.Services.AddOperationsServices();
 builder.Services.AddPortalServices();
