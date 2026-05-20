@@ -1,131 +1,252 @@
-import { Link } from 'react-router-dom'
-import { Users, Calendar, Award, ArrowRight, BarChart3, Shield, Bell } from 'lucide-react'
-import { useAuth } from '@/contexts/AuthContext'
-import PublicHeader from '@/components/membership/layout/PublicHeader'
+import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { C, Rv, Tag, ClubCard, Marquee, V3Footer, type ClubCardData } from '@/components/public/v3'
+import PublicHeader from '@/layouts/PublicHeader'
+import { getClubs } from '@/modules/membership/services/clubApi'
+import type { ClubListItem } from '@/modules/membership/services/club.types'
 
-const FEATURES = [
-  { icon: Users, title: 'Quản lý thành viên', desc: 'Phân quyền linh hoạt theo vai trò: Quản lý CLB, Trưởng ban, Thành viên.' },
-  { icon: Calendar, title: 'Sự kiện & hoạt động', desc: 'Theo dõi lịch sự kiện, nhiệm vụ nội bộ và tiến độ hoàn thành.' },
-  { icon: Award, title: 'Hệ thống KPI', desc: 'Đánh giá mức độ đóng góp của từng thành viên qua điểm KPI minh bạch.' },
-  { icon: BarChart3, title: 'Báo cáo thống kê', desc: 'Tổng quan hoạt động CLB theo tuần, tháng với biểu đồ trực quan.' },
-  { icon: Shield, title: 'Phân quyền RBAC', desc: 'Kiểm soát quyền truy cập chi tiết ở cấp độ hệ thống và từng câu lạc bộ.' },
-  { icon: Bell, title: 'Thông báo realtime', desc: 'Nhận thông báo tức thì khi có nhiệm vụ mới, đơn xét duyệt hoặc sự kiện.' },
+const CLUB_COLORS = [C.indigo, C.violet, C.coral, C.mint, C.sky, C.pink, C.lemon, C.coral]
+
+function toCardData(c: ClubListItem, i: number): ClubCardData {
+  return {
+    id: c.id,
+    name: c.name,
+    short: c.name.split(' ').filter(Boolean).map(w => w[0]).slice(0, 3).join('').toUpperCase(),
+    category: c.categoryName ?? '',
+    memberCount: c.memberCount ?? 0,
+    hue: (i * 47 + 200) % 360,
+    description: c.description ?? '',
+    isRecruiting: false, // will be populated when API supports it
+    color: CLUB_COLORS[i % CLUB_COLORS.length],
+    logoUrl: c.logoUrl,
+  }
+}
+
+const ACTIVITIES = [
+  { text: 'Volunteer Club vừa mở đơn tuyển thành viên khoá mới', time: '2 phút trước', color: C.mint, tag: 'Tuyển dụng' },
+  { text: 'Workshop kỹ năng thuyết trình — đã có 28/40 đăng ký', time: '15 phút trước', color: C.indigo, tag: 'Workshop' },
+  { text: '15 sinh viên mới tham gia các CLB trong tuần này', time: '1 giờ trước', color: C.violet, tag: 'Thành viên' },
+  { text: 'IT Society công bố đề bài Hackathon học kỳ mới', time: '5 giờ trước', color: C.sky, tag: 'Cuộc thi' },
+  { text: 'Photography Club mở workshop chụp ảnh cuối tuần', time: 'Hôm qua', color: C.coral, tag: 'Workshop' },
+  { text: 'Marketing Club kết nối với 3 doanh nghiệp đối tác', time: 'Hôm qua', color: C.pink, tag: 'Networking' },
 ]
 
 export default function LandingPage() {
-  const { isAuthenticated } = useAuth()
+  const navigate = useNavigate()
+  const [clubs, setClubs] = useState<ClubListItem[]>([])
+
+  useEffect(() => {
+    getClubs().then(setClubs).catch(() => {})
+  }, [])
+
+  const cardClubs = clubs.map(toCardData)
+  const allPreview = cardClubs.slice(0, 8)
+  const marqueeItems = clubs.length > 0
+    ? clubs.map(c => c.name.toUpperCase())
+    : ['CLB ĐANG HOẠT ĐỘNG', 'SỰ KIỆN HÀNG TUẦN', 'TUYỂN THÀNH VIÊN']
 
   return (
-    <div className="min-h-screen bg-white flex flex-col">
+    <div className="v3-page v3-enter">
       <PublicHeader />
 
-      {/* Hero */}
-      <section
-        className="relative overflow-hidden flex-1 flex items-center justify-center py-24 px-6"
-        style={{ background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 35%, #4c1d95 70%, #6d28d9 100%)' }}
-      >
-        {/* Orbs */}
-        <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute -top-32 -left-32 w-96 h-96 rounded-full opacity-20"
-            style={{ background: 'radial-gradient(circle, #a78bfa, transparent)' }} />
-          <div className="absolute -bottom-20 -right-20 w-80 h-80 rounded-full opacity-15"
-            style={{ background: 'radial-gradient(circle, #818cf8, transparent)' }} />
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full opacity-5"
-            style={{ background: 'radial-gradient(circle, #c4b5fd, transparent)' }} />
-        </div>
+      {/* ─── Hero ─────────────────────────────────────── */}
+      <section style={{ padding: '52px 28px 44px', position: 'relative', overflow: 'hidden' }}>
+        <div style={{ maxWidth: 1280, margin: '0 auto', position: 'relative' }}>
+          {/* Decorations */}
+          <div aria-hidden style={{
+            position: 'absolute', top: 20, right: 80, width: 88, height: 88,
+            borderRadius: C.radiusPill, background: C.lemon, border: C.border,
+            animation: 'float 4s ease-in-out infinite',
+            display: 'grid', placeItems: 'center', color: C.ink,
+            fontWeight: 900, fontSize: 10, textAlign: 'center', lineHeight: 1.2,
+          } as React.CSSProperties}>WELCOME<br />TO UEF</div>
+          <div aria-hidden style={{
+            position: 'absolute', top: 140, right: 200,
+            fontSize: 28, color: C.coral, animation: 'float 3s ease-in-out infinite .5s',
+          }} >★</div>
+          <div aria-hidden style={{
+            position: 'absolute', top: 60, right: 260,
+            width: 40, height: 40, borderRadius: 999,
+            background: C.mint, border: C.border, opacity: 0.6,
+            animation: 'float 5s ease-in-out infinite 1s',
+          }} />
 
-        <div className="relative z-10 text-center max-w-2xl mx-auto">
-          <div
-            className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-medium text-purple-200 mb-8"
-            style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)' }}
-          >
-            <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-            Hệ thống quản lý CLB sinh viên UEF
-          </div>
+          <Rv>
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              background: C.card, border: C.border, borderRadius: C.radiusPill,
+              padding: '5px 14px', marginBottom: 20,
+              boxShadow: C.shadow(2, 2), fontSize: 12.5, fontWeight: 600, color: C.inkDim,
+            }}>
+              <span style={{ width: 6, height: 6, borderRadius: 3, background: C.mint, animation: 'pulse 2s infinite' }} />
+              {clubs.length > 0 ? `${clubs.length} câu lạc bộ · UEF` : 'Đang tải dữ liệu...'}
+            </div>
+          </Rv>
 
-          <h1
-            className="text-5xl font-extrabold text-white mb-6 leading-tight"
-            style={{ letterSpacing: '-1px' }}
-          >
-            Quản lý câu lạc bộ<br />
-            <span style={{ color: '#c4b5fd' }}>thông minh hơn</span>
-          </h1>
+          <Rv delay={60}>
+            <h1 style={{
+              fontSize: 'clamp(44px, 6.5vw, 72px)', fontWeight: 900, color: C.ink,
+              letterSpacing: '-.045em', lineHeight: 0.95, margin: 0, maxWidth: 800,
+              fontFamily: "'Be Vietnam Pro', sans-serif",
+            }}>
+              Cổng thông tin<br />
+              <span style={{ color: C.coral }}>câu lạc bộ</span>{' '}
+              <span style={{ fontFamily: "'Instrument Serif', serif", fontStyle: 'italic', fontWeight: 400 }}>
+                sinh viên
+              </span><br />
+              <span style={{
+                display: 'inline-block', background: C.lemon, padding: '0 14px',
+                border: C.border, borderRadius: 12, transform: 'rotate(-1deg)',
+              }}>UEF.</span>
+            </h1>
+          </Rv>
 
-          <p className="text-purple-200 text-lg leading-relaxed mb-10 max-w-lg mx-auto">
-            Nền tảng số hóa toàn diện giúp các câu lạc bộ sinh viên quản lý thành viên, sự kiện và hoạt động nội bộ hiệu quả.
-          </p>
+          <Rv delay={140}>
+            <p style={{ fontSize: 18, color: C.inkDim, lineHeight: 1.5, maxWidth: 520, margin: '20px 0 0', fontWeight: 500 }}>
+              Khám phá {clubs.length > 0 ? `${clubs.length} CLB` : 'các CLB'}, tham gia hoạt động và
+              tìm câu lạc bộ phù hợp với bạn tại UEF.
+            </p>
+          </Rv>
 
-          <div className="flex items-center justify-center gap-3 flex-wrap">
-            {isAuthenticated ? (
-              <Link
-                to="/dashboard"
-                className="inline-flex items-center gap-2 h-12 px-8 rounded-xl text-base font-semibold text-indigo-700 bg-white hover:bg-gray-50 transition-colors"
-              >
-                Vào hệ thống <ArrowRight size={16} />
-              </Link>
-            ) : (
-              <Link
-                to="/register"
-                className="inline-flex items-center gap-2 h-12 px-8 rounded-xl text-base font-semibold text-indigo-700 bg-white hover:bg-gray-50 transition-colors"
-              >
-                Đăng ký miễn phí <ArrowRight size={16} />
-              </Link>
-            )}
-            <Link
-              to="/clubs"
-              className="inline-flex items-center gap-2 h-12 px-8 rounded-xl text-base font-medium text-purple-200 hover:text-white transition-colors"
-              style={{ border: '1px solid rgba(255,255,255,0.2)' }}
-            >
-              <Users size={16} /> Khám phá CLB
-            </Link>
-          </div>
+          <Rv delay={200}>
+            <div style={{ display: 'flex', gap: 10, marginTop: 28, flexWrap: 'wrap' }}>
+              <button onClick={() => navigate('/clubs')} style={{
+                height: 52, padding: '0 24px', borderRadius: C.radius,
+                background: C.ink, color: C.lemon, border: C.border,
+                fontSize: 15, fontWeight: 800, display: 'flex', alignItems: 'center', gap: 8,
+                boxShadow: C.shadow(), cursor: 'pointer', fontFamily: 'inherit',
+              }}>Khám phá CLB →</button>
+              <button onClick={() => navigate('/login')} style={{
+                height: 52, padding: '0 24px', borderRadius: C.radius,
+                background: C.card, color: C.ink, border: C.border,
+                fontSize: 15, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8,
+                boxShadow: C.shadow(), cursor: 'pointer', fontFamily: 'inherit',
+              }}>🎓 Đăng nhập ngay</button>
+            </div>
+          </Rv>
         </div>
       </section>
 
-      {/* Features */}
-      <section className="py-20 px-6 bg-gray-50">
-        <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-gray-900 mb-3">Tính năng nổi bật</h2>
-            <p className="text-gray-500">Mọi thứ bạn cần để điều hành câu lạc bộ sinh viên</p>
-          </div>
+      {/* ─── Marquee dark ─────────────────────────────── */}
+      <Marquee tone="dark" items={[
+        `${clubs.length || '—'} CÂU LẠC BỘ`, 'SINH VIÊN UEF',
+        'WORKSHOP · HACKATHON · GALA', 'SỰ KIỆN HÀNG TUẦN', 'TUYỂN THÀNH VIÊN',
+      ]} />
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {FEATURES.map(({ icon: Icon, title, desc }) => (
-              <div key={title} className="bg-white rounded-2xl p-6 border border-gray-100 hover:border-indigo-100 hover:shadow-sm transition-all">
-                <div
-                  className="w-10 h-10 rounded-xl flex items-center justify-center mb-4"
-                  style={{ background: 'linear-gradient(135deg, #eef2ff, #ede9fe)' }}
-                >
-                  <Icon size={18} className="text-indigo-600" />
+      {/* ─── Stats ────────────────────────────────────── */}
+      <section style={{ background: C.ink, padding: '44px 28px', borderBottom: C.border }}>
+        <div style={{
+          maxWidth: 1280, margin: '0 auto',
+          display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 20,
+        }}>
+          {[
+            { n: clubs.length > 0 ? String(clubs.length) : '—', l: 'Câu lạc bộ', color: C.coral },
+            { n: clubs.reduce((s, c) => s + (c.memberCount ?? 0), 0) > 0 ? clubs.reduce((s, c) => s + (c.memberCount ?? 0), 0).toLocaleString() : '—', l: 'Lượt tham gia', color: C.lemon },
+            { n: clubs.filter(c => c.status === 'Active').length > 0 ? String(clubs.filter(c => c.status === 'Active').length) : String(clubs.length) || '—', l: 'CLB hoạt động', color: C.mint },
+            { n: String(new Set(clubs.map(c => c.categoryName)).size) || '—', l: 'Lĩnh vực', color: C.sky },
+          ].map((s, i) => (
+            <Rv key={s.l} delay={i * 80}>
+              <div>
+                <div style={{ color: s.color, fontSize: 'clamp(36px, 5vw, 56px)', fontWeight: 900, letterSpacing: '-.04em', lineHeight: 1 }}>
+                  {s.n}
                 </div>
-                <h3 className="font-semibold text-gray-900 mb-1.5">{title}</h3>
-                <p className="text-sm text-gray-500 leading-relaxed">{desc}</p>
+                <div style={{ color: C.bg, fontSize: 14, marginTop: 6, opacity: 0.7, fontWeight: 500 }}>{s.l}</div>
               </div>
+            </Rv>
+          ))}
+        </div>
+      </section>
+
+      {/* ─── Hoạt động gần đây ────────────────────────── */}
+      <section style={{ padding: '52px 28px 44px' }}>
+        <div style={{ maxWidth: 1280, margin: '0 auto' }}>
+          <Rv>
+            <Tag bg={C.violet} color={C.bg} style={{ marginBottom: 12 }}>Mới cập nhật</Tag>
+            <h2 style={{
+              fontSize: 'clamp(28px, 4vw, 40px)', fontWeight: 900, color: C.ink,
+              letterSpacing: '-.03em', lineHeight: 1, margin: '0 0 24px',
+              fontFamily: "'Be Vietnam Pro', sans-serif",
+            }}>
+              Đang diễn ra{' '}
+              <span style={{ fontFamily: "'Instrument Serif', serif", fontStyle: 'italic', fontWeight: 400 }}>
+                tại UEF.
+              </span>
+            </h2>
+          </Rv>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 14 }}>
+            {ACTIVITIES.map((a, i) => (
+              <Rv key={i} delay={i * 50}>
+                <div className="card-lift" style={{
+                  display: 'flex', gap: 14, alignItems: 'center',
+                  padding: '14px 16px', borderRadius: C.radius,
+                  border: C.border, boxShadow: C.shadow(), background: C.card, cursor: 'pointer',
+                }}>
+                  <div style={{
+                    width: 44, height: 44, borderRadius: 10, flexShrink: 0,
+                    background: a.color, border: C.border,
+                    display: 'grid', placeItems: 'center',
+                    color: a.color === C.lemon ? C.ink : C.bg, fontSize: 18,
+                  }}>★</div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 13.5, fontWeight: 600, color: C.ink, lineHeight: 1.35, marginBottom: 3 }}>
+                      {a.text}
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                      <span style={{
+                        fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 4,
+                        background: a.color, color: a.color === C.lemon ? C.ink : C.bg, letterSpacing: '.04em',
+                      }}>{a.tag}</span>
+                      <span style={{ fontSize: 11.5, color: C.inkMuted }}>{a.time}</span>
+                    </div>
+                  </div>
+                </div>
+              </Rv>
             ))}
           </div>
         </div>
       </section>
 
-      {/* CTA */}
-      {!isAuthenticated && (
-        <section className="py-16 px-6 bg-white text-center border-t border-gray-100">
-          <h2 className="text-2xl font-bold text-gray-900 mb-3">Bắt đầu ngay hôm nay</h2>
-          <p className="text-gray-500 mb-8">Tạo tài khoản miễn phí và trải nghiệm toàn bộ tính năng.</p>
-          <Link
-            to="/register"
-            className="inline-flex items-center gap-2 h-11 px-8 rounded-xl text-sm font-semibold text-white transition-opacity hover:opacity-90"
-            style={{ background: 'linear-gradient(135deg, #4f46e5, #7c3aed)' }}
-          >
-            Tạo tài khoản <ArrowRight size={15} />
-          </Link>
+      {/* ─── Tất cả CLB ───────────────────────────────── */}
+      {allPreview.length > 0 && (
+        <section style={{ padding: '44px 28px 56px', borderTop: C.border }}>
+          <div style={{ maxWidth: 1280, margin: '0 auto' }}>
+            <Rv>
+              <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 24, gap: 16, flexWrap: 'wrap' }}>
+                <div>
+                  <Tag style={{ marginBottom: 12 }}>{clubs.length} CLB · UEF</Tag>
+                  <h2 style={{
+                    fontSize: 'clamp(28px, 4vw, 40px)', fontWeight: 900, color: C.ink,
+                    letterSpacing: '-.03em', lineHeight: 1, margin: 0,
+                    fontFamily: "'Be Vietnam Pro', sans-serif",
+                  }}>
+                    Tất cả{' '}
+                    <span style={{ fontFamily: "'Instrument Serif', serif", fontStyle: 'italic', fontWeight: 400 }}>
+                      câu lạc bộ.
+                    </span>
+                  </h2>
+                </div>
+                <button onClick={() => navigate('/clubs')} style={{
+                  color: C.ink, fontSize: 14, fontWeight: 700,
+                  background: 'none', border: 'none', borderBottom: `2px solid ${C.ink}`,
+                  paddingBottom: 2, cursor: 'pointer', fontFamily: 'inherit',
+                }}>Xem danh sách đầy đủ →</button>
+              </div>
+            </Rv>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 14 }}>
+              {allPreview.map((club, i) => (
+                <Rv key={club.id} delay={i * 40}>
+                  <ClubCard club={club} compact onClick={() => navigate(`/clubs/${club.id}`)} />
+                </Rv>
+              ))}
+            </div>
+          </div>
         </section>
       )}
 
-      {/* Footer */}
-      <footer className="py-6 px-6 border-t border-gray-100 text-center">
-        <p className="text-xs text-gray-400">© 2026 UniClub Hub · Đại học Kinh tế Tài chính TP.HCM</p>
-      </footer>
+      {/* ─── Marquee light ────────────────────────────── */}
+      <Marquee tone="light" items={marqueeItems} speed={35} />
+
+      <V3Footer />
     </div>
   )
 }

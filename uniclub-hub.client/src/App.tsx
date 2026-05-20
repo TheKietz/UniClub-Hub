@@ -6,48 +6,51 @@ import { Toaster } from "@/components/ui/sonner";
 import { CLUB_ROLES } from "@/types/auth";
 
 import LandingPage from "@/features/landing/LandingPage";
+import ContactPage from "@/features/contact/ContactPage";
 import NotFoundPage from "@/features/errors/NotFoundPage";
 import LoginPage from "@/features/auth/LoginPage";
 import RegisterPage from "@/features/auth/RegisterPage";
 import ForgotPasswordPage from "@/features/auth/ForgotPasswordPage";
 import ResetPasswordPage from "@/features/auth/ResetPasswordPage";
+import ConfirmEmailPage from "@/features/auth/ConfirmEmailPage";
 import CompleteProfilePage from "@/features/auth/CompleteProfilePage";
 
-import AdminLayout from "@/components/membership/pages/admin/AdminLayout";
-import DashboardPage from "@/components/membership/pages/admin/DashboardPage";
-import UsersPage from "@/components/membership/pages/admin/UsersPage";
-import ClubsPage from "@/components/membership/pages/admin/ClubsPage";
-import CategoriesPage from "@/components/membership/pages/admin/CategoriesPage";
-import AdminStructurePage from "@/components/membership/pages/admin/AdminStructurePage";
+import AdminLayout from "@/layouts/SuperAdminLayout";
+import DashboardPage from "@/modules/membership/pages/admin/DashboardPage";
+import UsersPage from "@/modules/membership/pages/admin/UsersPage";
+import ClubsPage from "@/modules/membership/pages/admin/ClubsPage";
+import CategoriesPage from "@/modules/membership/pages/admin/CategoriesPage";
+import AdminStructurePage from "@/modules/membership/pages/admin/AdminStructurePage";
 
-import MemberLayout from "@/components/membership/layout/MemberLayout";
-import ClubManageLayout from "@/components/membership/pages/club/ClubManageLayout";
-import ClubManageDashboard from "@/components/membership/pages/club/ClubManageDashboard";
-import MembersPage from "@/components/membership/pages/club/MembersPage";
-import ApplicationsPage from "@/components/membership/pages/club/ApplicationsPage";
-import DepartmentsPage from "@/components/membership/pages/club/DepartmentsPage";
-import FormSchemaPage from "@/components/membership/pages/club/FormSchemaPage";
-import ClubSettingsPage from "@/components/membership/pages/club/ClubSettingsPage";
-import ResignationPage from "@/components/membership/pages/club/ResignationPage";
+import MemberLayout from "@/layouts/MemberLayout";
+import ClubManageLayout from "@/layouts/ClubAdminLayout";
+import ClubManageDashboard from "@/modules/membership/pages/club/ClubManageDashboard";
+import MembersPage from "@/modules/membership/pages/club/MembersPage";
+import ApplicationsPage from "@/modules/membership/pages/club/ApplicationsPage";
+import DepartmentsPage from "@/modules/membership/pages/club/DepartmentsPage";
+import FormSchemaPage from "@/modules/membership/pages/club/FormSchemaPage";
+import ClubSettingsPage from "@/modules/membership/pages/club/ClubSettingsPage";
+import ResignationPage from "@/modules/membership/pages/club/ResignationPage";
+import OrgChartPage from "@/modules/membership/pages/club/OrgChartPage";
 
-import MemberDashboard from "@/components/membership/pages/MemberDashboard";
-import ClubListPage from "@/components/membership/pages/ClubListPage";
-import MyActivityPage from "@/components/membership/pages/MyActivityPage";
-import SupportPage from "@/components/membership/pages/SupportPage";
-import SupportAdminPage from "@/components/membership/pages/admin/SupportAdminPage";
-import AdminResignationPage from "@/components/membership/pages/admin/AdminResignationPage";
+import MemberDashboard from "@/modules/membership/pages/MemberDashboard";
+import ClubListPage from "@/modules/membership/pages/ClubListPage";
+import MyActivityPage from "@/modules/membership/pages/MyActivityPage";
+import SupportPage from "@/modules/membership/pages/SupportPage";
+import SupportAdminPage from "@/modules/membership/pages/admin/SupportAdminPage";
+import AdminResignationPage from "@/modules/membership/pages/admin/AdminResignationPage";
 
-import KanbanPage from "@/components/operations/pages/KanbanPage";
-import MyTasksPage from "@/components/operations/pages/MyTasksPage";
-import EventListPage from "@/components/operations/pages/EventListPage";
-import WorkloadPage from "@/components/operations/pages/WorkloadPage";
-import GanttPage from "@/components/operations/pages/GanttPage";
-import DeadlinePage from "@/components/operations/pages/DeadlinePage";
-import SprintsPage from "@/components/operations/pages/SprintsPage";
-import OperationsDashboard from "@/components/operations/pages/OperationsDashboard";
-import ClubDetailPage from "@/components/membership/pages/ClubDetailPage";
-import ProfilePage from "@/components/membership/pages/ProfilePage";
-import MemberHistoryPage from "@/components/membership/pages/MemberHistoryPage";
+import KanbanPage from "@/modules/operations/pages/KanbanPage";
+import MyTasksPage from "@/modules/operations/pages/MyTasksPage";
+import EventListPage from "@/modules/operations/pages/EventListPage";
+import WorkloadPage from "@/modules/operations/pages/WorkloadPage";
+import GanttPage from "@/modules/operations/pages/GanttPage";
+import DeadlinePage from "@/modules/operations/pages/DeadlinePage";
+import SprintsPage from "@/modules/operations/pages/SprintsPage";
+import OperationsDashboard from "@/modules/operations/pages/OperationsDashboard";
+import ClubDetailPage from "@/modules/membership/pages/ClubDetailPage";
+import ProfilePage from "@/modules/membership/pages/ProfilePage";
+import MemberHistoryPage from "@/modules/membership/pages/MemberHistoryPage";
 
 const Soon = ({ label }: { label: string }) => (
   <div className="p-8 text-xl font-semibold text-gray-500">
@@ -68,6 +71,7 @@ export default function App() {
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
+          <Route path="/confirm-email" element={<ConfirmEmailPage />} />
 
           {/* Complete profile — requires auth but not complete profile */}
           <Route element={<ProtectedRoute />}>
@@ -86,6 +90,9 @@ export default function App() {
               <Route path="/admin/resignations" element={<AdminResignationPage />} />
             </Route>
           </Route>
+
+          {/* Public pages */}
+          <Route path="/contact" element={<ContactPage />} />
 
           {/* Public club pages — không cần đăng nhập */}
           <Route path="/clubs" element={<ClubListPage />} />
@@ -146,6 +153,7 @@ export default function App() {
                     element={<DepartmentsPage />}
                   />
                   <Route path="manage/form" element={<FormSchemaPage />} />
+                  <Route path="manage/orgchart" element={<OrgChartPage />} />
                   <Route path="manage/resignations" element={<ResignationPage />} />
                   <Route path="manage/settings" element={<ClubSettingsPage />} />
                 </Route>
