@@ -181,9 +181,7 @@ namespace UniClub_Hub.Shared.Data
                 .IsUnique();
         }
 
-        public override async Task<int> SaveChangesAsync(
-            CancellationToken cancellationToken = default
-        )
+        public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {
             var currentUserId = _httpContextAccessor
                 ?.HttpContext?.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)
@@ -209,10 +207,7 @@ namespace UniClub_Hub.Shared.Data
                     }
                 }
 
-                if (
-                    entry.Entity is ISoftDeletable softDeletable
-                    && entry.State == EntityState.Deleted
-                )
+                if (entry.Entity is ISoftDeletable softDeletable && entry.State == EntityState.Deleted)
                 {
                     entry.State = EntityState.Modified;
                     softDeletable.IsDeleted = true;
@@ -254,8 +249,7 @@ namespace UniClub_Hub.Shared.Data
                     }
 
                     // Ghi lại giá trị cũ trước khi save
-                    string? oldValue =
-                        e.State == EntityState.Modified ? SerializeValues(e.OriginalValues) : null;
+                    string? oldValue = e.State == EntityState.Modified ? SerializeValues(e.OriginalValues) : null;
 
                     return (Entry: e, Action: action, OldValue: oldValue);
                 })

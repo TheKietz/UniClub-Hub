@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { C, Rv, Tag, V3Footer } from '@/components/public/v3'
-import PublicHeader from '@/layouts/PublicHeader'
+import PublicHeader from '@/components/layouts/PublicHeader'
 
 const SUBJECTS = ['Hỏi về CLB', 'Hỗ trợ kỹ thuật', 'Góp ý', 'Hợp tác', 'Khác']
 const FAQ = [
