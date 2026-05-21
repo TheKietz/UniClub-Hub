@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { C, Rv, Tag, ClubCard, Marquee, V3Footer, type ClubCardData } from '@/components/public/v3'
-import PublicHeader from '@/layouts/PublicHeader'
-import { getClubs } from '@/modules/membership/services/clubApi'
-import type { ClubListItem } from '@/modules/membership/services/club.types'
+import PublicHeader from '@/components/layouts/PublicHeader'
+import { getClubs } from '@/components/membership/services/clubApi'
+import type { ClubListItem } from '@/components/membership/services/club.types'
 
 const CLUB_COLORS = [C.indigo, C.violet, C.coral, C.mint, C.sky, C.pink, C.lemon, C.coral]
 

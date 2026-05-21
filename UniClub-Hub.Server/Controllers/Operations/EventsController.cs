@@ -11,6 +11,8 @@ namespace UniClub_Hub.Server.Controllers.Operations
     [Route("api/v1/operations/events")]
     public class EventsController(IEventService eventService) : ControllerBase
     {
+        // ── Event CRUD ───────────────────────────────────────────────────────
+
         [HttpGet]
         public async Task<IActionResult> GetAll(
             [FromQuery] int clubId,
@@ -76,6 +78,96 @@ namespace UniClub_Hub.Server.Controllers.Operations
             {
                 await eventService.DeleteAsync(id);
                 return Ok(ApiResponse<object>.Ok(null!, "Xóa sự kiện thành công."));
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(ApiResponse<object>.Fail(ex.Message));
+            }
+        }
+
+        // ── Sessions ─────────────────────────────────────────────────────────
+
+        [HttpGet("{id:int}/sessions")]
+        public async Task<IActionResult> GetSessions(int id)
+        {
+            var result = await eventService.GetSessionsAsync(id);
+            return Ok(ApiResponse<List<EventSessionDto>>.Ok(result));
+        }
+
+        [HttpPost("{id:int}/sessions")]
+        [Authorize(Roles = "CLUB_ADMIN,SUPER_ADMIN")]
+        public async Task<IActionResult> AddSession(int id, [FromBody] CreateEventSessionDto dto)
+        {
+            try
+            {
+                var result = await eventService.AddSessionAsync(id, dto);
+                return Ok(ApiResponse<EventSessionDto>.Ok(result, "Thêm phiên thành công."));
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(ApiResponse<object>.Fail(ex.Message));
+            }
+        }
+
+        [HttpDelete("{id:int}/sessions/{sessionId:int}")]
+        [Authorize(Roles = "CLUB_ADMIN,SUPER_ADMIN")]
+        public async Task<IActionResult> DeleteSession(int id, int sessionId)
+        {
+            try
+            {
+                await eventService.DeleteSessionAsync(id, sessionId);
+                return Ok(ApiResponse<object>.Ok(null!, "Xóa phiên thành công."));
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(ApiResponse<object>.Fail(ex.Message));
+            }
+        }
+
+        [HttpPatch("{id:int}/sessions/reorder")]
+        [Authorize(Roles = "CLUB_ADMIN,SUPER_ADMIN")]
+        public async Task<IActionResult> ReorderSessions(int id, [FromBody] ReorderEventSessionsDto dto)
+        {
+            await eventService.ReorderSessionsAsync(id, dto.OrderedIds);
+            return Ok(ApiResponse<object>.Ok(null!, "Sắp xếp thành công."));
+        }
+
+        // ── Staff ─────────────────────────────────────────────────────────────
+
+        [HttpGet("{id:int}/staff")]
+        public async Task<IActionResult> GetStaff(int id)
+        {
+            var result = await eventService.GetStaffAsync(id);
+            return Ok(ApiResponse<List<EventStaffDto>>.Ok(result));
+        }
+
+        [HttpPost("{id:int}/staff")]
+        [Authorize(Roles = "CLUB_ADMIN,SUPER_ADMIN")]
+        public async Task<IActionResult> AssignStaff(int id, [FromBody] AssignEventStaffDto dto)
+        {
+            try
+            {
+                var result = await eventService.AssignStaffAsync(id, dto);
+                return Ok(ApiResponse<EventStaffDto>.Ok(result, "Phân công thành công."));
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(ApiResponse<object>.Fail(ex.Message));
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Conflict(ApiResponse<object>.Fail(ex.Message));
+            }
+        }
+
+        [HttpDelete("{id:int}/staff/{userId}")]
+        [Authorize(Roles = "CLUB_ADMIN,SUPER_ADMIN")]
+        public async Task<IActionResult> RemoveStaff(int id, string userId)
+        {
+            try
+            {
+                await eventService.RemoveStaffAsync(id, userId);
+                return Ok(ApiResponse<object>.Ok(null!, "Đã xóa nhân sự."));
             }
             catch (KeyNotFoundException ex)
             {

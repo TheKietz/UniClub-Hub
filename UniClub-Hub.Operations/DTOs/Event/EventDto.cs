@@ -14,7 +14,11 @@ namespace UniClub_Hub.Operations.DTOs.Event
         public DateTimeOffset? EndTime { get; set; }
         public int? MaxParticipants { get; set; }
         public EventStatus Status { get; set; }
+        public decimal? Budget { get; set; }
+        public string? Category { get; set; }
         public int ParticipantCount { get; set; }
+        public List<EventSessionDto> Sessions { get; set; } = [];
+        public List<EventStaffDto> Staff { get; set; } = [];
         public DateTime CreatedAt { get; set; }
         public string? CreatedBy { get; set; }
     }

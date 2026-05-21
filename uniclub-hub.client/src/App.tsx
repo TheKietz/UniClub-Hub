@@ -15,42 +15,46 @@ import ResetPasswordPage from "@/features/auth/ResetPasswordPage";
 import ConfirmEmailPage from "@/features/auth/ConfirmEmailPage";
 import CompleteProfilePage from "@/features/auth/CompleteProfilePage";
 
-import AdminLayout from "@/layouts/SuperAdminLayout";
-import DashboardPage from "@/modules/membership/pages/admin/DashboardPage";
-import UsersPage from "@/modules/membership/pages/admin/UsersPage";
-import ClubsPage from "@/modules/membership/pages/admin/ClubsPage";
-import CategoriesPage from "@/modules/membership/pages/admin/CategoriesPage";
-import AdminStructurePage from "@/modules/membership/pages/admin/AdminStructurePage";
+import AdminLayout from "@/components/layouts/AdminLayout";
+import DashboardPage from "@/components/membership/pages/admin/DashboardPage";
+import UsersPage from "@/components/membership/pages/admin/UsersPage";
+import ClubsPage from "@/components/membership/pages/admin/ClubsPage";
+import CategoriesPage from "@/components/membership/pages/admin/CategoriesPage";
+import AdminStructurePage from "@/components/membership/pages/admin/AdminStructurePage";
 
-import MemberLayout from "@/layouts/MemberLayout";
-import ClubManageLayout from "@/layouts/ClubAdminLayout";
-import ClubManageDashboard from "@/modules/membership/pages/club/ClubManageDashboard";
-import MembersPage from "@/modules/membership/pages/club/MembersPage";
-import ApplicationsPage from "@/modules/membership/pages/club/ApplicationsPage";
-import DepartmentsPage from "@/modules/membership/pages/club/DepartmentsPage";
-import FormSchemaPage from "@/modules/membership/pages/club/FormSchemaPage";
-import ClubSettingsPage from "@/modules/membership/pages/club/ClubSettingsPage";
-import ResignationPage from "@/modules/membership/pages/club/ResignationPage";
-import OrgChartPage from "@/modules/membership/pages/club/OrgChartPage";
+import MemberLayout from "@/components/layouts/MemberLayout";
+import ClubManageLayout from "@/components/layouts/ClubManageLayout";
+import ClubManageDashboard from "@/components/membership/pages/club/ClubManageDashboard";
+import MembersPage from "@/components/membership/pages/club/MembersPage";
+import ApplicationsPage from "@/components/membership/pages/club/ApplicationsPage";
+import DepartmentsPage from "@/components/membership/pages/club/DepartmentsPage";
+import FormSchemaPage from "@/components/membership/pages/club/FormSchemaPage";
+import ClubSettingsPage from "@/components/membership/pages/club/ClubSettingsPage";
+import ResignationPage from "@/components/membership/pages/club/ResignationPage";
+import OrgChartPage from "@/components/membership/pages/club/OrgChartPage";
+import AuditLogPage from "@/components/membership/pages/club/AuditLogPage";
 
-import MemberDashboard from "@/modules/membership/pages/MemberDashboard";
-import ClubListPage from "@/modules/membership/pages/ClubListPage";
-import MyActivityPage from "@/modules/membership/pages/MyActivityPage";
-import SupportPage from "@/modules/membership/pages/SupportPage";
-import SupportAdminPage from "@/modules/membership/pages/admin/SupportAdminPage";
-import AdminResignationPage from "@/modules/membership/pages/admin/AdminResignationPage";
+import MemberDashboard from "@/components/membership/pages/MemberDashboard";
+import ClubListPage from "@/components/membership/pages/ClubListPage";
+import MyActivityPage from "@/components/membership/pages/MyActivityPage";
+import SupportPage from "@/components/membership/pages/SupportPage";
+import SupportAdminPage from "@/components/membership/pages/admin/SupportAdminPage";
+import AdminResignationPage from "@/components/membership/pages/admin/AdminResignationPage";
+import ClubDetailPage from "@/components/membership/pages/ClubDetailPage";
+import ProfilePage from "@/components/membership/pages/ProfilePage";
+import MemberHistoryPage from "@/components/membership/pages/MemberHistoryPage";
 
-import KanbanPage from "@/modules/operations/pages/KanbanPage";
-import MyTasksPage from "@/modules/operations/pages/MyTasksPage";
-import EventListPage from "@/modules/operations/pages/EventListPage";
-import WorkloadPage from "@/modules/operations/pages/WorkloadPage";
-import GanttPage from "@/modules/operations/pages/GanttPage";
-import DeadlinePage from "@/modules/operations/pages/DeadlinePage";
-import SprintsPage from "@/modules/operations/pages/SprintsPage";
-import OperationsDashboard from "@/modules/operations/pages/OperationsDashboard";
-import ClubDetailPage from "@/modules/membership/pages/ClubDetailPage";
-import ProfilePage from "@/modules/membership/pages/ProfilePage";
-import MemberHistoryPage from "@/modules/membership/pages/MemberHistoryPage";
+import KanbanPage from "@/components/operations/pages/KanbanPage";
+import MyTasksPage from "@/components/operations/pages/MyTasksPage";
+import EventListPage from "@/components/operations/pages/EventListPage";
+import EventDetailPage from "@/components/operations/pages/EventDetailPage";
+import WorkloadPage from "@/components/operations/pages/WorkloadPage";
+import GanttPage from "@/components/operations/pages/GanttPage";
+import DeadlinePage from "@/components/operations/pages/DeadlinePage";
+import SprintsPage from "@/components/operations/pages/SprintsPage";
+import OperationsDashboard from "@/components/operations/pages/OperationsDashboard";
+import CalendarPage from "@/components/operations/pages/CalendarPage";
+import ActivityLogPage from "@/components/operations/pages/ActivityLogPage";
 
 const Soon = ({ label }: { label: string }) => (
   <div className="p-8 text-xl font-semibold text-gray-500">
@@ -108,20 +112,20 @@ export default function App() {
               <Route path="/support" element={<SupportPage />} />
               <Route path="/my-tasks" element={<MyTasksPage />} />
               <Route path="/operations" element={<OperationsDashboard />} />
-              <Route path="/operations/kanban" element={<KanbanPage />} />
-              <Route path="/operations/sprints" element={<SprintsPage />} />
-              <Route path="/operations/events" element={<EventListPage />} />
-              <Route path="/operations/workload" element={<WorkloadPage />} />
-              <Route path="/operations/gantt" element={<GanttPage />} />
-              <Route path="/operations/deadlines" element={<DeadlinePage />} />
+              <Route path="/kanban" element={<KanbanPage />} />
+              <Route path="/sprints" element={<SprintsPage />} />
+              <Route path="/events" element={<EventListPage />} />
+              <Route path="/events/:id" element={<EventDetailPage />} />
+              <Route path="/workload" element={<WorkloadPage />} />
+              <Route path="/gantt" element={<GanttPage />} />
+              <Route path="/deadlines" element={<DeadlinePage />} />
+              <Route path="/calendar" element={<CalendarPage />} />
+              <Route path="/activity" element={<ActivityLogPage />} />
               <Route path="/my-kpi" element={<Soon label="KPI của tôi" />} />
               <Route
                 element={
                   <ClubProtectedRoute
-                    requiredRoles={[
-                      CLUB_ROLES.CLUB_ADMIN,
-                      CLUB_ROLES.DEPT_LEAD,
-                    ]}
+                    requiredRoles={[CLUB_ROLES.CLUB_ADMIN, CLUB_ROLES.DEPT_LEAD]}
                   />
                 }
               >
@@ -144,16 +148,11 @@ export default function App() {
                 <Route element={<ClubManageLayout />}>
                   <Route path="manage" element={<ClubManageDashboard />} />
                   <Route path="manage/members" element={<MembersPage />} />
-                  <Route
-                    path="manage/applications"
-                    element={<ApplicationsPage />}
-                  />
-                  <Route
-                    path="manage/departments"
-                    element={<DepartmentsPage />}
-                  />
+                  <Route path="manage/applications" element={<ApplicationsPage />} />
+                  <Route path="manage/departments" element={<DepartmentsPage />} />
                   <Route path="manage/form" element={<FormSchemaPage />} />
                   <Route path="manage/orgchart" element={<OrgChartPage />} />
+                  <Route path="manage/audit-log" element={<AuditLogPage />} />
                   <Route path="manage/resignations" element={<ResignationPage />} />
                   <Route path="manage/settings" element={<ClubSettingsPage />} />
                 </Route>

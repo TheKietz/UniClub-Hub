@@ -18,6 +18,8 @@ namespace UniClub_Hub.Shared.Data
             typeof(AuditLog),
             typeof(RefreshToken),
             typeof(Notification),
+            typeof(EventSession),
+            typeof(EventStaff),
         ];
 
         public UniClubDbContext(
@@ -50,6 +52,8 @@ namespace UniClub_Hub.Shared.Data
         public DbSet<AuditLog> AuditLogs { get; set; }
         public DbSet<SupportTicket> SupportTickets { get; set; }
         public DbSet<ResignationRequest> ResignationRequests { get; set; }
+        public DbSet<EventSession> EventSessions { get; set; }
+        public DbSet<EventStaff> EventStaff { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
@@ -147,6 +151,34 @@ namespace UniClub_Hub.Shared.Data
             builder.Entity<ClubTask>().HasIndex(t => t.AssignedTo);
 
             builder.Entity<Sprint>().HasIndex(s => new { s.ClubId, s.Status });
+
+            // EventSession — cascade delete when event is deleted
+            builder
+                .Entity<EventSession>()
+                .HasOne(s => s.Event)
+                .WithMany(e => e.Sessions)
+                .HasForeignKey(s => s.EventId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // EventStaff — cascade on event delete, restrict on user delete
+            builder
+                .Entity<EventStaff>()
+                .HasOne(es => es.Event)
+                .WithMany(e => e.Staff)
+                .HasForeignKey(es => es.EventId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            builder
+                .Entity<EventStaff>()
+                .HasOne(es => es.User)
+                .WithMany()
+                .HasForeignKey(es => es.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            builder
+                .Entity<EventStaff>()
+                .HasIndex(es => new { es.EventId, es.UserId })
+                .IsUnique();
         }
 
         public override async Task<int> SaveChangesAsync(

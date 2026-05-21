@@ -441,6 +441,13 @@ namespace UniClub_Hub.Shared.Migrations
                     b.Property<string>("BannerUrl")
                         .HasColumnType("text");
 
+                    b.Property<decimal?>("Budget")
+                        .HasColumnType("numeric");
+
+                    b.Property<string>("Category")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
                     b.Property<int>("ClubId")
                         .HasColumnType("integer");
 
@@ -775,6 +782,85 @@ namespace UniClub_Hub.Shared.Migrations
                         .IsUnique();
 
                     b.ToTable("EventRegistrations");
+                });
+
+            modelBuilder.Entity("UniClub_Hub.Shared.Models.EventSession", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text");
+
+                    b.Property<string>("EndTime")
+                        .IsRequired()
+                        .HasMaxLength(5)
+                        .HasColumnType("character varying(5)");
+
+                    b.Property<int>("EventId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Location")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("StartTime")
+                        .IsRequired()
+                        .HasMaxLength(5)
+                        .HasColumnType("character varying(5)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EventId");
+
+                    b.ToTable("EventSessions");
+                });
+
+            modelBuilder.Entity("UniClub_Hub.Shared.Models.EventStaff", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("AssignedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("EventId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("EventId", "UserId")
+                        .IsUnique();
+
+                    b.ToTable("EventStaff");
                 });
 
             modelBuilder.Entity("UniClub_Hub.Shared.Models.LandingPage", b =>
@@ -1456,6 +1542,36 @@ namespace UniClub_Hub.Shared.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("UniClub_Hub.Shared.Models.EventSession", b =>
+                {
+                    b.HasOne("UniClub_Hub.Shared.Models.ClubEvent", "Event")
+                        .WithMany("Sessions")
+                        .HasForeignKey("EventId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Event");
+                });
+
+            modelBuilder.Entity("UniClub_Hub.Shared.Models.EventStaff", b =>
+                {
+                    b.HasOne("UniClub_Hub.Shared.Models.ClubEvent", "Event")
+                        .WithMany("Staff")
+                        .HasForeignKey("EventId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("UniClub_Hub.Shared.Models.ApplicationUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Event");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("UniClub_Hub.Shared.Models.LandingPage", b =>
                 {
                     b.HasOne("UniClub_Hub.Shared.Models.Club", "Club")
@@ -1683,7 +1799,11 @@ namespace UniClub_Hub.Shared.Migrations
 
                     b.Navigation("Registrations");
 
+                    b.Navigation("Sessions");
+
                     b.Navigation("Sprints");
+
+                    b.Navigation("Staff");
 
                     b.Navigation("Tasks");
                 });
