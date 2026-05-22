@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { toast } from "sonner";
 import {
   RefreshCw,
@@ -131,8 +131,8 @@ function ChartTooltip({
 }
 
 export default function WorkloadPage() {
-  const [searchParams] = useSearchParams();
-  const clubId = Number(searchParams.get("clubId") ?? 1);
+  const { clubId: clubIdParam } = useParams<{ clubId: string }>();
+  const clubId = Number(clubIdParam ?? 1);
 
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [loading, setLoading] = useState(true);

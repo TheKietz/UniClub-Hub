@@ -10,7 +10,7 @@ namespace UniClub_Hub.Operations.Services.Implements
 {
     public class EventService(UniClubDbContext db) : IEventService
     {
-        public async Task<PagedResult<EventDto>> GetAllAsync(int clubId, string? status, int page, int pageSize)
+        public async Task<PagedResult<EventDto>> GetAllAsync(int clubId, string? status, string? search, int page, int pageSize)
         {
             var query = db.Events
                 .AsNoTracking()
@@ -18,6 +18,9 @@ namespace UniClub_Hub.Operations.Services.Implements
 
             if (Enum.TryParse<EventStatus>(status, true, out var parsedStatus))
                 query = query.Where(e => e.Status == parsedStatus);
+
+            if (!string.IsNullOrWhiteSpace(search))
+                query = query.Where(e => e.Name.Contains(search));
 
             var total = await query.CountAsync();
 

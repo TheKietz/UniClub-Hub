@@ -106,16 +106,16 @@ export default function App() {
               <Route path="/my-activity" element={<MyActivityPage />} />
               <Route path="/support" element={<SupportPage />} />
               <Route path="/my-tasks" element={<MyTasksPage />} />
-              <Route path="/operations" element={<OperationsDashboard />} />
-              <Route path="/kanban" element={<KanbanPage />} />
-              <Route path="/sprints" element={<SprintsPage />} />
-              <Route path="/events" element={<EventListPage />} />
-              <Route path="/events/:id" element={<EventDetailPage />} />
-              <Route path="/workload" element={<WorkloadPage />} />
-              <Route path="/gantt" element={<GanttPage />} />
-              <Route path="/deadlines" element={<DeadlinePage />} />
-              <Route path="/calendar" element={<CalendarPage />} />
-              <Route path="/activity" element={<ActivityLogPage />} />
+              <Route path="/clubs/:clubId/operations" element={<OperationsDashboard />} />
+              <Route path="/clubs/:clubId/kanban" element={<KanbanPage />} />
+              <Route path="/clubs/:clubId/sprints" element={<SprintsPage />} />
+              <Route path="/clubs/:clubId/events" element={<EventListPage />} />
+              <Route path="/clubs/:clubId/events/:id" element={<EventDetailPage />} />
+              <Route path="/clubs/:clubId/workload" element={<WorkloadPage />} />
+              <Route path="/clubs/:clubId/gantt" element={<GanttPage />} />
+              <Route path="/clubs/:clubId/deadlines" element={<DeadlinePage />} />
+              <Route path="/clubs/:clubId/calendar" element={<CalendarPage />} />
+              <Route path="/clubs/:clubId/activity" element={<ActivityLogPage />} />
               <Route path="/my-kpi" element={<Soon label="KPI của tôi" />} />
               <Route
                 element={

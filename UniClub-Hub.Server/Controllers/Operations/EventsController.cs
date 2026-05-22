@@ -17,10 +17,11 @@ namespace UniClub_Hub.Server.Controllers.Operations
         public async Task<IActionResult> GetAll(
             [FromQuery] int clubId,
             [FromQuery] string? status,
+            [FromQuery] string? search,
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 20)
         {
-            var result = await eventService.GetAllAsync(clubId, status, page, pageSize);
+            var result = await eventService.GetAllAsync(clubId, status, search, page, pageSize);
             return Ok(ApiResponse<object>.Ok(result));
         }
 

@@ -1,6 +1,6 @@
 import './gantt.css'
 import { useEffect, useState, useMemo } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { RefreshCw, Plus, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -81,8 +81,8 @@ function GanttAvatar({ name }: { name: string }) {
 /* ══════════════════════════════════════════════════════════════════════════ */
 
 export default function GanttPage() {
-  const [searchParams] = useSearchParams()
-  const clubId = Number(searchParams.get('clubId') ?? 1)
+  const { clubId: clubIdParam } = useParams<{ clubId: string }>()
+  const clubId = Number(clubIdParam ?? 1)
 
   const [tasks, setTasks]     = useState<TaskItem[]>([])
   const [events, setEvents]   = useState<EventItem[]>([])

@@ -138,7 +138,7 @@ namespace UniClub_Hub.Operations.Services.Implements
             task.Title = dto.Title;
             task.Description = dto.Description;
             task.Priority = dto.Priority;
-            task.Deadline = dto.Deadline;
+            task.Deadline = dto.Deadline?.ToUniversalTime();
             task.EstimatedHours = dto.EstimatedHours;
             task.ActualHours = dto.ActualHours;
             task.AssignedTo = dto.AssignedTo;
@@ -183,14 +183,32 @@ namespace UniClub_Hub.Operations.Services.Implements
             return MapToDto(task);
         }
 
-        public async Task DeleteAsync(int id)
+        public async Task DeleteAsync(int id, string userId)
         {
             var task =
                 await db.Tasks.FindAsync(id)
                 ?? throw new KeyNotFoundException($"Task {id} not found.");
 
+            await RequireManagerRoleAsync(userId, task.ClubId);
+
             db.Tasks.Remove(task);
             await db.SaveChangesAsync();
+        }
+
+        private async Task RequireManagerRoleAsync(string userId, int clubId)
+        {
+            var membership = await db.ClubMemberships
+                .AsNoTracking()
+                .FirstOrDefaultAsync(m =>
+                    m.UserId == userId &&
+                    m.ClubId == clubId &&
+                    m.Status == MembershipStatus.Active);
+
+            if (membership == null ||
+                (membership.ClubRole != ClubRole.DEPT_LEAD && membership.ClubRole != ClubRole.CLUB_ADMIN))
+            {
+                throw new UnauthorizedAccessException("Chỉ Trưởng ban hoặc Quản lý CLB mới có quyền xóa công việc.");
+            }
         }
 
         public async Task<List<TaskDependencyDto>> GetDependenciesAsync(int taskId)

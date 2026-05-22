@@ -26,6 +26,9 @@ namespace UniClub_Hub.Shared.Models
         public int Progress { get; set; } = 0; // 0–100
         public DateTimeOffset? CompletedAt { get; set; }
         public string? AssignedTo { get; set; } // FK UserId
+        public DateTimeOffset? StartDate { get; set; }
+        public int? KanbanColumnId { get; set; }
+        public KanbanColumn? KanbanColumn { get; set; }
 
         // IAuditable — CreatedBy doubles as Creator FK
         public DateTime CreatedAt { get; set; }

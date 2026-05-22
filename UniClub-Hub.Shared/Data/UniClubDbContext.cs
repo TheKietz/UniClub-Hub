@@ -49,6 +49,7 @@ namespace UniClub_Hub.Shared.Data
         public DbSet<TaskComment> TaskComments { get; set; }
         public DbSet<Sprint> Sprints { get; set; }
         public DbSet<TaskDependency> TaskDependencies { get; set; }
+        public DbSet<KanbanColumn> KanbanColumns { get; set; }
         public DbSet<AuditLog> AuditLogs { get; set; }
         public DbSet<SupportTicket> SupportTickets { get; set; }
         public DbSet<ResignationRequest> ResignationRequests { get; set; }
@@ -144,6 +145,21 @@ namespace UniClub_Hub.Shared.Data
                 .Entity<EventRegistration>()
                 .HasIndex(er => new { er.EventId, er.UserId })
                 .IsUnique();
+
+            // KanbanColumn — belongs to Club, optionally scoped to Sprint
+            builder
+                .Entity<KanbanColumn>()
+                .HasOne(c => c.Club)
+                .WithMany()
+                .HasForeignKey(c => c.ClubId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            builder
+                .Entity<KanbanColumn>()
+                .HasOne(c => c.Sprint)
+                .WithMany()
+                .HasForeignKey(c => c.SprintId)
+                .OnDelete(DeleteBehavior.SetNull);
 
             // Indexes for common Operations queries
             builder.Entity<ClubTask>().HasIndex(t => new { t.ClubId, t.Status });

@@ -16,11 +16,12 @@ namespace UniClub_Hub.Server.Controllers.Operations
         [AllowAnonymous]
         public async Task<IActionResult> GetAll(
             [FromQuery] int clubId,
+            [FromQuery] int? departmentId,
             [FromQuery] int? eventId,
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 20)
         {
-            var result = await sprintService.GetByClubAsync(clubId, eventId, page, pageSize);
+            var result = await sprintService.GetByClubAsync(clubId, departmentId, eventId, page, pageSize);
             return Ok(ApiResponse<object>.Ok(result));
         }
 
@@ -40,7 +41,7 @@ namespace UniClub_Hub.Server.Controllers.Operations
         }
 
         [HttpPost]
-        [Authorize(Roles = "CLUB_ADMIN,SUPER_ADMIN")]
+        [Authorize]
         public async Task<IActionResult> Create([FromQuery] int clubId, [FromBody] CreateSprintDto dto)
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
@@ -50,6 +51,10 @@ namespace UniClub_Hub.Server.Controllers.Operations
                 return CreatedAtAction(nameof(GetById), new { id = result.Id },
                     ApiResponse<SprintDto>.Ok(result, "Tạo sprint thành công."));
             }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Forbid(ex.Message);
+            }
             catch (KeyNotFoundException ex)
             {
                 return NotFound(ApiResponse<object>.Fail(ex.Message));
@@ -57,13 +62,18 @@ namespace UniClub_Hub.Server.Controllers.Operations
         }
 
         [HttpPut("{id:int}")]
-        [Authorize(Roles = "CLUB_ADMIN,SUPER_ADMIN")]
+        [Authorize]
         public async Task<IActionResult> Update(int id, [FromBody] UpdateSprintDto dto)
         {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
             try
             {
-                var result = await sprintService.UpdateAsync(id, dto);
+                var result = await sprintService.UpdateAsync(id, dto, userId);
                 return Ok(ApiResponse<SprintDto>.Ok(result, "Cập nhật thành công."));
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Forbid(ex.Message);
             }
             catch (KeyNotFoundException ex)
             {
@@ -72,13 +82,18 @@ namespace UniClub_Hub.Server.Controllers.Operations
         }
 
         [HttpDelete("{id:int}")]
-        [Authorize(Roles = "CLUB_ADMIN,SUPER_ADMIN")]
+        [Authorize]
         public async Task<IActionResult> Delete(int id)
         {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
             try
             {
-                await sprintService.DeleteAsync(id);
+                await sprintService.DeleteAsync(id, userId);
                 return Ok(ApiResponse<object>.Ok(null!, "Xóa sprint thành công."));
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Forbid(ex.Message);
             }
             catch (KeyNotFoundException ex)
             {

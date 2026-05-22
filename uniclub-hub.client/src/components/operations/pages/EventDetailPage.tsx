@@ -1,10 +1,15 @@
 import { useEffect, useState } from "react";
 import {
   useParams,
-  useSearchParams,
   useNavigate,
   Link,
 } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
+import { CLUB_ROLES } from "@/types/auth";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import {
   ArrowLeft,
@@ -35,6 +40,7 @@ import { Label } from "@/components/ui/label";
 import {
   getEventById,
   updateEvent,
+  deleteEvent,
   getTasks,
   addEventSession,
   deleteEventSession,
@@ -534,10 +540,12 @@ function AssignStaffModal({
 /* ─── Page ──────────────────────────────────────────────────────────────── */
 
 export default function EventDetailPage() {
-  const { id } = useParams<{ id: string }>();
-  const [searchParams] = useSearchParams();
+  const { id, clubId: clubIdParam } = useParams<{ id: string; clubId: string }>();
   const navigate = useNavigate();
-  const clubId = Number(searchParams.get("clubId") ?? 1);
+  const clubId = Number(clubIdParam ?? 1);
+
+  const { isSuperAdmin, getClubRole } = useAuth();
+  const canManage = isSuperAdmin || getClubRole(clubId) === CLUB_ROLES.CLUB_ADMIN;
 
   const [event, setEvent] = useState<EventItem | null>(null);
   const [tasks, setTasks] = useState<TaskItem[]>([]);
@@ -546,6 +554,10 @@ export default function EventDetailPage() {
   const [editOpen, setEditOpen] = useState(false);
   const [addSessionOpen, setAddSessionOpen] = useState(false);
   const [assignStaffOpen, setAssignStaffOpen] = useState(false);
+  const [deleteEventOpen, setDeleteEventOpen] = useState(false);
+  const [deletingEvent, setDeletingEvent] = useState(false);
+  const [staffDeleteTarget, setStaffDeleteTarget] = useState<string | null>(null);
+  const [deletingStaff, setDeletingStaff] = useState(false);
 
   const loadEvent = async () => {
     if (!id) return;
@@ -581,15 +593,32 @@ export default function EventDetailPage() {
     }
   };
 
-  const handleRemoveStaff = async (userId: string) => {
-    if (!event) return;
-    if (!confirm("Xóa nhân sự này khỏi sự kiện?")) return;
+  const confirmRemoveStaff = async () => {
+    if (!event || !staffDeleteTarget) return;
+    setDeletingStaff(true);
     try {
-      await removeEventStaff(event.id, userId);
+      await removeEventStaff(event.id, staffDeleteTarget);
       toast.success("Đã xóa nhân sự");
+      setStaffDeleteTarget(null);
       await loadEvent();
     } catch {
       toast.error("Không thể xóa nhân sự này");
+    } finally {
+      setDeletingStaff(false);
+    }
+  };
+
+  const handleDeleteEvent = async () => {
+    if (!event) return;
+    setDeletingEvent(true);
+    try {
+      await deleteEvent(event.id);
+      toast.success("Đã xóa sự kiện");
+      navigate(`/clubs/${clubId}/events`);
+    } catch {
+      toast.error("Không thể xóa sự kiện này");
+      setDeletingEvent(false);
+      setDeleteEventOpen(false);
     }
   };
 
@@ -614,7 +643,7 @@ export default function EventDetailPage() {
         <p className="text-gray-500">Không tìm thấy sự kiện</p>
         <Button
           variant="outline"
-          onClick={() => navigate(`/operations/events?clubId=${clubId}`)}
+          onClick={() => navigate(`/clubs/${clubId}/events`)}
         >
           Quay lại danh sách
         </Button>
@@ -638,7 +667,7 @@ export default function EventDetailPage() {
         </Link>
         <ChevronRight size={14} className="text-gray-400" />
         <Link
-          to={`/operations/events?clubId=${clubId}`}
+          to={`/clubs/${clubId}/events`}
           className="hover:text-indigo-600 transition-colors"
         >
           Sự kiện
@@ -654,7 +683,7 @@ export default function EventDetailPage() {
         <div className="flex items-start gap-3 min-w-0">
           <button
             type="button"
-            onClick={() => navigate(`/operations/events?clubId=${clubId}`)}
+            onClick={() => navigate(`/clubs/${clubId}/events`)}
             className="mt-0.5 p-1.5 rounded-lg text-gray-400 hover:bg-white hover:text-gray-700 transition-colors shrink-0"
           >
             <ArrowLeft size={18} />
@@ -682,13 +711,25 @@ export default function EventDetailPage() {
           >
             <Share2 size={14} /> Chia sẻ
           </Button>
-          <Button
-            size="sm"
-            className="gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white"
-            onClick={() => setEditOpen(true)}
-          >
-            <Pencil size={14} /> Chỉnh sửa
-          </Button>
+          {canManage && (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300"
+                onClick={() => setDeleteEventOpen(true)}
+              >
+                <Trash2 size={14} /> Xóa
+              </Button>
+              <Button
+                size="sm"
+                className="gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white"
+                onClick={() => setEditOpen(true)}
+              >
+                <Pencil size={14} /> Chỉnh sửa
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
@@ -746,13 +787,15 @@ export default function EventDetailPage() {
                   </span>
                 )}
               </h2>
-              <button
-                type="button"
-                onClick={() => setAddSessionOpen(true)}
-                className="flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-800 transition-colors"
-              >
-                <Plus size={13} /> Thêm mục
-              </button>
+              {canManage && (
+                <button
+                  type="button"
+                  onClick={() => setAddSessionOpen(true)}
+                  className="flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-800 transition-colors"
+                >
+                  <Plus size={13} /> Thêm mục
+                </button>
+              )}
             </div>
 
             {sessions.length === 0 ? (
@@ -791,14 +834,16 @@ export default function EventDetailPage() {
                         </p>
                       )}
                     </div>
-                    <button
-                      type="button"
-                      aria-label="Xóa mục lịch trình"
-                      onClick={() => handleDeleteSession(s.id)}
-                      className="p-1 text-gray-300 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100 shrink-0 mt-1"
-                    >
-                      <Trash2 size={13} />
-                    </button>
+                    {canManage && (
+                      <button
+                        type="button"
+                        aria-label="Xóa mục lịch trình"
+                        onClick={() => handleDeleteSession(s.id)}
+                        className="p-1 text-gray-300 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100 shrink-0 mt-1"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>
@@ -861,13 +906,15 @@ export default function EventDetailPage() {
                   </span>
                 )}
               </h2>
-              <button
-                type="button"
-                onClick={() => setAssignStaffOpen(true)}
-                className="text-xs font-medium text-indigo-600 hover:text-indigo-800 transition-colors flex items-center gap-0.5"
-              >
-                <Plus size={12} /> Phân công
-              </button>
+              {canManage && (
+                <button
+                  type="button"
+                  onClick={() => setAssignStaffOpen(true)}
+                  className="text-xs font-medium text-indigo-600 hover:text-indigo-800 transition-colors flex items-center gap-0.5"
+                >
+                  <Plus size={12} /> Phân công
+                </button>
+              )}
             </div>
 
             {staff.length === 0 ? (
@@ -900,14 +947,16 @@ export default function EventDetailPage() {
                         {ROLE_LABEL[s.role] ?? s.role}
                       </p>
                     </div>
-                    <button
-                      type="button"
-                      aria-label="Xóa nhân sự"
-                      onClick={() => handleRemoveStaff(s.userId)}
-                      className="p-1 text-gray-300 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
-                    >
-                      <Trash2 size={12} />
-                    </button>
+                    {canManage && (
+                      <button
+                        type="button"
+                        aria-label="Xóa nhân sự"
+                        onClick={() => setStaffDeleteTarget(s.userId)}
+                        className="p-1 text-gray-300 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>
@@ -1017,6 +1066,50 @@ export default function EventDetailPage() {
         onClose={() => setAssignStaffOpen(false)}
         onAssigned={loadEvent}
       />
+
+      {/* Delete event confirmation */}
+      <AlertDialog open={deleteEventOpen} onOpenChange={v => !v && setDeleteEventOpen(false)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Xác nhận xóa sự kiện</AlertDialogTitle>
+            <AlertDialogDescription>
+              Sự kiện <span className="font-semibold text-gray-800">"{event.name}"</span> sẽ bị xóa vĩnh viễn cùng toàn bộ lịch trình và nhân sự liên quan. Hành động này không thể hoàn tác.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deletingEvent}>Hủy</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteEvent}
+              disabled={deletingEvent}
+              className="bg-red-600 hover:bg-red-700 text-white focus:ring-red-600"
+            >
+              {deletingEvent ? "Đang xóa..." : "Xóa sự kiện"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Remove staff confirmation */}
+      <AlertDialog open={!!staffDeleteTarget} onOpenChange={v => !v && setStaffDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Xóa nhân sự</AlertDialogTitle>
+            <AlertDialogDescription>
+              Bạn có chắc muốn xóa nhân sự này khỏi sự kiện không?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deletingStaff}>Hủy</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmRemoveStaff}
+              disabled={deletingStaff}
+              className="bg-red-600 hover:bg-red-700 text-white focus:ring-red-600"
+            >
+              {deletingStaff ? "Đang xóa..." : "Xóa"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

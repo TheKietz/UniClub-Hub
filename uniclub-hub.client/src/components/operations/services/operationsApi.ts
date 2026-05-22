@@ -6,6 +6,9 @@ import type {
   CreateEventDto, UpdateEventDto, CreateEventSessionDto, AssignEventStaffDto,
   CreateSprintDto, UpdateSprintDto,
   AuditLogItem,
+  KanbanColumnItem, CreateKanbanColumnDto, UpdateKanbanColumnDto,
+  TaskCommentItem, CreateTaskCommentDto,
+  TaskAttachmentItem, AddTaskAttachmentLinkDto,
 } from './operations.types'
 
 type ApiResponse<T> = { data: T; success: boolean; message: string }
@@ -43,10 +46,61 @@ export const addDependency = (taskId: number, dto: AddDependencyDto) =>
 export const removeDependency = (taskId: number, dependsOnTaskId: number) =>
   api.delete(`/v1/operations/tasks/${taskId}/dependencies/${dependsOnTaskId}`)
 
+// ── Task Comments ─────────────────────────────────────────────────────────────
+
+export const getTaskComments = (taskId: number) =>
+  api.get<ApiResponse<TaskCommentItem[]>>(`/v1/operations/tasks/${taskId}/comments`).then(r => r.data.data)
+
+export const addTaskComment = (taskId: number, dto: CreateTaskCommentDto) =>
+  api.post<ApiResponse<TaskCommentItem>>(`/v1/operations/tasks/${taskId}/comments`, dto).then(r => r.data.data)
+
+export const updateTaskComment = (taskId: number, commentId: number, content: string) =>
+  api.put<ApiResponse<TaskCommentItem>>(`/v1/operations/tasks/${taskId}/comments/${commentId}`, { content }).then(r => r.data.data)
+
+export const deleteTaskComment = (taskId: number, commentId: number) =>
+  api.delete(`/v1/operations/tasks/${taskId}/comments/${commentId}`)
+
+// ── Task Attachments ──────────────────────────────────────────────────────────
+
+export const getTaskAttachments = (taskId: number) =>
+  api.get<ApiResponse<TaskAttachmentItem[]>>(`/v1/operations/tasks/${taskId}/attachments`).then(r => r.data.data)
+
+export const addTaskAttachmentLink = (taskId: number, dto: AddTaskAttachmentLinkDto) =>
+  api.post<ApiResponse<TaskAttachmentItem>>(`/v1/operations/tasks/${taskId}/attachments/link`, dto).then(r => r.data.data)
+
+export const uploadTaskAttachmentFile = (taskId: number, file: File, note?: string) => {
+  const form = new FormData()
+  form.append('file', file)
+  if (note) form.append('note', note)
+  return api.post<ApiResponse<TaskAttachmentItem>>(`/v1/operations/tasks/${taskId}/attachments/file`, form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }).then(r => r.data.data)
+}
+
+export const deleteTaskAttachment = (taskId: number, attachmentId: number) =>
+  api.delete(`/v1/operations/tasks/${taskId}/attachments/${attachmentId}`)
+
+// ── Kanban Columns ────────────────────────────────────────────────────────────
+
+export const getKanbanColumns = (clubId: number, sprintId?: number) =>
+  api.get<ApiResponse<KanbanColumnItem[]>>('/v1/operations/kanban-columns', { params: { clubId, sprintId } }).then(r => r.data.data)
+
+export const createKanbanColumn = (clubId: number, dto: CreateKanbanColumnDto) =>
+  api.post<ApiResponse<KanbanColumnItem>>(`/v1/operations/kanban-columns?clubId=${clubId}`, dto).then(r => r.data.data)
+
+export const updateKanbanColumn = (id: number, dto: UpdateKanbanColumnDto) =>
+  api.put<ApiResponse<KanbanColumnItem>>(`/v1/operations/kanban-columns/${id}`, dto).then(r => r.data.data)
+
+export const deleteKanbanColumn = (id: number) =>
+  api.delete(`/v1/operations/kanban-columns/${id}`)
+
+export const reorderKanbanColumns = (clubId: number, orderedIds: number[]) =>
+  api.patch(`/v1/operations/kanban-columns/reorder?clubId=${clubId}`, { orderedIds })
+
 // ── Events ────────────────────────────────────────────────────────────────────
 
 export const getEvents = (params: {
-  clubId: number; status?: string; page?: number; pageSize?: number
+  clubId: number; status?: string; search?: string; page?: number; pageSize?: number
 }) =>
   api.get<ApiResponse<PagedResult<EventItem>>>('/v1/operations/events', { params }).then(r => r.data.data)
 
@@ -86,7 +140,7 @@ export const removeEventStaff = (eventId: number, userId: string) =>
 // ── Sprints ───────────────────────────────────────────────────────────────────
 
 export const getSprints = (params: {
-  clubId: number; eventId?: number; page?: number; pageSize?: number
+  clubId: number; departmentId?: number; eventId?: number; page?: number; pageSize?: number
 }) =>
   api.get<ApiResponse<PagedResult<SprintItem>>>('/v1/operations/sprints', { params }).then(r => r.data.data)
 

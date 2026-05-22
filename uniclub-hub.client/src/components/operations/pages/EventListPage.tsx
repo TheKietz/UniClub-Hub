@@ -1,31 +1,42 @@
-import { useEffect, useState } from 'react'
-import { useSearchParams, useNavigate } from 'react-router-dom'
+import { useEffect, useState, useMemo } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
-import { Plus, Calendar, MapPin, Users, Pencil, Trash2 } from 'lucide-react'
+import { Plus, Calendar, MapPin, Users, Pencil, Trash2, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { useAuth } from '@/contexts/AuthContext'
+import { CLUB_ROLES } from '@/types/auth'
 import { getEvents, createEvent, updateEvent, deleteEvent } from '../services/operationsApi'
 import type { EventItem, CreateEventDto, UpdateEventDto, EventStatus } from '../services/operations.types'
 
 const STATUS_BADGE: Record<EventStatus, { label: string; bg: string; text: string }> = {
-  Draft:      { label: 'Nháp',        bg: '#f3f4f6', text: '#374151' },
+  Draft:      { label: 'Nháp',         bg: '#f3f4f6', text: '#374151' },
   InProgress: { label: 'Đang diễn ra', bg: '#dbeafe', text: '#1d4ed8' },
-  Completed:  { label: 'Hoàn thành',  bg: '#d1fae5', text: '#065f46' },
-  Cancelled:  { label: 'Đã hủy',     bg: '#fee2e2', text: '#991b1b' },
+  Completed:  { label: 'Hoàn thành',   bg: '#d1fae5', text: '#065f46' },
+  Cancelled:  { label: 'Đã hủy',      bg: '#fee2e2', text: '#991b1b' },
 }
 
 const EMPTY_FORM: CreateEventDto = { name: '', description: '', location: '', startTime: '', endTime: '', budget: undefined, category: '' }
 
 export default function EventListPage() {
-  const [searchParams] = useSearchParams()
+  const { clubId: clubIdParam } = useParams<{ clubId: string }>()
   const navigate = useNavigate()
-  const clubId = Number(searchParams.get('clubId') ?? 1)
+  const clubId = Number(clubIdParam ?? 1)
+
+  const { isSuperAdmin, getClubRole } = useAuth()
+  const canManage = isSuperAdmin || getClubRole(clubId) === CLUB_ROLES.CLUB_ADMIN
 
   const [events, setEvents] = useState<EventItem[]>([])
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState('')
+  const [categoryFilter, setCategoryFilter] = useState('')
+  const [search, setSearch] = useState('')
   const [refreshKey, setRefreshKey] = useState(0)
 
   const [modalOpen, setModalOpen] = useState(false)
@@ -33,13 +44,26 @@ export default function EventListPage() {
   const [form, setForm] = useState<CreateEventDto>(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
 
+  const [deleteTarget, setDeleteTarget] = useState<EventItem | null>(null)
+  const [deleting, setDeleting] = useState(false)
+
   useEffect(() => {
     setLoading(true)
-    getEvents({ clubId, status: statusFilter || undefined, pageSize: 100 })
+    getEvents({ clubId, status: statusFilter || undefined, search: search || undefined, pageSize: 100 })
       .then(r => setEvents(r.items))
       .catch(() => toast.error('Không thể tải danh sách sự kiện'))
       .finally(() => setLoading(false))
-  }, [clubId, statusFilter, refreshKey])
+  }, [clubId, statusFilter, search, refreshKey])
+
+  const categories = useMemo(
+    () => [...new Set(events.map(e => e.category).filter((c): c is string => !!c))],
+    [events]
+  )
+
+  const displayed = useMemo(
+    () => categoryFilter ? events.filter(e => e.category === categoryFilter) : events,
+    [events, categoryFilter]
+  )
 
   const openCreate = () => {
     setEditTarget(null)
@@ -82,13 +106,18 @@ export default function EventListPage() {
     }
   }
 
-  const handleDelete = async (ev: EventItem) => {
+  const confirmDelete = async () => {
+    if (!deleteTarget) return
+    setDeleting(true)
     try {
-      await deleteEvent(ev.id)
+      await deleteEvent(deleteTarget.id)
       toast.success('Đã xóa sự kiện')
+      setDeleteTarget(null)
       setRefreshKey(k => k + 1)
     } catch {
       toast.error('Không thể xóa sự kiện này')
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -98,18 +127,32 @@ export default function EventListPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-indigo-50 p-6">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-5">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">Sự kiện</h1>
-          <p className="text-sm text-gray-500 mt-1">{events.length} sự kiện</p>
+          <p className="text-sm text-gray-500 mt-1">{displayed.length} sự kiện</p>
         </div>
-        <Button className="bg-indigo-600 hover:bg-indigo-700 text-white" onClick={openCreate}>
-          <Plus size={16} className="mr-1" /> Tạo sự kiện
-        </Button>
+        {canManage && (
+          <Button className="bg-indigo-600 hover:bg-indigo-700 text-white" onClick={openCreate}>
+            <Plus size={16} className="mr-1" /> Tạo sự kiện
+          </Button>
+        )}
       </div>
 
-      {/* Filter */}
-      <div className="flex gap-2 mb-5 flex-wrap">
+      {/* Search */}
+      <div className="relative mb-4">
+        <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+        <input
+          type="text"
+          placeholder="Tìm kiếm theo tên sự kiện..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          className="w-full pl-10 pr-4 py-2.5 text-sm border border-gray-200 rounded-xl bg-white focus:outline-none focus:ring-1 focus:ring-indigo-300 placeholder:text-gray-400"
+        />
+      </div>
+
+      {/* Status filter */}
+      <div className="flex gap-2 mb-3 flex-wrap">
         {['', 'Draft', 'InProgress', 'Completed', 'Cancelled'].map(s => (
           <button
             key={s}
@@ -125,33 +168,73 @@ export default function EventListPage() {
         ))}
       </div>
 
+      {/* Category filter (shown when 2+ categories exist) */}
+      {categories.length >= 2 && (
+        <div className="flex gap-2 mb-5 flex-wrap">
+          <button
+            onClick={() => setCategoryFilter('')}
+            className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+              categoryFilter === ''
+                ? 'bg-gray-700 text-white border-gray-700'
+                : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
+            }`}
+          >
+            Tất cả danh mục
+          </button>
+          {categories.map(cat => (
+            <button
+              key={cat}
+              onClick={() => setCategoryFilter(cat === categoryFilter ? '' : cat)}
+              className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+                categoryFilter === cat
+                  ? 'bg-gray-700 text-white border-gray-700'
+                  : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
+              }`}
+            >
+              {cat}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* List */}
       {loading ? (
         <div className="text-center text-gray-400 py-20">Đang tải...</div>
-      ) : events.length === 0 ? (
-        <div className="text-center text-gray-400 py-20">Chưa có sự kiện nào</div>
+      ) : displayed.length === 0 ? (
+        <div className="text-center text-gray-400 py-20">
+          {search ? 'Không tìm thấy sự kiện nào' : 'Chưa có sự kiện nào'}
+        </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {events.map(ev => {
+          {displayed.map(ev => {
             const badge = STATUS_BADGE[ev.status] ?? STATUS_BADGE.Draft
             return (
               <div
                 key={ev.id}
                 className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 hover:shadow-md transition-shadow cursor-pointer"
-                onClick={() => navigate(`/operations/events/${ev.id}?clubId=${clubId}`)}
+                onClick={() => navigate(`/clubs/${clubId}/events/${ev.id}`)}
               >
                 <div className="flex items-start justify-between mb-3">
-                  <span className="text-xs font-medium px-2 py-0.5 rounded-full" style={{ background: badge.bg, color: badge.text }}>
-                    {badge.label}
-                  </span>
-                  <div className="flex gap-1">
-                    <button className="p-1 text-gray-400 hover:text-indigo-600" onClick={e => { e.stopPropagation(); openEdit(ev) }}>
-                      <Pencil size={14} />
-                    </button>
-                    <button className="p-1 text-gray-400 hover:text-red-500" onClick={e => { e.stopPropagation(); handleDelete(ev) }}>
-                      <Trash2 size={14} />
-                    </button>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs font-medium px-2 py-0.5 rounded-full" style={{ background: badge.bg, color: badge.text }}>
+                      {badge.label}
+                    </span>
+                    {ev.category && (
+                      <span className="text-xs text-gray-400 bg-gray-50 border border-gray-100 px-2 py-0.5 rounded-full">
+                        {ev.category}
+                      </span>
+                    )}
                   </div>
+                  {canManage && (
+                    <div className="flex gap-1 shrink-0">
+                      <button className="p-1 text-gray-400 hover:text-indigo-600 transition-colors" onClick={e => { e.stopPropagation(); openEdit(ev) }}>
+                        <Pencil size={14} />
+                      </button>
+                      <button className="p-1 text-gray-400 hover:text-red-500 transition-colors" onClick={e => { e.stopPropagation(); setDeleteTarget(ev) }}>
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 <h3 className="font-semibold text-gray-800 mb-2 line-clamp-2">{ev.name}</h3>
@@ -180,7 +263,7 @@ export default function EventListPage() {
         </div>
       )}
 
-      {/* Modal */}
+      {/* Create / Edit Modal */}
       <Dialog open={modalOpen} onOpenChange={v => !v && setModalOpen(false)}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
@@ -252,6 +335,28 @@ export default function EventListPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete confirmation */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={v => !v && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Xác nhận xóa sự kiện</AlertDialogTitle>
+            <AlertDialogDescription>
+              Sự kiện <span className="font-semibold text-gray-800">"{deleteTarget?.name}"</span> sẽ bị xóa vĩnh viễn. Hành động này không thể hoàn tác.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Hủy</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              disabled={deleting}
+              className="bg-red-600 hover:bg-red-700 text-white focus:ring-red-600"
+            >
+              {deleting ? 'Đang xóa...' : 'Xóa sự kiện'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

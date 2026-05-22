@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useSearchParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import {
   LayoutDashboard,
@@ -37,49 +37,13 @@ import ProgressBar from "../../shared/ProgressBar";
 import { SprintStatusBadge, EventStatusBadge } from "../../shared/StatusBadge";
 import { SkeletonStatCard } from "../../shared/Skeleton";
 
-const NAV_CARDS = [
-  {
-    label: "Kanban",
-    path: "/operations/kanban",
-    icon: LayoutDashboard,
-    color: "#4f46e5",
-    bg: "#eef2ff",
-  },
-  {
-    label: "Sprints",
-    path: "/operations/sprints",
-    icon: Layers,
-    color: "#7c3aed",
-    bg: "#f5f3ff",
-  },
-  {
-    label: "Sự kiện",
-    path: "/operations/events",
-    icon: Calendar,
-    color: "#2563eb",
-    bg: "#eff6ff",
-  },
-  {
-    label: "Phân công",
-    path: "/operations/workload",
-    icon: BarChart2,
-    color: "#d97706",
-    bg: "#fffbeb",
-  },
-  {
-    label: "Gantt",
-    path: "/operations/gantt",
-    icon: Activity,
-    color: "#0d9488",
-    bg: "#f0fdfa",
-  },
-  {
-    label: "Cảnh báo",
-    path: "/operations/deadlines",
-    icon: AlertTriangle,
-    color: "#dc2626",
-    bg: "#fef2f2",
-  },
+const NAV_CARD_DEFS = [
+  { label: "Kanban",    sub: "kanban",    icon: LayoutDashboard, color: "#4f46e5", bg: "#eef2ff" },
+  { label: "Sprints",   sub: "sprints",   icon: Layers,          color: "#7c3aed", bg: "#f5f3ff" },
+  { label: "Sự kiện",  sub: "events",    icon: Calendar,        color: "#2563eb", bg: "#eff6ff" },
+  { label: "Phân công", sub: "workload",  icon: BarChart2,       color: "#d97706", bg: "#fffbeb" },
+  { label: "Gantt",     sub: "gantt",     icon: Activity,        color: "#0d9488", bg: "#f0fdfa" },
+  { label: "Cảnh báo", sub: "deadlines", icon: AlertTriangle,   color: "#dc2626", bg: "#fef2f2" },
 ];
 
 const ACTION_ICON: Record<string, React.ReactNode> = {
@@ -107,9 +71,9 @@ function formatLogTime(iso: string): string {
 }
 
 export default function OperationsDashboard() {
-  const [searchParams] = useSearchParams();
+  const { clubId: clubIdParam } = useParams<{ clubId: string }>();
   const navigate = useNavigate();
-  const clubId = Number(searchParams.get("clubId") ?? 1);
+  const clubId = Number(clubIdParam ?? 1);
 
   const [loading, setLoading] = useState(true);
   const [taskStats, setTaskStats] = useState({
@@ -170,7 +134,7 @@ export default function OperationsDashboard() {
       .finally(() => setLoading(false));
   }, [clubId]);
 
-  const withClub = (path: string) => `${path}?clubId=${clubId}`;
+  const withClub = (sub: string) => `/clubs/${clubId}/${sub}`;
 
   const sprintTotal = sprintTasks.todo + sprintTasks.doing + sprintTasks.done;
   const sprintProgress =
@@ -235,7 +199,7 @@ export default function OperationsDashboard() {
       {!loading && taskStats.overdue > 0 && (
         <div
           className="mb-6 flex items-center gap-3 px-5 py-3.5 bg-red-50 border border-red-100 rounded-2xl cursor-pointer hover:bg-red-100 transition-colors group"
-          onClick={() => navigate(withClub("/operations/deadlines"))}
+          onClick={() => navigate(withClub("deadlines"))}
         >
           <div className="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center shrink-0">
             <AlertTriangle size={16} className="text-red-500" />
@@ -262,7 +226,7 @@ export default function OperationsDashboard() {
             </h2>
             <button
               type="button"
-              onClick={() => navigate(withClub("/operations/sprints"))}
+              onClick={() => navigate(withClub("sprints"))}
               className="text-xs font-medium text-indigo-600 hover:text-indigo-800 transition-colors flex items-center gap-1"
             >
               Xem tất cả <ArrowUpRight size={12} />
@@ -342,7 +306,7 @@ export default function OperationsDashboard() {
             </h2>
             <button
               type="button"
-              onClick={() => navigate(withClub("/operations/activity"))}
+              onClick={() => navigate(withClub("activity"))}
               className="text-xs font-medium text-indigo-600 hover:text-indigo-800 transition-colors flex items-center gap-1"
             >
               Xem tất cả <ArrowUpRight size={12} />
@@ -403,7 +367,7 @@ export default function OperationsDashboard() {
           </h2>
           <button
             type="button"
-            onClick={() => navigate(withClub("/operations/events"))}
+            onClick={() => navigate(withClub("events"))}
             className="text-xs font-medium text-indigo-600 hover:text-indigo-800 transition-colors flex items-center gap-1"
           >
             Xem tất cả <ArrowUpRight size={12} />
@@ -424,7 +388,7 @@ export default function OperationsDashboard() {
                 key={ev.id}
                 className="p-4 rounded-xl border border-gray-100 hover:border-indigo-200 hover:shadow-sm transition-all cursor-pointer group"
                 onClick={() =>
-                  navigate(`/operations/events/${ev.id}?clubId=${clubId}`)
+                  navigate(`/clubs/${clubId}/events/${ev.id}`)
                 }
               >
                 <div className="flex items-center justify-between mb-2">
@@ -457,11 +421,11 @@ export default function OperationsDashboard() {
 
       {/* ── Quick Nav Grid ──────────────────────────────────────── */}
       <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
-        {NAV_CARDS.map(({ label, path, icon: Icon, color, bg }) => (
+        {NAV_CARD_DEFS.map(({ label, sub, icon: Icon, color, bg }) => (
           <button
-            key={path}
+            key={sub}
             type="button"
-            onClick={() => navigate(withClub(path))}
+            onClick={() => navigate(withClub(sub))}
             className="bg-white rounded-2xl border border-gray-100 p-4 flex flex-col items-center gap-2.5 shadow-sm
               hover:shadow-md hover:border-indigo-100 transition-all duration-200 cursor-pointer group"
           >

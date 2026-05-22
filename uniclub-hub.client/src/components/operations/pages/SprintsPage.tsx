@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
-import { useSearchParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Plus, Layers, CheckCircle2, Users, Zap } from "lucide-react";
 import {
@@ -13,6 +13,10 @@ import type {
   SprintStatus,
   CreateSprintDto,
 } from "../services/operations.types";
+import { getDepartments } from "../../membership/services/clubApi";
+import type { DepartmentItem } from "../../membership/services/club.types";
+import { useAuth } from "@/contexts/AuthContext";
+import { CLUB_ROLES, MEMBERSHIP_STATUS } from "@/types/auth";
 /* ── Components ─────────────────────────────────────────────────────── */
 import PageHeader from "../../shared/PageHeader";
 import StatCard from "../components/StatCard";
@@ -48,9 +52,15 @@ function toCard(s: SprintItem): SprintCardData {
 }
 
 export default function SprintsPage() {
-  const [searchParams] = useSearchParams();
+  const { clubId: clubIdParam } = useParams<{ clubId: string }>();
   const navigate = useNavigate();
-  const clubId = Number(searchParams.get("clubId") ?? 1);
+  const clubId = Number(clubIdParam ?? 1);
+  const { user, getClubRole } = useAuth();
+
+  /* ── Role & permission ──────────────────────────────────────────────── */
+  const clubRole = getClubRole(clubId);
+  const canManage =
+    clubRole === CLUB_ROLES.CLUB_ADMIN || clubRole === CLUB_ROLES.DEPT_LEAD;
 
   /* ── State ──────────────────────────────────────────────────────────── */
   const [sprints, setSprints] = useState<SprintCardData[]>([]);
@@ -60,12 +70,38 @@ export default function SprintsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<SprintItem | null>(null);
+  const [selectedDepartmentId, setSelectedDepartmentId] = useState<number | null>(null);
+  const [departments, setDepartments] = useState<DepartmentItem[]>([]);
+
+  /* ── Fetch departments the user belongs to in this club ─────────────── */
+  useEffect(() => {
+    if (!user) return;
+    getDepartments(clubId).then((all) => {
+      if (clubRole === CLUB_ROLES.CLUB_ADMIN) {
+        setDepartments(all);
+      } else {
+        const userDeptIds = user.memberships
+          .filter(
+            (m) =>
+              m.clubId === clubId &&
+              m.status === MEMBERSHIP_STATUS.ACTIVE &&
+              m.departmentId != null,
+          )
+          .map((m) => m.departmentId!);
+        setDepartments(all.filter((d) => userDeptIds.includes(d.id)));
+      }
+    });
+  }, [clubId, user, clubRole]);
 
   /* ── Data fetching ──────────────────────────────────────────────────── */
   useEffect(() => {
     setLoading(true);
     Promise.all([
-      getSprints({ clubId, pageSize: 100 }),
+      getSprints({
+        clubId,
+        pageSize: 100,
+        ...(selectedDepartmentId != null && { departmentId: selectedDepartmentId }),
+      }),
       getTasks({ clubId, status: "Done", pageSize: 1 }),
     ])
       .then(([sprintResult, doneResult]) => {
@@ -74,7 +110,7 @@ export default function SprintsPage() {
       })
       .catch(() => toast.error("Không thể tải danh sách sprint"))
       .finally(() => setLoading(false));
-  }, [clubId]);
+  }, [clubId, selectedDepartmentId]);
 
   /* ── Filtered + searched data ───────────────────────────────────────── */
   const displayed = useMemo(() => {
@@ -148,7 +184,7 @@ export default function SprintsPage() {
   };
 
   const handleViewKanban = (id: number) => {
-    navigate(`/operations/kanban?clubId=${clubId}&sprintId=${id}`);
+    navigate(`/clubs/${clubId}/kanban?sprintId=${id}`);
   };
 
   const openCreate = () => {
@@ -161,22 +197,24 @@ export default function SprintsPage() {
       {/* ── Header ──────────────────────────────────────────────────── */}
       <PageHeader
         breadcrumbs={[
-          { label: "Tasks", href: `/operations/kanban?clubId=${clubId}` },
+          { label: "Tasks", href: `/clubs/${clubId}/kanban` },
           { label: "Sprint Management" },
         ]}
         title="Quản lý Sprint"
         description="Lập kế hoạch và theo dõi các chu kỳ làm việc Agile. Chia nhỏ các dự án lớn thành các giai đoạn ngắn hạn để tăng hiệu suất và độ minh bạch cho câu lạc bộ."
         action={
-          <button
-            type="button"
-            onClick={openCreate}
-            className="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-white rounded-xl shadow-sm
-              bg-gradient-to-r from-[#0A2540] to-[#1a3a5c] hover:from-[#0d2f4f] hover:to-[#1f4570]
-              transition-all duration-200 hover:shadow-md"
-          >
-            <Plus size={16} />
-            Tạo Sprint mới
-          </button>
+          canManage ? (
+            <button
+              type="button"
+              onClick={openCreate}
+              className="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-white rounded-xl shadow-sm
+                bg-gradient-to-r from-[#0A2540] to-[#1a3a5c] hover:from-[#0d2f4f] hover:to-[#1f4570]
+                transition-all duration-200 hover:shadow-md"
+            >
+              <Plus size={16} />
+              Tạo Sprint mới
+            </button>
+          ) : undefined
         }
       />
 
@@ -228,6 +266,9 @@ export default function SprintsPage() {
         activeStatus={statusFilter}
         onStatusChange={setStatusFilter}
         sortLabel="Mới nhất"
+        departmentOptions={departments.map((d) => ({ id: d.id, name: d.name }))}
+        selectedDepartment={selectedDepartmentId}
+        onDepartmentChange={setSelectedDepartmentId}
       />
 
       {/* ── Sprint Grid ─────────────────────────────────────────────── */}
@@ -243,13 +284,15 @@ export default function SprintsPage() {
           title="Chưa có sprint nào"
           description="Tạo sprint đầu tiên để bắt đầu quản lý công việc theo chu kỳ Agile."
           action={
-            <button
-              type="button"
-              onClick={openCreate}
-              className="px-4 py-2 text-sm font-semibold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 transition-colors"
-            >
-              + Tạo sprint mới
-            </button>
+            canManage ? (
+              <button
+                type="button"
+                onClick={openCreate}
+                className="px-4 py-2 text-sm font-semibold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 transition-colors"
+              >
+                + Tạo sprint mới
+              </button>
+            ) : undefined
           }
         />
       ) : (
@@ -261,23 +304,26 @@ export default function SprintsPage() {
               onEdit={handleEdit}
               onDelete={handleDelete}
               onViewKanban={handleViewKanban}
+              canManage={canManage}
             />
           ))}
-          <AddSprintCard onClick={openCreate} />
+          {canManage && <AddSprintCard onClick={openCreate} />}
         </div>
       )}
 
       {/* ── Floating action button (mobile) ─────────────────────────── */}
-      <button
-        type="button"
-        onClick={openCreate}
-        className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-[#0A2540] text-white shadow-xl
-          flex items-center justify-center hover:bg-[#0d2f4f] transition-all
-          hover:scale-105 active:scale-95 lg:hidden z-40"
-        aria-label="Tạo sprint mới"
-      >
-        <Plus size={24} />
-      </button>
+      {canManage && (
+        <button
+          type="button"
+          onClick={openCreate}
+          className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-[#0A2540] text-white shadow-xl
+            flex items-center justify-center hover:bg-[#0d2f4f] transition-all
+            hover:scale-105 active:scale-95 lg:hidden z-40"
+          aria-label="Tạo sprint mới"
+        >
+          <Plus size={24} />
+        </button>
+      )}
 
       {/* ── Create/Edit Modal ───────────────────────────────────────── */}
       <CreateSprintModal

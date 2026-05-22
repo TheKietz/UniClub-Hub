@@ -9,6 +9,9 @@ interface FilterBarProps {
   onStatusChange: (status: string) => void
   sortLabel?: string
   onSortChange?: () => void
+  departmentOptions?: Array<{ id: number; name: string }>
+  selectedDepartment?: number | null
+  onDepartmentChange?: (id: number | null) => void
 }
 
 export default function FilterBar({
@@ -20,6 +23,9 @@ export default function FilterBar({
   onStatusChange,
   sortLabel,
   onSortChange,
+  departmentOptions,
+  selectedDepartment,
+  onDepartmentChange,
 }: FilterBarProps) {
   return (
     <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-5">
@@ -40,6 +46,25 @@ export default function FilterBar({
             transition-all placeholder:text-gray-400"
         />
       </div>
+
+      {/* Department selector */}
+      {departmentOptions && onDepartmentChange && (
+        <div className="relative">
+          <select
+            value={selectedDepartment ?? ''}
+            onChange={(e) => onDepartmentChange(e.target.value ? Number(e.target.value) : null)}
+            className="appearance-none pl-3 pr-8 py-2 text-sm bg-white border border-gray-200 rounded-xl
+              focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400
+              text-gray-700 transition-all cursor-pointer"
+          >
+            <option value="">Tất cả ban</option>
+            {departmentOptions.map((d) => (
+              <option key={d.id} value={d.id}>{d.name}</option>
+            ))}
+          </select>
+          <ChevronDown size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+        </div>
+      )}
 
       {/* Status pills */}
       <div className="flex gap-1.5 flex-wrap">
