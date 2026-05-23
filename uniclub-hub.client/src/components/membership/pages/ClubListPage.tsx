@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getClubs, getPublicCategories } from '@/components/membership/services/clubApi'
 import type { ClubListItem } from '@/components/membership/services/club.types'
-import { C, Rv, Tag, ClubCard, CatPill, Marquee, V3Footer, type ClubCardData } from '@/components/public/v3'
+import { C, Rv, Tag, ClubCard, CatPill, Marquee, PublicFooter, type ClubCardData } from '@/components/public/publicComponents'
 import PublicHeader from '@/components/layouts/PublicHeader'
 
 const CLUB_COLORS = [C.indigo, C.violet, C.coral, C.mint, C.sky, C.pink, C.lemon, C.coral]
@@ -33,7 +33,7 @@ export default function ClubListPage() {
   useEffect(() => {
     Promise.all([getClubs(), getPublicCategories()])
       .then(([c, cats]) => { setClubs(c); setCategories(cats) })
-      .catch(() => {})
+      .catch(() => { })
       .finally(() => setLoading(false))
   }, [])
 
@@ -63,11 +63,11 @@ export default function ClubListPage() {
             animation: 'float 4s ease-in-out infinite', pointerEvents: 'none',
           }}>✦</div>
 
-          <Rv>
+          {/* <Rv>
             <Tag bg={C.coral} color={C.bg} style={{ marginBottom: 14 }}>
               {clubs.length > 0 ? `${clubs.length} CLB` : '—'} · UEF
             </Tag>
-          </Rv>
+          </Rv> */}
 
           <Rv delay={60}>
             <h1 style={{
@@ -138,7 +138,7 @@ export default function ClubListPage() {
           Đang tải...
         </div>
       ) : cardData.length > 0 ? (
-        <section style={{ padding: '16px 28px 60px' }}>
+        <section style={{ padding: '16px 28px 60px', flex: 1 }}>
           <div style={{ maxWidth: 1280, margin: '0 auto' }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 14 }}>
               {cardData.map((club, i) => (
@@ -175,7 +175,7 @@ export default function ClubListPage() {
       {/* ─── Marquee ──────────────────────────────────── */}
       <Marquee tone="dark" items={marqueeItems} speed={35} />
 
-      <V3Footer />
+      <PublicFooter />
     </div>
   )
 }

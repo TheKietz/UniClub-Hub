@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { C, Rv, Tag, ClubCard, Marquee, V3Footer, type ClubCardData } from '@/components/public/v3'
+import { C, Rv, Tag, ClubCard, Marquee, PublicFooter, type ClubCardData } from '@/components/public/publicComponents'
 import PublicHeader from '@/components/layouts/PublicHeader'
 import { getClubs } from '@/components/membership/services/clubApi'
 import type { ClubListItem } from '@/components/membership/services/club.types'
@@ -36,7 +36,7 @@ export default function LandingPage() {
   const [clubs, setClubs] = useState<ClubListItem[]>([])
 
   useEffect(() => {
-    getClubs().then(setClubs).catch(() => {})
+    getClubs().then(setClubs).catch(() => { })
   }, [])
 
   const cardClubs = clubs.map(toCardData)
@@ -70,7 +70,7 @@ export default function LandingPage() {
             background: C.mint, border: C.border, opacity: 0.6,
             animation: 'float 5s ease-in-out infinite 1s',
           }} />
-
+          {/* 
           <Rv>
             <div style={{
               display: 'inline-flex', alignItems: 'center', gap: 6,
@@ -81,7 +81,7 @@ export default function LandingPage() {
               <span style={{ width: 6, height: 6, borderRadius: 3, background: C.mint, animation: 'pulse 2s infinite' }} />
               {clubs.length > 0 ? `${clubs.length} câu lạc bộ · UEF` : 'Đang tải dữ liệu...'}
             </div>
-          </Rv>
+          </Rv> */}
 
           <Rv delay={60}>
             <h1 style={{
@@ -185,7 +185,7 @@ export default function LandingPage() {
                     width: 44, height: 44, borderRadius: 10, flexShrink: 0,
                     background: a.color, border: C.border,
                     display: 'grid', placeItems: 'center',
-                    color: a.color === C.lemon ? C.ink : C.bg, fontSize: 18,
+                    color: C.bg, fontSize: 18,
                   }}>★</div>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 13.5, fontWeight: 600, color: C.ink, lineHeight: 1.35, marginBottom: 3 }}>
@@ -194,7 +194,7 @@ export default function LandingPage() {
                     <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                       <span style={{
                         fontSize: 10, fontWeight: 700, padding: '2px 6px', borderRadius: 4,
-                        background: a.color, color: a.color === C.lemon ? C.ink : C.bg, letterSpacing: '.04em',
+                        background: a.color, color: C.bg, letterSpacing: '.04em',
                       }}>{a.tag}</span>
                       <span style={{ fontSize: 11.5, color: C.inkMuted }}>{a.time}</span>
                     </div>
@@ -246,7 +246,7 @@ export default function LandingPage() {
       {/* ─── Marquee light ────────────────────────────── */}
       <Marquee tone="light" items={marqueeItems} speed={35} />
 
-      <V3Footer />
+      <PublicFooter />
     </div>
   )
 }

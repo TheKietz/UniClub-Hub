@@ -18,5 +18,6 @@ namespace UniClub_Hub.Membership.DTOs.AuditLog
         public string? OldValue { get; set; }
         public string? NewValue { get; set; }
         public DateTime Timestamp { get; set; }
+        public string? ClubName { get; set; }
     }
 }

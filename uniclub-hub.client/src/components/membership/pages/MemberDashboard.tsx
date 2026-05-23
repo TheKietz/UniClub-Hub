@@ -1,15 +1,29 @@
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { CLUB_ROLES, MEMBERSHIP_STATUS } from '@/types/auth'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Building2, Users, ChevronRight, Search } from 'lucide-react'
+import { PageShell, DTag } from '@/components/shared/DashboardCharts'
 
+const CLUB_COLORS = ['#4f46e5', '#7c3aed', '#ff5a3c', '#14b8a6', '#38bdf8', '#ec4899']
 const ROLE_LABELS: Record<string, string> = {
-  CLUB_ADMIN: 'Ban chủ nhiệm',
-  DEPT_LEAD: 'Trưởng ban',
-  MEMBER: 'Thành viên',
+  CLUB_ADMIN: 'Ban chủ nhiệm', DEPT_LEAD: 'Trưởng ban', MEMBER: 'Thành viên',
 }
+const ROLE_COLORS: Record<string, string> = {
+  CLUB_ADMIN: '#ff5a3c', DEPT_LEAD: '#f59e0b', MEMBER: '#14b8a6',
+}
+const D = {
+  border: '1.5px solid #15131a',
+  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 #15131a`,
+  radius: 14,
+  ink: '#15131a',
+  inkMuted: '#918c99',
+  card: '#ffffff',
+  lemon: '#facc15',
+}
+
+function getClubShort(name: string) {
+  return name.split(' ').filter(Boolean).map(w => w[0]).slice(0, 3).join('').toUpperCase()
+}
+function getClubColor(id: number) { return CLUB_COLORS[id % CLUB_COLORS.length] }
 
 export default function MemberDashboard() {
   const { user } = useAuth()
@@ -18,95 +32,161 @@ export default function MemberDashboard() {
   const activeMemberships = user?.memberships.filter(m => m.status === MEMBERSHIP_STATUS.ACTIVE) ?? []
   const managedClubs = activeMemberships.filter(m => m.clubRole === CLUB_ROLES.CLUB_ADMIN)
   const memberClubs = activeMemberships.filter(m => m.clubRole !== CLUB_ROLES.CLUB_ADMIN)
+  const probationClubs = user?.memberships.filter(m => m.status === 'Probation') ?? []
+
+  const firstName = user?.fullName?.trim().split(' ').pop() ?? user?.email?.split('@')[0] ?? 'bạn'
 
   return (
-    <div className="p-8">
-      <div className="max-w-4xl mx-auto space-y-8">
-        {/* Header */}
-        <div>
-          <h1 className="text-2xl font-bold" style={{ color: '#0f172a' }}>
-            Xin chào, {user?.fullName ?? user?.email} 👋
-          </h1>
-          <p className="mt-1" style={{ color: '#64748b' }}>Quản lý hoạt động câu lạc bộ của bạn</p>
-        </div>
-
-        {/* CLB đang quản lý */}
-        {managedClubs.length > 0 && (
-          <section>
-            <h2 className="text-base font-semibold mb-3" style={{ color: '#374151' }}>CLB bạn đang quản lý</h2>
-            <div className="space-y-3">
-              {managedClubs.map(m => (
-                <div key={m.clubId} className="bg-white rounded-xl border border-gray-200 p-4 flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-lg bg-indigo-100 flex items-center justify-center shrink-0">
-                    <Building2 size={20} className="text-indigo-600" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium truncate" style={{ color: '#111827' }}>{m.clubName}</p>
-                    <Badge variant="outline" className="mt-0.5 text-xs">
-                      {ROLE_LABELS[m.clubRole] ?? m.clubRole}
-                    </Badge>
-                  </div>
-                  <Button
-                    size="sm"
-                    onClick={() => navigate(`/clubs/${m.clubId}/manage`)}
-                    className="gap-1 shrink-0"
-                  >
-                    Quản lý <ChevronRight size={14} />
-                  </Button>
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* CLB đang tham gia */}
-        {memberClubs.length > 0 && (
-          <section>
-            <h2 className="text-base font-semibold mb-3" style={{ color: '#374151' }}>CLB bạn đang tham gia</h2>
-            <div className="space-y-3">
-              {memberClubs.map(m => (
-                <div key={m.clubId} className="bg-white rounded-xl border border-gray-200 p-4 flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center shrink-0">
-                    <Users size={20} className="text-emerald-600" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium truncate" style={{ color: '#111827' }}>{m.clubName}</p>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      <Badge variant="secondary" className="text-xs">
-                        {ROLE_LABELS[m.clubRole] ?? m.clubRole}
-                      </Badge>
-                      {m.departmentName && (
-                        <span className="text-xs" style={{ color: '#9ca3af' }}>{m.departmentName}</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* Chưa tham gia CLB nào */}
-        {activeMemberships.length === 0 && (
-          <div className="bg-white rounded-xl border border-dashed border-gray-300 p-10 text-center">
-            <Building2 size={40} className="mx-auto mb-3" style={{ color: '#d1d5db' }} />
-            <p className="font-medium" style={{ color: '#4b5563' }}>Bạn chưa tham gia câu lạc bộ nào</p>
-            <p className="text-sm mt-1" style={{ color: '#9ca3af' }}>Khám phá và đăng ký tham gia ngay</p>
-            <Button className="mt-4 gap-2" onClick={() => navigate('/clubs')}>
-              <Search size={16} /> Khám phá CLB
-            </Button>
-          </div>
-        )}
-
-        {/* Nút khám phá thêm */}
-        {activeMemberships.length > 0 && (
-          <div className="flex justify-center">
-            <Button variant="outline" onClick={() => navigate('/clubs')} className="gap-2">
-              <Search size={16} /> Khám phá thêm CLB
-            </Button>
-          </div>
-        )}
+    <PageShell>
+      {/* Header */}
+      <div style={{ marginBottom: 28 }}>
+        <h1 style={{ fontSize: 28, fontWeight: 900, color: D.ink, letterSpacing: '-.03em', lineHeight: 1.1, margin: 0 }}>
+          Xin chào, {firstName} 👋
+        </h1>
+        <p style={{ fontSize: 14, color: D.inkMuted, marginTop: 6 }}>Quản lý hoạt động câu lạc bộ của bạn</p>
       </div>
-    </div>
+
+      {/* Quick stats */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 28 }}>
+        {[
+          { n: activeMemberships.length, l: 'CLB tham gia', color: '#4f46e5', icon: '◐' },
+          { n: managedClubs.length, l: 'CLB quản lý', color: '#ff5a3c', icon: '◇' },
+          { n: probationClubs.length, l: 'Đang thử việc', color: '#f59e0b', icon: '✦' },
+        ].map(s => (
+          <div key={s.l} style={{
+            padding: '18px 20px', borderRadius: D.radius,
+            background: D.card, border: D.border, boxShadow: D.shadow(),
+            display: 'flex', alignItems: 'center', gap: 14,
+          }}>
+            <div style={{
+              width: 44, height: 44, borderRadius: 12, flexShrink: 0,
+              background: s.color, border: D.border,
+              display: 'grid', placeItems: 'center', color: '#fff', fontSize: 18,
+            }}>{s.icon}</div>
+            <div>
+              <div style={{ fontSize: 28, fontWeight: 900, color: D.ink, letterSpacing: '-.03em', lineHeight: 1 }}>{s.n}</div>
+              <div style={{ fontSize: 12, color: D.inkMuted, marginTop: 2 }}>{s.l}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Managed clubs */}
+      {managedClubs.length > 0 && (
+        <section style={{ marginBottom: 24 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+            <DTag bg="#ff5a3c" color="#fff">Đang quản lý</DTag>
+            <span style={{ fontSize: 12, color: D.inkMuted }}>{managedClubs.length} CLB</span>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {managedClubs.map(m => (
+              <div key={m.clubId} style={{
+                padding: '16px 18px', borderRadius: D.radius,
+                background: D.card, border: D.border, boxShadow: D.shadow(),
+                display: 'flex', alignItems: 'center', gap: 14,
+              }}>
+                {m.clubLogoUrl ? (
+                  <img src={m.clubLogoUrl} alt="" style={{
+                    width: 46, height: 46, borderRadius: 12, objectFit: 'cover',
+                    border: D.border, flexShrink: 0, transform: 'rotate(-3deg)',
+                  }} />
+                ) : (
+                  <div style={{
+                    width: 46, height: 46, borderRadius: 12, flexShrink: 0,
+                    background: getClubColor(m.clubId), border: D.border,
+                    display: 'grid', placeItems: 'center',
+                    color: '#fff', fontWeight: 900, fontSize: 15,
+                    transform: 'rotate(-3deg)',
+                  }}>{getClubShort(m.clubName)}</div>
+                )}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: D.ink }}>{m.clubName}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 3 }}>
+                    <DTag bg={ROLE_COLORS[m.clubRole] ?? '#4f46e5'} color="#fff">
+                      {ROLE_LABELS[m.clubRole] ?? m.clubRole}
+                    </DTag>
+                  </div>
+                </div>
+                <button onClick={() => navigate(`/clubs/${m.clubId}/manage`)} style={{
+                  padding: '8px 16px', borderRadius: 999,
+                  background: D.ink, color: D.lemon, border: D.border,
+                  fontSize: 12, fontWeight: 700, boxShadow: D.shadow(2, 2),
+                  cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0,
+                  display: 'flex', alignItems: 'center', gap: 6,
+                }}>Quản lý →</button>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Member clubs */}
+      {memberClubs.length > 0 && (
+        <section style={{ marginBottom: 24 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+            <DTag bg="#14b8a6" color="#fff">Đang tham gia</DTag>
+            <span style={{ fontSize: 12, color: D.inkMuted }}>{memberClubs.length} CLB</span>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {memberClubs.map(m => (
+              <div key={m.clubId} style={{
+                padding: '16px 18px', borderRadius: D.radius,
+                background: D.card, border: D.border, boxShadow: D.shadow(),
+                display: 'flex', alignItems: 'center', gap: 14,
+              }}>
+                {m.clubLogoUrl ? (
+                  <img src={m.clubLogoUrl} alt="" style={{
+                    width: 46, height: 46, borderRadius: 12, objectFit: 'cover',
+                    border: D.border, flexShrink: 0, transform: 'rotate(-3deg)',
+                  }} />
+                ) : (
+                  <div style={{
+                    width: 46, height: 46, borderRadius: 12, flexShrink: 0,
+                    background: getClubColor(m.clubId), border: D.border,
+                    display: 'grid', placeItems: 'center',
+                    color: '#fff', fontWeight: 900, fontSize: 15,
+                    transform: 'rotate(-3deg)',
+                  }}>{getClubShort(m.clubName)}</div>
+                )}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: D.ink }}>{m.clubName}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 3 }}>
+                    <DTag bg="rgba(0,0,0,.08)" color={D.ink}>{ROLE_LABELS[m.clubRole] ?? m.clubRole}</DTag>
+                    {m.departmentName && (
+                      <span style={{ fontSize: 12, color: D.inkMuted }}>{m.departmentName}</span>
+                    )}
+                    {m.status === 'Probation' && (
+                      <DTag bg="#fef3c7" color="#b45309">Thử việc</DTag>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Empty state */}
+      {activeMemberships.length === 0 && (
+        <div style={{
+          padding: '48px 20px', textAlign: 'center',
+          borderRadius: D.radius, background: D.card, border: D.border, boxShadow: D.shadow(),
+          marginBottom: 24,
+        }}>
+          <div style={{ fontSize: 40, marginBottom: 12 }}>🏫</div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: D.ink, marginBottom: 6 }}>Bạn chưa tham gia CLB nào</div>
+          <div style={{ fontSize: 13, color: D.inkMuted }}>Khám phá các câu lạc bộ và nộp đơn tham gia ngay!</div>
+        </div>
+      )}
+
+      {/* Explore */}
+      <button onClick={() => navigate('/clubs')} style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+        width: '100%', padding: '14px', borderRadius: D.radius,
+        background: D.card, border: `1.5px dashed #e8e3d6`,
+        fontSize: 14, fontWeight: 600, color: '#4f46e5',
+        cursor: 'pointer', fontFamily: 'inherit',
+      }}>⌕ Khám phá thêm CLB</button>
+    </PageShell>
   )
 }

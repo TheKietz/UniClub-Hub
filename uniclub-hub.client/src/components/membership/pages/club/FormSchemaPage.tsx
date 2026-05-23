@@ -1,19 +1,112 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { getFormSchema, updateFormSchema } from '@/components/membership/services/clubApi'
 import type { FormField, FormFieldType } from '@/components/membership/services/club.types'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
-import { Plus, Trash2, GripVertical, ChevronUp, ChevronDown } from 'lucide-react'
+import { ChevronDown } from 'lucide-react'
 
 const FIELD_TYPES: { value: FormFieldType; label: string }[] = [
-  { value: 'text', label: 'Văn bản ngắn' },
+  { value: 'text',     label: 'Văn bản ngắn' },
   { value: 'textarea', label: 'Văn bản dài' },
-  { value: 'select', label: 'Chọn một đáp án' },
-  { value: 'file', label: 'Tải file lên' },
+  { value: 'select',   label: 'Chọn một' },
+  { value: 'file',     label: 'Tải file lên' },
 ]
+
+const TYPE_STYLE: Record<string, { bg: string; label: string }> = {
+  text:     { bg: '#4f46e5', label: 'VĂN BẢN NGẮN' },
+  textarea: { bg: '#7c3aed', label: 'VĂN BẢN DÀI' },
+  select:   { bg: '#f59e0b', label: 'CHỌN MỘT' },
+  file:     { bg: '#ff5a3c', label: 'TẢI FILE' },
+}
+
+const D = {
+  border: '1.5px solid #15131a', borderLight: '1px solid #e8e3d6',
+  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 #15131a`,
+  radius: 14, pill: 999,
+  ink: '#15131a', inkDim: '#4a4651', inkMuted: '#918c99',
+  bg: '#f7f6f1', card: '#ffffff', indigo: '#4f46e5',
+}
+
+const inputS: React.CSSProperties = {
+  width: '100%', height: 44, borderRadius: 10, border: D.borderLight,
+  padding: '0 14px', fontSize: 14, color: D.ink, outline: 'none',
+  background: D.card, fontFamily: 'inherit', boxSizing: 'border-box',
+}
+const labelS: React.CSSProperties = { fontSize: 12, fontWeight: 700, color: D.inkDim, display: 'block', marginBottom: 6 }
+
+function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <button type="button" onClick={() => onChange(!checked)} style={{
+      width: 44, height: 24, borderRadius: 12, padding: 2,
+      background: checked ? '#10b981' : '#d1d5db',
+      border: 'none', cursor: 'pointer', transition: 'background .2s',
+      display: 'flex', alignItems: 'center',
+    }}>
+      <span style={{
+        width: 20, height: 20, borderRadius: '50%', background: '#fff',
+        boxShadow: '0 1px 3px rgba(0,0,0,.25)',
+        transform: checked ? 'translateX(20px)' : 'translateX(0)',
+        transition: 'transform .2s',
+        display: 'block', flexShrink: 0,
+      }} />
+    </button>
+  )
+}
+
+function FieldTypeSelect({ value, onChange }: { value: FormFieldType; onChange: (v: FormFieldType) => void }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  const current = FIELD_TYPES.find(t => t.value === value)!
+  const ts = TYPE_STYLE[value]
+
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  return (
+    <div ref={ref} style={{ position: 'relative', flex: 1 }}>
+      <button type="button" onClick={() => setOpen(o => !o)} style={{
+        ...inputS, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        cursor: 'pointer', gap: 8,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ width: 10, height: 10, borderRadius: 3, background: ts.bg, flexShrink: 0, display: 'block' }} />
+          <span style={{ fontSize: 14, color: D.ink }}>{current.label}</span>
+        </div>
+        <ChevronDown size={14} style={{ color: D.inkMuted, transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .15s', flexShrink: 0 }} />
+      </button>
+      {open && (
+        <div style={{
+          position: 'absolute', zIndex: 30, width: '100%', top: 'calc(100% + 4px)', left: 0,
+          background: D.card, border: D.border, borderRadius: 10,
+          boxShadow: D.shadow(3, 3), overflow: 'hidden',
+        }}>
+          {FIELD_TYPES.map(t => (
+            <button key={t.value} type="button"
+              onMouseDown={() => { onChange(t.value); setOpen(false) }}
+              style={{
+                width: '100%', padding: '9px 14px', textAlign: 'left',
+                display: 'flex', alignItems: 'center', gap: 10,
+                background: value === t.value ? '#eef2ff' : 'transparent',
+                color: value === t.value ? D.indigo : D.inkDim,
+                fontWeight: value === t.value ? 700 : 400,
+                fontSize: 13, border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+                borderBottom: '1px solid #f3f4f6',
+              }}>
+              <span style={{ width: 10, height: 10, borderRadius: 3, background: TYPE_STYLE[t.value].bg, flexShrink: 0, display: 'block' }} />
+              {t.label}
+              {value === t.value && <span style={{ marginLeft: 'auto', fontSize: 12, color: D.indigo }}>✓</span>}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 function newField(): FormField {
   return { id: crypto.randomUUID(), label: '', type: 'text', required: false }
@@ -39,36 +132,29 @@ export default function FormSchemaPage() {
   }
 
   function addOption(index: number) {
-    const field = fields[index]
-    updateField(index, { options: [...(field.options ?? []), ''] })
+    updateField(index, { options: [...(fields[index].options ?? []), ''] })
   }
 
-  function updateOption(fieldIndex: number, optIndex: number, value: string) {
-    const options = [...(fields[fieldIndex].options ?? [])]
-    options[optIndex] = value
-    updateField(fieldIndex, { options })
+  function updateOption(fi: number, oi: number, value: string) {
+    const options = [...(fields[fi].options ?? [])]
+    options[oi] = value
+    updateField(fi, { options })
   }
 
-  function removeOption(fieldIndex: number, optIndex: number) {
-    const options = (fields[fieldIndex].options ?? []).filter((_, i) => i !== optIndex)
-    updateField(fieldIndex, { options })
-  }
-
-  function removeField(index: number) {
-    setFields(prev => prev.filter((_, i) => i !== index))
+  function removeOption(fi: number, oi: number) {
+    updateField(fi, { options: (fields[fi].options ?? []).filter((_, i) => i !== oi) })
   }
 
   function moveField(index: number, dir: -1 | 1) {
     const next = index + dir
     if (next < 0 || next >= fields.length) return
-    const arr = [...fields]
-      ;[arr[index], arr[next]] = [arr[next], arr[index]]
+    const arr = [...fields];
+    [arr[index], arr[next]] = [arr[next], arr[index]]
     setFields(arr)
   }
 
   async function handleSave() {
-    const invalid = fields.find(f => !f.label.trim())
-    if (invalid) { toast.error('Vui lòng điền đầy đủ tiêu đề câu hỏi.'); return }
+    if (fields.find(f => !f.label.trim())) { toast.error('Vui lòng điền đầy đủ tiêu đề câu hỏi.'); return }
     setSaving(true)
     try {
       await updateFormSchema(id, { fields })
@@ -80,123 +166,143 @@ export default function FormSchemaPage() {
     }
   }
 
-  if (loading) return <div className="p-8 text-gray-500">Đang tải...</div>
+  if (loading) return (
+    <div style={{ padding: '28px 32px', color: D.inkMuted, fontSize: 13, fontFamily: "'Be Vietnam Pro', sans-serif" }}>Đang tải...</div>
+  )
 
   return (
-    <div className="px-8 pt-4 pb-8 space-y-6">
-      <div className="flex items-center justify-between">
+    <div style={{ padding: '28px 32px', minHeight: '100%', background: D.bg, fontFamily: "'Be Vietnam Pro', sans-serif" }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20, gap: 16 }}>
         <div>
-          <h1 className="text-2xl font-bold" style={{ color: '#0f172a' }}>Form đăng ký</h1>
+          <h1 style={{ fontSize: 24, fontWeight: 900, color: D.ink, letterSpacing: '-.025em', margin: 0 }}>Form đăng ký</h1>
+          <p style={{ fontSize: 13, color: D.inkMuted, marginTop: 4 }}>Tuỳ chỉnh câu hỏi cho đơn ứng tuyển CLB</p>
         </div>
-        <Button onClick={handleSave} disabled={saving}>
+        <button onClick={handleSave} disabled={saving} style={{
+          background: D.ink, color: '#facc15', border: D.border, boxShadow: D.shadow(2, 2),
+          padding: '10px 22px', borderRadius: D.pill, fontSize: 13, fontWeight: 800,
+          cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1, fontFamily: 'inherit', flexShrink: 0,
+        }}>
           {saving ? 'Đang lưu...' : 'Lưu form'}
-        </Button>
+        </button>
       </div>
 
-      <div className="space-y-4">
-        {fields.length === 0 && (
-          <div className="bg-gray-50 border border-dashed border-gray-300 rounded-xl p-8 text-center text-gray-400 text-sm">
-            Chưa có câu hỏi nào. Bấm "Thêm câu hỏi" để bắt đầu.
-          </div>
-        )}
+      {/* Info banner */}
+      <div style={{
+        background: '#facc15', border: D.border, borderRadius: 12,
+        boxShadow: D.shadow(3, 3), padding: '12px 18px',
+        display: 'flex', alignItems: 'center', gap: 10,
+        marginBottom: 20, fontSize: 13, fontWeight: 600, color: D.ink,
+      }}>
+        <span style={{ fontSize: 16 }}>📝</span>
+        <span>
+          <strong>{fields.length}</strong> câu hỏi · Sinh viên sẽ điền khi nộp đơn ứng tuyển
+        </span>
+      </div>
 
-        {fields.map((field, i) => (
-          <div key={field.id} className="bg-white border border-gray-200 rounded-xl p-5 space-y-4">
-            {/* Header */}
-            <div className="flex items-center gap-2">
-              <GripVertical size={16} className="text-gray-300 shrink-0" />
-              <span className="text-sm font-medium text-gray-500 mr-auto">Câu hỏi {i + 1}</span>
-              <button onClick={() => moveField(i, -1)} disabled={i === 0} className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-30">
-                <ChevronUp size={16} />
-              </button>
-              <button onClick={() => moveField(i, 1)} disabled={i === fields.length - 1} className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-30">
-                <ChevronDown size={16} />
-              </button>
-              <button onClick={() => removeField(i)} className="p-1 text-red-400 hover:text-red-600">
-                <Trash2 size={16} />
-              </button>
-            </div>
-
-            {/* Label */}
-            <div className="space-y-1.5">
-              <Label>Tiêu đề câu hỏi *</Label>
-              <Input
-                value={field.label}
-                onChange={e => updateField(i, { label: e.target.value })}
-                placeholder="Nhập câu hỏi..."
-              />
-            </div>
-
-            {/* Type + required */}
-            <div className="flex gap-4">
-              <div className="space-y-1.5 flex-1">
-                <Label>Loại trả lời</Label>
-                <select
-                  value={field.type}
-                  onChange={e => updateField(i, { type: e.target.value as FormFieldType, options: [] })}
-                  className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background"
-                >
-                  {FIELD_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-                </select>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Bắt buộc</Label>
-                <div className="flex items-center h-10">
-                  <input
-                    type="checkbox"
-                    checked={field.required}
-                    onChange={e => updateField(i, { required: e.target.checked })}
-                    className="w-4 h-4 rounded border-gray-300 accent-indigo-600"
-                  />
+      {/* Field cards */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 16 }}>
+        {fields.map((field, i) => {
+          const ts = TYPE_STYLE[field.type] ?? TYPE_STYLE.text
+          const numBg = ts.bg
+          return (
+            <div key={field.id} style={{ background: D.card, border: D.border, borderRadius: D.radius, boxShadow: D.shadow(), padding: '18px 20px' }}>
+              {/* Card header */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+                <span style={{ color: '#ccc', fontSize: 15, cursor: 'grab', userSelect: 'none', flexShrink: 0 }}>⠿</span>
+                <div style={{
+                  width: 28, height: 28, borderRadius: 8, background: numBg, flexShrink: 0,
+                  display: 'grid', placeItems: 'center', color: '#fff', fontSize: 12, fontWeight: 900,
+                }}>{i + 1}</div>
+                <span style={{ fontSize: 14, fontWeight: 700, color: D.ink, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  Câu hỏi {i + 1}
+                </span>
+                {/* Move + close controls */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 2, flexShrink: 0 }}>
+                  <button onClick={() => moveField(i, -1)} disabled={i === 0}
+                    style={{ width: 26, height: 26, borderRadius: 6, background: 'none', border: 'none', cursor: i === 0 ? 'not-allowed' : 'pointer', color: D.inkMuted, opacity: i === 0 ? 0.25 : 0.7, display: 'grid', placeItems: 'center', fontSize: 14 }}>↑</button>
+                  <button onClick={() => moveField(i, 1)} disabled={i === fields.length - 1}
+                    style={{ width: 26, height: 26, borderRadius: 6, background: 'none', border: 'none', cursor: i === fields.length - 1 ? 'not-allowed' : 'pointer', color: D.inkMuted, opacity: i === fields.length - 1 ? 0.25 : 0.7, display: 'grid', placeItems: 'center', fontSize: 14 }}>↓</button>
+                  <div style={{ width: 1, height: 16, background: D.borderLight, margin: '0 4px' }} />
+                  <button onClick={() => setFields(prev => prev.filter((_, idx) => idx !== i))}
+                    style={{ width: 26, height: 26, borderRadius: 6, background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', display: 'grid', placeItems: 'center', fontSize: 14 }}>✕</button>
                 </div>
               </div>
-            </div>
 
-            {/* Options (select only) */}
-            {field.type === 'select' && (
-              <div className="space-y-2">
-                <Label>Các lựa chọn</Label>
-                {(field.options ?? []).map((opt, oi) => (
-                  <div key={oi} className="flex gap-2">
-                    <Input
-                      value={opt}
-                      onChange={e => updateOption(i, oi, e.target.value)}
-                      placeholder={`Lựa chọn ${oi + 1}`}
-                    />
-                    <Button type="button" variant="ghost" size="icon" onClick={() => removeOption(i, oi)}>
-                      <Trash2 size={14} />
-                    </Button>
+              {/* Label input */}
+              <div style={{ marginBottom: 14 }}>
+                <label style={labelS}>Tiêu đề câu hỏi <span style={{ color: '#ef4444' }}>*</span></label>
+                <input value={field.label} onChange={e => updateField(i, { label: e.target.value })} placeholder="Nhập câu hỏi..." style={inputS} />
+              </div>
+
+              {/* Type + Required row */}
+              <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <label style={labelS}>Loại trả lời</label>
+                  <FieldTypeSelect value={field.type} onChange={v => updateField(i, { type: v, options: [] })} />
+                </div>
+
+                {/* Type badge */}
+                <div style={{
+                  padding: '0 14px', height: 44, borderRadius: 10, background: ts.bg,
+                  border: D.border, boxShadow: D.shadow(2, 2),
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: '#fff', fontSize: 11, fontWeight: 900, letterSpacing: '.06em',
+                  whiteSpace: 'nowrap', flexShrink: 0,
+                }}>{ts.label}</div>
+
+                {/* Required toggle */}
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+                  <label style={{ fontSize: 11, fontWeight: 700, color: D.inkDim }}>Bắt buộc</label>
+                  <Toggle checked={field.required} onChange={v => updateField(i, { required: v })} />
+                </div>
+              </div>
+
+              {/* Select options */}
+              {field.type === 'select' && (
+                <div style={{ marginTop: 14 }}>
+                  <label style={labelS}>Các lựa chọn</label>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {(field.options ?? []).map((opt, oi) => (
+                      <div key={oi} style={{ display: 'flex', gap: 8 }}>
+                        <input value={opt} onChange={e => updateOption(i, oi, e.target.value)} placeholder={`Lựa chọn ${oi + 1}`} style={{ ...inputS, flex: 1, height: 38 }} />
+                        <button onClick={() => removeOption(i, oi)} style={{ width: 38, height: 38, borderRadius: 8, background: 'none', border: D.borderLight, cursor: 'pointer', color: '#ef4444', display: 'grid', placeItems: 'center', flexShrink: 0 }}>✕</button>
+                      </div>
+                    ))}
+                    <button onClick={() => addOption(i)} style={{ padding: '7px 14px', borderRadius: D.pill, background: D.card, border: D.borderLight, fontSize: 12, fontWeight: 600, color: D.indigo, cursor: 'pointer', fontFamily: 'inherit', alignSelf: 'flex-start' }}>+ Thêm lựa chọn</button>
                   </div>
-                ))}
-                <Button type="button" variant="outline" size="sm" onClick={() => addOption(i)} className="gap-1">
-                  <Plus size={14} /> Thêm lựa chọn
-                </Button>
-              </div>
-            )}
+                </div>
+              )}
 
-            {/* Accept (file only) */}
-            {field.type === 'file' && (
-              <div className="space-y-1.5">
-                <Label>Loại file chấp nhận <span className="text-gray-400 font-normal">(để trống = mọi định dạng)</span></Label>
-                <Input
-                  value={field.accept ?? ''}
-                  onChange={e => updateField(i, { accept: e.target.value || undefined })}
-                  placeholder=".pdf, .docx, .jpg, .png"
-                />
-                <p className="text-xs text-gray-400">Ví dụ: .pdf,.docx — người dùng sẽ chỉ chọn được đúng định dạng này</p>
-              </div>
-            )}
-          </div>
-        ))}
+              {/* File accept */}
+              {field.type === 'file' && (
+                <div style={{ marginTop: 14 }}>
+                  <label style={labelS}>Loại file chấp nhận <span style={{ fontWeight: 400, color: D.inkMuted }}>(để trống = mọi định dạng)</span></label>
+                  <input value={field.accept ?? ''} onChange={e => updateField(i, { accept: e.target.value || undefined })} placeholder=".pdf, .docx, .jpg, .png" style={{ ...inputS, height: 38 }} />
+                </div>
+              )}
+            </div>
+          )
+        })}
       </div>
 
-      <Button
-        variant="outline"
-        onClick={() => setFields(prev => [...prev, newField()])}
-        className="gap-2 w-full"
-      >
-        <Plus size={16} /> Thêm câu hỏi
-      </Button>
+      {/* Add button */}
+      <button onClick={() => setFields(prev => [...prev, newField()])} style={{
+        width: '100%', padding: '16px', borderRadius: D.radius,
+        background: 'transparent', border: `1.5px dashed #c4bdb1`,
+        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+        fontSize: 14, fontWeight: 700, color: D.indigo, cursor: 'pointer', fontFamily: 'inherit',
+        marginBottom: 20,
+      }}>
+        <span style={{ width: 28, height: 28, borderRadius: '50%', background: D.indigo, color: '#fff', display: 'grid', placeItems: 'center', fontSize: 16, fontWeight: 900 }}>+</span>
+        Thêm câu hỏi mới
+      </button>
+
+      {/* Tip */}
+      <p style={{ fontSize: 12, color: D.inkMuted, lineHeight: 1.6 }}>
+        <strong>Mẹo:</strong> Dùng "Văn bản ngắn" cho câu trả lời 1 dòng, "Văn bản dài" cho paragraph.
+        "Chọn một" sẽ cho phép bạn thêm lựa chọn sẵn. "Tải file" cho phép SV upload tài liệu.
+      </p>
     </div>
   )
 }

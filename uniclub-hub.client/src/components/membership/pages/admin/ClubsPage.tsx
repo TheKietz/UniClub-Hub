@@ -2,15 +2,28 @@ import { MEMBERSHIP_STATUS } from '@/types/auth'
 import { useEffect, useState } from 'react'
 import { getAdminClubs, createClub, updateClub, deleteClub, getCategories } from '@/components/membership/services/adminApi'
 import type { ClubItem, CategoryItem, CreateClubDto, UpdateClubDto } from '@/components/membership/services/admin.types'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { toast } from 'sonner'
-import { Plus, Pencil, Trash2, Search, AlertTriangle, FileDown } from 'lucide-react'
 import api from '@/lib/axiosInstance'
+
+const D = {
+  border: '1.5px solid #15131a',
+  borderLight: '1px solid #e8e3d6',
+  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 #15131a`,
+  radius: 14,
+  pill: 999,
+  ink: '#15131a',
+  inkDim: '#4a4651',
+  inkMuted: '#918c99',
+  bg: '#f7f6f1',
+  card: '#ffffff',
+  indigo: '#4f46e5',
+  coral: '#ff5a3c',
+  emerald: '#10b981',
+  amber: '#f59e0b',
+  red: '#ef4444',
+}
 
 type FormData = {
   name: string; code: string; description: string
@@ -20,6 +33,13 @@ type FormData = {
 const emptyForm: FormData = {
   name: '', code: '', description: '', advisorName: '', contactInfo: '', categoryId: '', status: 'Active'
 }
+
+const inputStyle: React.CSSProperties = {
+  width: '100%', height: 36, borderRadius: 8, border: D.borderLight,
+  padding: '0 12px', fontSize: 13, color: D.ink, outline: 'none',
+  background: D.bg, fontFamily: 'inherit', boxSizing: 'border-box',
+}
+const labelStyle: React.CSSProperties = { fontSize: 12, fontWeight: 700, color: D.inkDim, display: 'block', marginBottom: 4 }
 
 export default function ClubsPage() {
   const [clubs, setClubs] = useState<ClubItem[]>([])
@@ -35,6 +55,7 @@ export default function ClubsPage() {
   const [searchCode, setSearchCode] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [sortBy, setSortBy] = useState<'id' | 'name' | 'members'>('id')
+  const [hoverRow, setHoverRow] = useState<number | null>(null)
 
   useEffect(() => {
     setLoading(true)
@@ -44,22 +65,14 @@ export default function ClubsPage() {
       .finally(() => setLoading(false))
   }, [refreshKey])
 
-  function openCreate() {
-    setEditing(null)
-    setForm(emptyForm)
-    setDialogOpen(true)
-  }
+  function openCreate() { setEditing(null); setForm(emptyForm); setDialogOpen(true) }
 
   function openEdit(club: ClubItem) {
     setEditing(club)
     setForm({
-      name: club.name,
-      code: club.code,
-      description: club.description ?? '',
-      advisorName: club.advisorName ?? '',
-      contactInfo: club.contactInfo ?? '',
-      categoryId: club.categoryId?.toString() ?? '',
-      status: club.status,
+      name: club.name, code: club.code, description: club.description ?? '',
+      advisorName: club.advisorName ?? '', contactInfo: club.contactInfo ?? '',
+      categoryId: club.categoryId?.toString() ?? '', status: club.status,
     })
     setDialogOpen(true)
   }
@@ -73,8 +86,7 @@ export default function ClubsPage() {
     setSaving(true)
     try {
       const base = {
-        name: form.name,
-        code: form.code,
+        name: form.name, code: form.code,
         description: form.description || undefined,
         advisorName: form.advisorName || undefined,
         contactInfo: form.contactInfo || undefined,
@@ -108,193 +120,212 @@ export default function ClubsPage() {
     }
   }
 
+  const hasFilter = searchName || searchCode || statusFilter
+  const filtered = clubs
+    .filter(c => !searchName || c.name.toLowerCase().includes(searchName.toLowerCase()))
+    .filter(c => !searchCode || c.code.toLowerCase().includes(searchCode.toLowerCase()))
+    .filter(c => !statusFilter || c.status === statusFilter)
+    .sort((a, b) =>
+      sortBy === 'name' ? a.name.localeCompare(b.name)
+      : sortBy === 'members' ? b.memberCount - a.memberCount
+      : a.id - b.id
+    )
+
   return (
-    <div className="px-8 pt-3 pb-8 space-y-4">
-      <div className="flex items-center justify-between gap-4">
-        <h1 className="text-xl font-bold leading-none" style={{ color: '#0f172a' }}>Câu lạc bộ</h1>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" className="gap-1.5 text-gray-600"
+    <div style={{ padding: '28px 32px', minHeight: '100%', background: D.bg, fontFamily: "'Be Vietnam Pro', sans-serif" }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20, gap: 16 }}>
+        <div>
+          <h1 style={{ fontSize: 24, fontWeight: 900, color: D.ink, letterSpacing: '-.025em', margin: 0 }}>Câu lạc bộ</h1>
+          <p style={{ fontSize: 13, color: D.inkMuted, marginTop: 4 }}>{clubs.length} CLB trong hệ thống</p>
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button
+            style={{ background: D.card, color: D.inkDim, border: D.border, boxShadow: D.shadow(2,2), padding: '8px 14px', borderRadius: D.pill, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
             onClick={async () => {
               const res = await api.get('/admin/export/clubs?format=xlsx', { responseType: 'blob' })
               const url = URL.createObjectURL(res.data)
               const a = document.createElement('a'); a.href = url; a.download = 'clubs.xlsx'; a.click()
               URL.revokeObjectURL(url)
             }}>
-            <FileDown size={14} /> Excel
-          </Button>
-          <Button variant="outline" size="sm" className="gap-1.5 text-gray-600"
+            ↓ Excel
+          </button>
+          <button
+            style={{ background: D.card, color: D.inkDim, border: D.border, boxShadow: D.shadow(2,2), padding: '8px 14px', borderRadius: D.pill, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
             onClick={async () => {
               const res = await api.get('/admin/export/clubs?format=csv', { responseType: 'blob' })
               const url = URL.createObjectURL(res.data)
               const a = document.createElement('a'); a.href = url; a.download = 'clubs.csv'; a.click()
               URL.revokeObjectURL(url)
             }}>
-            <FileDown size={14} /> CSV
-          </Button>
-          <Button onClick={openCreate} className="gap-2 bg-indigo-600 hover:bg-indigo-700">
-            <Plus size={16} /> Thêm CLB
-          </Button>
+            ↓ CSV
+          </button>
+          <button
+            onClick={openCreate}
+            style={{ background: D.indigo, color: '#fff', border: D.border, boxShadow: D.shadow(2,2), padding: '8px 16px', borderRadius: D.pill, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+            + Thêm CLB
+          </button>
         </div>
       </div>
 
-      {/* Search & filter */}
-      {(() => {
-        const hasFilter = searchName || searchCode || statusFilter
-        const filtered = clubs
-          .filter(c => !searchName || c.name.toLowerCase().includes(searchName.toLowerCase()))
-          .filter(c => !searchCode || c.code.toLowerCase().includes(searchCode.toLowerCase()))
-          .filter(c => !statusFilter || c.status === statusFilter)
-          .sort((a, b) =>
-            sortBy === 'name' ? a.name.localeCompare(b.name)
-            : sortBy === 'members' ? b.memberCount - a.memberCount
-            : a.id - b.id
-          )
-        return (<>
-      <div className="bg-white rounded-xl border border-gray-200 p-3 flex flex-wrap gap-2 items-center">
-        <div className="relative flex-1 min-w-40">
-          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-          <Input placeholder="Tên CLB..." value={searchName} onChange={e => setSearchName(e.target.value)} className="pl-8 h-9 text-sm" />
-        </div>
-        <div className="relative w-32">
-          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-          <Input placeholder="Mã CLB..." value={searchCode} onChange={e => setSearchCode(e.target.value)} className="pl-8 h-9 text-sm" />
-        </div>
+      {/* Filter bar */}
+      <div style={{ padding: '10px 14px', borderRadius: D.radius, background: D.card, border: D.border, boxShadow: D.shadow(), display: 'flex', gap: 10, alignItems: 'center', marginBottom: 16, flexWrap: 'wrap' }}>
+        <input
+          placeholder="⌕  Tên CLB..."
+          value={searchName}
+          onChange={e => setSearchName(e.target.value)}
+          style={{ ...inputStyle, flex: 1, minWidth: 160 }}
+        />
+        <input
+          placeholder="⌕  Mã CLB..."
+          value={searchCode}
+          onChange={e => setSearchCode(e.target.value)}
+          style={{ ...inputStyle, width: 130 }}
+        />
         <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
-          className="h-9 border border-input rounded-lg px-3 text-sm bg-white">
+          style={{ height: 36, borderRadius: 8, border: D.borderLight, padding: '0 10px', fontSize: 13, color: D.ink, background: D.bg, fontFamily: 'inherit', outline: 'none' }}>
           <option value="">Tất cả trạng thái</option>
           <option value="Active">Hoạt động</option>
           <option value="Inactive">Ngừng hoạt động</option>
         </select>
         <select value={sortBy} onChange={e => setSortBy(e.target.value as any)}
-          className="h-9 border border-input rounded-lg px-3 text-sm bg-white">
+          style={{ height: 36, borderRadius: 8, border: D.borderLight, padding: '0 10px', fontSize: 13, color: D.ink, background: D.bg, fontFamily: 'inherit', outline: 'none' }}>
           <option value="id">Sắp xếp: ID</option>
           <option value="name">Tên A-Z</option>
           <option value="members">Thành viên</option>
         </select>
-        <div className="flex items-center gap-2 ml-auto">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto' }}>
           {hasFilter && (
             <button onClick={() => { setSearchName(''); setSearchCode(''); setStatusFilter('') }}
-              className="text-xs text-indigo-500 hover:underline whitespace-nowrap">Xoá lọc</button>
+              style={{ fontSize: 12, color: D.indigo, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
+              Xoá lọc
+            </button>
           )}
-          <span className="text-sm text-gray-400 whitespace-nowrap">{filtered.length}/{clubs.length}</span>
+          <span style={{ fontSize: 12, color: D.inkMuted, whiteSpace: 'nowrap' }}>{filtered.length}/{clubs.length}</span>
         </div>
       </div>
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-gray-50">
-              <TableHead className="w-12 text-center">ID</TableHead>
-              <TableHead>Tên CLB</TableHead>
-              <TableHead>Mã</TableHead>
-              <TableHead>Lĩnh vực</TableHead>
-              <TableHead>Thành viên</TableHead>
-              <TableHead>Trạng thái</TableHead>
-              <TableHead className="text-center">Hành động</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
+
+      {/* Table */}
+      <div style={{ borderRadius: D.radius, overflow: 'hidden', background: D.card, border: D.border, boxShadow: D.shadow() }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+          <thead>
+            <tr style={{ background: D.bg, borderBottom: D.borderLight }}>
+              <th style={{ padding: '10px 14px', textAlign: 'left', fontSize: 12, fontWeight: 700, color: D.inkMuted, letterSpacing: '.02em', whiteSpace: 'nowrap' }}>ID</th>
+              <th style={{ padding: '10px 14px', textAlign: 'left', fontSize: 12, fontWeight: 700, color: D.inkMuted, letterSpacing: '.02em', whiteSpace: 'nowrap' }}>Tên CLB</th>
+              <th style={{ padding: '10px 14px', textAlign: 'left', fontSize: 12, fontWeight: 700, color: D.inkMuted, letterSpacing: '.02em', whiteSpace: 'nowrap' }}>Mã</th>
+              <th style={{ padding: '10px 14px', textAlign: 'left', fontSize: 12, fontWeight: 700, color: D.inkMuted, letterSpacing: '.02em', whiteSpace: 'nowrap' }}>Lĩnh vực</th>
+              <th style={{ padding: '10px 14px', textAlign: 'left', fontSize: 12, fontWeight: 700, color: D.inkMuted, letterSpacing: '.02em', whiteSpace: 'nowrap' }}>Thành viên</th>
+              <th style={{ padding: '10px 14px', textAlign: 'left', fontSize: 12, fontWeight: 700, color: D.inkMuted, letterSpacing: '.02em', whiteSpace: 'nowrap' }}>Trạng thái</th>
+              <th style={{ padding: '10px 14px', textAlign: 'center', fontSize: 12, fontWeight: 700, color: D.inkMuted, letterSpacing: '.02em', whiteSpace: 'nowrap' }}>Hành động</th>
+            </tr>
+          </thead>
+          <tbody>
             {loading ? (
-              <TableRow><TableCell colSpan={7} className="text-center text-gray-400 py-12">Đang tải...</TableCell></TableRow>
+              <tr><td colSpan={7} style={{ textAlign: 'center', color: D.inkMuted, padding: '48px 0' }}>Đang tải...</td></tr>
             ) : filtered.length === 0 ? (
-              <TableRow><TableCell colSpan={7} className="text-center text-gray-400 py-12">Không tìm thấy CLB nào.</TableCell></TableRow>
+              <tr><td colSpan={7} style={{ textAlign: 'center', color: D.inkMuted, padding: '48px 0' }}>Không tìm thấy CLB nào.</td></tr>
             ) : filtered.map(club => (
-              <TableRow key={club.id} className={`hover:bg-gray-50/60 ${club.isDeleted ? 'opacity-50' : ''}`}>
-                <TableCell className="text-center text-xs font-mono" style={{ color: '#9ca3af' }}>{club.id}</TableCell>
-                <TableCell className="font-medium text-sm" style={{ color: '#111827' }}>{club.name}</TableCell>
-                <TableCell className="font-mono text-xs" style={{ color: '#9ca3af' }}>{club.code}</TableCell>
-                <TableCell className="text-sm" style={{ color: '#6b7280' }}>{club.categoryName ?? '—'}</TableCell>
-                <TableCell className="text-sm" style={{ color: '#6b7280' }}>
+              <tr key={club.id}
+                onMouseEnter={() => setHoverRow(club.id)}
+                onMouseLeave={() => setHoverRow(null)}
+                style={{ background: hoverRow === club.id ? D.bg : D.card, borderBottom: D.borderLight, opacity: club.isDeleted ? 0.5 : 1 }}>
+                <td style={{ padding: '12px 14px', fontFamily: 'monospace', fontSize: 12, color: D.inkMuted }}>{club.id}</td>
+                <td style={{ padding: '12px 14px', fontWeight: 700, color: D.ink }}>{club.name}</td>
+                <td style={{ padding: '12px 14px', fontFamily: 'monospace', fontSize: 11, color: D.inkMuted }}>{club.code}</td>
+                <td style={{ padding: '12px 14px', color: D.inkDim }}>{club.categoryName ?? '—'}</td>
+                <td style={{ padding: '12px 14px', color: D.inkDim }}>
                   <span>{club.memberCount}</span>
                   {!club.hasAdmin && (
-                    <span className="ml-2 inline-flex items-center gap-1 text-xs text-amber-600" title="CLB chưa có Trưởng CLB">
-                      <AlertTriangle size={12} /> Chưa có trưởng
-                    </span>
+                    <span style={{ marginLeft: 8, fontSize: 11, color: D.amber, fontWeight: 600 }}>⚠ Chưa có trưởng</span>
                   )}
-                </TableCell>
-                <TableCell>
-                  <span className="px-2 py-0.5 rounded-full text-xs font-semibold"
-                    style={{ background: club.status === MEMBERSHIP_STATUS.ACTIVE ? '#dcfce7' : '#f3f4f6', color: club.status === MEMBERSHIP_STATUS.ACTIVE ? '#16a34a' : '#6b7280' }}>
+                </td>
+                <td style={{ padding: '12px 14px' }}>
+                  <span style={{
+                    display: 'inline-flex', padding: '2px 10px', borderRadius: 4, fontSize: 10, fontWeight: 700,
+                    letterSpacing: '.04em', textTransform: 'uppercase',
+                    background: club.status === MEMBERSHIP_STATUS.ACTIVE ? '#d1fae5' : '#f3f4f6',
+                    color: club.status === MEMBERSHIP_STATUS.ACTIVE ? '#065f46' : D.inkMuted,
+                  }}>
                     {club.status === MEMBERSHIP_STATUS.ACTIVE ? 'Hoạt động' : 'Ngừng'}
                   </span>
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center justify-center gap-1">
-                    <Button variant="ghost" size="icon" className="h-7 w-7 text-indigo-500 hover:text-indigo-700 hover:bg-indigo-50" onClick={() => openEdit(club)}>
-                      <Pencil size={14} />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 hover:text-red-600 hover:bg-red-50" onClick={() => setDeleteTarget(club)}>
-                      <Trash2 size={14} />
-                    </Button>
+                </td>
+                <td style={{ padding: '12px 14px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                    <button
+                      onClick={() => openEdit(club)}
+                      style={{ padding: '4px 10px', borderRadius: 6, fontSize: 12, fontWeight: 600, border: D.borderLight, background: D.card, color: D.indigo, cursor: 'pointer', fontFamily: 'inherit' }}>
+                      Sửa
+                    </button>
+                    <button
+                      onClick={() => setDeleteTarget(club)}
+                      style={{ padding: '4px 10px', borderRadius: 6, fontSize: 12, fontWeight: 600, border: D.borderLight, background: D.card, color: D.red, cursor: 'pointer', fontFamily: 'inherit' }}>
+                      Xoá
+                    </button>
                   </div>
-                </TableCell>
-              </TableRow>
+                </td>
+              </tr>
             ))}
-          </TableBody>
-        </Table>
+          </tbody>
+        </table>
       </div>
-        </>)
-      })()}
 
       {/* Create / Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg" style={{ fontFamily: "'Be Vietnam Pro', sans-serif" }}>
           <DialogHeader>
-            <DialogTitle style={{ color: '#0f172a', fontWeight: 700 }}>{editing ? 'Chỉnh sửa CLB' : 'Thêm CLB mới'}</DialogTitle>
+            <DialogTitle style={{ color: D.ink, fontWeight: 900, fontSize: 18 }}>{editing ? 'Chỉnh sửa CLB' : 'Thêm CLB mới'}</DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleSave} className="space-y-4 py-2">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="name">Tên CLB *</Label>
-                <Input id="name" value={form.name} onChange={setField('name')} required />
+          <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: 14, paddingTop: 8 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div>
+                <label style={labelStyle}>Tên CLB *</label>
+                <input id="name" value={form.name} onChange={setField('name')} required style={inputStyle} />
               </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="code">Mã CLB *</Label>
-                <Input id="code" value={form.code} onChange={setField('code')} required disabled={!!editing} />
+              <div>
+                <label style={labelStyle}>Mã CLB *</label>
+                <input id="code" value={form.code} onChange={setField('code')} required disabled={!!editing} style={{ ...inputStyle, opacity: editing ? 0.6 : 1 }} />
               </div>
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="category">Lĩnh vực</Label>
-              <select
-                id="category"
-                value={form.categoryId}
-                onChange={setField('categoryId')}
-                className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background"
-              >
+            <div>
+              <label style={labelStyle}>Lĩnh vực</label>
+              <select value={form.categoryId} onChange={setField('categoryId')}
+                style={{ ...inputStyle, height: 36 }}>
                 <option value="">— Chọn lĩnh vực —</option>
                 {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="description">Mô tả</Label>
-              <Input id="description" value={form.description} onChange={setField('description')} />
+            <div>
+              <label style={labelStyle}>Mô tả</label>
+              <input id="description" value={form.description} onChange={setField('description')} style={inputStyle} />
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="advisorName">Giảng viên phụ trách</Label>
-                <Input id="advisorName" value={form.advisorName} onChange={setField('advisorName')} />
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div>
+                <label style={labelStyle}>Giảng viên phụ trách</label>
+                <input id="advisorName" value={form.advisorName} onChange={setField('advisorName')} style={inputStyle} />
               </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="contactInfo">Liên hệ</Label>
-                <Input id="contactInfo" value={form.contactInfo} onChange={setField('contactInfo')} />
+              <div>
+                <label style={labelStyle}>Liên hệ</label>
+                <input id="contactInfo" value={form.contactInfo} onChange={setField('contactInfo')} style={inputStyle} />
               </div>
             </div>
             {editing && (
-              <div className="space-y-1.5">
-                <Label htmlFor="status">Trạng thái</Label>
-                <select
-                  id="status"
-                  value={form.status}
-                  onChange={setField('status')}
-                  className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background"
-                >
+              <div>
+                <label style={labelStyle}>Trạng thái</label>
+                <select value={form.status} onChange={setField('status')} style={{ ...inputStyle, height: 36 }}>
                   <option value="Active">Hoạt động</option>
                   <option value="Inactive">Ngừng hoạt động</option>
                 </select>
               </div>
             )}
-            <DialogFooter className="border-none bg-transparent">
-              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Huỷ</Button>
-              <Button type="submit" disabled={saving} className="bg-indigo-600 hover:bg-indigo-700">{saving ? 'Đang lưu...' : 'Lưu'}</Button>
+            <DialogFooter style={{ borderTop: 'none', background: 'transparent', paddingTop: 4 }}>
+              <button type="button" onClick={() => setDialogOpen(false)}
+                style={{ background: D.card, color: D.inkDim, border: D.border, boxShadow: D.shadow(2,2), padding: '8px 14px', borderRadius: D.pill, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                Huỷ
+              </button>
+              <button type="submit" disabled={saving}
+                style={{ background: D.indigo, color: '#fff', border: D.border, boxShadow: D.shadow(2,2), padding: '8px 16px', borderRadius: D.pill, fontSize: 12, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1, fontFamily: 'inherit' }}>
+                {saving ? 'Đang lưu...' : 'Lưu'}
+              </button>
             </DialogFooter>
           </form>
         </DialogContent>
@@ -302,16 +333,19 @@ export default function ClubsPage() {
 
       {/* Confirm delete */}
       <AlertDialog open={!!deleteTarget} onOpenChange={open => !open && setDeleteTarget(null)}>
-        <AlertDialogContent>
+        <AlertDialogContent style={{ fontFamily: "'Be Vietnam Pro', sans-serif" }}>
           <AlertDialogHeader>
-            <AlertDialogTitle>Xoá câu lạc bộ?</AlertDialogTitle>
-            <AlertDialogDescription>
+            <AlertDialogTitle style={{ color: D.ink, fontWeight: 900 }}>Xoá câu lạc bộ?</AlertDialogTitle>
+            <AlertDialogDescription style={{ color: D.inkDim }}>
               CLB <strong>{deleteTarget?.name}</strong> sẽ bị xoá. Hành động này không thể hoàn tác.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Huỷ</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">Xoá</AlertDialogAction>
+            <AlertDialogCancel style={{ fontFamily: 'inherit' }}>Huỷ</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete}
+              style={{ background: D.red, color: '#fff', border: D.border, fontFamily: 'inherit' }}>
+              Xoá
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

@@ -2,14 +2,35 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { getDepartments, getClubMembers } from '@/components/membership/services/clubApi'
 import type { DepartmentItem, MemberItem } from '@/components/membership/services/club.types'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { toast } from 'sonner'
-import { Plus, Pencil, Trash2, UserCog, AlertTriangle } from 'lucide-react'
 import api from '@/lib/axiosInstance'
+import { Crown, Pencil, Trash2 } from 'lucide-react'
+import { Tooltip } from '@/components/shared/Tooltip'
+
+const D = {
+  border: '1.5px solid #15131a',
+  borderLight: '1px solid #e8e3d6',
+  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 #15131a`,
+  radius: 14,
+  pill: 999,
+  ink: '#15131a',
+  inkDim: '#4a4651',
+  inkMuted: '#918c99',
+  bg: '#f7f6f1',
+  card: '#ffffff',
+  indigo: '#4f46e5',
+  emerald: '#10b981',
+  amber: '#f59e0b',
+  red: '#ef4444',
+}
+
+const inputStyle: React.CSSProperties = {
+  width: '100%', height: 36, borderRadius: 8, border: '1px solid #e8e3d6',
+  padding: '0 12px', fontSize: 13, color: '#15131a', outline: 'none',
+  background: '#f7f6f1', fontFamily: 'inherit', boxSizing: 'border-box',
+}
+const labelStyle: React.CSSProperties = { fontSize: 12, fontWeight: 700, color: '#4a4651', display: 'block', marginBottom: 4 }
 
 interface DeptForm { name: string; description: string }
 
@@ -19,18 +40,16 @@ export default function DepartmentsPage() {
 
   const [departments, setDepartments] = useState<DepartmentItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [hoverRow, setHoverRow] = useState<number | null>(null)
 
-  // Dialog thêm / sửa ban
   const [dialog, setDialog] = useState<'add' | 'edit' | null>(null)
   const [editTarget, setEditTarget] = useState<DepartmentItem | null>(null)
   const [form, setForm] = useState<DeptForm>({ name: '', description: '' })
   const [saving, setSaving] = useState(false)
 
-  // Dialog xóa ban
   const [deleteTarget, setDeleteTarget] = useState<DepartmentItem | null>(null)
   const [deleting, setDeleting] = useState(false)
 
-  // Dialog bổ nhiệm trưởng ban
   const [leadDept, setLeadDept] = useState<DepartmentItem | null>(null)
   const [deptMembers, setDeptMembers] = useState<MemberItem[]>([])
   const [selectedMembershipId, setSelectedMembershipId] = useState<string>('')
@@ -45,11 +64,7 @@ export default function DepartmentsPage() {
 
   useEffect(() => { if (clubId) load() }, [clubId])
 
-  function openAdd() {
-    setForm({ name: '', description: '' })
-    setEditTarget(null)
-    setDialog('add')
-  }
+  function openAdd() { setForm({ name: '', description: '' }); setEditTarget(null); setDialog('add') }
 
   function openEdit(dept: DepartmentItem) {
     setForm({ name: dept.name, description: dept.description ?? '' })
@@ -121,133 +136,138 @@ export default function DepartmentsPage() {
   }
 
   return (
-    <div className="px-8 pt-4 pb-8 space-y-4">
-      <div className="flex items-center justify-between">
+    <div style={{ padding: '28px 32px', minHeight: '100%', background: D.bg, fontFamily: "'Be Vietnam Pro', sans-serif" }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20, gap: 16 }}>
         <div>
-          <h1 className="text-xl font-bold leading-none" style={{ color: '#0f172a' }}>Ban bộ phận</h1>
-          <p className="text-sm text-gray-400 mt-0.5">{departments.length} ban tổng cộng</p>
+          <h1 style={{ fontSize: 24, fontWeight: 900, color: D.ink, letterSpacing: '-.025em', margin: 0 }}>Ban bộ phận</h1>
+          <p style={{ fontSize: 13, color: D.inkMuted, marginTop: 4 }}>{departments.length} ban tổng cộng</p>
         </div>
-        <Button onClick={openAdd} className="bg-indigo-600 hover:bg-indigo-700 gap-1.5">
-          <Plus size={16} /> Thêm ban
-        </Button>
+        <button onClick={openAdd}
+          style={{ background: D.indigo, color: '#fff', border: D.border, boxShadow: D.shadow(2,2), padding: '8px 16px', borderRadius: D.pill, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+          + Thêm ban
+        </button>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-12">ID</TableHead>
-              <TableHead>Tên ban</TableHead>
-              <TableHead>Mô tả</TableHead>
-              <TableHead>Trưởng ban</TableHead>
-              <TableHead className="w-24 text-center">Thành viên</TableHead>
-              <TableHead className="w-28 text-right">Hành động</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
+      {/* Table */}
+      <div style={{ borderRadius: D.radius, overflow: 'hidden', background: D.card, border: D.border, boxShadow: D.shadow() }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+          <thead>
+            <tr style={{ background: D.bg, borderBottom: D.borderLight }}>
+              <th style={{ padding: '10px 14px', textAlign: 'left', fontSize: 12, fontWeight: 700, color: D.inkMuted, letterSpacing: '.02em', whiteSpace: 'nowrap', width: 48 }}>ID</th>
+              <th style={{ padding: '10px 14px', textAlign: 'left', fontSize: 12, fontWeight: 700, color: D.inkMuted, letterSpacing: '.02em', whiteSpace: 'nowrap' }}>Tên ban</th>
+              <th style={{ padding: '10px 14px', textAlign: 'left', fontSize: 12, fontWeight: 700, color: D.inkMuted, letterSpacing: '.02em', whiteSpace: 'nowrap' }}>Mô tả</th>
+              <th style={{ padding: '10px 14px', textAlign: 'left', fontSize: 12, fontWeight: 700, color: D.inkMuted, letterSpacing: '.02em', whiteSpace: 'nowrap' }}>Trưởng ban</th>
+              <th style={{ padding: '10px 14px', textAlign: 'center', fontSize: 12, fontWeight: 700, color: D.inkMuted, letterSpacing: '.02em', whiteSpace: 'nowrap', width: 96 }}>Thành viên</th>
+              <th style={{ padding: '10px 14px', textAlign: 'right', fontSize: 12, fontWeight: 700, color: D.inkMuted, letterSpacing: '.02em', whiteSpace: 'nowrap', width: 120 }}>Hành động</th>
+            </tr>
+          </thead>
+          <tbody>
             {loading ? (
-              <TableRow><TableCell colSpan={6} className="text-center text-gray-400 py-12">Đang tải...</TableCell></TableRow>
+              <tr><td colSpan={6} style={{ textAlign: 'center', color: D.inkMuted, padding: '48px 0' }}>Đang tải...</td></tr>
             ) : departments.length === 0 ? (
-              <TableRow><TableCell colSpan={6} className="text-center text-gray-400 py-12">Chưa có ban bộ phận nào.</TableCell></TableRow>
+              <tr><td colSpan={6} style={{ textAlign: 'center', color: D.inkMuted, padding: '48px 0' }}>Chưa có ban bộ phận nào.</td></tr>
             ) : departments.map(dept => (
-              <TableRow key={dept.id}>
-                <TableCell className="font-mono text-xs text-gray-400">{dept.id}</TableCell>
-                <TableCell className="font-medium">{dept.name}</TableCell>
-                <TableCell className="text-gray-500">{dept.description ?? '—'}</TableCell>
-                <TableCell>
+              <tr key={dept.id}
+                onMouseEnter={() => setHoverRow(dept.id)}
+                onMouseLeave={() => setHoverRow(null)}
+                style={{ background: hoverRow === dept.id ? D.bg : D.card, borderBottom: D.borderLight }}>
+                <td style={{ padding: '12px 14px', fontFamily: 'monospace', fontSize: 12, color: D.inkMuted }}>{dept.id}</td>
+                <td style={{ padding: '12px 14px', fontWeight: 700, color: D.ink }}>{dept.name}</td>
+                <td style={{ padding: '12px 14px', color: D.inkDim }}>{dept.description ?? '—'}</td>
+                <td style={{ padding: '12px 14px' }}>
                   {dept.deptLeadName
-                    ? <span className="text-sm font-medium" style={{ color: '#374151' }}>{dept.deptLeadName}</span>
-                    : <span className="inline-flex items-center gap-1 text-sm text-amber-600">
-                        <AlertTriangle size={13} />
-                        Chưa có trưởng ban
-                      </span>
+                    ? <span style={{ fontWeight: 600, color: D.ink, fontSize: 13 }}>{dept.deptLeadName}</span>
+                    : <span style={{ fontSize: 11, color: D.amber, fontWeight: 600 }}>⚠ Chưa có trưởng ban</span>
                   }
-                </TableCell>
-                <TableCell className="text-center text-gray-600">{dept.memberCount}</TableCell>
-                <TableCell className="text-right">
-                  <div className="flex items-center justify-end gap-1">
-                    <button
-                      onClick={() => openLeadDialog(dept)}
-                      className="p-1.5 rounded-md text-emerald-600 hover:bg-emerald-50 transition-colors"
-                      title="Bổ nhiệm trưởng ban"
-                    >
-                      <UserCog size={15} />
-                    </button>
-                    <button
-                      onClick={() => openEdit(dept)}
-                      className="p-1.5 rounded-md text-indigo-500 hover:bg-indigo-50 transition-colors"
-                      title="Chỉnh sửa"
-                    >
-                      <Pencil size={15} />
-                    </button>
-                    <button
-                      onClick={() => setDeleteTarget(dept)}
-                      className="p-1.5 rounded-md text-red-400 hover:bg-red-50 transition-colors"
-                      title="Xóa"
-                    >
-                      <Trash2 size={15} />
-                    </button>
+                </td>
+                <td style={{ padding: '12px 14px', textAlign: 'center', color: D.inkDim, fontWeight: 600 }}>{dept.memberCount}</td>
+                <td style={{ padding: '12px 14px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}>
+                    <Tooltip label="Bổ nhiệm trưởng ban">
+                      <button
+                        onClick={() => openLeadDialog(dept)}
+                        style={{ width: 28, height: 28, borderRadius: 6, display: 'grid', placeItems: 'center', border: '1px solid #6ee7b7', background: D.card, color: '#059669', cursor: 'pointer' }}>
+                        <Crown size={13} />
+                      </button>
+                    </Tooltip>
+                    <Tooltip label="Chỉnh sửa">
+                      <button
+                        onClick={() => openEdit(dept)}
+                        style={{ width: 28, height: 28, borderRadius: 6, display: 'grid', placeItems: 'center', border: D.borderLight, background: D.card, color: D.indigo, cursor: 'pointer' }}>
+                        <Pencil size={13} />
+                      </button>
+                    </Tooltip>
+                    <Tooltip label="Xóa ban">
+                      <button
+                        onClick={() => setDeleteTarget(dept)}
+                        style={{ width: 28, height: 28, borderRadius: 6, display: 'grid', placeItems: 'center', border: D.borderLight, background: D.card, color: D.red, cursor: 'pointer' }}>
+                        <Trash2 size={13} />
+                      </button>
+                    </Tooltip>
                   </div>
-                </TableCell>
-              </TableRow>
+                </td>
+              </tr>
             ))}
-          </TableBody>
-        </Table>
+          </tbody>
+        </table>
       </div>
 
       {/* Dialog thêm / sửa */}
       <Dialog open={dialog !== null} onOpenChange={open => { if (!open) setDialog(null) }}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md" style={{ fontFamily: "'Be Vietnam Pro', sans-serif" }}>
           <DialogHeader>
-            <DialogTitle>{dialog === 'add' ? 'Thêm ban mới' : 'Chỉnh sửa ban'}</DialogTitle>
+            <DialogTitle style={{ color: D.ink, fontWeight: 900 }}>{dialog === 'add' ? 'Thêm ban mới' : 'Chỉnh sửa ban'}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-1.5">
-              <Label>Tên ban <span className="text-red-500">*</span></Label>
-              <Input
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14, paddingTop: 8 }}>
+            <div>
+              <label style={labelStyle}>Tên ban <span style={{ color: D.red }}>*</span></label>
+              <input
                 value={form.name}
                 onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
                 placeholder="Ban Truyền thông, Ban Học thuật..."
                 autoFocus
+                style={inputStyle}
               />
             </div>
-            <div className="space-y-1.5">
-              <Label>Mô tả</Label>
+            <div>
+              <label style={labelStyle}>Mô tả</label>
               <textarea
                 value={form.description}
                 onChange={e => setForm(p => ({ ...p, description: e.target.value }))}
                 rows={3}
                 placeholder="Mô tả nhiệm vụ của ban..."
-                className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                style={{ ...inputStyle, height: 'auto', padding: '8px 12px', resize: 'none' }}
               />
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDialog(null)} disabled={saving}>Hủy</Button>
-            <Button onClick={handleSave} disabled={saving} className="bg-indigo-600 hover:bg-indigo-700">
+          <DialogFooter style={{ borderTop: 'none', background: 'transparent', paddingTop: 8 }}>
+            <button onClick={() => setDialog(null)} disabled={saving}
+              style={{ background: D.card, color: D.inkDim, border: D.border, boxShadow: D.shadow(2,2), padding: '8px 14px', borderRadius: D.pill, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+              Hủy
+            </button>
+            <button onClick={handleSave} disabled={saving}
+              style={{ background: D.indigo, color: '#fff', border: D.border, boxShadow: D.shadow(2,2), padding: '8px 16px', borderRadius: D.pill, fontSize: 12, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1, fontFamily: 'inherit' }}>
               {saving ? 'Đang lưu...' : dialog === 'add' ? 'Thêm' : 'Lưu'}
-            </Button>
+            </button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Dialog bổ nhiệm trưởng ban */}
       <Dialog open={leadDept !== null} onOpenChange={open => { if (!open) setLeadDept(null) }}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md" style={{ fontFamily: "'Be Vietnam Pro', sans-serif" }}>
           <DialogHeader>
-            <DialogTitle>Bổ nhiệm trưởng ban — {leadDept?.name}</DialogTitle>
+            <DialogTitle style={{ color: D.ink, fontWeight: 900 }}>Bổ nhiệm trưởng ban — {leadDept?.name}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-3 py-2">
+          <div style={{ paddingTop: 8 }}>
             {deptMembers.length === 0 ? (
-              <p className="text-sm text-gray-400">Ban này chưa có thành viên nào.</p>
+              <p style={{ fontSize: 13, color: D.inkMuted }}>Ban này chưa có thành viên nào.</p>
             ) : (
-              <div className="space-y-1.5">
-                <Label>Chọn trưởng ban</Label>
-                <select
-                  value={selectedMembershipId}
-                  onChange={e => setSelectedMembershipId(e.target.value)}
-                  className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background"
-                >
+              <div>
+                <label style={labelStyle}>Chọn trưởng ban</label>
+                <select value={selectedMembershipId} onChange={e => setSelectedMembershipId(e.target.value)}
+                  style={{ ...inputStyle, height: 36, cursor: 'pointer' }}>
                   <option value="">— Không có trưởng ban —</option>
                   {deptMembers.map(m => (
                     <option key={m.id} value={m.id}>
@@ -258,43 +278,50 @@ export default function DepartmentsPage() {
               </div>
             )}
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setLeadDept(null)} disabled={settingLead}>Hủy</Button>
-            <Button onClick={handleSetLead} disabled={settingLead || deptMembers.length === 0} className="bg-indigo-600 hover:bg-indigo-700">
+          <DialogFooter style={{ borderTop: 'none', paddingTop: 8 }}>
+            <button onClick={() => setLeadDept(null)} disabled={settingLead}
+              style={{ background: D.card, color: D.inkDim, border: D.border, boxShadow: D.shadow(2,2), padding: '8px 14px', borderRadius: D.pill, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+              Hủy
+            </button>
+            <button onClick={handleSetLead} disabled={settingLead || deptMembers.length === 0}
+              style={{ background: D.indigo, color: '#fff', border: D.border, boxShadow: D.shadow(2,2), padding: '8px 16px', borderRadius: D.pill, fontSize: 12, fontWeight: 700, cursor: (settingLead || deptMembers.length === 0) ? 'not-allowed' : 'pointer', opacity: (settingLead || deptMembers.length === 0) ? 0.7 : 1, fontFamily: 'inherit' }}>
               {settingLead ? 'Đang lưu...' : 'Xác nhận'}
-            </Button>
+            </button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Dialog xác nhận xóa */}
       <Dialog open={deleteTarget !== null} onOpenChange={open => { if (!open) setDeleteTarget(null) }}>
-        <DialogContent className="sm:max-w-sm">
+        <DialogContent className="sm:max-w-sm" style={{ fontFamily: "'Be Vietnam Pro', sans-serif" }}>
           <DialogHeader>
-            <DialogTitle>Xóa ban</DialogTitle>
+            <DialogTitle style={{ color: D.ink, fontWeight: 900 }}>Xóa ban</DialogTitle>
           </DialogHeader>
-          <div className="space-y-3">
-            <p className="text-sm text-gray-700">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, paddingTop: 4 }}>
+            <p style={{ fontSize: 13, color: D.inkDim, margin: 0 }}>
               Bạn có chắc muốn xóa ban <strong>"{deleteTarget?.name}"</strong>?
             </p>
             {deleteTarget && deleteTarget.memberCount > 0 ? (
-              <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2.5 text-sm text-amber-800 flex items-start gap-2">
-                <AlertTriangle size={15} className="mt-0.5 flex-shrink-0 text-amber-500" />
+              <div style={{ background: '#fef3c7', border: '1px solid #fde68a', borderRadius: 10, padding: '10px 14px', fontSize: 12, color: '#b45309', display: 'flex', gap: 8 }}>
+                <span style={{ flexShrink: 0 }}>⚠</span>
                 <span>
                   Ban có <strong>{deleteTarget.memberCount} thành viên</strong> đang hoạt động.
-                  Họ sẽ được chuyển thành <strong>thành viên tự do</strong> của CLB và nhận thông báo.
-                  Trưởng ban sẽ bị hạ xuống thành viên thường.
+                  Họ sẽ được chuyển thành <strong>thành viên tự do</strong> của CLB. Trưởng ban sẽ bị hạ xuống thành viên thường.
                 </span>
               </div>
             ) : (
-              <p className="text-sm text-gray-400">Ban này không có thành viên nào.</p>
+              <p style={{ fontSize: 13, color: D.inkMuted, margin: 0 }}>Ban này không có thành viên nào.</p>
             )}
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteTarget(null)} disabled={deleting}>Hủy</Button>
-            <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
+          <DialogFooter style={{ borderTop: 'none', paddingTop: 8 }}>
+            <button onClick={() => setDeleteTarget(null)} disabled={deleting}
+              style={{ background: D.card, color: D.inkDim, border: D.border, boxShadow: D.shadow(2,2), padding: '8px 14px', borderRadius: D.pill, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+              Hủy
+            </button>
+            <button onClick={handleDelete} disabled={deleting}
+              style={{ background: D.red, color: '#fff', border: D.border, boxShadow: D.shadow(2,2), padding: '8px 16px', borderRadius: D.pill, fontSize: 12, fontWeight: 700, cursor: deleting ? 'not-allowed' : 'pointer', opacity: deleting ? 0.7 : 1, fontFamily: 'inherit' }}>
               {deleting ? 'Đang xóa...' : 'Xóa ban'}
-            </Button>
+            </button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

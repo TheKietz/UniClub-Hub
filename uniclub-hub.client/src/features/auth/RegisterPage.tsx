@@ -2,11 +2,12 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useGoogleLogin } from '@react-oauth/google'
 import { useAuth } from '@/contexts/AuthContext'
-import { C, Rv } from '@/components/public/v3'
+import { C, Rv, PublicFooter } from '@/components/public/publicComponents'
+import PublicHeader from '@/components/layouts/PublicHeader'
 import MajorSelect from '@/components/shared/MajorSelect'
 import { toast } from 'sonner'
 import api from '@/lib/axiosInstance'
-import { MailCheck, RefreshCw } from 'lucide-react'
+import { MailCheck, RefreshCw, Eye, EyeOff } from 'lucide-react'
 
 type F = { fullName: string; email: string; studentId: string; major: string; password: string; confirmPassword: string }
 type Errs = Partial<Record<keyof F, string>>
@@ -42,6 +43,8 @@ export default function RegisterPage() {
   const [errs, setErrs] = useState<Errs>({})
   const [loading, setLoading] = useState(false)
   const [resendLoading, setResendLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirm, setShowConfirm] = useState(false)
 
   function validateStep1(v: F): Errs {
     const e: Errs = {}
@@ -123,11 +126,13 @@ export default function RegisterPage() {
 
 
   return (
-    <div style={{
-      minHeight: '100vh', background: C.bg,
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      padding: '20px 28px', fontFamily: "'Be Vietnam Pro', sans-serif",
-    }}>
+    <div className="v3-page v3-enter">
+      <PublicHeader />
+      <div style={{
+        flex: 1, background: C.bg,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: '20px 28px', fontFamily: "'Be Vietnam Pro', sans-serif",
+      }}>
       <div style={{
         display: 'grid', gridTemplateColumns: '1fr 440px', gap: 56,
         maxWidth: 980, width: '100%', alignItems: 'center',
@@ -238,8 +243,8 @@ export default function RegisterPage() {
                         width: 24, height: 24, borderRadius: 999, border: C.border,
                         background: step >= s ? C.ink : C.card,
                         color: step >= s ? C.lemon : C.inkMuted,
-                        display: 'grid', placeItems: 'center',
-                        fontSize: 11, fontWeight: 800,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: 11, fontWeight: 800, lineHeight: 1,
                       }}>{s}</div>
                       <span style={{ fontSize: 12, fontWeight: 600, color: step === s ? C.ink : C.inkMuted }}>
                         {s === 1 ? 'Tài khoản' : 'Hồ sơ'}
@@ -287,21 +292,33 @@ export default function RegisterPage() {
                       style={{ ...inputStyle, borderColor: errs.email ? '#ef4444' : C.ink }} />
                     {errs.email && <p style={{ fontSize: 11, color: '#ef4444', margin: '-4px 0 6px', paddingLeft: 14 }}>{errs.email}</p>}
 
-                    <label style={labelStyle}>Mật khẩu</label>
-                    <input type="password" value={form.password} onChange={onChange('password')} placeholder="Tối thiểu 6 ký tự"
-                      style={{ ...inputStyle, borderColor: errs.password ? '#ef4444' : C.ink }} />
-                    {errs.password && <p style={{ fontSize: 11, color: '#ef4444', margin: '-4px 0 6px', paddingLeft: 14 }}>{errs.password}</p>}
+                    <label style={{ ...labelStyle, marginTop: 10 }}>Mật khẩu</label>
+                    <div style={{ position: 'relative', marginBottom: 0 }}>
+                      <input type={showPassword ? 'text' : 'password'} value={form.password} onChange={onChange('password')} placeholder="Tối thiểu 6 ký tự"
+                        style={{ ...inputStyle, marginBottom: 0, paddingRight: 40, borderColor: errs.password ? '#ef4444' : C.ink }} />
+                      <button type="button" onClick={() => setShowPassword(v => !v)} style={{
+                        position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)',
+                        background: 'none', border: 'none', cursor: 'pointer', color: C.inkMuted, padding: 0,
+                      }}>{showPassword ? <EyeOff size={15} /> : <Eye size={15} />}</button>
+                    </div>
+                    {errs.password && <p style={{ fontSize: 11, color: '#ef4444', margin: '4px 0 6px', paddingLeft: 14 }}>{errs.password}</p>}
 
-                    <label style={labelStyle}>Xác nhận mật khẩu</label>
-                    <input type="password" value={form.confirmPassword} onChange={onChange('confirmPassword')} placeholder="Nhập lại mật khẩu"
-                      style={{ ...inputStyle, borderColor: errs.confirmPassword ? '#ef4444' : C.ink }} />
-                    {errs.confirmPassword && <p style={{ fontSize: 11, color: '#ef4444', margin: '-4px 0 6px', paddingLeft: 14 }}>{errs.confirmPassword}</p>}
+                    <label style={{ ...labelStyle, marginTop: 10 }}>Xác nhận mật khẩu</label>
+                    <div style={{ position: 'relative', marginBottom: 0 }}>
+                      <input type={showConfirm ? 'text' : 'password'} value={form.confirmPassword} onChange={onChange('confirmPassword')} placeholder="Nhập lại mật khẩu"
+                        style={{ ...inputStyle, marginBottom: 0, paddingRight: 40, borderColor: errs.confirmPassword ? '#ef4444' : C.ink }} />
+                      <button type="button" onClick={() => setShowConfirm(v => !v)} style={{
+                        position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)',
+                        background: 'none', border: 'none', cursor: 'pointer', color: C.inkMuted, padding: 0,
+                      }}>{showConfirm ? <EyeOff size={15} /> : <Eye size={15} />}</button>
+                    </div>
+                    {errs.confirmPassword && <p style={{ fontSize: 11, color: '#ef4444', margin: '4px 0 6px', paddingLeft: 14 }}>{errs.confirmPassword}</p>}
 
                     <button type="submit" style={{
                       width: '100%', height: 46, borderRadius: C.radiusPill,
                       background: C.coral, color: C.bg, border: C.border,
                       boxShadow: C.shadow(), fontSize: 15, fontWeight: 800,
-                      cursor: 'pointer', fontFamily: 'inherit', marginTop: 4,
+                      cursor: 'pointer', fontFamily: 'inherit', marginTop: 16,
                     }}>Tiếp theo →</button>
 
                     <p style={{ marginTop: 12, textAlign: 'center', fontSize: 13, color: C.inkMuted }}>
@@ -357,6 +374,8 @@ export default function RegisterPage() {
           </div>
         </Rv>
       </div>
+      </div>
+      <PublicFooter />
     </div>
   )
 }

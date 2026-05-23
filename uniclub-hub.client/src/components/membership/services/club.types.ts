@@ -165,6 +165,7 @@ export interface ClubAuditLogItem {
   oldValue?: string
   newValue?: string
   timestamp: string
+  clubName?: string
 }
 
 export interface ClubAuditLogPage {

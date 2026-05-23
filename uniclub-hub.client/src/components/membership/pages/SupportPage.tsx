@@ -1,10 +1,7 @@
 import { useEffect, useState } from 'react'
 import api from '@/lib/axiosInstance'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
-import { LifeBuoy, Send, Clock, CheckCircle2, Loader2, ChevronDown, ChevronUp } from 'lucide-react'
+import { Clock, CheckCircle2, Loader2 } from 'lucide-react'
 
 interface Ticket {
   id: number
@@ -17,9 +14,28 @@ interface Ticket {
 }
 
 const STATUS_CONFIG: Record<string, { label: string; bg: string; text: string; icon: React.ElementType }> = {
-  Open:       { label: 'Đang chờ',    bg: '#fef3c7', text: '#b45309', icon: Clock },
-  InProgress: { label: 'Đang xử lý', bg: '#dbeafe', text: '#1d4ed8', icon: Loader2 },
+  Open:       { label: 'Đang chờ',      bg: '#fef3c7', text: '#b45309', icon: Clock },
+  InProgress: { label: 'Đang xử lý',   bg: '#dbeafe', text: '#1d4ed8', icon: Loader2 },
   Resolved:   { label: 'Đã giải quyết', bg: '#dcfce7', text: '#15803d', icon: CheckCircle2 },
+}
+
+const D = {
+  border: '1.5px solid #15131a', borderLight: '1px solid #e8e3d6',
+  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 #15131a`,
+  radius: 14, pill: 999,
+  ink: '#15131a', inkDim: '#4a4651', inkMuted: '#918c99',
+  bg: '#f7f6f1', card: '#ffffff', indigo: '#4f46e5',
+}
+
+const inputS: React.CSSProperties = {
+  width: '100%', borderRadius: 8, border: D.borderLight, padding: '0 12px',
+  fontSize: 13, color: D.ink, outline: 'none', background: D.bg,
+  fontFamily: 'inherit', boxSizing: 'border-box', height: 36,
+}
+const labelS: React.CSSProperties = { fontSize: 12, fontWeight: 700, color: D.inkDim, display: 'block', marginBottom: 4 }
+
+function fmtDate(d: string) {
+  return new Date(d).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
 export default function SupportPage() {
@@ -41,16 +57,12 @@ export default function SupportPage() {
 
   async function handleSend(e: React.FormEvent) {
     e.preventDefault()
-    if (!subject.trim() || !message.trim()) {
-      toast.error('Vui lòng điền đầy đủ tiêu đề và nội dung.')
-      return
-    }
+    if (!subject.trim() || !message.trim()) { toast.error('Vui lòng điền đầy đủ tiêu đề và nội dung.'); return }
     setSending(true)
     try {
       await api.post('/support', { subject: subject.trim(), message: message.trim() })
-      toast.success('Đã gửi yêu cầu hỗ trợ. Quản trị viên sẽ phản hồi sớm.')
-      setSubject('')
-      setMessage('')
+      toast.success('Đã gửi yêu cầu hỗ trợ.')
+      setSubject(''); setMessage('')
       load()
     } catch (err: any) {
       toast.error(err.response?.data?.message ?? 'Gửi thất bại.')
@@ -60,103 +72,83 @@ export default function SupportPage() {
   }
 
   return (
-    <div className="px-6 pb-8 space-y-6 max-w-3xl">
-      <div>
-        <h1 className="text-xl font-bold text-gray-900">Yêu cầu hỗ trợ</h1>
-        <p className="text-sm text-gray-400 mt-0.5">Gửi yêu cầu tới quản trị viên khi cần hỗ trợ</p>
+    <div style={{ padding: '28px 32px', minHeight: '100%', background: D.bg, fontFamily: "'Be Vietnam Pro', sans-serif", maxWidth: 720 }}>
+      <div style={{ marginBottom: 24 }}>
+        <h1 style={{ fontSize: 24, fontWeight: 900, color: D.ink, letterSpacing: '-.025em', margin: 0 }}>Yêu cầu hỗ trợ</h1>
+        <p style={{ fontSize: 13, color: D.inkMuted, marginTop: 4 }}>Gửi yêu cầu tới quản trị viên khi cần hỗ trợ</p>
       </div>
 
-      {/* Form gửi ticket */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <div className="px-5 py-3 border-b border-gray-100 bg-gray-50 flex items-center gap-2">
-          <LifeBuoy size={15} className="text-indigo-500" />
-          <p className="text-sm font-semibold text-gray-900">Gửi yêu cầu mới</p>
+      {/* Form */}
+      <div style={{ background: D.card, border: D.border, borderRadius: D.radius, boxShadow: D.shadow(), overflow: 'hidden', marginBottom: 28 }}>
+        <div style={{ padding: '12px 18px', borderBottom: D.borderLight, background: D.bg, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 15 }}>◉</span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: D.ink }}>Gửi yêu cầu mới</span>
         </div>
-        <form onSubmit={handleSend} className="p-5 space-y-4">
-          <div className="space-y-1.5">
-            <Label>Tiêu đề <span className="text-red-500">*</span></Label>
-            <Input
-              value={subject}
-              onChange={e => setSubject(e.target.value)}
-              placeholder="Mô tả ngắn gọn vấn đề của bạn..."
-              disabled={sending}
-            />
+        <form onSubmit={handleSend} style={{ padding: '18px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div>
+            <label style={labelS}>Tiêu đề <span style={{ color: '#ef4444' }}>*</span></label>
+            <input value={subject} onChange={e => setSubject(e.target.value)} placeholder="Mô tả ngắn gọn vấn đề..." disabled={sending} style={inputS} />
           </div>
-          <div className="space-y-1.5">
-            <Label>Nội dung <span className="text-red-500">*</span></Label>
-            <textarea
-              value={message}
-              onChange={e => setMessage(e.target.value)}
-              rows={4}
-              placeholder="Mô tả chi tiết vấn đề bạn gặp phải..."
-              disabled={sending}
-              className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
-            />
+          <div>
+            <label style={labelS}>Nội dung <span style={{ color: '#ef4444' }}>*</span></label>
+            <textarea value={message} onChange={e => setMessage(e.target.value)} rows={4} placeholder="Mô tả chi tiết vấn đề bạn gặp phải..." disabled={sending}
+              style={{ ...inputS, height: 'auto', padding: '10px 12px', resize: 'none', opacity: sending ? 0.6 : 1 }} />
           </div>
-          <div className="flex justify-end">
-            <Button type="submit" disabled={sending} className="gap-1.5 bg-indigo-600 hover:bg-indigo-700">
-              {sending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
-              {sending ? 'Đang gửi...' : 'Gửi yêu cầu'}
-            </Button>
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <button type="submit" disabled={sending} style={{ background: D.indigo, color: '#fff', border: D.border, boxShadow: D.shadow(2, 2), padding: '8px 18px', borderRadius: D.pill, fontSize: 12, fontWeight: 700, cursor: sending ? 'not-allowed' : 'pointer', opacity: sending ? 0.7 : 1, fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 6 }}>
+              {sending ? '⟳ Đang gửi...' : '→ Gửi yêu cầu'}
+            </button>
           </div>
         </form>
       </div>
 
-      {/* Lịch sử ticket */}
-      <div className="space-y-3">
-        <h2 className="text-sm font-semibold text-gray-700">Lịch sử yêu cầu ({tickets.length})</h2>
+      {/* Ticket list */}
+      <div>
+        <p style={{ fontSize: 13, fontWeight: 700, color: D.inkDim, marginBottom: 12 }}>Lịch sử yêu cầu ({tickets.length})</p>
         {loading ? (
-          <p className="text-sm text-gray-400 py-4 text-center">Đang tải...</p>
+          <div style={{ background: D.card, border: D.border, borderRadius: D.radius, padding: '32px', textAlign: 'center', color: D.inkMuted, fontSize: 13 }}>Đang tải...</div>
         ) : tickets.length === 0 ? (
-          <div className="bg-white rounded-xl border border-gray-200 p-8 text-center text-gray-400">
-            <LifeBuoy size={32} className="mx-auto mb-2 text-gray-200" />
-            <p className="text-sm">Bạn chưa gửi yêu cầu hỗ trợ nào.</p>
+          <div style={{ background: D.card, border: D.border, borderRadius: D.radius, boxShadow: D.shadow(), padding: '40px 20px', textAlign: 'center', color: D.inkMuted, fontSize: 13 }}>
+            Bạn chưa gửi yêu cầu hỗ trợ nào.
           </div>
-        ) : tickets.map(t => {
-          const cfg = STATUS_CONFIG[t.status] ?? STATUS_CONFIG.Open
-          const Icon = cfg.icon
-          const isOpen = expanded === t.id
-          return (
-            <div key={t.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-              <button
-                onClick={() => setExpanded(isOpen ? null : t.id)}
-                className="w-full px-5 py-4 flex items-center gap-3 text-left hover:bg-gray-50 transition-colors"
-              >
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold flex-shrink-0"
-                  style={{ background: cfg.bg, color: cfg.text }}>
-                  <Icon size={11} />
-                  {cfg.label}
-                </span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 truncate">{t.subject}</p>
-                  <p className="text-xs text-gray-400 mt-0.5">
-                    {new Date(t.createdAt).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                  </p>
-                </div>
-                {isOpen ? <ChevronUp size={16} className="text-gray-400 flex-shrink-0" /> : <ChevronDown size={16} className="text-gray-400 flex-shrink-0" />}
-              </button>
-              {isOpen && (
-                <div className="px-5 pb-4 space-y-3 border-t border-gray-100 pt-3">
-                  <div>
-                    <p className="text-xs font-medium text-gray-500 mb-1">Nội dung</p>
-                    <p className="text-sm text-gray-700 whitespace-pre-wrap">{t.message}</p>
-                  </div>
-                  {t.adminNote && (
-                    <div className="bg-indigo-50 rounded-lg p-3">
-                      <p className="text-xs font-medium text-indigo-600 mb-1">Phản hồi từ quản trị viên</p>
-                      <p className="text-sm text-indigo-900 whitespace-pre-wrap">{t.adminNote}</p>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {tickets.map(t => {
+              const cfg = STATUS_CONFIG[t.status] ?? STATUS_CONFIG.Open
+              const Icon = cfg.icon
+              const isOpen = expanded === t.id
+              return (
+                <div key={t.id} style={{ background: D.card, border: D.border, borderRadius: D.radius, boxShadow: D.shadow(), overflow: 'hidden' }}>
+                  <button onClick={() => setExpanded(isOpen ? null : t.id)} style={{ width: '100%', padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 12, background: 'transparent', border: 'none', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: D.pill, fontSize: 11, fontWeight: 700, background: cfg.bg, color: cfg.text, flexShrink: 0 }}>
+                      <Icon size={10} />{cfg.label}
+                    </span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ fontSize: 13, fontWeight: 700, color: D.ink, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.subject}</p>
+                      <p style={{ fontSize: 11, color: D.inkMuted, marginTop: 2 }}>{fmtDate(t.createdAt)}</p>
+                    </div>
+                    <span style={{ color: D.inkMuted, fontSize: 12, flexShrink: 0 }}>{isOpen ? '▲' : '▼'}</span>
+                  </button>
+                  {isOpen && (
+                    <div style={{ borderTop: D.borderLight, padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                      <div>
+                        <p style={{ fontSize: 11, fontWeight: 700, color: D.inkMuted, textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 6 }}>Nội dung</p>
+                        <p style={{ fontSize: 13, color: D.inkDim, whiteSpace: 'pre-wrap', margin: 0 }}>{t.message}</p>
+                      </div>
+                      {t.adminNote && (
+                        <div style={{ background: '#eef2ff', borderRadius: 10, padding: '12px 14px' }}>
+                          <p style={{ fontSize: 11, fontWeight: 700, color: D.indigo, marginBottom: 4 }}>Phản hồi từ quản trị viên</p>
+                          <p style={{ fontSize: 13, color: '#3730a3', whiteSpace: 'pre-wrap', margin: 0 }}>{t.adminNote}</p>
+                        </div>
+                      )}
+                      {t.resolvedAt && <p style={{ fontSize: 11, color: D.inkMuted }}>Giải quyết lúc {fmtDate(t.resolvedAt)}</p>}
                     </div>
                   )}
-                  {t.resolvedAt && (
-                    <p className="text-xs text-gray-400">
-                      Giải quyết lúc {new Date(t.resolvedAt).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                    </p>
-                  )}
                 </div>
-              )}
-            </div>
-          )
-        })}
+              )
+            })}
+          </div>
+        )}
       </div>
     </div>
   )

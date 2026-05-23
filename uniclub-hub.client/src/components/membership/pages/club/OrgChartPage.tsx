@@ -1,79 +1,80 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { Tree, TreeNode } from 'react-organizational-chart'
-import { getClubMembers, getDepartments } from '@/components/membership/services/clubApi'
-import { getClubDetail } from '@/components/membership/services/clubApi'
+import { getClubMembers, getDepartments, getClubDetail } from '@/components/membership/services/clubApi'
 import type { MemberItem, DepartmentItem, ClubDetail } from '@/components/membership/services/club.types'
 import { CLUB_ROLES, MEMBERSHIP_STATUS } from '@/types/auth'
 import { toast } from 'sonner'
-import { AlertTriangle } from 'lucide-react'
 
-// ── Node components ───────────────────────────────────────────────────────────
+const AVATAR_COLORS = ['#4f46e5', '#7c3aed', '#ec4899', '#f59e0b', '#10b981', '#38bdf8']
+const DEPT_COLORS  = ['#4f46e5', '#7c3aed', '#ec4899', '#14b8a6', '#38bdf8', '#f59e0b']
+
+const D = {
+  border: '1.5px solid #15131a', borderLight: '1px solid #e8e3d6',
+  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 #15131a`,
+  radius: 14, ink: '#15131a', inkDim: '#4a4651', inkMuted: '#918c99',
+  bg: '#f7f6f1', card: '#ffffff',
+}
 
 function ClubNode({ club }: { club: ClubDetail }) {
   const letter = (club.name.startsWith('CLB ') ? club.name.slice(4) : club.name)[0]?.toUpperCase() ?? '?'
   return (
-    <div className="inline-flex flex-col items-center gap-1.5 bg-indigo-600 text-white rounded-2xl px-5 py-3 shadow-lg min-w-36">
+    <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: 6, background: '#fff', borderRadius: 16, padding: '12px 20px', minWidth: 140, boxShadow: '4px 4px 0 #15131a', border: '1.5px solid #15131a' }}>
       {club.logoUrl
-        ? <img src={club.logoUrl} className="w-10 h-10 rounded-full object-cover" />
-        : <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center font-bold text-lg">{letter}</div>
+        ? <img src={club.logoUrl} style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover', border: '1.5px solid #15131a' }} alt="" />
+        : <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#4f46e5', display: 'grid', placeItems: 'center', fontWeight: 900, fontSize: 18, color: '#fff', border: '1.5px solid #15131a' }}>{letter}</div>
       }
-      <p className="font-semibold text-sm leading-tight">{club.name}</p>
-      <p className="text-xs text-indigo-200">{club.memberCount} thành viên</p>
+      <p style={{ fontWeight: 800, fontSize: 13, color: '#15131a', margin: 0, textAlign: 'center' }}>{club.name}</p>
+      <p style={{ fontSize: 11, color: '#918c99', margin: 0 }}>{club.memberCount} thành viên</p>
     </div>
   )
 }
 
-function DeptNode({ dept }: { dept: DepartmentItem }) {
+function DeptNode({ dept, index }: { dept: DepartmentItem; index: number }) {
+  const color = DEPT_COLORS[index % DEPT_COLORS.length]
   return (
-    <div className="inline-flex flex-col items-center gap-1 bg-white border-2 border-indigo-200 rounded-xl px-4 py-2.5 shadow-sm min-w-32">
-      <p className="font-semibold text-sm text-gray-800">{dept.name}</p>
+    <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: 4, background: D.card, border: D.border, borderRadius: 12, padding: '10px 16px', minWidth: 128, boxShadow: D.shadow(2, 2) }}>
+      <div style={{ width: 28, height: 28, borderRadius: 7, background: color, display: 'grid', placeItems: 'center', color: '#fff', fontSize: 12, fontWeight: 800 }}>▦</div>
+      <p style={{ fontWeight: 700, fontSize: 12, color: D.ink, margin: 0, textAlign: 'center' }}>{dept.name}</p>
       {dept.deptLeadName
-        ? <p className="text-xs text-indigo-600">{dept.deptLeadName}</p>
-        : <span className="inline-flex items-center gap-1 text-xs text-amber-600">
-            <AlertTriangle size={11} /> Chưa có trưởng ban
-          </span>
+        ? <p style={{ fontSize: 11, color: '#4f46e5', margin: 0, textAlign: 'center' }}>{dept.deptLeadName}</p>
+        : <span style={{ fontSize: 10, fontWeight: 700, color: '#b45309', background: '#fef3c7', padding: '1px 6px', borderRadius: 4 }}>⚠ Chưa có TB</span>
       }
-      <p className="text-xs text-gray-400">{dept.memberCount} thành viên</p>
+      <p style={{ fontSize: 10, color: D.inkMuted, margin: 0 }}>{dept.memberCount} TV</p>
     </div>
   )
 }
-
-const AVATAR_COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#3b82f6']
 
 function MemberNode({ member }: { member: MemberItem }) {
   const name = member.fullName || member.email
-  const initials = name.split(' ').slice(-2).map(w => w[0]).join('').toUpperCase()
+  const initials = name.split(' ').slice(-2).map((w: string) => w[0]).join('').toUpperCase()
   const color = AVATAR_COLORS[name.charCodeAt(0) % AVATAR_COLORS.length]
-  const isLead = member.clubRole === CLUB_ROLES.DEPT_LEAD
   const isAdmin = member.clubRole === CLUB_ROLES.CLUB_ADMIN
-
+  const isLead  = member.clubRole === CLUB_ROLES.DEPT_LEAD
+  const roleBg  = isAdmin ? '#4f46e5' : isLead ? '#7c3aed' : '#e8e3d6'
+  const roleCol = isAdmin || isLead ? '#fff' : D.inkMuted
+  const roleLabel = isAdmin ? 'Trưởng CLB' : isLead ? 'Trưởng ban' : 'Thành viên'
   return (
-    <div className={`inline-flex flex-col items-center gap-1 rounded-xl px-3 py-2 shadow-sm border min-w-28 ${
-      isAdmin ? 'border-indigo-400 bg-indigo-50' :
-      isLead ? 'border-blue-300 bg-blue-50' : 'border-gray-200 bg-white'
-    }`}>
+    <div style={{
+      display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: 4,
+      background: isAdmin ? '#ede9fe' : D.card,
+      border: isAdmin ? '1.5px solid #4f46e5' : isLead ? '1.5px solid #7c3aed' : D.borderLight,
+      borderRadius: 12, padding: '8px 12px', minWidth: 100,
+      boxShadow: isAdmin ? '2px 2px 0 #4f46e5' : '2px 2px 0 #e8e3d6',
+    }}>
       {member.avatarUrl
-        ? <img src={member.avatarUrl} className="w-8 h-8 rounded-full object-cover" />
-        : <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-semibold"
-            style={{ background: color }}>{initials}</div>
+        ? <img src={member.avatarUrl} style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover' }} alt="" />
+        : <div style={{ width: 32, height: 32, borderRadius: '50%', background: color, display: 'grid', placeItems: 'center', color: '#fff', fontSize: 11, fontWeight: 800 }}>{initials}</div>
       }
-      <p className="text-xs font-medium text-gray-800 text-center leading-tight max-w-24 truncate">{member.fullName ?? member.email}</p>
-      {member.studentId && <p className="text-[10px] text-gray-400">{member.studentId}</p>}
-      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
-        isAdmin ? 'bg-indigo-100 text-indigo-700' :
-        isLead ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'
-      }`}>
-        {isAdmin ? 'Trưởng CLB' : isLead ? 'Trưởng ban' : 'Thành viên'}
-      </span>
+      <p style={{ fontSize: 11, fontWeight: 600, color: D.ink, margin: 0, textAlign: 'center', maxWidth: 88, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{member.fullName ?? member.email}</p>
+      {member.studentId && <p style={{ fontSize: 10, color: D.inkMuted, margin: 0 }}>{member.studentId}</p>}
+      <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 6px', borderRadius: 4, background: roleBg, color: roleCol, textTransform: 'uppercase', letterSpacing: '.04em' }}>{roleLabel}</span>
       {member.status === MEMBERSHIP_STATUS.PROBATION && (
-        <span className="text-[10px] text-amber-600">Thử việc</span>
+        <span style={{ fontSize: 9, color: '#b45309', fontWeight: 600 }}>Thử việc</span>
       )}
     </div>
   )
 }
-
-// ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function OrgChartPage() {
   const { clubId } = useParams<{ clubId: string }>()
@@ -91,79 +92,55 @@ export default function OrgChartPage() {
       .finally(() => setLoading(false))
   }, [id])
 
-  if (loading) return <div className="p-8 text-gray-400 text-sm">Đang tải...</div>
+  if (loading) return (
+    <div style={{ padding: '28px 32px', color: '#918c99', fontSize: 13, fontFamily: "'Be Vietnam Pro', sans-serif" }}>Đang tải...</div>
+  )
   if (!club) return null
 
-  const activeMembers = members.filter(m =>
-    m.status === MEMBERSHIP_STATUS.ACTIVE || m.status === MEMBERSHIP_STATUS.PROBATION
-  )
-
-  // Nhóm members theo departmentId
-  const membersByDept = (deptId: number) =>
-    activeMembers.filter(m => m.departmentId === deptId)
-
+  const activeMembers = members.filter(m => m.status === MEMBERSHIP_STATUS.ACTIVE || m.status === MEMBERSHIP_STATUS.PROBATION)
+  const membersByDept = (deptId: number) => activeMembers.filter(m => m.departmentId === deptId)
   const clubAdmin = activeMembers.find(m => m.clubRole === CLUB_ROLES.CLUB_ADMIN)
-
-  const freeMembers = activeMembers.filter(
-    m => !m.departmentId && m.clubRole === CLUB_ROLES.MEMBER
-  )
+  const freeMembers = activeMembers.filter(m => !m.departmentId && m.clubRole === CLUB_ROLES.MEMBER)
 
   return (
-    <div className="px-8 pt-4 pb-8 space-y-4">
-      <div>
-        <h1 className="text-xl font-bold text-gray-900">Sơ đồ cơ cấu tổ chức</h1>
-        <p className="text-sm text-gray-400 mt-0.5">{activeMembers.length} thành viên đang hoạt động</p>
+    <div style={{ padding: '28px 32px', minHeight: '100%', background: D.bg, fontFamily: "'Be Vietnam Pro', sans-serif" }}>
+      <div style={{ marginBottom: 20 }}>
+        <h1 style={{ fontSize: 24, fontWeight: 900, color: D.ink, letterSpacing: '-.025em', margin: 0 }}>Sơ đồ cơ cấu tổ chức</h1>
+        <p style={{ fontSize: 13, color: D.inkMuted, marginTop: 4 }}>{activeMembers.length} thành viên đang hoạt động</p>
       </div>
 
-      <div className="bg-white rounded-2xl border border-gray-200 p-6 overflow-x-auto">
-        <div className="min-w-max mx-auto">
-          <Tree
-            lineWidth="2px"
-            lineColor="#c7d2fe"
-            lineBorderRadius="8px"
-            label={<ClubNode club={club} />}
-          >
-            {/* Trưởng CLB */}
+      <div style={{ background: D.card, border: D.border, borderRadius: D.radius, boxShadow: D.shadow(), padding: '24px', overflowX: 'auto' }}>
+        <div style={{ minWidth: 'max-content', margin: '0 auto' }}>
+          <Tree lineWidth="2px" lineColor="#c7d2fe" lineBorderRadius="8px" label={<ClubNode club={club} />}>
             {clubAdmin && (
               <TreeNode label={<MemberNode member={clubAdmin} />}>
-                {/* Các ban bộ phận */}
-                {departments.map(dept => (
-                  <TreeNode key={dept.id} label={<DeptNode dept={dept} />}>
+                {departments.map((dept, i) => (
+                  <TreeNode key={dept.id} label={<DeptNode dept={dept} index={i} />}>
                     {membersByDept(dept.id).map(m => (
                       <TreeNode key={m.id} label={<MemberNode member={m} />} />
                     ))}
                     {membersByDept(dept.id).length === 0 && (
                       <TreeNode label={
-                        <div className="text-xs text-gray-400 border border-dashed border-gray-300 rounded-lg px-3 py-2">
-                          Chưa có thành viên
-                        </div>
+                        <div style={{ fontSize: 11, color: D.inkMuted, border: '1.5px dashed #e8e3d6', borderRadius: 10, padding: '8px 14px' }}>Chưa có thành viên</div>
                       } />
                     )}
                   </TreeNode>
                 ))}
-
-                {/* Thành viên tự do */}
                 {freeMembers.length > 0 && (
                   <TreeNode label={
-                    <div className="inline-flex flex-col items-center gap-1 bg-gray-50 border border-dashed border-gray-300 rounded-xl px-4 py-2.5 min-w-32">
-                      <p className="font-medium text-sm text-gray-500">Thành viên tự do</p>
-                      <p className="text-xs text-gray-400">{freeMembers.length} người</p>
+                    <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: 4, background: D.bg, border: '1.5px dashed #e8e3d6', borderRadius: 12, padding: '10px 16px', minWidth: 120 }}>
+                      <p style={{ fontWeight: 700, fontSize: 12, color: D.inkDim, margin: 0 }}>Thành viên tự do</p>
+                      <p style={{ fontSize: 11, color: D.inkMuted, margin: 0 }}>{freeMembers.length} người</p>
                     </div>
                   }>
-                    {freeMembers.map(m => (
-                      <TreeNode key={m.id} label={<MemberNode member={m} />} />
-                    ))}
+                    {freeMembers.map(m => <TreeNode key={m.id} label={<MemberNode member={m} />} />)}
                   </TreeNode>
                 )}
               </TreeNode>
             )}
-
-            {/* Nếu chưa có trưởng CLB, render thẳng các ban */}
-            {!clubAdmin && departments.map(dept => (
-              <TreeNode key={dept.id} label={<DeptNode dept={dept} />}>
-                {membersByDept(dept.id).map(m => (
-                  <TreeNode key={m.id} label={<MemberNode member={m} />} />
-                ))}
+            {!clubAdmin && departments.map((dept, i) => (
+              <TreeNode key={dept.id} label={<DeptNode dept={dept} index={i} />}>
+                {membersByDept(dept.id).map(m => <TreeNode key={m.id} label={<MemberNode member={m} />} />)}
               </TreeNode>
             ))}
           </Tree>
@@ -171,11 +148,18 @@ export default function OrgChartPage() {
       </div>
 
       {/* Legend */}
-      <div className="flex flex-wrap items-center gap-4 text-xs text-gray-500">
-        <span className="font-medium text-gray-700">Chú thích:</span>
-        <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-indigo-50 border border-indigo-400 inline-block" /> Trưởng CLB</span>
-        <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-blue-50 border border-blue-300 inline-block" /> Trưởng ban</span>
-        <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-white border border-gray-200 inline-block" /> Thành viên</span>
+      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 14, marginTop: 16, fontSize: 12, color: D.inkMuted }}>
+        <span style={{ fontWeight: 700, color: D.inkDim }}>Chú thích:</span>
+        {[
+          { color: '#4f46e5', label: 'Trưởng CLB' },
+          { color: '#7c3aed', label: 'Trưởng ban' },
+          { color: '#e8e3d6', label: 'Thành viên' },
+        ].map(l => (
+          <span key={l.label} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ width: 12, height: 12, borderRadius: 3, background: l.color, display: 'inline-block', border: D.borderLight }} />
+            {l.label}
+          </span>
+        ))}
       </div>
     </div>
   )

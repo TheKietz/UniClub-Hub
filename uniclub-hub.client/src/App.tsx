@@ -40,6 +40,7 @@ import MyActivityPage from "@/components/membership/pages/MyActivityPage";
 import SupportPage from "@/components/membership/pages/SupportPage";
 import SupportAdminPage from "@/components/membership/pages/admin/SupportAdminPage";
 import AdminResignationPage from "@/components/membership/pages/admin/AdminResignationPage";
+import AdminAuditLogPage from "@/components/membership/pages/admin/AdminAuditLogPage";
 import ClubDetailPage from "@/components/membership/pages/ClubDetailPage";
 import ProfilePage from "@/components/membership/pages/ProfilePage";
 import MemberHistoryPage from "@/components/membership/pages/MemberHistoryPage";
@@ -92,6 +93,7 @@ export default function App() {
               <Route path="/admin/categories" element={<CategoriesPage />} />
               <Route path="/admin/support" element={<SupportAdminPage />} />
               <Route path="/admin/resignations" element={<AdminResignationPage />} />
+              <Route path="/admin/audit-log" element={<AdminAuditLogPage />} />
             </Route>
           </Route>
 

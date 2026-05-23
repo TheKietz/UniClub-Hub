@@ -17,22 +17,26 @@ interface MembershipHistory {
 }
 
 const ROLE_LABELS: Record<string, string> = {
-  CLUB_ADMIN: 'Ban chủ nhiệm',
-  DEPT_LEAD: 'Trưởng ban',
-  MEMBER: 'Thành viên',
+  CLUB_ADMIN: 'Ban chủ nhiệm', DEPT_LEAD: 'Trưởng ban', MEMBER: 'Thành viên',
 }
 
 const STATUS_STYLE: Record<string, { bg: string; text: string; label: string }> = {
-  Active:     { bg: '#f0fdf4', text: '#16a34a', label: 'Đang hoạt động' },
-  Probation:  { bg: '#eff6ff', text: '#2563eb', label: 'Thử việc' },
-  Resigned:   { bg: '#f3f4f6', text: '#6b7280', label: 'Đã rời CLB' },
+  Active:    { bg: '#dcfce7', text: '#15803d', label: 'Đang hoạt động' },
+  Probation: { bg: '#dbeafe', text: '#1d4ed8', label: 'Thử việc' },
+  Resigned:  { bg: '#f3f4f6', text: '#6b7280', label: 'Đã rời CLB' },
 }
 
-const AVATAR_COLORS = ['bg-indigo-500','bg-emerald-500','bg-violet-500','bg-rose-500','bg-amber-500','bg-cyan-500']
+const CLUB_COLORS = ['#4f46e5', '#7c3aed', '#ff5a3c', '#14b8a6', '#38bdf8', '#ec4899']
 
 function fmt(dateStr: string) {
-  const d = new Date(dateStr)
-  return d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
+  return new Date(dateStr).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
+}
+
+const D = {
+  border: '1.5px solid #15131a', borderLight: '1px solid #e8e3d6',
+  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 #15131a`,
+  radius: 14, ink: '#15131a', inkDim: '#4a4651', inkMuted: '#918c99',
+  bg: '#f7f6f1', card: '#ffffff',
 }
 
 export default function MemberHistoryPage() {
@@ -49,34 +53,46 @@ export default function MemberHistoryPage() {
   const active   = history.filter(h => h.status === MEMBERSHIP_STATUS.ACTIVE || h.status === MEMBERSHIP_STATUS.PROBATION)
   const resigned = history.filter(h => h.status === MEMBERSHIP_STATUS.RESIGNED)
 
-  if (loading) return <div className="px-8 pt-6 text-sm" style={{ color: '#6b7280' }}>Đang tải...</div>
+  if (loading) return (
+    <div style={{ padding: '28px 32px', color: D.inkMuted, fontSize: 13, fontFamily: "'Be Vietnam Pro', sans-serif" }}>
+      Đang tải...
+    </div>
+  )
 
   return (
-    <div className="px-8 pt-4 pb-8 space-y-6">
-      <div>
-        <h1 className="text-xl font-bold leading-none" style={{ color: '#0f172a' }}>Lịch sử tham gia</h1>
-        <p className="mt-1 text-sm" style={{ color: '#6b7280' }}>Các câu lạc bộ bạn đã và đang tham gia</p>
+    <div style={{ padding: '28px 32px', minHeight: '100%', background: D.bg, fontFamily: "'Be Vietnam Pro', sans-serif" }}>
+      <div style={{ marginBottom: 28 }}>
+        <h1 style={{ fontSize: 24, fontWeight: 900, color: D.ink, letterSpacing: '-.025em', margin: 0 }}>Lịch sử tham gia</h1>
+        <p style={{ fontSize: 13, color: D.inkMuted, marginTop: 4 }}>Các câu lạc bộ bạn đã và đang tham gia</p>
       </div>
 
       {history.length === 0 && (
-        <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
-          <p className="text-sm" style={{ color: '#9ca3af' }}>Bạn chưa tham gia câu lạc bộ nào.</p>
+        <div style={{ background: D.card, border: D.border, borderRadius: D.radius, boxShadow: D.shadow(), padding: '48px 20px', textAlign: 'center', color: D.inkMuted, fontSize: 13 }}>
+          Bạn chưa tham gia câu lạc bộ nào.
         </div>
       )}
 
-      {/* Đang tham gia */}
       {active.length > 0 && (
-        <section className="space-y-3">
-          <h2 className="text-sm font-semibold uppercase tracking-wide" style={{ color: '#9ca3af' }}>Đang tham gia</h2>
-          {active.map(h => <HistoryCard key={h.membershipId} h={h} />)}
+        <section style={{ marginBottom: 28 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+            <span style={{ display: 'inline-flex', padding: '2px 10px', borderRadius: 4, fontSize: 10, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', background: '#dcfce7', color: '#15803d' }}>Đang tham gia</span>
+            <span style={{ fontSize: 12, color: D.inkMuted }}>{active.length} CLB</span>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {active.map(h => <HistoryCard key={h.membershipId} h={h} />)}
+          </div>
         </section>
       )}
 
-      {/* Đã rời */}
       {resigned.length > 0 && (
-        <section className="space-y-3">
-          <h2 className="text-sm font-semibold uppercase tracking-wide" style={{ color: '#9ca3af' }}>Đã rời CLB</h2>
-          {resigned.map(h => <HistoryCard key={h.membershipId} h={h} />)}
+        <section>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+            <span style={{ display: 'inline-flex', padding: '2px 10px', borderRadius: 4, fontSize: 10, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', background: '#f3f4f6', color: '#6b7280' }}>Đã rời CLB</span>
+            <span style={{ fontSize: 12, color: D.inkMuted }}>{resigned.length} CLB</span>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {resigned.map(h => <HistoryCard key={h.membershipId} h={h} />)}
+          </div>
         </section>
       )}
     </div>
@@ -84,54 +100,53 @@ export default function MemberHistoryPage() {
 }
 
 function HistoryCard({ h }: { h: MembershipHistory }) {
-  const avatarColor = AVATAR_COLORS[(h.clubName?.charCodeAt(0) ?? 0) % AVATAR_COLORS.length]
+  const color = CLUB_COLORS[(h.clubName?.charCodeAt(0) ?? 0) % CLUB_COLORS.length]
   const statusStyle = STATUS_STYLE[h.status] ?? STATUS_STYLE.Resigned
   const isResigned = h.status === MEMBERSHIP_STATUS.RESIGNED
+  const daysIn = Math.floor((Date.now() - new Date(h.joinedDate).getTime()) / (1000 * 60 * 60 * 24))
 
   return (
-    <div className={`bg-white rounded-xl border border-gray-200 p-5 flex items-start gap-4 ${isResigned ? 'opacity-70' : ''}`}>
-      {/* Logo */}
-      {h.clubLogoUrl
-        ? <img src={h.clubLogoUrl} alt="" className="w-12 h-12 rounded-xl object-cover flex-shrink-0" />
-        : <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold text-lg flex-shrink-0 ${avatarColor}`}>
-            {h.clubName[0]}
-          </div>
-      }
+    <div style={{
+      background: '#fff', border: '1.5px solid #15131a', borderRadius: 14,
+      boxShadow: '3px 3px 0 #15131a', padding: '16px 18px',
+      display: 'flex', alignItems: 'center', gap: 14,
+      opacity: isResigned ? 0.75 : 1,
+    }}>
+      {h.clubLogoUrl ? (
+        <img src={h.clubLogoUrl} alt="" style={{ width: 46, height: 46, borderRadius: 12, objectFit: 'cover', border: '1.5px solid #15131a', flexShrink: 0, transform: 'rotate(-3deg)' }} />
+      ) : (
+        <div style={{ width: 46, height: 46, borderRadius: 12, flexShrink: 0, background: color, border: '1.5px solid #15131a', display: 'grid', placeItems: 'center', color: '#fff', fontWeight: 900, fontSize: 18, transform: 'rotate(-3deg)' }}>
+          {h.clubName[0]}
+        </div>
+      )}
 
-      {/* Info */}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-start justify-between gap-2">
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
           <div>
-            <p className="font-semibold text-sm leading-tight" style={{ color: '#111827' }}>{h.clubName}</p>
-            <p className="text-xs mt-0.5" style={{ color: '#6b7280' }}>
+            <p style={{ fontWeight: 700, fontSize: 14, color: '#15131a', margin: 0 }}>{h.clubName}</p>
+            <p style={{ fontSize: 12, color: '#918c99', marginTop: 2 }}>
               {ROLE_LABELS[h.clubRole] ?? h.clubRole}
               {h.departmentName && <span> · {h.departmentName}</span>}
             </p>
           </div>
-          <span className="text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0"
-            style={{ background: statusStyle.bg, color: statusStyle.text }}>
+          <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 999, background: statusStyle.bg, color: statusStyle.text, flexShrink: 0 }}>
             {statusStyle.label}
           </span>
         </div>
 
-        {/* Timeline */}
-        <div className="mt-3 flex items-center gap-4 text-xs" style={{ color: '#9ca3af' }}>
-          <span className="flex items-center gap-1">
-            <CalendarDays size={12} />
-            Gia nhập {fmt(h.joinedDate)}
+        <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 16, fontSize: 11.5, color: '#918c99' }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <CalendarDays size={12} />Gia nhập {fmt(h.joinedDate)}
           </span>
-          {h.resignedDate && (
-            <span className="flex items-center gap-1">
-              <LogOut size={12} />
-              Rời {fmt(h.resignedDate)}
+          {h.resignedDate ? (
+            <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <LogOut size={12} />Rời {fmt(h.resignedDate)}
             </span>
-          )}
-          {!isResigned && !h.resignedDate && (
-            <span className="flex items-center gap-1">
-              <CalendarDays size={12} />
-              {Math.floor((Date.now() - new Date(h.joinedDate).getTime()) / (1000 * 60 * 60 * 24))} ngày
+          ) : !isResigned ? (
+            <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <CalendarDays size={12} />{daysIn} ngày
             </span>
-          )}
+          ) : null}
         </div>
       </div>
     </div>

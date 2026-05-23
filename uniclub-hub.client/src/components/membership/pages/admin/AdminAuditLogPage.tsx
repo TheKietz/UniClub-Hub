@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
-import { getClubAuditLogs } from '@/components/membership/services/clubApi'
+import { getAdminAuditLogs } from '@/components/membership/services/adminApi'
 import type { ClubAuditLogItem } from '@/components/membership/services/club.types'
 import { toast } from 'sonner'
 import { LoadMoreBar } from '@/components/shared/LoadMoreBar'
@@ -55,10 +54,7 @@ function Avatar({ name, url }: { name: string; url?: string }) {
     : <div style={{ width: 28, height: 28, borderRadius: '50%', background: bg, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800, flexShrink: 0 }}>{initials}</div>
 }
 
-export default function AuditLogPage() {
-  const { clubId } = useParams<{ clubId: string }>()
-  const id = Number(clubId)
-
+export default function AdminAuditLogPage() {
   const [logs, setLogs] = useState<ClubAuditLogItem[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
@@ -73,16 +69,16 @@ export default function AuditLogPage() {
     setLoading(true)
     setLogs([])
     setPage(1)
-    getClubAuditLogs(id, { module: module === 'Tất cả' ? undefined : module, page: 1, pageSize })
+    getAdminAuditLogs({ module: module === 'Tất cả' ? undefined : module, page: 1, pageSize })
       .then(res => { setLogs(res.items); setTotal(res.totalCount) })
       .catch(() => toast.error('Không thể tải lịch sử thay đổi.'))
       .finally(() => setLoading(false))
-  }, [id, module])
+  }, [module])
 
   function loadMore() {
     const nextPage = page + 1
     setLoadingMore(true)
-    getClubAuditLogs(id, { module: module === 'Tất cả' ? undefined : module, page: nextPage, pageSize })
+    getAdminAuditLogs({ module: module === 'Tất cả' ? undefined : module, page: nextPage, pageSize })
       .then(res => { setLogs(prev => [...prev, ...res.items]); setPage(nextPage) })
       .catch(() => toast.error('Tải thêm thất bại.'))
       .finally(() => setLoadingMore(false))
@@ -92,8 +88,8 @@ export default function AuditLogPage() {
     <div style={{ padding: '28px 32px', minHeight: '100%', background: D.bg, fontFamily: "'Be Vietnam Pro', sans-serif" }}>
       {/* Header */}
       <div style={{ marginBottom: 20 }}>
-        <h1 style={{ fontSize: 24, fontWeight: 900, color: D.ink, letterSpacing: '-.025em', margin: 0 }}>Lịch sử thay đổi</h1>
-        <p style={{ fontSize: 13, color: D.inkMuted, marginTop: 4 }}>Ghi lại mọi thao tác trên CLB — ai làm gì, lúc nào</p>
+        <h1 style={{ fontSize: 24, fontWeight: 900, color: D.ink, letterSpacing: '-.025em', margin: 0 }}>Lịch sử thay đổi hệ thống</h1>
+        <p style={{ fontSize: 13, color: D.inkMuted, marginTop: 4 }}>Toàn bộ hoạt động trên tất cả CLB</p>
       </div>
 
       {/* Module filter */}
@@ -124,15 +120,16 @@ export default function AuditLogPage() {
               <th style={thS}>Hành động</th>
               <th style={thS}>Loại</th>
               <th style={thS}>Đối tượng</th>
+              <th style={thS}>CLB</th>
               <th style={{ ...thS, textAlign: 'right' }}>Thời gian</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={5} style={{ textAlign: 'center', color: D.inkMuted, padding: '48px 0', fontSize: 13 }}>Đang tải...</td></tr>
+              <tr><td colSpan={6} style={{ textAlign: 'center', color: D.inkMuted, padding: '48px 0', fontSize: 13 }}>Đang tải...</td></tr>
             ) : logs.length === 0 ? (
               <tr>
-                <td colSpan={5} style={{ textAlign: 'center', padding: '64px 0' }}>
+                <td colSpan={6} style={{ textAlign: 'center', padding: '64px 0' }}>
                   <p style={{ fontSize: 32, margin: '0 0 8px' }}>📋</p>
                   <p style={{ fontSize: 13, color: D.inkMuted, margin: 0 }}>Chưa có lịch sử thay đổi nào.</p>
                 </td>
@@ -173,10 +170,17 @@ export default function AuditLogPage() {
                     </span>
                   </td>
                   {/* Đối tượng */}
-                  <td style={{ padding: '11px 14px', color: D.ink, fontWeight: 500, maxWidth: 220 }}>
+                  <td style={{ padding: '11px 14px', color: D.ink, fontWeight: 500, maxWidth: 200 }}>
                     <span style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {log.entityTitle ?? <span style={{ color: D.inkMuted }}>—</span>}
                     </span>
+                  </td>
+                  {/* CLB */}
+                  <td style={{ padding: '11px 14px' }}>
+                    {log.clubName
+                      ? <span style={{ fontSize: 12, fontWeight: 600, color: D.indigo }}>{log.clubName}</span>
+                      : <span style={{ color: D.inkMuted }}>—</span>
+                    }
                   </td>
                   {/* Thời gian */}
                   <td style={{ padding: '11px 14px', textAlign: 'right', color: D.inkMuted, fontSize: 12, whiteSpace: 'nowrap' }}>

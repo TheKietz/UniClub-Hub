@@ -61,3 +61,8 @@ export const updateCategory = (id: number, dto: CreateCategoryDto) =>
 
 export const deleteCategory = (id: number) =>
   api.delete(`/admin/categories/${id}`)
+
+
+import type { ClubAuditLogPage } from './club.types'
+export const getAdminAuditLogs = (params?: { module?: string; page?: number; pageSize?: number }) =>
+  api.get<{ data: ClubAuditLogPage }>('/admin/audit-logs', { params }).then(r => r.data.data)

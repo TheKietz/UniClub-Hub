@@ -55,13 +55,16 @@ export default function MajorSelect({ value, onChange, onBlur, error, id }: Prop
         onBlur={handleBlur}
         placeholder="Nhập để tìm ngành..."
         autoComplete="off"
-        className={`w-full rounded-md border ${borderCls} bg-white px-3 pr-8 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2`}
+        className={`w-full rounded-md border ${borderCls} bg-white px-3 pr-8 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none`}
         style={{ height: '42px' }}
       />
-      <ChevronDown
-        size={14}
-        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
-      />
+      <button
+        type="button"
+        onMouseDown={e => { e.preventDefault(); setOpen(v => !v) }}
+        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 p-0 bg-transparent border-none cursor-pointer"
+      >
+        <ChevronDown size={14} style={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }} />
+      </button>
 
       {open && (
         <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-52 overflow-y-auto">

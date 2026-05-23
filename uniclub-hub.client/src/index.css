@@ -1,8 +1,8 @@
+@import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,400&family=Instrument+Serif:ital@0;1&display=swap');
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/geist";
-@import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,400&family=Instrument+Serif:ital@0;1&display=swap');
 
 /* Sidebar nav scrollbar — trùng màu background */
 .sidebar-nav::-webkit-scrollbar { width: 4px; }
@@ -268,6 +268,8 @@ code {
   background: var(--v3-bg);
   font-family: 'Be Vietnam Pro', system-ui, sans-serif;
   min-height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 
 /* ── Scroll reveal ── */
