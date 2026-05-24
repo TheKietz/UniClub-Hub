@@ -4,109 +4,150 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { CLUB_ROLES, MEMBERSHIP_STATUS } from '@/types/auth'
 
+const AVATAR_COLORS = ['#4f46e5', '#7c3aed', '#ec4899', '#f59e0b', '#10b981', '#3b82f6']
+
+function avatarColor(name: string) {
+  return AVATAR_COLORS[name.charCodeAt(0) % AVATAR_COLORS.length]
+}
+
+function Avatar({ name, url, size = 32 }: { name: string; url?: string | null; size?: number }) {
+  const initials = name.trim().split(' ').filter(Boolean).map(w => w[0]).slice(-2).join('').toUpperCase()
+  const r = size / 2
+  return url
+    ? <img src={url} alt="" style={{ width: size, height: size, borderRadius: r, objectFit: 'cover', flexShrink: 0, border: '1.5px solid #15131a' }} />
+    : <div style={{ width: size, height: size, borderRadius: r, background: avatarColor(name), color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: size * 0.34, fontWeight: 800, flexShrink: 0, border: '1.5px solid #15131a' }}>{initials}</div>
+}
+
+function MenuItem({ icon: Icon, label, onClick, color = '#15131a' }: { icon: React.ElementType; label: string; onClick: () => void; color?: string }) {
+  const [hover, setHover] = useState(false)
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        width: '100%', display: 'flex', alignItems: 'center', gap: 10,
+        padding: '9px 14px', background: hover ? '#f7f6f1' : 'transparent',
+        border: 'none', cursor: 'pointer', textAlign: 'left',
+        fontSize: 13, fontWeight: 600, color,
+        fontFamily: "'Be Vietnam Pro', sans-serif",
+        transition: 'background .1s',
+      }}
+    >
+      <Icon size={14} style={{ flexShrink: 0 }} />
+      {label}
+    </button>
+  )
+}
+
 export default function UserMenu() {
   const { user, logout, isSuperAdmin } = useAuth()
   const navigate = useNavigate()
   const { pathname } = useLocation()
   const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
+  const btnRef = useRef<HTMLButtonElement>(null)
+  const dropRef = useRef<HTMLDivElement>(null)
+  const [pos, setPos] = useState({ top: 0, right: 0 })
 
   useEffect(() => {
     function onClickOutside(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+      if (btnRef.current?.contains(e.target as Node)) return
+      if (!dropRef.current?.contains(e.target as Node)) setOpen(false)
     }
     document.addEventListener('mousedown', onClickOutside)
     return () => document.removeEventListener('mousedown', onClickOutside)
   }, [])
 
-  const initials = (user?.fullName ?? user?.email ?? '?')
-    .trim().split(' ').filter(Boolean)
-    .map(w => w[0]).slice(-2).join('').toUpperCase()
+  const name = user?.fullName ?? user?.email ?? '?'
 
-  function handleLogout() {
-    logout()
-    navigate('/login', { replace: true })
+  function handleToggle() {
+    if (!open && btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect()
+      setPos({ top: r.bottom + 8, right: window.innerWidth - r.right })
+    }
+    setOpen(v => !v)
   }
 
-  // Context-aware switch button
+  function go(path: string) { navigate(path); setOpen(false) }
+
+  // Context-aware items
   const isOnManagement = pathname.startsWith('/admin') || pathname.includes('/manage')
   const managedClub = user?.memberships.find(m => m.status === MEMBERSHIP_STATUS.ACTIVE && m.clubRole === CLUB_ROLES.CLUB_ADMIN)
 
-  let switchBtn: { label: string; icon: React.ElementType; to: string } | null = null
-  if (isOnManagement) {
-    switchBtn = { label: 'Chuyển sang Dashboard', icon: LayoutDashboard, to: '/dashboard' }
-  } else if (isSuperAdmin) {
-    switchBtn = { label: 'Chuyển sang Admin', icon: ShieldCheck, to: '/admin' }
-  } else if (managedClub) {
-    switchBtn = { label: `Quản lý ${managedClub.clubName}`, icon: Settings, to: `/clubs/${managedClub.clubId}/manage` }
-  }
+  const mainNav = isOnManagement
+    ? { label: 'Dashboard sinh viên', icon: LayoutDashboard, to: '/dashboard' }
+    : isSuperAdmin
+    ? { label: 'Admin Panel', icon: ShieldCheck, to: '/admin' }
+    : { label: 'Dashboard', icon: LayoutDashboard, to: '/dashboard' }
 
   return (
-    <div ref={ref} className="relative">
+    <>
       <button
-        onClick={() => setOpen(v => !v)}
-        className="flex items-center gap-2 h-9 pl-1.5 pr-2.5 rounded-lg hover:bg-gray-100 transition-colors"
+        ref={btnRef}
+        onClick={handleToggle}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 8,
+          height: 38, padding: '0 10px 0 6px',
+          borderRadius: 999, border: '1.5px solid #15131a',
+          background: open ? '#15131a' : '#fff',
+          boxShadow: open ? 'none' : '2px 2px 0 #15131a',
+          cursor: 'pointer', transition: 'all .15s',
+        }}
       >
-        {user?.avatarUrl ? (
-          <img src={user.avatarUrl} className="w-7 h-7 rounded-full object-cover flex-shrink-0" alt="" />
-        ) : (
-          <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
-            style={{ background: 'linear-gradient(135deg, #4f46e5, #7c3aed)' }}>
-            {initials}
-          </div>
-        )}
-        <span className="text-sm font-medium max-w-[140px] truncate" style={{ color: '#374151' }}>
+        <Avatar name={name} url={user?.avatarUrl} size={26} />
+        <span style={{
+          fontSize: 13, fontWeight: 700, maxWidth: 120, overflow: 'hidden',
+          textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          color: open ? '#facc15' : '#15131a',
+          fontFamily: "'Be Vietnam Pro', sans-serif",
+        }}>
           {user?.fullName ?? user?.email}
         </span>
-        <ChevronDown size={13} className="text-gray-400 flex-shrink-0" />
+        <ChevronDown size={13} style={{
+          color: open ? '#facc15' : '#918c99', flexShrink: 0,
+          transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .15s',
+        }} />
       </button>
 
       {open && (
-        <div className="absolute right-0 top-11 w-64 bg-white rounded-xl shadow-lg border border-gray-200 z-50 overflow-hidden">
+        <div
+          ref={dropRef}
+          style={{
+            position: 'fixed', top: pos.top, right: pos.right,
+            width: 240, background: '#fff',
+            border: '1.5px solid #15131a', borderRadius: 14,
+            boxShadow: '4px 4px 0 #15131a',
+            zIndex: 9999, overflow: 'hidden',
+            fontFamily: "'Be Vietnam Pro', sans-serif",
+          }}
+        >
           {/* Profile card */}
-          <div className="px-4 py-4 border-b border-gray-100">
-            <div className="flex items-center gap-3">
-              {user?.avatarUrl ? (
-                <img src={user.avatarUrl} className="w-11 h-11 rounded-full object-cover flex-shrink-0" alt="" />
-              ) : (
-                <div className="w-11 h-11 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0"
-                  style={{ background: 'linear-gradient(135deg, #4f46e5, #7c3aed)' }}>
-                  {initials}
-                </div>
-              )}
-              <div className="min-w-0">
-                <p className="text-sm font-semibold truncate" style={{ color: '#111827' }}>
+          <div style={{ padding: '14px', borderBottom: '1px solid #e8e3d6' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <Avatar name={name} url={user?.avatarUrl} size={40} />
+              <div style={{ minWidth: 0 }}>
+                <p style={{ fontSize: 13.5, fontWeight: 800, color: '#15131a', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {user?.fullName ?? user?.email}
                 </p>
-                {user?.studentId && <p className="text-xs mt-0.5" style={{ color: '#6b7280' }}>{user.studentId}</p>}
-                {user?.major && <p className="text-xs truncate" style={{ color: '#9ca3af' }}>{user.major}</p>}
+                {user?.studentId && <p style={{ fontSize: 11, color: '#4a4651', margin: '2px 0 0' }}>{user.studentId}</p>}
+                {user?.major && <p style={{ fontSize: 11, color: '#918c99', margin: '1px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.major}</p>}
               </div>
             </div>
           </div>
 
-          {/* Actions */}
-          <div className="py-1">
-            {switchBtn && (
-              <button
-                onClick={() => { navigate(switchBtn!.to); setOpen(false) }}
-                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors hover:bg-indigo-50"
-                style={{ color: '#4f46e5' }}
-              >
-                <switchBtn.icon size={15} />
-                {switchBtn.label}
-              </button>
+          {/* Nav items */}
+          <div style={{ padding: '6px 0' }}>
+            <MenuItem icon={mainNav.icon} label={mainNav.label} onClick={() => go(mainNav.to)} color="#4f46e5" />
+            {!isOnManagement && managedClub && (
+              <MenuItem icon={Settings} label={`Quản lý ${managedClub.clubName}`} onClick={() => go(`/clubs/${managedClub.clubId}/manage`)} color="#4f46e5" />
             )}
-            <button
-              onClick={handleLogout}
-              className="w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors hover:bg-red-50"
-              style={{ color: '#dc2626' }}
-            >
-              <LogOut size={15} />
-              Đăng xuất
-            </button>
+          </div>
+
+          <div style={{ borderTop: '1px solid #e8e3d6', padding: '6px 0' }}>
+            <MenuItem icon={LogOut} label="Đăng xuất" onClick={() => { logout(); navigate('/login', { replace: true }) }} color="#ef4444" />
           </div>
         </div>
       )}
-    </div>
+    </>
   )
 }

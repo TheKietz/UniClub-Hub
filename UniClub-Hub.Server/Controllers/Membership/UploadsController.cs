@@ -43,6 +43,21 @@ namespace UniClub_Hub.Server.Controllers.Membership
             }
         }
 
+        // Upload file đính kèm đơn ứng tuyển — any authenticated user
+        [HttpPost("uploads/application-file")]
+        public async Task<IActionResult> UploadApplicationFile(IFormFile file)
+        {
+            try
+            {
+                var url = await _storage.UploadAsync(file, "applications/files");
+                return Ok(ApiResponse<object>.Ok(new { url }, "Upload thành công."));
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ApiResponse<object>.Fail(ex.Message));
+            }
+        }
+
         // Upload avatar cá nhân — user tự upload
         [HttpPatch("users/me/avatar")]
         public async Task<IActionResult> UploadAvatar(IFormFile file)

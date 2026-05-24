@@ -1,78 +1,83 @@
-import { Link, NavLink } from "react-router-dom";
-import { useAuth } from "@/contexts/AuthContext";
-import UserMenu from "../shared/UserMenu";
+import { useLocation, useNavigate } from 'react-router-dom'
+import { useAuth } from '@/contexts/AuthContext'
+import { C } from '@/components/public/publicComponents'
+import UserMenu from '@/components/shared/UserMenu'
 
 export default function PublicHeader() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated } = useAuth()
+  const { pathname } = useLocation()
+  const navigate = useNavigate()
+
+  const navItems: [string, string][] = [
+    ['/', 'Trang chủ'],
+    ['/clubs', 'Câu lạc bộ'],
+    ['/contact', 'Liên hệ'],
+  ]
+
+  const isActive = (path: string) =>
+    path === '/' ? pathname === '/' : pathname.startsWith(path)
 
   return (
-    <header className="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-gray-100">
-      <div className="max-w-6xl mx-auto px-6 h-16 grid grid-cols-3 items-center">
-        {/* Left — Logo */}
-        <Link to="/" className="flex items-center gap-2.5 w-fit">
-          <div
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-sm"
-            style={{ background: "linear-gradient(135deg, #4f46e5, #7c3aed)" }}
-          >
-            U
+    <header style={{
+      position: 'sticky', top: 0, zIndex: 30,
+      background: 'rgba(251,249,243,.9)', backdropFilter: 'blur(14px)',
+      borderBottom: C.border,
+      fontFamily: "'Be Vietnam Pro', system-ui, sans-serif",
+    }}>
+      <div style={{
+        maxWidth: 1280, margin: '0 auto', padding: '0 28px',
+        height: 64, display: 'flex', alignItems: 'center', gap: 20,
+      }}>
+        {/* Logo */}
+        <button onClick={() => navigate('/')} style={{
+          display: 'flex', alignItems: 'center', gap: 10,
+          background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+        }}>
+          <div style={{
+            width: 34, height: 34, borderRadius: 10,
+            background: C.ink, color: C.lemon,
+            display: 'grid', placeItems: 'center', fontWeight: 900, fontSize: 15,
+            transform: 'rotate(-3deg)', boxShadow: `2px 2px 0 ${C.coral}`,
+            flexShrink: 0,
+          }}>U!</div>
+          <div style={{ textAlign: 'left' }}>
+            <div style={{ fontSize: 15, fontWeight: 800, color: C.ink, letterSpacing: '-.02em', lineHeight: 1 }}>
+              UniClub
+            </div>
+            <div style={{ fontSize: 9.5, fontWeight: 700, color: C.coral, letterSpacing: '.08em', textTransform: 'uppercase', marginTop: 1 }}>
+              ★ UEF Campus
+            </div>
           </div>
-          <span className="font-semibold text-gray-900">UniClub Hub</span>
-        </Link>
+        </button>
 
-        {/* Center — Nav */}
-        <nav className="flex items-center justify-center gap-1">
-          <NavLink
-            to="/"
-            end
-            className={({ isActive }) =>
-              `h-9 px-4 rounded-lg text-sm font-medium flex items-center transition-colors ${
-                isActive
-                  ? "text-indigo-700 bg-indigo-50"
-                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-              }`
-            }
-          >
-            Trang chủ
-          </NavLink>
-          <NavLink
-            to="/clubs"
-            className={({ isActive }) =>
-              `h-9 px-4 rounded-lg text-sm font-medium flex items-center transition-colors ${
-                isActive
-                  ? "text-indigo-700 bg-indigo-50"
-                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-              }`
-            }
-          >
-            Câu lạc bộ
-          </NavLink>
+        {/* Nav */}
+        <nav style={{ display: 'flex', gap: 3, marginLeft: 8 }}>
+          {navItems.map(([path, label]) => (
+            <button key={path} onClick={() => navigate(path)} style={{
+              padding: '7px 16px', borderRadius: C.radiusPill,
+              background: isActive(path) ? C.ink : 'transparent',
+              color: isActive(path) ? C.bg : C.ink,
+              fontWeight: isActive(path) ? 700 : 600, fontSize: 13.5,
+              border: 'none', transition: 'all .15s', cursor: 'pointer',
+              fontFamily: 'inherit',
+            }}>{label}</button>
+          ))}
         </nav>
 
-        {/* Right — Auth */}
-        <div className="flex items-center justify-end gap-1">
-          {isAuthenticated ? (
-            <UserMenu />
-          ) : (
-            <>
-              <Link
-                to="/login"
-                className="h-9 px-4 rounded-lg text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors flex items-center"
-              >
-                Đăng nhập
-              </Link>
-              <Link
-                to="/register"
-                className="h-9 px-4 rounded-lg text-sm font-medium text-white flex items-center transition-opacity hover:opacity-90"
-                style={{
-                  background: "linear-gradient(135deg, #4f46e5, #7c3aed)",
-                }}
-              >
-                Đăng ký
-              </Link>
-            </>
-          )}
-        </div>
+        <div style={{ flex: 1 }} />
+
+        {/* Auth */}
+        {isAuthenticated ? (
+          <UserMenu />
+        ) : (
+          <button onClick={() => navigate('/login')} style={{
+            padding: '8px 18px', borderRadius: C.radiusPill,
+            background: C.coral, color: C.bg, border: C.border,
+            boxShadow: C.shadow(2, 2), fontSize: 13, fontWeight: 700,
+            cursor: 'pointer', fontFamily: 'inherit',
+          }}>Đăng nhập</button>
+        )}
       </div>
     </header>
-  );
+  )
 }

@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using UniClub_Hub.Shared.Constants;
 using UniClub_Hub.Shared.Data;
 using UniClub_Hub.Shared.Enums;
 using UniClub_Hub.Shared.Models;
@@ -691,6 +692,152 @@ namespace UniClub_Hub.Server.Data
                     }
                 );
                 await db.SaveChangesAsync();
+            }
+
+            // ── System Settings ───────────────────────────────────────────
+            if (!await db.SystemSettings.AnyAsync())
+            {
+                db.SystemSettings.AddRange(
+                    new SystemSetting { Key = "auth.allowed_domains",       Category = "auth",   InputType = "tags",   Label = "Domain email được phép đăng ký",    Description = "Danh sách domain hợp lệ (vd: uef.edu.vn). Để trống = cho phép tất cả.", Value = "" },
+                    new SystemSetting { Key = "auth.registration_open",     Category = "auth",   InputType = "toggle", Label = "Cho phép đăng ký tài khoản mới",    Description = "Tắt để tạm ngừng đăng ký toàn hệ thống.", Value = "true" },
+                    new SystemSetting { Key = "club.max_members",           Category = "club",   InputType = "number", Label = "Số thành viên tối đa mỗi CLB",      Description = "0 = không giới hạn.", Value = "0" },
+                    new SystemSetting { Key = "club.max_departments",       Category = "club",   InputType = "number", Label = "Số ban tối đa mỗi CLB",             Description = "0 = không giới hạn.", Value = "0" },
+                    new SystemSetting { Key = "club.default_departments",   Category = "club",   InputType = "tags",   Label = "Ban mặc định khi tạo CLB mới",      Description = "Tự động tạo các ban này khi thêm CLB. Để trống = không tạo tự động.", Value = "" },
+                    new SystemSetting { Key = "system.app_name",            Category = "system", InputType = "text",   Label = "Tên hệ thống",                      Description = "Hiển thị trên email và tiêu đề trang.", Value = "UniClub Hub" },
+                    new SystemSetting { Key = "system.support_email",       Category = "system", InputType = "text",   Label = "Email hỗ trợ",                      Description = "Email nhận phản hồi từ người dùng.", Value = "" },
+                    new SystemSetting { Key = "system.university_name",     Category = "system", InputType = "text",   Label = "Tên trường đại học",                Description = "Hiển thị trên landing page và footer.", Value = "Đại học Kinh tế Tài chính TP.HCM" },
+                    new SystemSetting { Key = "system.logo_url",            Category = "system", InputType = "text",   Label = "URL Logo hệ thống",                 Description = "Dùng trong email. Để trống = dùng logo mặc định (U!).", Value = "" },
+                    // ── Notification message templates ────────────────────────
+                    new SystemSetting { Key = "notification.msg.application_new",             Category = "notification", InputType = "textarea", Label = "Đơn mới gửi đến (admin CLB)",            Description = "Biến: {{clubName}}",                  Value = "Có đơn đăng ký mới vào CLB {{clubName}}." },
+                    new SystemSetting { Key = "notification.msg.application_interview",       Category = "notification", InputType = "textarea", Label = "Mời phỏng vấn (người nộp đơn)",          Description = "Biến: {{clubName}}",                  Value = "Đơn đăng ký vào CLB {{clubName}} của bạn được mời phỏng vấn." },
+                    new SystemSetting { Key = "notification.msg.application_accepted",        Category = "notification", InputType = "textarea", Label = "Đơn được chấp nhận (người nộp)",         Description = "Biến: {{clubName}}",                  Value = "Chúc mừng! Bạn đã được chấp nhận vào CLB {{clubName}}." },
+                    new SystemSetting { Key = "notification.msg.application_rejected",        Category = "notification", InputType = "textarea", Label = "Đơn bị từ chối (người nộp)",             Description = "Biến: {{clubName}}",                  Value = "Đơn đăng ký vào CLB {{clubName}} của bạn đã bị từ chối." },
+                    new SystemSetting { Key = "notification.msg.application_updated",         Category = "notification", InputType = "textarea", Label = "Đơn được cập nhật (người nộp)",          Description = "Biến: {{clubName}}",                  Value = "Đơn đăng ký vào CLB {{clubName}} của bạn đã được cập nhật." },
+                    new SystemSetting { Key = "notification.msg.member_promoted",             Category = "notification", InputType = "textarea", Label = "Thành viên chính thức",                  Description = "Không có biến",                       Value = "Chúc mừng! Bạn đã được xác nhận là thành viên chính thức." },
+                    new SystemSetting { Key = "notification.msg.member_admin_assigned",       Category = "notification", InputType = "textarea", Label = "Bổ nhiệm Trưởng CLB",                    Description = "Biến: {{clubName}}",                  Value = "Bạn đã được bổ nhiệm làm Trưởng câu lạc bộ {{clubName}}." },
+                    new SystemSetting { Key = "notification.msg.member_lead_assigned",        Category = "notification", InputType = "textarea", Label = "Bổ nhiệm Trưởng ban",                    Description = "Biến: {{deptName}}, {{clubName}}",    Value = "Bạn đã được bổ nhiệm làm Trưởng {{deptName}} trong CLB {{clubName}}." },
+                    new SystemSetting { Key = "notification.msg.member_added",                Category = "notification", InputType = "textarea", Label = "Được thêm vào CLB",                      Description = "Biến: {{clubName}}, {{role}}",        Value = "Bạn đã được thêm vào CLB {{clubName}} với vai trò {{role}}." },
+                    new SystemSetting { Key = "notification.msg.member_removed",              Category = "notification", InputType = "textarea", Label = "Bị xóa khỏi CLB",                        Description = "Biến: {{clubName}}",                  Value = "Bạn đã được ghi nhận rời khỏi CLB {{clubName}}." },
+                    new SystemSetting { Key = "notification.msg.member_resigned",             Category = "notification", InputType = "textarea", Label = "Tự rời CLB",                             Description = "Biến: {{clubName}}",                  Value = "Bạn đã rời khỏi CLB {{clubName}}." },
+                    new SystemSetting { Key = "notification.msg.dept_deleted",                Category = "notification", InputType = "textarea", Label = "Ban bị giải thể (thành viên)",            Description = "Biến: {{deptName}}",                  Value = "Ban \"{{deptName}}\" đã bị xóa. Bạn vẫn là thành viên của CLB và có thể được gán vào ban khác." },
+                    new SystemSetting { Key = "notification.msg.resignation_submitted_admin", Category = "notification", InputType = "textarea", Label = "Đơn từ chức Trưởng CLB (người duyệt)",   Description = "Biến: {{memberName}}, {{clubName}}", Value = "{{memberName}} đã gửi đơn từ chức tại CLB {{clubName}}." },
+                    new SystemSetting { Key = "notification.msg.resignation_submitted_lead",  Category = "notification", InputType = "textarea", Label = "Đơn từ chức Trưởng ban (admin CLB)",     Description = "Biến: {{memberName}}, {{clubName}}", Value = "{{memberName}} đã gửi đơn từ chức tại CLB {{clubName}}." },
+                    new SystemSetting { Key = "notification.msg.resignation_approved_leave",  Category = "notification", InputType = "textarea", Label = "Từ chức được duyệt – rời CLB",            Description = "Biến: {{clubName}}",                  Value = "Đơn từ chức của bạn tại CLB {{clubName}} đã được chấp thuận. Bạn đã rời CLB." },
+                    new SystemSetting { Key = "notification.msg.resignation_approved_demote", Category = "notification", InputType = "textarea", Label = "Từ chức được duyệt – xuống thành viên",   Description = "Biến: {{clubName}}",                  Value = "Đơn từ chức của bạn tại CLB {{clubName}} đã được chấp thuận. Bạn đã trở thành thành viên thường." },
+                    new SystemSetting { Key = "notification.msg.resignation_rejected",        Category = "notification", InputType = "textarea", Label = "Đơn từ chức bị từ chối",                 Description = "Biến: {{clubName}}",                  Value = "Đơn từ chức của bạn tại CLB {{clubName}} đã bị từ chối." },
+                    new SystemSetting { Key = "notification.msg.support_new",                 Category = "notification", InputType = "textarea", Label = "Ticket hỗ trợ mới (super admin)",        Description = "Biến: {{senderName}}, {{subject}}",  Value = "{{senderName}} vừa gửi yêu cầu hỗ trợ: \"{{subject}}\"" },
+                    new SystemSetting { Key = "notification.msg.support_inprogress",          Category = "notification", InputType = "textarea", Label = "Ticket đang xử lý (người gửi)",          Description = "Biến: {{subject}}",                   Value = "Yêu cầu hỗ trợ \"{{subject}}\" đang được xử lý." },
+                    new SystemSetting { Key = "notification.msg.support_resolved",            Category = "notification", InputType = "textarea", Label = "Ticket đã giải quyết (người gửi)",       Description = "Biến: {{subject}}",                   Value = "Yêu cầu hỗ trợ \"{{subject}}\" đã được giải quyết." }
+                );
+                await db.SaveChangesAsync();
+            }
+
+            // ── Contact page settings (idempotent) ────────────────────────────
+            var faqDefault = System.Text.Json.JsonSerializer.Serialize(new object[]
+            {
+                new { q = "Làm sao tham gia CLB?", a = "Vào trang Câu lạc bộ → chọn CLB → nhấn Nộp đơn. Sau khi nộp đơn, ban tuyển thành viên sẽ liên hệ lại trong vòng 3-5 ngày làm việc." },
+                new { q = "Quên mật khẩu phải làm sao?", a = "Bấm \"Quên?\" ở trang đăng nhập, nhập email tài khoản — hệ thống sẽ gửi link đặt lại mật khẩu trong vòng vài phút." },
+                new { q = "Muốn tạo CLB mới thì liên hệ ai?", a = "Liên hệ Phòng Công tác Sinh viên qua form trên hoặc đến trực tiếp Lầu 3, Toà nhà A. Cần chuẩn bị đề án thành lập CLB theo mẫu." },
+                new { q = "Một sinh viên có thể tham gia bao nhiêu CLB?", a = "Không giới hạn số lượng CLB, nhưng khuyến khích tham gia tối đa 2-3 CLB để đảm bảo chất lượng đóng góp." },
+                new { q = "Làm sao để rời CLB?", a = "Đăng nhập vào hệ thống, vào trang \"Hoạt động của tôi\" → chọn CLB → gửi đơn xin rút lui. Trưởng CLB sẽ xử lý trong 5 ngày làm việc." },
+            });
+            (string Key, string Cat, string Type, string Label, string Desc, string Val)[] contactSettings =
+            [
+                ("contact.office_name",    "contact", "text",     "Tên văn phòng",           "Dòng đầu trong thẻ Văn phòng.",             "Phòng Công tác Sinh viên"),
+                ("contact.office_address", "contact", "textarea", "Địa chỉ văn phòng",       "Hiển thị dưới tên văn phòng.",              "Lầu 3, Toà nhà A\n276 Điện Biên Phủ, Quận 3, TP.HCM"),
+                ("contact.email",          "contact", "text",     "Email liên hệ",            "Email hiển thị trên trang liên hệ.",        "clb@uef.edu.vn"),
+                ("contact.email_note",     "contact", "text",     "Ghi chú email",            "Ví dụ: Phản hồi trong 24h.",               "Phản hồi trong vòng 24 giờ làm việc."),
+                ("contact.hours_label",    "contact", "text",     "Giờ làm việc (tiêu đề)",  "Ví dụ: Thứ 2 — Thứ 6.",                    "Thứ 2 — Thứ 6"),
+                ("contact.hours_detail",   "contact", "text",     "Giờ làm việc (chi tiết)", "Ví dụ: 8:00 — 17:00 · Trừ ngày lễ.",      "8:00 — 17:00 · Trừ ngày lễ"),
+                ("contact.faq",            "contact", "faq",      "Câu hỏi thường gặp (FAQ)","Danh sách câu hỏi và trả lời trên trang liên hệ.", faqDefault),
+            ];
+            foreach (var (key, cat, type, label, desc, val) in contactSettings)
+            {
+                if (!await db.SystemSettings.AnyAsync(s => s.Key == key))
+                    db.SystemSettings.Add(new SystemSetting { Key = key, Category = cat, InputType = type, Label = label, Description = desc, Value = val });
+            }
+            await db.SaveChangesAsync();
+
+            // ── Landing page & Footer settings (idempotent) ───────────────────
+            (string Key, string Cat, string Type, string Label, string Desc, string Val)[] publicSettings =
+            [
+                ("landing.banner_enabled", "landing", "toggle", "Hiển thị banner thông báo",   "Bật để hiện banner ở đầu trang chủ.",                                  "false"),
+                ("landing.banner_text",    "landing", "text",   "Nội dung banner",              "Ví dụ: Đang mở đơn tuyển thành viên học kỳ 2/2026!",                   ""),
+                ("landing.banner_color",   "landing", "text",   "Màu nền banner (hex)",         "Ví dụ: #f59e0b (vàng), #4f46e5 (tím), #10b981 (xanh), #ef4444 (đỏ).", "#f59e0b"),
+                ("footer.facebook_url",    "footer",  "text",   "Link Facebook",                "URL trang Facebook của trường/phòng CTSV. Để trống = ẩn icon.",         ""),
+                ("footer.instagram_url",   "footer",  "text",   "Link Instagram",               "URL trang Instagram. Để trống = ẩn icon.",                             ""),
+                ("footer.address",         "footer",  "text",   "Địa chỉ hiển thị trong footer","Ví dụ: 276 Điện Biên Phủ, Q.3, TP.HCM",                               ""),
+            ];
+            foreach (var (key, cat, type, label, desc, val) in publicSettings)
+            {
+                if (!await db.SystemSettings.AnyAsync(s => s.Key == key))
+                    db.SystemSettings.Add(new SystemSetting { Key = key, Category = cat, InputType = type, Label = label, Description = desc, Value = val });
+            }
+            await db.SaveChangesAsync();
+
+            // ── Notification Preferences (global defaults) ────────────────
+            // Upsert each pair individually so new pairs are added without wiping existing admin config.
+            {
+                var existingSet = (await db.NotificationPreferences
+                    .Where(p => p.ClubId == null)
+                    .Select(p => new { p.TriggerKey, p.RecipientRole })
+                    .ToListAsync())
+                    .Select(p => $"{p.TriggerKey}:{p.RecipientRole}")
+                    .ToHashSet();
+
+                static NotificationPreference Pref(string trigger, string role,
+                    bool inApp, bool email, string? emailSubj = null) =>
+                    new()
+                    {
+                        ClubId = null, TriggerKey = trigger, RecipientRole = role,
+                        InAppEnabled = inApp, EmailEnabled = email, EmailSubject = emailSubj,
+                    };
+
+                var defaults = new[]
+                {
+                    // ── Tuyển thành viên ─────────────────────────────────────
+                    Pref(NotificationTriggers.ApplicationSubmitted, NotificationRecipientRoles.ClubAdmin,  true,  false),
+                    Pref(NotificationTriggers.ApplicationSubmitted, NotificationRecipientRoles.DeptLead,   false, false),
+                    Pref(NotificationTriggers.ApplicationInterview, NotificationRecipientRoles.TargetUser, true,  true,  "Mời phỏng vấn – {{clubName}}"),
+                    Pref(NotificationTriggers.ApplicationInterview, NotificationRecipientRoles.ClubAdmin,  false, false),
+                    Pref(NotificationTriggers.ApplicationAccepted,  NotificationRecipientRoles.TargetUser, true,  true,  "Đơn được chấp nhận – {{clubName}}"),
+                    Pref(NotificationTriggers.ApplicationAccepted,  NotificationRecipientRoles.ClubAdmin,  false, false),
+                    Pref(NotificationTriggers.ApplicationRejected,  NotificationRecipientRoles.TargetUser, true,  true,  "Kết quả đơn đăng ký – {{clubName}}"),
+                    Pref(NotificationTriggers.ApplicationRejected,  NotificationRecipientRoles.ClubAdmin,  false, false),
+                    // ── Quản lý thành viên ───────────────────────────────────
+                    Pref(NotificationTriggers.MemberAdded,       NotificationRecipientRoles.TargetUser, true,  false),
+                    Pref(NotificationTriggers.MemberAdded,       NotificationRecipientRoles.ClubAdmin,  false, false),
+                    Pref(NotificationTriggers.MemberRoleChanged, NotificationRecipientRoles.TargetUser, true,  false),
+                    Pref(NotificationTriggers.MemberRoleChanged, NotificationRecipientRoles.ClubAdmin,  false, false),
+                    Pref(NotificationTriggers.MemberRemoved,     NotificationRecipientRoles.TargetUser, true,  false),
+                    Pref(NotificationTriggers.MemberRemoved,     NotificationRecipientRoles.ClubAdmin,  false, false),
+                    // ── Từ chức ──────────────────────────────────────────────
+                    Pref(NotificationTriggers.ResignationSubmitted, NotificationRecipientRoles.ClubAdmin,  true,  false),
+                    Pref(NotificationTriggers.ResignationSubmitted, NotificationRecipientRoles.DeptLead,   false, false),
+                    Pref(NotificationTriggers.ResignationReviewed,  NotificationRecipientRoles.TargetUser, true,  false),
+                    Pref(NotificationTriggers.ResignationReviewed,  NotificationRecipientRoles.ClubAdmin,  false, false),
+                    // ── Công việc ────────────────────────────────────────────
+                    Pref(NotificationTriggers.TaskAssigned,      NotificationRecipientRoles.TargetUser, true,  false),
+                    Pref(NotificationTriggers.TaskAssigned,      NotificationRecipientRoles.DeptLead,   false, false),
+                    Pref(NotificationTriggers.TaskDeadlineSoon,  NotificationRecipientRoles.TargetUser, true,  false),
+                    Pref(NotificationTriggers.TaskDeadlineSoon,  NotificationRecipientRoles.DeptLead,   false, false),
+                    Pref(NotificationTriggers.TaskStatusChanged, NotificationRecipientRoles.TargetUser, true,  false),
+                    Pref(NotificationTriggers.TaskStatusChanged, NotificationRecipientRoles.DeptLead,   false, false),
+                    // ── Sự kiện ──────────────────────────────────────────────
+                    Pref(NotificationTriggers.EventCreated,  NotificationRecipientRoles.AllMembers, true,  false),
+                    Pref(NotificationTriggers.EventCreated,  NotificationRecipientRoles.ClubAdmin,  false, false),
+                    Pref(NotificationTriggers.EventReminder, NotificationRecipientRoles.AllMembers, true,  false),
+                    // ── Hệ thống ─────────────────────────────────────────────
+                    Pref(NotificationTriggers.SystemAnnouncement, NotificationRecipientRoles.AllMembers, true,  false),
+                    Pref(NotificationTriggers.SystemAnnouncement, NotificationRecipientRoles.SuperAdmin, false, false),
+                };
+
+                var toAdd = defaults.Where(p => !existingSet.Contains($"{p.TriggerKey}:{p.RecipientRole}")).ToList();
+                if (toAdd.Count > 0)
+                {
+                    db.NotificationPreferences.AddRange(toAdd);
+                    await db.SaveChangesAsync();
+                }
             }
 
             Console.WriteLine("[Seeder] Done.");

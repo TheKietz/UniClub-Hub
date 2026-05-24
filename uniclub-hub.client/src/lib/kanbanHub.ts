@@ -5,6 +5,5 @@ export function createKanbanConnection() {
     .withUrl('/hubs/kanban', {
       accessTokenFactory: () => localStorage.getItem('accessToken') ?? '',
     })
-    .withAutomaticReconnect()
     .build()
 }

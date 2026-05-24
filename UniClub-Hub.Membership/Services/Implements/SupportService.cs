@@ -14,12 +14,14 @@ namespace UniClub_Hub.Membership.Services.Implements
         private readonly UniClubDbContext _db;
         private readonly INotificationService _notifications;
         private readonly UserManager<ApplicationUser> _userManager;
+        private readonly ISystemSettingService _settings;
 
-        public SupportService(UniClubDbContext db, INotificationService notifications, UserManager<ApplicationUser> userManager)
+        public SupportService(UniClubDbContext db, INotificationService notifications, UserManager<ApplicationUser> userManager, ISystemSettingService settings)
         {
             _db = db;
             _notifications = notifications;
             _userManager = userManager;
+            _settings = settings;
         }
 
         public async Task<SupportTicketDto> CreateAsync(string userId, CreateSupportTicketDto dto)
@@ -46,15 +48,10 @@ namespace UniClub_Hub.Membership.Services.Implements
             var sender = await _db.Users.FindAsync(userId);
             var senderName = sender?.FullName ?? sender?.Email ?? "Người dùng";
 
-            foreach (var admin in admins)
-            {
-                await _notifications.SendAsync(
-                    admin.Id,
-                    "Yêu cầu hỗ trợ mới",
-                    $"{senderName} vừa gửi yêu cầu hỗ trợ: \"{dto.Subject}\"",
-                    NotificationType.System
-                );
-            }
+            var supportNewMsg = await _settings.GetNotificationTextAsync("notification.msg.support_new", new() { ["senderName"] = senderName, ["subject"] = dto.Subject });
+            if (!string.IsNullOrEmpty(supportNewMsg))
+                foreach (var admin in admins)
+                    await _notifications.SendAsync(admin.Id, "Yêu cầu hỗ trợ mới", supportNewMsg, NotificationType.System);
 
             return await GetDtoAsync(ticket.Id);
         }
@@ -105,10 +102,10 @@ namespace UniClub_Hub.Membership.Services.Implements
             // Thông báo cho người gửi khi ticket được xử lý/đóng
             if (dto.Status == "InProgress" || dto.Status == "Resolved")
             {
-                var msg = dto.Status == "Resolved"
-                    ? $"Yêu cầu hỗ trợ \"{ticket.Subject}\" đã được giải quyết."
-                    : $"Yêu cầu hỗ trợ \"{ticket.Subject}\" đang được xử lý.";
-                await _notifications.SendAsync(ticket.UserId, "Cập nhật yêu cầu hỗ trợ", msg, NotificationType.System);
+                var msgKey = dto.Status == "Resolved" ? "notification.msg.support_resolved" : "notification.msg.support_inprogress";
+                var msg = await _settings.GetNotificationTextAsync(msgKey, new() { ["subject"] = ticket.Subject });
+                if (!string.IsNullOrEmpty(msg))
+                    await _notifications.SendAsync(ticket.UserId, "Cập nhật yêu cầu hỗ trợ", msg, NotificationType.System);
             }
 
             return await GetDtoAsync(ticketId);

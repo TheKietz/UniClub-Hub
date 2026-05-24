@@ -1,12 +1,19 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import api from '@/lib/axiosInstance'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Mail, ArrowLeft, CheckCircle } from 'lucide-react'
+import { C, PublicFooter } from '@/components/public/publicComponents'
+import PublicHeader from '@/components/layouts/PublicHeader'
+
+const inputStyle: React.CSSProperties = {
+  width: '100%', height: 40, borderRadius: C.radiusPill,
+  border: C.border, background: C.bg,
+  padding: '0 14px', fontSize: 13.5, color: C.ink, outline: 'none',
+  fontWeight: 500, boxSizing: 'border-box',
+  fontFamily: "'Be Vietnam Pro', sans-serif",
+}
 
 export default function ForgotPasswordPage() {
+  const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [sent, setSent] = useState(false)
@@ -27,85 +34,91 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-      <div className="w-full max-w-sm">
-        {/* Logo */}
-        <div className="text-center mb-8">
-          <div
-            className="inline-flex w-12 h-12 rounded-2xl items-center justify-center text-white font-bold text-xl mb-4"
-            style={{ background: 'linear-gradient(135deg, #4f46e5, #7c3aed)' }}
-          >
-            U
-          </div>
-          <h1 className="text-2xl font-bold text-gray-900">UniClub Hub</h1>
-        </div>
+    <div className="v3-page v3-enter">
+      <PublicHeader />
+      <div style={{
+        flex: 1, background: C.bg,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: '20px 28px', fontFamily: "'Be Vietnam Pro', sans-serif",
+      }}>
+        <div style={{ width: '100%', maxWidth: 420 }}>
+          {sent ? (
+            <div style={{
+              background: C.card, border: C.border, borderRadius: 20,
+              boxShadow: C.shadow(6, 6), padding: '32px 28px', textAlign: 'center',
+            }}>
+              <div style={{ fontSize: 48, marginBottom: 16 }}>✉️</div>
+              <h2 style={{ fontSize: 22, fontWeight: 800, color: C.ink, margin: '0 0 10px' }}>
+                Kiểm tra email của bạn
+              </h2>
+              <p style={{ fontSize: 14, color: C.inkMuted, lineHeight: 1.6, margin: '0 0 8px' }}>
+                Nếu <strong style={{ color: C.ink }}>{email}</strong> tồn tại trong hệ thống, chúng tôi đã gửi link đặt lại mật khẩu. Link có hiệu lực trong <strong style={{ color: C.ink }}>1 giờ</strong>.
+              </p>
+              <p style={{ fontSize: 12, color: C.inkMuted, margin: '0 0 24px' }}>
+                Không thấy email? Kiểm tra thư mục Spam.
+              </p>
+              <button onClick={() => navigate('/login')} style={{
+                width: '100%', height: 44, borderRadius: C.radiusPill,
+                background: C.ink, color: C.lemon, border: C.border,
+                boxShadow: C.shadow(3, 3), fontSize: 14, fontWeight: 700,
+                cursor: 'pointer', fontFamily: 'inherit',
+              }}>Quay lại đăng nhập</button>
+            </div>
+          ) : (
+            <div style={{
+              background: C.card, border: C.border, borderRadius: 20,
+              boxShadow: C.shadow(6, 6), padding: '32px 28px',
+            }}>
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', gap: 4,
+                fontSize: 10.5, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase',
+                padding: '3px 10px', borderRadius: 4, background: C.lemon, color: C.ink,
+                border: C.border, marginBottom: 16,
+              }}>★ Quên mật khẩu</span>
 
-        {sent ? (
-          <div className="bg-white rounded-2xl border border-gray-200 p-8 text-center space-y-4">
-            <CheckCircle size={48} className="text-green-500 mx-auto" />
-            <h2 className="text-xl font-bold text-gray-900">Kiểm tra email của bạn</h2>
-            <p className="text-gray-500 text-sm leading-relaxed">
-              Nếu địa chỉ <strong>{email}</strong> tồn tại trong hệ thống, chúng tôi đã gửi link đặt lại mật khẩu. Link có hiệu lực trong <strong>1 giờ</strong>.
-            </p>
-            <p className="text-gray-400 text-xs">Không thấy email? Kiểm tra thư mục Spam.</p>
-            <Link to="/login">
-              <Button variant="outline" className="w-full mt-2">
-                Quay lại đăng nhập
-              </Button>
-            </Link>
-          </div>
-        ) : (
-          <div className="bg-white rounded-2xl border border-gray-200 p-8 space-y-6">
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900">Quên mật khẩu?</h2>
-              <p className="text-gray-500 text-sm mt-1">
+              <h2 style={{ fontSize: 24, fontWeight: 900, color: C.ink, margin: '0 0 8px', letterSpacing: '-.03em' }}>
+                Đặt lại mật khẩu
+              </h2>
+              <p style={{ fontSize: 14, color: C.inkMuted, margin: '0 0 24px', lineHeight: 1.5 }}>
                 Nhập email tài khoản — chúng tôi sẽ gửi link đặt lại mật khẩu.
               </p>
-            </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
               {error && (
-                <div className="flex items-center gap-2 rounded-lg px-4 py-3 text-sm bg-red-50 border border-red-200 text-red-600">
-                  <span>⚠</span><span>{error}</span>
-                </div>
+                <div style={{
+                  background: '#fef2f2', border: '1.5px solid #fca5a5',
+                  borderRadius: 10, padding: '10px 14px', marginBottom: 16,
+                  fontSize: 13, color: '#b91c1c', fontWeight: 500,
+                }}>⚠ {error}</div>
               )}
 
-              <div className="space-y-1.5">
-                <Label htmlFor="email">Email</Label>
-                <div className="relative">
-                  <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                  <Input
-                    id="email"
-                    type="email"
-                    value={email}
-                    onChange={e => setEmail(e.target.value)}
-                    required
-                    placeholder="example@student.edu.vn"
-                    className="pl-9"
-                    style={{ height: '42px' }}
-                  />
-                </div>
-              </div>
+              <form onSubmit={handleSubmit}>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: C.inkDim, marginBottom: 6, letterSpacing: '.04em', textTransform: 'uppercase' }}>
+                  Email
+                </label>
+                <input
+                  type="email" value={email} onChange={e => setEmail(e.target.value)}
+                  placeholder="example@student.edu.vn" required
+                  style={{ ...inputStyle, marginBottom: 20 }}
+                />
+                <button type="submit" disabled={loading} style={{
+                  width: '100%', height: 44, borderRadius: C.radiusPill,
+                  background: C.coral, color: C.bg, border: C.border,
+                  boxShadow: C.shadow(3, 3), fontSize: 14, fontWeight: 700,
+                  cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1,
+                  fontFamily: 'inherit',
+                }}>{loading ? 'Đang gửi...' : 'Gửi link đặt lại mật khẩu →'}</button>
+              </form>
 
-              <Button
-                type="submit"
-                disabled={loading}
-                className="w-full h-11 font-semibold"
-                style={{ background: 'linear-gradient(135deg, #4f46e5, #7c3aed)', border: 'none' }}
-              >
-                {loading ? 'Đang gửi...' : 'Gửi link đặt lại mật khẩu'}
-              </Button>
-            </form>
-
-            <Link
-              to="/login"
-              className="flex items-center justify-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors"
-            >
-              <ArrowLeft size={14} /> Quay lại đăng nhập
-            </Link>
-          </div>
-        )}
+              <button onClick={() => navigate('/login')} style={{
+                display: 'block', width: '100%', marginTop: 16,
+                background: 'none', border: 'none', cursor: 'pointer',
+                fontSize: 13, color: C.inkMuted, fontFamily: 'inherit',
+              }}>← Quay lại đăng nhập</button>
+            </div>
+          )}
+        </div>
       </div>
+      <PublicFooter />
     </div>
   )
 }

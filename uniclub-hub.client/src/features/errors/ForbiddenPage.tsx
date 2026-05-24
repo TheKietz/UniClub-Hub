@@ -1,42 +1,72 @@
 import { Link } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
-import { ShieldOff, ArrowLeft } from 'lucide-react'
+
+const C = {
+  bg: '#fbf9f3', ink: '#15131a', lemon: '#facc15', coral: '#ff5a3c',
+  card: '#ffffff', inkMuted: '#918c99',
+  border: '1.5px solid #15131a',
+  shadow: '4px 4px 0 #15131a',
+}
 
 export default function ForbiddenPage() {
   const { isSuperAdmin } = useAuth()
   const dashboardHref = isSuperAdmin ? '/admin' : '/dashboard'
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-6">
-      <div className="text-center max-w-md">
-        {/* Icon */}
-        <div
-          className="inline-flex w-24 h-24 rounded-3xl items-center justify-center mb-6"
-          style={{ background: 'linear-gradient(135deg, #fef2f2, #fce7f3)' }}
-        >
-          <ShieldOff size={40} className="text-red-400" />
-        </div>
+    <div style={{
+      minHeight: '100vh', background: C.bg, display: 'flex', flexDirection: 'column',
+      alignItems: 'center', justifyContent: 'center', padding: '40px 24px',
+      fontFamily: "'Be Vietnam Pro', sans-serif",
+    }}>
+      {/* Big 403 */}
+      <div style={{
+        fontSize: 'clamp(100px, 20vw, 180px)', fontWeight: 900, lineHeight: 1,
+        color: C.ink, letterSpacing: '-.06em', userSelect: 'none',
+        textShadow: `6px 6px 0 ${C.coral}`,
+      }}>403</div>
 
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Không có quyền truy cập</h1>
-        <p className="text-gray-500 text-sm leading-relaxed mb-8">
-          Bạn không có thẩm quyền để xem trang này.
-          Vui lòng liên hệ quản trị viên nếu bạn cho rằng đây là nhầm lẫn.
+      {/* Card */}
+      <div style={{
+        marginTop: 32, maxWidth: 440, width: '100%',
+        background: C.card, border: C.border, borderRadius: 16,
+        boxShadow: C.shadow, padding: '28px 32px', textAlign: 'center',
+      }}>
+        <div style={{
+          display: 'inline-block', background: C.coral, border: C.border,
+          borderRadius: 6, padding: '2px 12px', fontSize: 10.5,
+          fontWeight: 800, letterSpacing: '.06em', marginBottom: 14, color: '#fff',
+        }}>⚠ KHÔNG CÓ QUYỀN TRUY CẬP</div>
+
+        <h1 style={{
+          fontSize: 22, fontWeight: 900, color: C.ink,
+          letterSpacing: '-.025em', margin: '0 0 8px',
+        }}>Bạn không có thẩm quyền</h1>
+
+        <p style={{ fontSize: 13.5, color: C.inkMuted, lineHeight: 1.6, margin: '0 0 24px' }}>
+          Trang này chỉ dành cho người có vai trò phù hợp.
+          Liên hệ quản trị viên nếu bạn cho rằng đây là nhầm lẫn.
         </p>
 
-        <div className="flex items-center justify-center gap-3 flex-wrap">
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
           <button
             onClick={() => window.history.back()}
-            className="inline-flex items-center gap-1.5 h-10 px-5 rounded-lg text-sm font-medium text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 transition-colors"
-          >
-            <ArrowLeft size={15} /> Quay lại
-          </button>
+            style={{
+              height: 44, padding: '0 20px', borderRadius: 10,
+              background: C.card, color: C.ink, border: C.border,
+              boxShadow: '2px 2px 0 #15131a', fontSize: 13, fontWeight: 700,
+              cursor: 'pointer', fontFamily: 'inherit',
+            }}
+          >← Quay lại</button>
           <Link
             to={dashboardHref}
-            className="inline-flex items-center gap-1.5 h-10 px-5 rounded-lg text-sm font-medium text-white transition-opacity hover:opacity-90"
-            style={{ background: 'linear-gradient(135deg, #4f46e5, #7c3aed)' }}
-          >
-            Về dashboard
-          </Link>
+            style={{
+              height: 44, padding: '0 20px', borderRadius: 10,
+              background: C.ink, color: C.lemon, border: C.border,
+              boxShadow: '2px 2px 0 #15131a', fontSize: 13, fontWeight: 800,
+              cursor: 'pointer', fontFamily: 'inherit', textDecoration: 'none',
+              display: 'inline-flex', alignItems: 'center',
+            }}
+          >Về dashboard →</Link>
         </div>
       </div>
     </div>
