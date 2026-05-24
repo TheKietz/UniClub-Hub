@@ -1,6 +1,8 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using UniClub_Hub.Membership.DTOs.Membership;
 using UniClub_Hub.Membership.Services.Interfaces;
+using UniClub_Hub.Shared.Constants;
 using UniClub_Hub.Shared.Data;
 using UniClub_Hub.Shared.Enums;
 using UniClub_Hub.Shared.Models;
@@ -10,12 +12,14 @@ namespace UniClub_Hub.Membership.Services.Implements
     public class ClubMembershipService : IClubMembershipService
     {
         private readonly UniClubDbContext _db;
-        private readonly INotificationService _notifications;
+        private readonly INotificationDispatchService _dispatch;
+        private readonly ISystemSettingService _settings;
 
-        public ClubMembershipService(UniClubDbContext db, INotificationService notifications)
+        public ClubMembershipService(UniClubDbContext db, INotificationDispatchService dispatch, ISystemSettingService settings)
         {
             _db = db;
-            _notifications = notifications;
+            _dispatch = dispatch;
+            _settings = settings;
         }
 
         // ── Public ───────────────────────────────────────────────────────
@@ -107,12 +111,13 @@ namespace UniClub_Hub.Membership.Services.Implements
             membership.Status = MembershipStatus.Active;
             await _db.SaveChangesAsync();
 
-            await _notifications.SendAsync(
-                membership.UserId,
-                "Xác nhận thành viên chính thức",
-                "Chúc mừng! Bạn đã được xác nhận là thành viên chính thức.",
-                NotificationType.System
-            );
+            var promotedClubName = await _db.Clubs.Where(c => c.Id == clubId).Select(c => c.Name).FirstAsync();
+            await _dispatch.FireAsync(NotificationTriggers.MemberRoleChanged, clubId, new()
+            {
+                ["targetUserId"] = membership.UserId,
+                ["clubName"] = promotedClubName,
+                ["newRole"] = "Thành viên chính thức",
+            });
 
             return await GetByIdAsync(clubId, membershipId);
         }
@@ -162,12 +167,12 @@ namespace UniClub_Hub.Membership.Services.Implements
             await _db.SaveChangesAsync();
 
             var clubNameForAdmin = await _db.Clubs.Where(c => c.Id == clubId).Select(c => c.Name).FirstAsync();
-            await _notifications.SendAsync(
-                userId,
-                "Bổ nhiệm Trưởng CLB",
-                $"Bạn đã được bổ nhiệm làm Trưởng câu lạc bộ {clubNameForAdmin}.",
-                NotificationType.System
-            );
+            await _dispatch.FireAsync(NotificationTriggers.MemberRoleChanged, clubId, new()
+            {
+                ["targetUserId"] = userId,
+                ["clubName"] = clubNameForAdmin,
+                ["newRole"] = "Trưởng CLB",
+            });
 
             return await GetByIdAsync(clubId, membership.Id);
         }
@@ -202,12 +207,12 @@ namespace UniClub_Hub.Membership.Services.Implements
 
             var deptName = await _db.Departments.Where(d => d.Id == departmentId).Select(d => d.Name).FirstOrDefaultAsync() ?? "ban";
             var clubNameForLead = await _db.Clubs.Where(c => c.Id == clubId).Select(c => c.Name).FirstAsync();
-            await _notifications.SendAsync(
-                userId,
-                "Bổ nhiệm Trưởng ban",
-                $"Bạn đã được bổ nhiệm làm Trưởng {deptName} trong CLB {clubNameForLead}.",
-                NotificationType.System
-            );
+            await _dispatch.FireAsync(NotificationTriggers.MemberRoleChanged, clubId, new()
+            {
+                ["targetUserId"] = userId,
+                ["clubName"] = clubNameForLead,
+                ["newRole"] = $"Trưởng ban {deptName}",
+            });
 
             return await GetByIdAsync(clubId, membership.Id);
         }
@@ -240,6 +245,17 @@ namespace UniClub_Hub.Membership.Services.Implements
             if (alreadyMember)
                 throw new InvalidOperationException("Người dùng đã là thành viên của CLB này.");
 
+            // Kiểm tra giới hạn số thành viên
+            var maxMembersVal = await _settings.GetValueAsync("club.max_members");
+            if (int.TryParse(maxMembersVal, out var maxMembers) && maxMembers > 0)
+            {
+                var currentCount = await _db.ClubMemberships.CountAsync(m =>
+                    m.ClubId == clubId &&
+                    (m.Status == MembershipStatus.Active || m.Status == MembershipStatus.Probation));
+                if (currentCount >= maxMembers)
+                    throw new InvalidOperationException($"CLB đã đạt giới hạn {maxMembers} thành viên.");
+            }
+
             if (dto.DepartmentId.HasValue)
                 await EnsureDepartmentBelongsToClubAsync(clubId, dto.DepartmentId.Value);
 
@@ -256,16 +272,13 @@ namespace UniClub_Hub.Membership.Services.Implements
             _db.ClubMemberships.Add(membership);
             await _db.SaveChangesAsync();
 
-            var clubName = await _db
-                .Clubs.Where(c => c.Id == clubId)
-                .Select(c => c.Name)
-                .FirstAsync();
-            await _notifications.SendAsync(
-                dto.UserId,
-                "Được thêm vào CLB",
-                $"Bạn đã được thêm vào CLB {clubName} với vai trò {dto.ClubRole}.",
-                NotificationType.System
-            );
+            var clubName = await _db.Clubs.Where(c => c.Id == clubId).Select(c => c.Name).FirstAsync();
+            await _dispatch.FireAsync(NotificationTriggers.MemberAdded, clubId, new()
+            {
+                ["targetUserId"] = dto.UserId,
+                ["clubName"] = clubName,
+                ["role"] = dto.ClubRole.ToString(),
+            });
 
             return await GetByIdAsync(clubId, membership.Id);
         }
@@ -343,16 +356,12 @@ namespace UniClub_Hub.Membership.Services.Implements
             membership.ResignedDate = DateOnly.FromDateTime(DateTime.UtcNow);
             await _db.SaveChangesAsync();
 
-            var clubName = await _db.Clubs
-                .Where(c => c.Id == membership.ClubId)
-                .Select(c => c.Name)
-                .FirstAsync();
-            await _notifications.SendAsync(
-                membership.UserId,
-                "Rời khỏi CLB",
-                $"Bạn đã được ghi nhận rời khỏi CLB {clubName}.",
-                NotificationType.System
-            );
+            var clubName = await _db.Clubs.Where(c => c.Id == membership.ClubId).Select(c => c.Name).FirstAsync();
+            await _dispatch.FireAsync(NotificationTriggers.MemberRemoved, membership.ClubId, new()
+            {
+                ["targetUserId"] = membership.UserId,
+                ["clubName"] = clubName,
+            });
         }
 
         public async Task ResignAsync(int clubId, string userId)
@@ -373,17 +382,48 @@ namespace UniClub_Hub.Membership.Services.Implements
             membership.ResignedDate = DateOnly.FromDateTime(DateTime.UtcNow);
             await _db.SaveChangesAsync();
 
-            var clubName = await _db.Clubs
-                .Where(c => c.Id == clubId)
-                .Select(c => c.Name)
-                .FirstAsync();
-            await _notifications.SendAsync(
-                userId,
-                "Rời khỏi CLB",
-                $"Bạn đã rời khỏi CLB {clubName}.",
-                NotificationType.System
-            );
+            var clubName = await _db.Clubs.Where(c => c.Id == clubId).Select(c => c.Name).FirstAsync();
+            await _dispatch.FireAsync(NotificationTriggers.MemberRemoved, clubId, new()
+            {
+                ["targetUserId"] = userId,
+                ["clubName"] = clubName,
+            });
         }
+
+        // ── Custom member fields ──────────────────────────────────────────
+
+        public async Task<List<MemberFieldDef>> GetMemberFieldSchemaAsync(int clubId)
+        {
+            var json = await _db.Clubs
+                .Where(c => c.Id == clubId)
+                .Select(c => c.MemberFieldSchema)
+                .FirstOrDefaultAsync();
+            if (string.IsNullOrEmpty(json)) return [];
+            return JsonSerializer.Deserialize<List<MemberFieldDef>>(json, JsonOptions) ?? [];
+        }
+
+        public async Task<List<MemberFieldDef>> UpdateMemberFieldSchemaAsync(int clubId, List<MemberFieldDef> fields, string requestUserId)
+        {
+            await EnsureCanManageAsync(clubId, requestUserId);
+            var club = await _db.Clubs.FindAsync(clubId)
+                ?? throw new KeyNotFoundException($"Không tìm thấy CLB với ID {clubId}.");
+            club.MemberFieldSchema = JsonSerializer.Serialize(fields, JsonOptions);
+            await _db.SaveChangesAsync();
+            return fields;
+        }
+
+        public async Task<MemberDto> UpdateMemberCustomDataAsync(int clubId, int membershipId, Dictionary<string, string?> data, string requestUserId)
+        {
+            await EnsureCanManageAsync(clubId, requestUserId);
+            var membership = await _db.ClubMemberships
+                .FirstOrDefaultAsync(m => m.ClubId == clubId && m.Id == membershipId)
+                ?? throw new KeyNotFoundException("Không tìm thấy thành viên này trong CLB.");
+            membership.MemberCustomData = JsonSerializer.Serialize(data, JsonOptions);
+            await _db.SaveChangesAsync();
+            return await GetByIdAsync(clubId, membershipId);
+        }
+
+        private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
 
         // ── Validation helpers ────────────────────────────────────────────
 
@@ -428,6 +468,9 @@ namespace UniClub_Hub.Membership.Services.Implements
                 DepartmentName = m.Department?.Name,
                 JoinedDate = m.JoinedDate,
                 Status = m.Status,
+                CustomData = string.IsNullOrEmpty(m.MemberCustomData)
+                    ? null
+                    : JsonSerializer.Deserialize<Dictionary<string, string?>>(m.MemberCustomData, JsonOptions),
             };
     }
 }

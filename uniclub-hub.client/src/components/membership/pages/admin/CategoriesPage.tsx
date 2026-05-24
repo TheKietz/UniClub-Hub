@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import { Pencil, Trash2 } from 'lucide-react'
+import { Tooltip } from '@/components/shared/Tooltip'
 import { getCategories, createCategory, updateCategory, deleteCategory } from '@/components/membership/services/adminApi'
 import type { CategoryItem, CreateCategoryDto } from '@/components/membership/services/admin.types'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -179,16 +181,16 @@ export default function CategoriesPage() {
                   <td style={{ padding: '12px 14px', color: D.inkDim, fontWeight: 600 }}>{cat.clubCount}</td>
                   <td style={{ padding: '12px 14px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                      <button
-                        onClick={() => openEdit(cat)}
-                        style={{ padding: '4px 10px', borderRadius: 6, fontSize: 12, fontWeight: 600, border: D.borderLight, background: D.card, color: D.indigo, cursor: 'pointer', fontFamily: 'inherit' }}>
-                        Sửa
-                      </button>
-                      <button
-                        onClick={() => setDeleteTarget(cat)}
-                        style={{ padding: '4px 10px', borderRadius: 6, fontSize: 12, fontWeight: 600, border: D.borderLight, background: D.card, color: D.red, cursor: 'pointer', fontFamily: 'inherit' }}>
-                        Xoá
-                      </button>
+                      <Tooltip label="Sửa">
+                        <button onClick={() => openEdit(cat)} style={{ width: 30, height: 30, borderRadius: 6, display: 'grid', placeItems: 'center', border: D.borderLight, background: D.card, color: D.indigo, cursor: 'pointer' }}>
+                          <Pencil size={13} />
+                        </button>
+                      </Tooltip>
+                      <Tooltip label="Xoá">
+                        <button onClick={() => setDeleteTarget(cat)} style={{ width: 30, height: 30, borderRadius: 6, display: 'grid', placeItems: 'center', border: D.borderLight, background: D.card, color: D.red, cursor: 'pointer' }}>
+                          <Trash2 size={13} />
+                        </button>
+                      </Tooltip>
                     </div>
                   </td>
                 </tr>

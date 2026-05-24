@@ -44,6 +44,18 @@ export interface MemberItem {
   departmentName?: string
   joinedDate: string
   status: string
+  customData?: Record<string, string | null>
+}
+
+// Custom member profile fields
+export type MemberFieldType = 'text' | 'textarea' | 'select'
+
+export interface MemberFieldDef {
+  id: string
+  label: string
+  type: MemberFieldType
+  required: boolean
+  options?: string[]
 }
 
 export interface DepartmentItem {
@@ -68,9 +80,19 @@ export interface ApplicationItem {
   email?: string
   studentId?: string
   answers?: string
+  memberFieldData?: string
   reviewNote?: string
   reviewedAt?: string
   reviewerName?: string
+  currentStageId?: number
+  currentStageName?: string
+}
+
+export interface PipelineStage {
+  id: number
+  name: string
+  stageOrder: number
+  isActive: boolean
 }
 
 export interface AddMemberDto {
@@ -106,7 +128,8 @@ export interface FormSchema {
 }
 
 export interface SubmitApplicationDto {
-  answers: Record<string, string> // fieldId → answer
+  answers: Record<string, string>
+  memberFieldData?: Record<string, string>
 }
 
 // Resignation requests

@@ -176,15 +176,22 @@ export default function ProfilePage() {
           </div>
 
           {/* CLB membership */}
-          {activeMemberships.length > 0 && (
-            <div style={{ background: D.card, border: D.border, borderRadius: D.radius, boxShadow: D.shadow(), overflow: 'hidden' }}>
-              <div style={{ padding: '12px 18px', borderBottom: D.borderLight, background: D.bg }}>
-                <p style={{ fontSize: 13, fontWeight: 700, color: D.ink, margin: 0 }}>CLB đang tham gia</p>
+          <div style={{ background: D.card, border: D.border, borderRadius: D.radius, boxShadow: D.shadow(), overflow: 'hidden' }}>
+            <div style={{ padding: '12px 18px', borderBottom: D.borderLight, background: D.bg }}>
+              <p style={{ fontSize: 13, fontWeight: 700, color: D.ink, margin: 0 }}>CLB đang tham gia</p>
+            </div>
+            {activeMemberships.length === 0 ? (
+              <div style={{ padding: '20px 18px', display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ width: 36, height: 36, borderRadius: 9, flexShrink: 0, background: D.bg, border: `1.5px dashed #c4bdb1`, display: 'grid', placeItems: 'center', fontSize: 16, color: D.inkMuted }}>◇</div>
+                <div>
+                  <p style={{ fontSize: 13, fontWeight: 600, color: D.inkMuted, margin: 0 }}>Chưa tham gia CLB nào</p>
+                  <p style={{ fontSize: 11, color: D.inkMuted, marginTop: 2 }}>Khám phá và đăng ký các câu lạc bộ phù hợp với bạn.</p>
+                </div>
               </div>
+            ) : (
               <div>
                 {activeMemberships.map((m, i) => (
                   <div key={m.clubId} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 18px', borderBottom: i < activeMemberships.length - 1 ? D.borderLight : 'none' }}>
-                    {/* Club avatar square */}
                     {m.clubLogoUrl ? (
                       <img src={m.clubLogoUrl} alt="" style={{ width: 36, height: 36, borderRadius: 9, objectFit: 'cover', border: D.borderLight, flexShrink: 0 }} />
                     ) : (
@@ -202,8 +209,8 @@ export default function ProfilePage() {
                   </div>
                 ))}
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         {/* Right column — form */}

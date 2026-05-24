@@ -64,5 +64,21 @@ export const deleteCategory = (id: number) =>
 
 
 import type { ClubAuditLogPage } from './club.types'
-export const getAdminAuditLogs = (params?: { module?: string; page?: number; pageSize?: number }) =>
+export const getAdminAuditLogs = (params?: { module?: string; search?: string; action?: string; dateFrom?: string; dateTo?: string; page?: number; pageSize?: number }) =>
   api.get<{ data: ClubAuditLogPage }>('/admin/audit-logs', { params }).then(r => r.data.data)
+
+export interface SystemSetting {
+  key: string; value: string; label: string; description?: string
+  category: string; inputType: 'text' | 'textarea' | 'toggle' | 'number' | 'tags' | 'faq'
+  isEnabled: boolean; updatedAt: string; updatedBy?: string
+}
+export const getSettings = () =>
+  api.get<{ data: SystemSetting[] }>('/admin/settings').then(r => r.data.data)
+export const updateSetting = (key: string, value: string) =>
+  api.patch(`/admin/settings/${key}`, { value })
+export const toggleSettingEnabled = (key: string, enabled: boolean) =>
+  api.patch(`/admin/settings/${key}/enabled`, { enabled })
+export const getPublicContactInfo = () =>
+  api.get<{ data: Record<string, string> }>('/admin/settings/contact').then(r => r.data.data)
+export const getPublicSettings = () =>
+  api.get<{ data: Record<string, string> }>('/admin/settings/public').then(r => r.data.data)

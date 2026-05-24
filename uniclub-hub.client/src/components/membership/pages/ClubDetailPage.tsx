@@ -1,8 +1,8 @@
 import { MEMBERSHIP_STATUS, CLUB_ROLES } from '@/types/auth'
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { getClubDetail, getDepartments, getFormSchema, getMyApplications, submitApplication, resignFromClub, submitResignation, getUserResignations } from '@/components/membership/services/clubApi'
-import type { ClubDetail, DepartmentItem, FormSchema, ApplicationItem, ResignationRequestItem, ResignationPreference } from '@/components/membership/services/club.types'
+import { getClubDetail, getDepartments, getFormSchema, getMemberFieldSchema, getMyApplications, submitApplication, resignFromClub, submitResignation, getUserResignations } from '@/components/membership/services/clubApi'
+import type { ClubDetail, DepartmentItem, FormSchema, MemberFieldDef, ApplicationItem, ResignationRequestItem, ResignationPreference } from '@/components/membership/services/club.types'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -32,10 +32,12 @@ export default function ClubDetailPage() {
   const [club, setClub] = useState<ClubDetail | null>(null)
   const [departments, setDepartments] = useState<DepartmentItem[]>([])
   const [schema, setSchema] = useState<FormSchema | null>(null)
+  const [fieldSchema, setFieldSchema] = useState<MemberFieldDef[]>([])
   const [application, setApplication] = useState<ApplicationItem | null>(null)
   const [loading, setLoading] = useState(true)
 
   const [answers, setAnswers] = useState<Record<string, string>>({})
+  const [memberFieldAnswers, setMemberFieldAnswers] = useState<Record<string, string>>({})
   const [fileAnswers, setFileAnswers] = useState<Record<string, File | null>>({})
   const [submitting, setSubmitting] = useState(false)
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'uploading' | 'submitting'>('idle')
@@ -94,6 +96,7 @@ export default function ClubDetailPage() {
       getClubDetail(id).then(setClub),
       getDepartments(id).then(setDepartments),
       getFormSchema(id).then(s => setSchema(s)),
+      getMemberFieldSchema(id).then(setFieldSchema).catch(() => {}),
     ]
     if (isAuthenticated) {
       tasks.push(
@@ -123,6 +126,13 @@ export default function ClubDetailPage() {
         return
       }
     }
+    if (fieldSchema.length > 0) {
+      const missingMemberFields = fieldSchema.filter(f => f.required && !memberFieldAnswers[f.id]?.trim())
+      if (missingMemberFields.length > 0) {
+        toast.error(`Vui lòng điền: ${missingMemberFields.map(f => f.label).join(', ')}`)
+        return
+      }
+    }
 
     setSubmitting(true)
     try {
@@ -143,7 +153,10 @@ export default function ClubDetailPage() {
       }
 
       setSubmitStatus('submitting')
-      await submitApplication(id, { answers: schema ? finalAnswers : { note: finalAnswers['note'] ?? '' } })
+      await submitApplication(id, {
+        answers: schema ? finalAnswers : { note: finalAnswers['note'] ?? '' },
+        ...(fieldSchema.length > 0 ? { memberFieldData: memberFieldAnswers } : {}),
+      })
       setSubmitted(true)
       toast.success('Đã gửi đơn đăng ký thành công!')
     } catch (err: any) {
@@ -412,6 +425,35 @@ export default function ClubDetailPage() {
                           onChange={e => setAnswers(p => ({ ...p, note: e.target.value }))}
                           placeholder="Chia sẻ lý do bạn muốn tham gia CLB..."
                           className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                      </div>
+                    )}
+                    {fieldSchema.length > 0 && (
+                      <div className="border-t border-gray-100 pt-3 mt-1 space-y-3">
+                        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                          Thông tin hồ sơ thành viên
+                        </p>
+                        {fieldSchema.map(f => (
+                          <div key={f.id} className="space-y-1.5">
+                            <Label className="text-xs text-gray-600">
+                              {f.label}{f.required && <span className="text-red-500 ml-0.5">*</span>}
+                            </Label>
+                            {f.type === 'textarea' ? (
+                              <textarea rows={3} value={memberFieldAnswers[f.id] ?? ''}
+                                onChange={e => setMemberFieldAnswers(p => ({ ...p, [f.id]: e.target.value }))}
+                                className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                            ) : f.type === 'select' ? (
+                              <select value={memberFieldAnswers[f.id] ?? ''}
+                                onChange={e => setMemberFieldAnswers(p => ({ ...p, [f.id]: e.target.value }))}
+                                className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-white">
+                                <option value="">— Chọn —</option>
+                                {f.options?.map(o => <option key={o} value={o}>{o}</option>)}
+                              </select>
+                            ) : (
+                              <Input value={memberFieldAnswers[f.id] ?? ''}
+                                onChange={e => setMemberFieldAnswers(p => ({ ...p, [f.id]: e.target.value }))} />
+                            )}
+                          </div>
+                        ))}
                       </div>
                     )}
                     <Button type="submit" disabled={submitting}

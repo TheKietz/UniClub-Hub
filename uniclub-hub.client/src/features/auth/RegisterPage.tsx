@@ -8,6 +8,15 @@ import MajorSelect from '@/components/shared/MajorSelect'
 import { toast } from 'sonner'
 import api from '@/lib/axiosInstance'
 import { MailCheck, RefreshCw, Eye, EyeOff } from 'lucide-react'
+import type { UserInfo } from '@/types/auth'
+
+function redirectAfterLogin(me: UserInfo): string {
+  if (me.roles.includes('SUPER_ADMIN')) return '/admin'
+  const active = me.memberships.filter(m => m.status === 'Active')
+  const hasManageRole = active.some(m => m.clubRole === 'CLUB_ADMIN' || m.clubRole === 'DEPT_LEAD')
+  if (hasManageRole || active.length > 0) return '/dashboard'
+  return '/clubs'
+}
 
 type F = { fullName: string; email: string; studentId: string; major: string; password: string; confirmPassword: string }
 type Errs = Partial<Record<keyof F, string>>
@@ -34,7 +43,7 @@ const labelStyle: React.CSSProperties = {
 }
 
 export default function RegisterPage() {
-  const { register, googleLogin, isSuperAdmin } = useAuth()
+  const { register, googleLogin } = useAuth()
   const navigate = useNavigate()
 
   const [step, setStep] = useState<1 | 2 | 3>(1)
@@ -113,8 +122,8 @@ export default function RegisterPage() {
     onSuccess: async tokenResponse => {
       setLoading(true)
       try {
-        await googleLogin(tokenResponse.access_token)
-        navigate(isSuperAdmin ? '/admin' : '/dashboard', { replace: true })
+        const me = await googleLogin(tokenResponse.access_token)
+        navigate(redirectAfterLogin(me), { replace: true })
       } catch (err: any) {
         toast.error(err.response?.data?.message ?? 'Đăng ký Google thất bại.')
       } finally {
@@ -287,32 +296,38 @@ export default function RegisterPage() {
                 {/* Step 1 */}
                 {step === 1 && (
                   <form onSubmit={handleNext} noValidate>
-                    <label style={labelStyle}>Email</label>
-                    <input type="email" value={form.email} onChange={onChange('email')} placeholder="example@email.com"
-                      style={{ ...inputStyle, borderColor: errs.email ? '#ef4444' : C.ink }} />
-                    {errs.email && <p style={{ fontSize: 11, color: '#ef4444', margin: '-4px 0 6px', paddingLeft: 14 }}>{errs.email}</p>}
-
-                    <label style={{ ...labelStyle, marginTop: 10 }}>Mật khẩu</label>
-                    <div style={{ position: 'relative', marginBottom: 0 }}>
-                      <input type={showPassword ? 'text' : 'password'} value={form.password} onChange={onChange('password')} placeholder="Tối thiểu 6 ký tự"
-                        style={{ ...inputStyle, marginBottom: 0, paddingRight: 40, borderColor: errs.password ? '#ef4444' : C.ink }} />
-                      <button type="button" onClick={() => setShowPassword(v => !v)} style={{
-                        position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)',
-                        background: 'none', border: 'none', cursor: 'pointer', color: C.inkMuted, padding: 0,
-                      }}>{showPassword ? <EyeOff size={15} /> : <Eye size={15} />}</button>
+                    <div style={{ marginBottom: 14 }}>
+                      <label style={labelStyle}>Email</label>
+                      <input type="email" value={form.email} onChange={onChange('email')} placeholder="example@email.com"
+                        style={{ ...inputStyle, marginBottom: 0, borderColor: errs.email ? '#ef4444' : C.ink }} />
+                      {errs.email && <p style={{ fontSize: 11, color: '#ef4444', margin: '4px 0 0', paddingLeft: 14 }}>{errs.email}</p>}
                     </div>
-                    {errs.password && <p style={{ fontSize: 11, color: '#ef4444', margin: '4px 0 6px', paddingLeft: 14 }}>{errs.password}</p>}
 
-                    <label style={{ ...labelStyle, marginTop: 10 }}>Xác nhận mật khẩu</label>
-                    <div style={{ position: 'relative', marginBottom: 0 }}>
-                      <input type={showConfirm ? 'text' : 'password'} value={form.confirmPassword} onChange={onChange('confirmPassword')} placeholder="Nhập lại mật khẩu"
-                        style={{ ...inputStyle, marginBottom: 0, paddingRight: 40, borderColor: errs.confirmPassword ? '#ef4444' : C.ink }} />
-                      <button type="button" onClick={() => setShowConfirm(v => !v)} style={{
-                        position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)',
-                        background: 'none', border: 'none', cursor: 'pointer', color: C.inkMuted, padding: 0,
-                      }}>{showConfirm ? <EyeOff size={15} /> : <Eye size={15} />}</button>
+                    <div style={{ marginBottom: 14 }}>
+                      <label style={labelStyle}>Mật khẩu</label>
+                      <div style={{ position: 'relative' }}>
+                        <input type={showPassword ? 'text' : 'password'} value={form.password} onChange={onChange('password')} placeholder="Tối thiểu 6 ký tự"
+                          style={{ ...inputStyle, marginBottom: 0, paddingRight: 40, borderColor: errs.password ? '#ef4444' : C.ink }} />
+                        <button type="button" onClick={() => setShowPassword(v => !v)} style={{
+                          position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)',
+                          background: 'none', border: 'none', cursor: 'pointer', color: C.inkMuted, padding: 0,
+                        }}>{showPassword ? <EyeOff size={15} /> : <Eye size={15} />}</button>
+                      </div>
+                      {errs.password && <p style={{ fontSize: 11, color: '#ef4444', margin: '4px 0 0', paddingLeft: 14 }}>{errs.password}</p>}
                     </div>
-                    {errs.confirmPassword && <p style={{ fontSize: 11, color: '#ef4444', margin: '4px 0 6px', paddingLeft: 14 }}>{errs.confirmPassword}</p>}
+
+                    <div style={{ marginBottom: 0 }}>
+                      <label style={labelStyle}>Xác nhận mật khẩu</label>
+                      <div style={{ position: 'relative' }}>
+                        <input type={showConfirm ? 'text' : 'password'} value={form.confirmPassword} onChange={onChange('confirmPassword')} placeholder="Nhập lại mật khẩu"
+                          style={{ ...inputStyle, marginBottom: 0, paddingRight: 40, borderColor: errs.confirmPassword ? '#ef4444' : C.ink }} />
+                        <button type="button" onClick={() => setShowConfirm(v => !v)} style={{
+                          position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)',
+                          background: 'none', border: 'none', cursor: 'pointer', color: C.inkMuted, padding: 0,
+                        }}>{showConfirm ? <EyeOff size={15} /> : <Eye size={15} />}</button>
+                      </div>
+                      {errs.confirmPassword && <p style={{ fontSize: 11, color: '#ef4444', margin: '4px 0 0', paddingLeft: 14 }}>{errs.confirmPassword}</p>}
+                    </div>
 
                     <button type="submit" style={{
                       width: '100%', height: 46, borderRadius: C.radiusPill,
@@ -351,7 +366,7 @@ export default function RegisterPage() {
                     />
                     {errs.major && <p style={{ fontSize: 11, color: '#ef4444', margin: '2px 0 6px', paddingLeft: 14 }}>{errs.major}</p>}
 
-                    <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
+                    <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
                       <button type="button" onClick={() => { setStep(1); setErrs({}) }} style={{
                         height: 46, padding: '0 20px', borderRadius: C.radiusPill,
                         border: C.border, background: C.card, color: C.ink,

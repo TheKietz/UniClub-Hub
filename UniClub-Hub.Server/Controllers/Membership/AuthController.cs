@@ -1,9 +1,11 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.WebUtilities;
 using System.Text;
 using UniClub_Hub.Membership.DTOs.Auth;
+using UniClub_Hub.Membership.Services.Interfaces;
 using UniClub_Hub.Membership.Services.Interfaces;
 using UniClub_Hub.Shared.Common;
 using UniClub_Hub.Shared.Data;
@@ -21,21 +23,39 @@ namespace UniClub_Hub.Server.Controllers.Membership
         private readonly IEmailService _emailService;
         private readonly IConfiguration _config;
 
+        private readonly ISystemSettingService _settings;
+
         public AuthController(
             IAuthService authService,
             UserManager<ApplicationUser> userManager,
             IEmailService emailService,
-            IConfiguration config)
+            IConfiguration config,
+            ISystemSettingService settings)
         {
             _authService = authService;
             _userManager = userManager;
             _emailService = emailService;
             _config = config;
+            _settings = settings;
         }
 
         [HttpPost("register")]
+        [EnableRateLimiting("auth:register")]
         public async Task<IActionResult> Register([FromBody] RegisterDto dto)
         {
+            // Check registration open
+            if (!await _settings.IsRegistrationOpenAsync())
+                return BadRequest(ApiResponse<object>.Fail("Hệ thống tạm ngừng nhận đăng ký mới."));
+
+            // Check allowed domains
+            var allowedDomains = await _settings.GetAllowedDomainsAsync();
+            if (allowedDomains.Count > 0)
+            {
+                var emailDomain = dto.Email.Split('@').LastOrDefault()?.ToLower() ?? "";
+                if (!allowedDomains.Contains(emailDomain))
+                    return BadRequest(ApiResponse<object>.Fail($"Email phải thuộc domain: {string.Join(", ", allowedDomains)}."));
+            }
+
             try
             {
                 await _authService.RegisterAsync(dto);
@@ -49,7 +69,8 @@ namespace UniClub_Hub.Server.Controllers.Membership
                         var encodedToken = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
                         var appUrl = _config["AppUrl"] ?? "https://localhost:54610";
                         var confirmLink = $"{appUrl}/confirm-email?email={Uri.EscapeDataString(dto.Email)}&token={encodedToken}";
-                        var html = EmailTemplates.EmailVerification(user.FullName ?? user.Email!, confirmLink);
+                        var logoUrl = await _settings.GetValueAsync("system.logo_url");
+                        var html = EmailTemplates.EmailVerification(user.FullName ?? user.Email!, confirmLink, logoUrl);
                         await _emailService.SendAsync(dto.Email, "Xác thực tài khoản – UniClub Hub", html);
                     }
                     catch { /* Không chặn đăng ký nếu gửi mail thất bại */ }
@@ -89,6 +110,7 @@ namespace UniClub_Hub.Server.Controllers.Membership
         }
 
         [HttpPost("resend-confirmation")]
+        [EnableRateLimiting("auth:resend")]
         public async Task<IActionResult> ResendConfirmation([FromBody] ForgotPasswordDto dto)
         {
             const string safeMsg = "Nếu email tồn tại và chưa xác thực, email xác thực đã được gửi lại.";
@@ -103,7 +125,8 @@ namespace UniClub_Hub.Server.Controllers.Membership
                 var encodedToken = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
                 var appUrl = _config["AppUrl"] ?? "https://localhost:54610";
                 var confirmLink = $"{appUrl}/confirm-email?email={Uri.EscapeDataString(dto.Email)}&token={encodedToken}";
-                var html = EmailTemplates.EmailVerification(user.FullName ?? user.Email!, confirmLink);
+                var logoUrl = await _settings.GetValueAsync("system.logo_url");
+                var html = EmailTemplates.EmailVerification(user.FullName ?? user.Email!, confirmLink, logoUrl);
                 await _emailService.SendAsync(dto.Email, "Xác thực tài khoản – UniClub Hub", html);
             }
             catch { }
@@ -112,6 +135,7 @@ namespace UniClub_Hub.Server.Controllers.Membership
         }
 
         [HttpPost("login")]
+        [EnableRateLimiting("auth:login")]
         public async Task<IActionResult> Login([FromBody] LoginDto dto)
         {
             try
@@ -178,6 +202,7 @@ namespace UniClub_Hub.Server.Controllers.Membership
         }
 
         [HttpPost("forgot-password")]
+        [EnableRateLimiting("auth:forgot")]
         public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordDto dto)
         {
             var user = await _userManager.FindByEmailAsync(dto.Email);
@@ -190,7 +215,8 @@ namespace UniClub_Hub.Server.Controllers.Membership
             var appUrl = _config["AppUrl"] ?? "https://localhost:54610";
             var resetLink = $"{appUrl}/reset-password?email={Uri.EscapeDataString(dto.Email)}&token={encodedToken}";
 
-            var html = EmailTemplates.PasswordReset(user.FullName ?? user.Email!, resetLink);
+            var logoUrl = await _settings.GetValueAsync("system.logo_url");
+            var html = EmailTemplates.PasswordReset(user.FullName ?? user.Email!, resetLink, logoUrl);
             await _emailService.SendAsync(dto.Email, "Đặt lại mật khẩu – UniClub Hub", html);
 
             return Ok(ApiResponse<object>.Ok(null!, "Nếu email tồn tại, hướng dẫn đặt lại mật khẩu đã được gửi."));

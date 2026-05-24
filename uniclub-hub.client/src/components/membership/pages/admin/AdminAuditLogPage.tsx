@@ -1,18 +1,55 @@
 import { useEffect, useState } from 'react'
-import { getAdminAuditLogs } from '@/components/membership/services/adminApi'
+import { getAdminAuditLogs, getUsers } from '@/components/membership/services/adminApi'
 import type { ClubAuditLogItem } from '@/components/membership/services/club.types'
 import { toast } from 'sonner'
 import { LoadMoreBar } from '@/components/shared/LoadMoreBar'
+import { FilterSelect } from '@/components/shared/FilterSelect'
+import { UserSearchCombobox } from '@/components/shared/UserSearchCombobox'
 
 const D = {
   border: '1.5px solid #15131a', borderLight: '1px solid #e8e3d6',
   shadow: (x = 3, y = 3) => `${x}px ${y}px 0 #15131a`,
-  radius: 14, pill: 999,
+  radius: 14,
   ink: '#15131a', inkDim: '#4a4651', inkMuted: '#918c99',
   bg: '#f7f6f1', card: '#ffffff', indigo: '#4f46e5',
 }
 
-const MODULES = ['Tất cả', 'CLB', 'Thành viên', 'Ban bộ phận', 'Đơn đăng ký']
+const MODULE_OPTIONS = [
+  { value: '', label: 'Tất cả loại' },
+  { value: 'CLB', label: 'CLB' },
+  { value: 'Thành viên', label: 'Thành viên' },
+  { value: 'Ban bộ phận', label: 'Ban bộ phận' },
+  { value: 'Đơn đăng ký', label: 'Đơn đăng ký' },
+]
+const ACTION_OPTIONS = [
+  { value: '', label: 'Mọi hành động' },
+  { value: 'Create', label: '+ Tạo mới' },
+  { value: 'Update', label: '✎ Cập nhật' },
+  { value: 'Delete', label: '✕ Xóa' },
+]
+const DATE_OPTIONS = [
+  { value: '', label: 'Mọi thời gian' },
+  { value: 'today', label: 'Hôm nay' },
+  { value: '7d', label: '7 ngày qua' },
+  { value: '30d', label: '30 ngày qua' },
+]
+
+function getDateRange(preset: string): { dateFrom?: string; dateTo?: string } {
+  const now = new Date()
+  if (preset === 'today') {
+    const from = new Date(now); from.setHours(0, 0, 0, 0)
+    return { dateFrom: from.toISOString(), dateTo: now.toISOString() }
+  }
+  if (preset === '7d') {
+    const from = new Date(now); from.setDate(from.getDate() - 7)
+    return { dateFrom: from.toISOString(), dateTo: now.toISOString() }
+  }
+  if (preset === '30d') {
+    const from = new Date(now); from.setDate(from.getDate() - 30)
+    return { dateFrom: from.toISOString(), dateTo: now.toISOString() }
+  }
+  return {}
+}
 
 const ACTION_STYLE: Record<string, { label: string; bg: string; color: string }> = {
   Create: { label: '+ Tạo mới',  bg: '#d1fae5', color: '#065f46' },
@@ -58,30 +95,57 @@ export default function AdminAuditLogPage() {
   const [logs, setLogs] = useState<ClubAuditLogItem[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
-  const [module, setModule] = useState('Tất cả')
+  const [module, setModule] = useState('')
+  const [action, setAction] = useState('')
+  const [datePreset, setDatePreset] = useState('')
+  const [search, setSearch] = useState('')
+  const [searchInput, setSearchInput] = useState('')
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [hoverRow, setHoverRow] = useState<number | null>(null)
-
   const pageSize = 20
+
+  const dateRange = getDateRange(datePreset)
 
   useEffect(() => {
     setLoading(true)
     setLogs([])
     setPage(1)
-    getAdminAuditLogs({ module: module === 'Tất cả' ? undefined : module, page: 1, pageSize })
+    getAdminAuditLogs({
+      module: module || undefined,
+      action: action || undefined,
+      search: search || undefined,
+      ...dateRange,
+      page: 1, pageSize,
+    })
       .then(res => { setLogs(res.items); setTotal(res.totalCount) })
       .catch(() => toast.error('Không thể tải lịch sử thay đổi.'))
       .finally(() => setLoading(false))
-  }, [module])
+  }, [module, action, datePreset, search])
 
   function loadMore() {
     const nextPage = page + 1
     setLoadingMore(true)
-    getAdminAuditLogs({ module: module === 'Tất cả' ? undefined : module, page: nextPage, pageSize })
+    getAdminAuditLogs({
+      module: module || undefined,
+      action: action || undefined,
+      search: search || undefined,
+      ...dateRange,
+      page: nextPage, pageSize,
+    })
       .then(res => { setLogs(prev => [...prev, ...res.items]); setPage(nextPage) })
       .catch(() => toast.error('Tải thêm thất bại.'))
       .finally(() => setLoadingMore(false))
+  }
+
+  const hasFilter = module !== '' || action !== '' || datePreset !== '' || search !== ''
+  function clearFilters() {
+    setModule(''); setAction(''); setDatePreset(''); setSearch(''); setSearchInput('')
+  }
+
+  async function fetchSuggestions(q: string) {
+    const result = await getUsers({ search: q, page: 1, pageSize: 8 })
+    return result.items.map(u => ({ id: u.id, name: u.fullName ?? u.email, avatarUrl: u.avatarUrl }))
   }
 
   return (
@@ -92,23 +156,26 @@ export default function AdminAuditLogPage() {
         <p style={{ fontSize: 13, color: D.inkMuted, marginTop: 4 }}>Toàn bộ hoạt động trên tất cả CLB</p>
       </div>
 
-      {/* Module filter */}
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 16 }}>
-        {MODULES.map(m => {
-          const active = module === m
-          return (
-            <button key={m} onClick={() => setModule(m)} style={{
-              padding: '6px 14px', borderRadius: D.pill, fontSize: 12, fontWeight: 700,
-              border: D.border, cursor: 'pointer', fontFamily: 'inherit',
-              background: active ? D.indigo : D.card,
-              color: active ? '#fff' : D.inkDim,
-              boxShadow: active ? D.shadow(2, 2) : 'none',
-            }}>
-              {m}
-            </button>
-          )
-        })}
-        <span style={{ marginLeft: 'auto', fontSize: 12, color: D.inkMuted }}>{total} bản ghi</span>
+      {/* Filters */}
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 16, flexWrap: 'wrap' }}>
+        <UserSearchCombobox
+          value={searchInput}
+          onChange={v => setSearchInput(v)}
+          onSelect={name => { setSearchInput(name); setSearch(name) }}
+          onClear={() => { setSearchInput(''); setSearch('') }}
+          fetchSuggestions={fetchSuggestions}
+          placeholder="Tìm người thực hiện..."
+          style={{ flex: 1, minWidth: 200, maxWidth: 320 }}
+        />
+        <FilterSelect value={module} onChange={setModule} options={MODULE_OPTIONS} style={{ width: 160 }} />
+        <FilterSelect value={action} onChange={setAction} options={ACTION_OPTIONS} style={{ width: 160 }} />
+        <FilterSelect value={datePreset} onChange={setDatePreset} options={DATE_OPTIONS} style={{ width: 150 }} />
+        {hasFilter && (
+          <button onClick={clearFilters} style={{ padding: '0 14px', height: 36, borderRadius: 8, fontSize: 12, fontWeight: 700, border: D.borderLight, background: D.card, color: D.inkMuted, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>
+            Xoá lọc
+          </button>
+        )}
+        <span style={{ fontSize: 12, color: D.inkMuted, marginLeft: 'auto', whiteSpace: 'nowrap' }}>{total} bản ghi</span>
       </div>
 
       {/* Table */}

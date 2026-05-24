@@ -4,6 +4,7 @@ import { C, Rv, Tag, ClubCard, Marquee, PublicFooter, type ClubCardData } from '
 import PublicHeader from '@/components/layouts/PublicHeader'
 import { getClubs } from '@/components/membership/services/clubApi'
 import type { ClubListItem } from '@/components/membership/services/club.types'
+import { getPublicSettings } from '@/components/membership/services/adminApi'
 
 const CLUB_COLORS = [C.indigo, C.violet, C.coral, C.mint, C.sky, C.pink, C.lemon, C.coral]
 
@@ -34,10 +35,16 @@ const ACTIVITIES = [
 export default function LandingPage() {
   const navigate = useNavigate()
   const [clubs, setClubs] = useState<ClubListItem[]>([])
+  const [pubSettings, setPubSettings] = useState<Record<string, string>>({})
 
   useEffect(() => {
     getClubs().then(setClubs).catch(() => { })
+    getPublicSettings().then(setPubSettings).catch(() => { })
   }, [])
+
+  const bannerEnabled = pubSettings['landing.banner_enabled'] === 'true'
+  const bannerText    = pubSettings['landing.banner_text']?.trim()
+  const bannerColor   = pubSettings['landing.banner_color']?.trim() || '#f59e0b'
 
   const cardClubs = clubs.map(toCardData)
   const allPreview = cardClubs.slice(0, 8)
@@ -48,6 +55,18 @@ export default function LandingPage() {
   return (
     <div className="v3-page v3-enter">
       <PublicHeader />
+
+      {/* ─── Banner ───────────────────────────────────── */}
+      {bannerEnabled && bannerText && (
+        <div style={{
+          background: bannerColor, borderBottom: C.border,
+          padding: '10px 28px', textAlign: 'center',
+          fontSize: 13.5, fontWeight: 700, color: C.ink,
+          letterSpacing: '-.01em',
+        }}>
+          {bannerText}
+        </div>
+      )}
 
       {/* ─── Hero ─────────────────────────────────────── */}
       <section style={{ padding: '52px 28px 44px', position: 'relative', overflow: 'hidden' }}>

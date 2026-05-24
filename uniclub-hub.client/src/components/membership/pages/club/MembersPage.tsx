@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { getClubMembers, addMember, updateMember, removeMember, getDepartments } from '@/components/membership/services/clubApi'
-import type { MemberItem, DepartmentItem } from '@/components/membership/services/club.types'
+import { getClubMembers, addMember, updateMember, removeMember, getDepartments, getMemberFieldSchema, updateMemberCustomData } from '@/components/membership/services/clubApi'
+import type { MemberItem, DepartmentItem, MemberFieldDef } from '@/components/membership/services/club.types'
 import { CLUB_ROLES, MEMBERSHIP_STATUS } from '@/types/auth'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { toast } from 'sonner'
 import api from '@/lib/axiosInstance'
 import { Pencil, X } from 'lucide-react'
+import { FilterSelect } from '@/components/shared/FilterSelect'
 import { Tooltip } from '@/components/shared/Tooltip'
 import { LoadMoreBar } from '@/components/shared/LoadMoreBar'
 
@@ -63,7 +64,7 @@ const labelStyle: React.CSSProperties = { fontSize: 12, fontWeight: 700, color: 
 const selectStyle: React.CSSProperties = { ...inputStyle, height: 36, cursor: 'pointer' }
 
 type AddForm = { userId: string; clubRole: string; departmentId: string }
-type EditForm = { clubRole: string; departmentId: string }
+type EditForm = { clubRole: string; departmentId: string; customData: Record<string, string> }
 
 export default function MembersPage() {
   const { clubId } = useParams<{ clubId: string }>()
@@ -71,6 +72,7 @@ export default function MembersPage() {
 
   const [members, setMembers] = useState<MemberItem[]>([])
   const [departments, setDepartments] = useState<DepartmentItem[]>([])
+  const [fieldSchema, setFieldSchema] = useState<MemberFieldDef[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshKey, setRefreshKey] = useState(0)
 
@@ -79,7 +81,7 @@ export default function MembersPage() {
   const [saving, setSaving] = useState(false)
 
   const [editTarget, setEditTarget] = useState<MemberItem | null>(null)
-  const [editForm, setEditForm] = useState<EditForm>({ clubRole: CLUB_ROLES.MEMBER, departmentId: '' })
+  const [editForm, setEditForm] = useState<EditForm>({ clubRole: CLUB_ROLES.MEMBER, departmentId: '', customData: {} })
 
   const [removeTarget, setRemoveTarget] = useState<MemberItem | null>(null)
   const [search, setSearch] = useState('')
@@ -108,8 +110,8 @@ export default function MembersPage() {
 
   useEffect(() => {
     setLoading(true)
-    Promise.all([getClubMembers(id), getDepartments(id)])
-      .then(([m, d]) => { setMembers(m); setDepartments(d) })
+    Promise.all([getClubMembers(id), getDepartments(id), getMemberFieldSchema(id)])
+      .then(([m, d, fs]) => { setMembers(m); setDepartments(d); setFieldSchema(fs) })
       .catch(() => toast.error('Không thể tải danh sách thành viên.'))
       .finally(() => setLoading(false))
   }, [id, refreshKey])
@@ -143,7 +145,9 @@ export default function MembersPage() {
 
   function openEdit(member: MemberItem) {
     setEditTarget(member)
-    setEditForm({ clubRole: member.clubRole, departmentId: member.departmentId?.toString() ?? '' })
+    const existingData: Record<string, string> = {}
+    fieldSchema.forEach(f => { existingData[f.id] = member.customData?.[f.id] ?? '' })
+    setEditForm({ clubRole: member.clubRole, departmentId: member.departmentId?.toString() ?? '', customData: existingData })
   }
 
   async function handleEdit(e: { preventDefault(): void }) {
@@ -155,7 +159,12 @@ export default function MembersPage() {
         clubRole: editForm.clubRole,
         departmentId: editForm.departmentId ? Number(editForm.departmentId) : undefined,
       })
-      toast.success('Đã cập nhật vai trò.')
+      if (fieldSchema.length > 0) {
+        const customDataPayload: Record<string, string | null> = {}
+        fieldSchema.forEach(f => { customDataPayload[f.id] = editForm.customData[f.id] || null })
+        await updateMemberCustomData(id, editTarget.id, customDataPayload)
+      }
+      toast.success('Đã cập nhật thông tin thành viên.')
       setEditTarget(null)
       setRefreshKey(k => k + 1)
     } catch (err: any) {
@@ -345,29 +354,47 @@ export default function MembersPage() {
       <div style={{ padding: '10px 14px', borderRadius: D.radius, background: D.card, border: D.border, boxShadow: D.shadow(), display: 'flex', gap: 10, alignItems: 'center', marginBottom: 16, flexWrap: 'wrap' }}>
         <input placeholder="⌕  Tên, email, MSSV..." value={search} onChange={e => setSearch(e.target.value)}
           style={{ ...inputStyle, flex: 1, minWidth: 200 }} />
-        <select value={roleFilter} onChange={e => setRoleFilter(e.target.value)} style={{ ...selectStyle, width: 140 }}>
-          <option value="">Tất cả vai trò</option>
-          {Object.entries(ROLE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-        </select>
-        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} style={{ ...selectStyle, width: 140 }}>
-          <option value="">Tất cả trạng thái</option>
-          <option value="Active">Chính thức</option>
-          <option value="Probation">Thử việc</option>
-        </select>
-        <select value={deptFilter} onChange={e => setDeptFilter(e.target.value)} style={{ ...selectStyle, width: 140 }}>
-          <option value="">Tất cả ban</option>
-          <option value="__none__">⚠ Chưa có ban</option>
-          {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-        </select>
-        <select value={`${sortBy}-${sortDir}`}
-          onChange={e => { const [col, dir] = e.target.value.split('-'); setSortBy(col as typeof sortBy); setSortDir(dir as 'asc' | 'desc') }}
-          style={{ ...selectStyle, width: 130 }}>
-          <option value="name-asc">Tên A→Z</option>
-          <option value="name-desc">Tên Z→A</option>
-          <option value="joinedDate-desc">Mới nhất</option>
-          <option value="joinedDate-asc">Cũ nhất</option>
-          <option value="role-asc">Vai trò</option>
-        </select>
+        <FilterSelect
+          value={roleFilter}
+          onChange={setRoleFilter}
+          options={[
+            { value: '', label: 'Tất cả vai trò' },
+            ...Object.entries(ROLE_LABELS).map(([k, v]) => ({ value: k, label: v as string })),
+          ]}
+          style={{ width: 150 }}
+        />
+        <FilterSelect
+          value={statusFilter}
+          onChange={setStatusFilter}
+          options={[
+            { value: '', label: 'Tất cả trạng thái' },
+            { value: 'Active', label: 'Chính thức' },
+            { value: 'Probation', label: 'Thử việc' },
+          ]}
+          style={{ width: 150 }}
+        />
+        <FilterSelect
+          value={deptFilter}
+          onChange={setDeptFilter}
+          options={[
+            { value: '', label: 'Tất cả ban' },
+            { value: '__none__', label: '⚠ Chưa có ban' },
+            ...departments.map(d => ({ value: String(d.id), label: d.name })),
+          ]}
+          style={{ width: 150 }}
+        />
+        <FilterSelect
+          value={`${sortBy}-${sortDir}`}
+          onChange={v => { const [col, dir] = v.split('-'); setSortBy(col as typeof sortBy); setSortDir(dir as 'asc' | 'desc') }}
+          options={[
+            { value: 'name-asc', label: 'Tên A→Z' },
+            { value: 'name-desc', label: 'Tên Z→A' },
+            { value: 'joinedDate-desc', label: 'Mới nhất' },
+            { value: 'joinedDate-asc', label: 'Cũ nhất' },
+            { value: 'role-asc', label: 'Vai trò' },
+          ]}
+          style={{ width: 140 }}
+        />
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto' }}>
           {hasFilter && (
             <button onClick={clearFilters}
@@ -384,9 +411,7 @@ export default function MembersPage() {
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
           <thead>
             <tr style={{ background: D.bg, borderBottom: D.borderLight }}>
-              <th style={{ padding: '10px 14px', textAlign: 'left', fontSize: 12, fontWeight: 700, color: D.inkMuted, letterSpacing: '.02em', whiteSpace: 'nowrap', width: 32 }}>#</th>
-              <th style={{ padding: '10px 14px', textAlign: 'left', fontSize: 12, fontWeight: 700, color: D.inkMuted, letterSpacing: '.02em', whiteSpace: 'nowrap' }}>Họ tên</th>
-              <th style={{ padding: '10px 14px', textAlign: 'left', fontSize: 12, fontWeight: 700, color: D.inkMuted, letterSpacing: '.02em', whiteSpace: 'nowrap' }}>Email</th>
+              <th style={{ padding: '10px 14px', textAlign: 'left', fontSize: 12, fontWeight: 700, color: D.inkMuted, letterSpacing: '.02em', whiteSpace: 'nowrap' }}>Thành viên</th>
               <th style={{ padding: '10px 14px', textAlign: 'left', fontSize: 12, fontWeight: 700, color: D.inkMuted, letterSpacing: '.02em', whiteSpace: 'nowrap' }}>MSSV</th>
               <th style={{ padding: '10px 14px', textAlign: 'left', fontSize: 12, fontWeight: 700, color: D.inkMuted, letterSpacing: '.02em', whiteSpace: 'nowrap' }}>Vai trò</th>
               <th style={{ padding: '10px 14px', textAlign: 'left', fontSize: 12, fontWeight: 700, color: D.inkMuted, letterSpacing: '.02em', whiteSpace: 'nowrap' }}>Ban</th>
@@ -397,10 +422,10 @@ export default function MembersPage() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={9} style={{ textAlign: 'center', color: D.inkMuted, padding: '64px 0' }}>Đang tải...</td></tr>
+              <tr><td colSpan={7} style={{ textAlign: 'center', color: D.inkMuted, padding: '64px 0' }}>Đang tải...</td></tr>
             ) : filtered.length === 0 ? (
               <tr>
-                <td colSpan={9} style={{ textAlign: 'center', color: D.inkMuted, padding: '64px 0' }}>
+                <td colSpan={7} style={{ textAlign: 'center', color: D.inkMuted, padding: '64px 0' }}>
                   <p style={{ fontSize: 28, margin: '0 0 8px' }}>🔍</p>
                   <p style={{ fontSize: 13, margin: 0 }}>{hasFilter ? 'Không có thành viên khớp với bộ lọc.' : 'Chưa có thành viên nào.'}</p>
                   {hasFilter && <button onClick={clearFilters} style={{ fontSize: 12, color: D.indigo, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', marginTop: 6 }}>Xoá bộ lọc</button>}
@@ -411,18 +436,31 @@ export default function MembersPage() {
                 onMouseEnter={() => setHoverRow(m.id)}
                 onMouseLeave={() => setHoverRow(null)}
                 style={{ background: hoverRow === m.id ? D.bg : D.card, borderBottom: D.borderLight }}>
-                <td style={{ padding: '12px 14px', fontFamily: 'monospace', fontSize: 11, color: D.inkMuted }}>{m.id}</td>
                 <td style={{ padding: '12px 14px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <Avatar name={m.fullName || m.email} />
                     <div>
                       <p style={{ fontWeight: 700, color: D.ink, margin: 0, fontSize: 13 }}>{m.fullName ?? '—'}</p>
-                      {m.studentId && <p style={{ fontSize: 11, color: D.inkMuted, margin: 0 }}>{m.studentId}</p>}
+                      <p style={{ fontSize: 11, color: D.inkMuted, margin: '1px 0 0' }}>{m.email}</p>
+                      {m.customData && fieldSchema.length > 0 && (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
+                          {fieldSchema.map(f => {
+                            const val = m.customData?.[f.id]
+                            if (!val) return null
+                            return (
+                              <span key={f.id} style={{ fontSize: 10, padding: '1px 7px', borderRadius: 4, background: '#eef2ff', color: D.indigo, fontWeight: 600, border: '1px solid #c7d2fe' }}>
+                                {f.label}: {val}
+                              </span>
+                            )
+                          })}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </td>
-                <td style={{ padding: '12px 14px', color: D.inkDim }}>{m.email}</td>
-                <td style={{ padding: '12px 14px', color: D.inkMuted, fontFamily: 'monospace', fontSize: 12 }}>{m.studentId ?? '—'}</td>
+                <td style={{ padding: '12px 14px', fontFamily: 'monospace', fontSize: 12, color: D.inkMuted }}>
+                  {m.studentId ?? '—'}
+                </td>
                 <td style={{ padding: '12px 14px' }}>
                   {(() => {
                     const s = ROLE_STYLE[m.clubRole] ?? { bg: '#f3f4f6', color: D.inkDim }
@@ -556,6 +594,45 @@ export default function MembersPage() {
                 {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
               </select>
             </div>
+
+            {fieldSchema.length > 0 && (
+              <div style={{ borderTop: '1px solid #e8e3d6', paddingTop: 14 }}>
+                <p style={{ fontSize: 11, fontWeight: 700, color: D.inkMuted, letterSpacing: '.06em', textTransform: 'uppercase', margin: '0 0 12px' }}>Thông tin đặc thù CLB</p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {fieldSchema.map(f => (
+                    <div key={f.id}>
+                      <label style={labelStyle}>{f.label}{f.required && <span style={{ color: '#ef4444' }}> *</span>}</label>
+                      {f.type === 'select' ? (
+                        <select
+                          value={editForm.customData[f.id] ?? ''}
+                          onChange={e => setEditForm(p => ({ ...p, customData: { ...p.customData, [f.id]: e.target.value } }))}
+                          style={selectStyle}
+                        >
+                          <option value="">— Chọn —</option>
+                          {(f.options ?? []).map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                        </select>
+                      ) : f.type === 'textarea' ? (
+                        <textarea
+                          value={editForm.customData[f.id] ?? ''}
+                          onChange={e => setEditForm(p => ({ ...p, customData: { ...p.customData, [f.id]: e.target.value } }))}
+                          placeholder={f.label}
+                          rows={3}
+                          style={{ ...inputStyle, height: 'auto', padding: '8px 12px', resize: 'vertical' }}
+                        />
+                      ) : (
+                        <input
+                          value={editForm.customData[f.id] ?? ''}
+                          onChange={e => setEditForm(p => ({ ...p, customData: { ...p.customData, [f.id]: e.target.value } }))}
+                          placeholder={f.label}
+                          style={inputStyle}
+                        />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <DialogFooter style={{ borderTop: 'none', background: 'transparent', paddingTop: 4 }}>
               <button type="button" onClick={() => setEditTarget(null)}
                 style={{ background: D.card, color: D.inkDim, border: D.border, boxShadow: D.shadow(2,2), padding: '8px 16px', borderRadius: D.pill, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>

@@ -48,10 +48,11 @@ export const MEMBERSHIP_STATUS = {
 
 // Application status
 export const APPLICATION_STATUS = {
-  PENDING:   'Pending',
-  INTERVIEW: 'Interview',
-  ACCEPTED:  'Accepted',
-  REJECTED:  'Rejected',
+  PENDING:    'Pending',
+  INTERVIEW:  'Interview',
+  REVIEWING:  'Reviewing',
+  ACCEPTED:   'Accepted',
+  REJECTED:   'Rejected',
 } as const
 
 // Club status

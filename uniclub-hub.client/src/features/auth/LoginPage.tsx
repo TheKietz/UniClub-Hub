@@ -7,6 +7,15 @@ import PublicHeader from '@/components/layouts/PublicHeader'
 import { toast } from 'sonner'
 import api from '@/lib/axiosInstance'
 import { Eye, EyeOff } from 'lucide-react'
+import type { UserInfo } from '@/types/auth'
+
+function redirectAfterLogin(me: UserInfo): string {
+  if (me.roles.includes('SUPER_ADMIN')) return '/admin'
+  const active = me.memberships.filter(m => m.status === 'Active')
+  const hasManageRole = active.some(m => m.clubRole === 'CLUB_ADMIN' || m.clubRole === 'DEPT_LEAD')
+  if (hasManageRole || active.length > 0) return '/dashboard'
+  return '/clubs'
+}
 
 const CLUB_SQUARES = [
   { short: 'UEC', color: C.indigo },
@@ -57,7 +66,7 @@ export default function LoginPage() {
     setLoading(true)
     try {
       const me = await login(email, password, rememberMe)
-      navigate(me.roles.includes('SUPER_ADMIN') ? '/admin' : '/dashboard', { replace: true })
+      navigate(redirectAfterLogin(me), { replace: true })
     } catch (err: any) {
       const msg = err.response?.data?.message ?? ''
       if (msg === 'EMAIL_NOT_CONFIRMED') {
@@ -88,7 +97,7 @@ export default function LoginPage() {
       setLoading(true)
       try {
         const me = await googleLogin(tokenResponse.access_token)
-        navigate(me.roles.includes('SUPER_ADMIN') ? '/admin' : '/dashboard', { replace: true })
+        navigate(redirectAfterLogin(me), { replace: true })
       } catch (err: any) {
         toast.error(err.response?.data?.message ?? 'Đăng nhập Google thất bại.')
       } finally {

@@ -6,6 +6,9 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { toast } from 'sonner'
 import api from '@/lib/axiosInstance'
+import { Pencil, Trash2 } from 'lucide-react'
+import { Tooltip } from '@/components/shared/Tooltip'
+import { FilterSelect } from '@/components/shared/FilterSelect'
 
 const D = {
   border: '1.5px solid #15131a',
@@ -51,10 +54,10 @@ export default function ClubsPage() {
   const [form, setForm] = useState<FormData>(emptyForm)
   const [saving, setSaving] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<ClubItem | null>(null)
-  const [searchName, setSearchName] = useState('')
-  const [searchCode, setSearchCode] = useState('')
+  const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [sortBy, setSortBy] = useState<'id' | 'name' | 'members'>('id')
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
   const [hoverRow, setHoverRow] = useState<number | null>(null)
 
   useEffect(() => {
@@ -120,16 +123,20 @@ export default function ClubsPage() {
     }
   }
 
-  const hasFilter = searchName || searchCode || statusFilter
+  const hasFilter = search || statusFilter
   const filtered = clubs
-    .filter(c => !searchName || c.name.toLowerCase().includes(searchName.toLowerCase()))
-    .filter(c => !searchCode || c.code.toLowerCase().includes(searchCode.toLowerCase()))
+    .filter(c => {
+      if (!search) return true
+      const q = search.toLowerCase()
+      return c.name.toLowerCase().includes(q) || c.code.toLowerCase().includes(q)
+    })
     .filter(c => !statusFilter || c.status === statusFilter)
-    .sort((a, b) =>
-      sortBy === 'name' ? a.name.localeCompare(b.name)
-      : sortBy === 'members' ? b.memberCount - a.memberCount
-      : a.id - b.id
-    )
+    .sort((a, b) => {
+      const cmp = sortBy === 'name' ? a.name.localeCompare(b.name)
+        : sortBy === 'members' ? a.memberCount - b.memberCount
+        : a.id - b.id
+      return sortDir === 'asc' ? cmp : -cmp
+    })
 
   return (
     <div style={{ padding: '28px 32px', minHeight: '100%', background: D.bg, fontFamily: "'Be Vietnam Pro', sans-serif" }}>
@@ -171,32 +178,40 @@ export default function ClubsPage() {
       {/* Filter bar */}
       <div style={{ padding: '10px 14px', borderRadius: D.radius, background: D.card, border: D.border, boxShadow: D.shadow(), display: 'flex', gap: 10, alignItems: 'center', marginBottom: 16, flexWrap: 'wrap' }}>
         <input
-          placeholder="⌕  Tên CLB..."
-          value={searchName}
-          onChange={e => setSearchName(e.target.value)}
-          style={{ ...inputStyle, flex: 1, minWidth: 160 }}
+          placeholder="⌕  Tên hoặc mã CLB..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          style={{ ...inputStyle, flex: 1, minWidth: 200 }}
         />
-        <input
-          placeholder="⌕  Mã CLB..."
-          value={searchCode}
-          onChange={e => setSearchCode(e.target.value)}
-          style={{ ...inputStyle, width: 130 }}
+        <FilterSelect
+          value={statusFilter}
+          onChange={setStatusFilter}
+          options={[
+            { value: '', label: 'Tất cả trạng thái' },
+            { value: 'Active', label: 'Hoạt động' },
+            { value: 'Inactive', label: 'Ngừng hoạt động' },
+          ]}
+          style={{ width: 160 }}
         />
-        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
-          style={{ height: 36, borderRadius: 8, border: D.borderLight, padding: '0 10px', fontSize: 13, color: D.ink, background: D.bg, fontFamily: 'inherit', outline: 'none' }}>
-          <option value="">Tất cả trạng thái</option>
-          <option value="Active">Hoạt động</option>
-          <option value="Inactive">Ngừng hoạt động</option>
-        </select>
-        <select value={sortBy} onChange={e => setSortBy(e.target.value as any)}
-          style={{ height: 36, borderRadius: 8, border: D.borderLight, padding: '0 10px', fontSize: 13, color: D.ink, background: D.bg, fontFamily: 'inherit', outline: 'none' }}>
-          <option value="id">Sắp xếp: ID</option>
-          <option value="name">Tên A-Z</option>
-          <option value="members">Thành viên</option>
-        </select>
+        <FilterSelect
+          value={`${sortBy}-${sortDir}`}
+          onChange={v => {
+            const [col, dir] = v.split('-')
+            setSortBy(col as 'id' | 'name' | 'members')
+            setSortDir(dir as 'asc' | 'desc')
+          }}
+          options={[
+            { value: 'id-asc', label: 'Mới nhất' },
+            { value: 'name-asc', label: 'Tên A → Z' },
+            { value: 'name-desc', label: 'Tên Z → A' },
+            { value: 'members-desc', label: 'Thành viên nhiều nhất' },
+            { value: 'members-asc', label: 'Thành viên ít nhất' },
+          ]}
+          style={{ width: 180 }}
+        />
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto' }}>
           {hasFilter && (
-            <button onClick={() => { setSearchName(''); setSearchCode(''); setStatusFilter('') }}
+            <button onClick={() => { setSearch(''); setStatusFilter('') }}
               style={{ fontSize: 12, color: D.indigo, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
               Xoá lọc
             </button>
@@ -251,16 +266,16 @@ export default function ClubsPage() {
                 </td>
                 <td style={{ padding: '12px 14px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                    <button
-                      onClick={() => openEdit(club)}
-                      style={{ padding: '4px 10px', borderRadius: 6, fontSize: 12, fontWeight: 600, border: D.borderLight, background: D.card, color: D.indigo, cursor: 'pointer', fontFamily: 'inherit' }}>
-                      Sửa
-                    </button>
-                    <button
-                      onClick={() => setDeleteTarget(club)}
-                      style={{ padding: '4px 10px', borderRadius: 6, fontSize: 12, fontWeight: 600, border: D.borderLight, background: D.card, color: D.red, cursor: 'pointer', fontFamily: 'inherit' }}>
-                      Xoá
-                    </button>
+                    <Tooltip label="Sửa">
+                      <button onClick={() => openEdit(club)} style={{ width: 30, height: 30, borderRadius: 6, display: 'grid', placeItems: 'center', border: D.borderLight, background: D.card, color: D.indigo, cursor: 'pointer' }}>
+                        <Pencil size={13} />
+                      </button>
+                    </Tooltip>
+                    <Tooltip label="Xoá">
+                      <button onClick={() => setDeleteTarget(club)} style={{ width: 30, height: 30, borderRadius: 6, display: 'grid', placeItems: 'center', border: D.borderLight, background: D.card, color: D.red, cursor: 'pointer' }}>
+                        <Trash2 size={13} />
+                      </button>
+                    </Tooltip>
                   </div>
                 </td>
               </tr>

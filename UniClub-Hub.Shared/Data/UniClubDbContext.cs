@@ -54,6 +54,9 @@ namespace UniClub_Hub.Shared.Data
         public DbSet<ResignationRequest> ResignationRequests { get; set; }
         public DbSet<EventSession> EventSessions { get; set; }
         public DbSet<EventStaff> EventStaff { get; set; }
+        public DbSet<SystemSetting> SystemSettings { get; set; }
+        public DbSet<NotificationPreference> NotificationPreferences { get; set; }
+        public DbSet<ClubPipelineStage> ClubPipelineStages { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
@@ -179,6 +182,31 @@ namespace UniClub_Hub.Shared.Data
                 .Entity<EventStaff>()
                 .HasIndex(es => new { es.EventId, es.UserId })
                 .IsUnique();
+
+            // NotificationPreference — unique per (ClubId, TriggerKey, RecipientRole)
+            builder.Entity<NotificationPreference>()
+                .HasIndex(np => new { np.ClubId, np.TriggerKey, np.RecipientRole })
+                .IsUnique();
+
+            builder.Entity<NotificationPreference>()
+                .HasOne(np => np.Club)
+                .WithMany()
+                .HasForeignKey(np => np.ClubId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // ClubPipelineStage — cascade when club deleted
+            builder.Entity<ClubPipelineStage>()
+                .HasOne(s => s.Club)
+                .WithMany(c => c.PipelineStages)
+                .HasForeignKey(s => s.ClubId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // ClubApplication.CurrentStage — set null when stage deleted
+            builder.Entity<ClubApplication>()
+                .HasOne(a => a.CurrentStage)
+                .WithMany(s => s.Applications)
+                .HasForeignKey(a => a.CurrentStageId)
+                .OnDelete(DeleteBehavior.SetNull);
         }
 
         public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

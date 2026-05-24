@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using UniClub_Hub.Membership.DTOs.Resignation;
 using UniClub_Hub.Membership.Services.Interfaces;
+using UniClub_Hub.Shared.Constants;
 using UniClub_Hub.Shared.Data;
 using UniClub_Hub.Shared.Enums;
 using UniClub_Hub.Shared.Models;
@@ -10,12 +11,12 @@ namespace UniClub_Hub.Membership.Services.Implements
     public class ResignationService : IResignationService
     {
         private readonly UniClubDbContext _db;
-        private readonly INotificationService _notifications;
+        private readonly INotificationDispatchService _dispatch;
 
-        public ResignationService(UniClubDbContext db, INotificationService notifications)
+        public ResignationService(UniClubDbContext db, INotificationDispatchService dispatch)
         {
             _db = db;
-            _notifications = notifications;
+            _dispatch = dispatch;
         }
 
         public async Task<ResignationRequestDto> SubmitAsync(int clubId, string userId, SubmitResignationDto dto)
@@ -50,29 +51,12 @@ namespace UniClub_Hub.Membership.Services.Implements
             var clubName = await _db.Clubs.Where(c => c.Id == clubId).Select(c => c.Name).FirstAsync();
 
             // Thông báo cho người duyệt
-            if (membership.ClubRole == ClubRole.CLUB_ADMIN)
+            var memberName = membership.User.FullName ?? membership.User.Email ?? "";
+            await _dispatch.FireAsync(NotificationTriggers.ResignationSubmitted, clubId, new()
             {
-                // Thông báo tất cả SUPER_ADMIN
-                var superAdminIds = await _db.UserRoles
-                    .Join(_db.Roles, ur => ur.RoleId, r => r.Id, (ur, r) => new { ur.UserId, r.Name })
-                    .Where(x => x.Name == "SUPER_ADMIN")
-                    .Select(x => x.UserId)
-                    .ToListAsync();
-                foreach (var adminId in superAdminIds)
-                    await _notifications.SendAsync(adminId, "Đơn từ chức Trưởng CLB",
-                        $"{membership.User.FullName ?? membership.User.Email} đã gửi đơn từ chức tại CLB {clubName}.",
-                        NotificationType.System);
-            }
-            else // DEPT_LEAD
-            {
-                var clubAdminIds = await _db.ClubMemberships
-                    .Where(m => m.ClubId == clubId && m.ClubRole == ClubRole.CLUB_ADMIN && m.Status == MembershipStatus.Active)
-                    .Select(m => m.UserId).ToListAsync();
-                foreach (var adminId in clubAdminIds)
-                    await _notifications.SendAsync(adminId, "Đơn từ chức Trưởng ban",
-                        $"{membership.User.FullName ?? membership.User.Email} đã gửi đơn từ chức tại CLB {clubName}.",
-                        NotificationType.System);
-            }
+                ["clubName"] = clubName,
+                ["userName"] = memberName,
+            });
 
             return await ToDto(request, membership, clubName, null);
         }
@@ -171,15 +155,12 @@ namespace UniClub_Hub.Membership.Services.Implements
 
             await _db.SaveChangesAsync();
 
-            // Thông báo cho người gửi đơn
-            var (title, msg) = dto.Status == ResignationStatus.Approved
-                ? ("Đơn từ chức được duyệt",
-                    request.Preference == ResignationPreference.LeaveClub
-                        ? $"Đơn từ chức của bạn tại CLB {request.Club.Name} đã được chấp thuận. Bạn đã rời CLB."
-                        : $"Đơn từ chức của bạn tại CLB {request.Club.Name} đã được chấp thuận. Bạn đã trở thành thành viên thường.")
-                : ("Đơn từ chức bị từ chối",
-                    $"Đơn từ chức của bạn tại CLB {request.Club.Name} đã bị từ chối.");
-            await _notifications.SendAsync(request.UserId, title, msg, NotificationType.System);
+            await _dispatch.FireAsync(NotificationTriggers.ResignationReviewed, request.ClubId, new()
+            {
+                ["targetUserId"] = request.UserId,
+                ["clubName"] = request.Club.Name,
+                ["status"] = dto.Status == ResignationStatus.Approved ? "chấp thuận" : "từ chối",
+            });
 
             string? reviewerName = await _db.Users.Where(u => u.Id == reviewerId)
                 .Select(u => u.FullName ?? u.Email).FirstOrDefaultAsync();

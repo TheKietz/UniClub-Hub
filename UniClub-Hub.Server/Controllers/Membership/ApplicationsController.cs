@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 using UniClub_Hub.Membership.DTOs.Application;
+using UniClub_Hub.Membership.DTOs.Pipeline;
 using UniClub_Hub.Membership.Services.Interfaces;
 using UniClub_Hub.Shared.Common;
 using UniClub_Hub.Shared.Data;
@@ -80,6 +81,24 @@ namespace UniClub_Hub.Server.Controllers.Membership
             {
                 return Conflict(ApiResponse<object>.Fail(ex.Message));
             }
+        }
+
+        // CLUB_ADMIN chuyển đơn sang vòng tiếp theo trong pipeline
+        [HttpPost("{applicationId}/advance")]
+        [Authorize]
+        public async Task<IActionResult> Advance(int clubId, int applicationId, [FromBody] AdvanceApplicationRequest req)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+            var isSuperAdmin = User.IsInRole("SUPER_ADMIN");
+
+            try
+            {
+                var result = await _applicationService.AdvanceStageAsync(clubId, applicationId, req, userId, isSuperAdmin);
+                return Ok(ApiResponse<AdminApplicationDto>.Ok(result, "Đã chuyển sang vòng tiếp theo."));
+            }
+            catch (UnauthorizedAccessException) { return Forbid(); }
+            catch (KeyNotFoundException ex) { return NotFound(ApiResponse<object>.Fail(ex.Message)); }
+            catch (InvalidOperationException ex) { return Conflict(ApiResponse<object>.Fail(ex.Message)); }
         }
 
         // CLUB_ADMIN hoặc SUPER_ADMIN duyệt đơn

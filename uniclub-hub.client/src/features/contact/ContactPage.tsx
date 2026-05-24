@@ -1,10 +1,20 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { C, Rv, Tag, PublicFooter } from '@/components/public/publicComponents'
 import PublicHeader from '@/components/layouts/PublicHeader'
 import { ChevronDown } from 'lucide-react'
+import { getPublicContactInfo } from '@/components/membership/services/adminApi'
 
 const SUBJECTS = ['Hỏi về CLB', 'Hỗ trợ kỹ thuật', 'Góp ý', 'Hợp tác', 'Khác']
-const FAQ = [
+
+const FALLBACK_INFO: Record<string, string> = {
+  'contact.office_name':    'Phòng Công tác Sinh viên',
+  'contact.office_address': 'Lầu 3, Toà nhà A\n276 Điện Biên Phủ, Quận 3, TP.HCM',
+  'contact.email':          'clb@uef.edu.vn',
+  'contact.email_note':     'Phản hồi trong vòng 24 giờ làm việc.',
+  'contact.hours_label':    'Thứ 2 — Thứ 6',
+  'contact.hours_detail':   '8:00 — 17:00 · Trừ ngày lễ',
+}
+const FALLBACK_FAQ = [
   { q: 'Làm sao tham gia CLB?', a: 'Vào trang Câu lạc bộ → chọn CLB → nhấn Nộp đơn. Sau khi nộp đơn, ban tuyển thành viên sẽ liên hệ lại trong vòng 3-5 ngày làm việc.' },
   { q: 'Quên mật khẩu phải làm sao?', a: 'Bấm "Quên?" ở trang đăng nhập, nhập email tài khoản — hệ thống sẽ gửi link đặt lại mật khẩu trong vòng vài phút.' },
   { q: 'Muốn tạo CLB mới thì liên hệ ai?', a: 'Liên hệ Phòng Công tác Sinh viên qua form trên hoặc đến trực tiếp Lầu 3, Toà nhà A. Cần chuẩn bị đề án thành lập CLB theo mẫu.' },
@@ -32,6 +42,20 @@ export default function ContactPage() {
   const [message, setMessage] = useState('')
   const [openFaq, setOpenFaq] = useState<number | null>(null)
   const [faqOpen, setFaqOpen] = useState(false)
+  const [info, setInfo] = useState<Record<string, string>>(FALLBACK_INFO)
+  const [faqs, setFaqs] = useState(FALLBACK_FAQ)
+
+  useEffect(() => {
+    getPublicContactInfo()
+      .then(data => {
+        if (Object.keys(data).length > 0) setInfo(prev => ({ ...prev, ...data }))
+        try {
+          const parsed = JSON.parse(data['contact.faq'] ?? '')
+          if (Array.isArray(parsed) && parsed.length > 0) setFaqs(parsed)
+        } catch { /* keep fallback */ }
+      })
+      .catch(() => { /* keep fallback */ })
+  }, [])
 
   function toggleSubject(s: string) {
     setSelectedSubjects(prev =>
@@ -161,10 +185,9 @@ export default function ContactPage() {
               <Rv delay={180}>
                 <div style={{ padding: 20, borderRadius: C.radius, background: C.lemon, border: C.border, boxShadow: C.shadow() }}>
                   <Tag bg={C.ink} color={C.lemon} style={{ marginBottom: 10 }}>Văn phòng</Tag>
-                  <div style={{ fontSize: 15, fontWeight: 700, color: C.ink, marginBottom: 6 }}>Phòng Công tác Sinh viên</div>
-                  <div style={{ fontSize: 13, color: C.inkDim, lineHeight: 1.55 }}>
-                    Lầu 3, Toà nhà A<br />
-                    276 Điện Biên Phủ, Quận 3, TP.HCM
+                  <div style={{ fontSize: 15, fontWeight: 700, color: C.ink, marginBottom: 6 }}>{info['contact.office_name']}</div>
+                  <div style={{ fontSize: 13, color: C.inkDim, lineHeight: 1.55, whiteSpace: 'pre-line' }}>
+                    {info['contact.office_address']}
                   </div>
                 </div>
               </Rv>
@@ -172,9 +195,9 @@ export default function ContactPage() {
               <Rv delay={240}>
                 <div style={{ padding: 20, borderRadius: C.radius, background: C.indigo, border: C.border, boxShadow: C.shadow() }}>
                   <Tag bg="rgba(255,255,255,.2)" color={C.bg} style={{ marginBottom: 10 }}>Email</Tag>
-                  <div style={{ fontSize: 15, fontWeight: 700, color: C.bg, marginBottom: 4 }}>clb@uef.edu.vn</div>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: C.bg, marginBottom: 4 }}>{info['contact.email']}</div>
                   <div style={{ fontSize: 13, color: C.bg, opacity: 0.7, lineHeight: 1.5 }}>
-                    Phản hồi trong vòng 24 giờ làm việc.
+                    {info['contact.email_note']}
                   </div>
                 </div>
               </Rv>
@@ -182,8 +205,8 @@ export default function ContactPage() {
               <Rv delay={300}>
                 <div style={{ padding: 20, borderRadius: C.radius, background: C.mint, border: C.border, boxShadow: C.shadow() }}>
                   <Tag bg="rgba(255,255,255,.25)" color={C.bg} style={{ marginBottom: 10 }}>Giờ làm việc</Tag>
-                  <div style={{ fontSize: 15, fontWeight: 700, color: C.bg, marginBottom: 4 }}>Thứ 2 — Thứ 6</div>
-                  <div style={{ fontSize: 13, color: C.bg, opacity: 0.7, lineHeight: 1.5 }}>8:00 — 17:00 · Trừ ngày lễ</div>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: C.bg, marginBottom: 4 }}>{info['contact.hours_label']}</div>
+                  <div style={{ fontSize: 13, color: C.bg, opacity: 0.7, lineHeight: 1.5 }}>{info['contact.hours_detail']}</div>
                 </div>
               </Rv>
             </div>
@@ -212,7 +235,7 @@ export default function ContactPage() {
                   Câu hỏi thường gặp
                 </span>
                 <span style={{ fontSize: 12, color: C.inkMuted, marginRight: 6 }}>
-                  {faqOpen ? 'Thu gọn' : `${FAQ.length} câu hỏi`}
+                  {faqOpen ? 'Thu gọn' : `${faqs.length} câu hỏi`}
                 </span>
                 <ChevronDown size={16} style={{
                   color: C.inkMuted, flexShrink: 0,
@@ -221,10 +244,10 @@ export default function ContactPage() {
                 }} />
               </button>
 
-              {faqOpen && FAQ.map(({ q, a }, i) => {
+              {faqOpen && faqs.map(({ q, a }: { q: string; a: string }, i: number) => {
                 const isOpen = openFaq === i
                 return (
-                  <div key={i} style={{ borderBottom: i < FAQ.length - 1 ? C.border : 'none' }}>
+                  <div key={i} style={{ borderBottom: i < faqs.length - 1 ? C.border : 'none' }}>
                     <button
                       type="button"
                       onClick={() => setOpenFaq(isOpen ? null : i)}

@@ -4,7 +4,7 @@ import { C } from '@/components/public/publicComponents'
 import UserMenu from '@/components/shared/UserMenu'
 
 export default function PublicHeader() {
-  const { isAuthenticated, isSuperAdmin } = useAuth()
+  const { isAuthenticated } = useAuth()
   const { pathname } = useLocation()
   const navigate = useNavigate()
 
@@ -66,29 +66,9 @@ export default function PublicHeader() {
 
         <div style={{ flex: 1 }} />
 
-        {/* Search */}
-        <button onClick={() => navigate('/clubs')} style={{
-          display: 'flex', alignItems: 'center', gap: 8,
-          padding: '6px 14px', borderRadius: C.radiusPill, height: 38,
-          background: C.card, border: C.border,
-          color: C.inkMuted, fontSize: 13,
-          boxShadow: C.shadow(2, 2), cursor: 'pointer',
-          fontFamily: 'inherit',
-        }}>
-          <span style={{ fontSize: 16 }}>⌕</span> Tìm CLB, sự kiện…
-        </button>
-
         {/* Auth */}
         {isAuthenticated ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <button onClick={() => navigate(isSuperAdmin ? '/admin' : '/dashboard')} style={{
-              padding: '7px 16px', borderRadius: C.radiusPill,
-              background: C.ink, color: C.lemon, border: C.border,
-              boxShadow: C.shadow(2, 2), fontSize: 13, fontWeight: 700,
-              cursor: 'pointer', fontFamily: 'inherit',
-            }}>Dashboard</button>
-            <UserMenu />
-          </div>
+          <UserMenu />
         ) : (
           <button onClick={() => navigate('/login')} style={{
             padding: '8px 18px', borderRadius: C.radiusPill,

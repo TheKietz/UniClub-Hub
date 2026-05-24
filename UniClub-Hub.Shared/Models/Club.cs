@@ -15,7 +15,8 @@ namespace UniClub_Hub.Shared.Models
         public DateOnly? EstablishedDate { get; set; }
         public ClubStatus Status { get; set; } = ClubStatus.Active;
         public string? AdvisorName { get; set; }
-        public string? FormSchema { get; set; } // JSONB
+        public string? FormSchema { get; set; } // JSON
+        public string? MemberFieldSchema { get; set; } // JSON — custom profile fields per club
 
         // IAuditable
         public DateTime CreatedAt { get; set; }
@@ -36,5 +37,6 @@ namespace UniClub_Hub.Shared.Models
         public ICollection<ClubApplication>? Applications { get; set; }
         public ICollection<Contribution>? Contributions { get; set; }
         public ICollection<MediaGallery>? MediaGalleries { get; set; }
+        public ICollection<ClubPipelineStage>? PipelineStages { get; set; }
     }
 }

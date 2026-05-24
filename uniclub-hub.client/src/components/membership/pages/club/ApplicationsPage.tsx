@@ -1,27 +1,29 @@
 import { APPLICATION_STATUS } from '@/types/auth'
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { getApplications, reviewApplication } from '@/components/membership/services/clubApi'
-import type { ApplicationItem } from '@/components/membership/services/club.types'
+import { getApplications, reviewApplication, getMemberFieldSchema, advanceApplicationStage, getPipelineStages } from '@/components/membership/services/clubApi'
+import type { ApplicationItem, MemberFieldDef, PipelineStage } from '@/components/membership/services/club.types'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { toast } from 'sonner'
-import { Clock, MessageCircle, CheckCircle2, XCircle } from 'lucide-react'
+import { Clock, MessageCircle, CheckCircle2, XCircle, GitBranch } from 'lucide-react'
 import api from '@/lib/axiosInstance'
 import { LoadMoreBar } from '@/components/shared/LoadMoreBar'
 
 const PAGE_SIZE = 20
 
 const STATUS_CONFIG: Record<string, { label: string; bg: string; text: string; icon: React.ElementType }> = {
-  Pending: { label: 'Chờ duyệt', bg: '#fef3c7', text: '#b45309', icon: Clock },
-  Interview: { label: 'Phỏng vấn', bg: '#dbeafe', text: '#1d4ed8', icon: MessageCircle },
-  Accepted: { label: 'Đã duyệt', bg: '#dcfce7', text: '#15803d', icon: CheckCircle2 },
-  Rejected: { label: 'Từ chối', bg: '#fee2e2', text: '#b91c1c', icon: XCircle },
+  Pending:   { label: 'Chờ duyệt',  bg: '#fef3c7', text: '#b45309', icon: Clock },
+  Interview: { label: 'Phỏng vấn',  bg: '#dbeafe', text: '#1d4ed8', icon: MessageCircle },
+  Reviewing: { label: 'Đang xét',   bg: '#ede9fe', text: '#5b21b6', icon: GitBranch },
+  Accepted:  { label: 'Đã duyệt',   bg: '#dcfce7', text: '#15803d', icon: CheckCircle2 },
+  Rejected:  { label: 'Từ chối',    bg: '#fee2e2', text: '#b91c1c', icon: XCircle },
 }
 
 const STATUS_TABS = [
   { value: '', label: 'Tất cả' },
   { value: 'Pending', label: 'Chờ duyệt' },
   { value: 'Interview', label: 'Phỏng vấn' },
+  { value: 'Reviewing', label: 'Đang xét' },
   { value: 'Accepted', label: 'Đã duyệt' },
   { value: 'Rejected', label: 'Từ chối' },
 ]
@@ -31,12 +33,19 @@ export default function ApplicationsPage() {
   const id = Number(clubId)
 
   const [applications, setApplications] = useState<ApplicationItem[]>([])
+  const [fieldSchema, setFieldSchema] = useState<MemberFieldDef[]>([])
+  const [pipelineStages, setPipelineStages] = useState<PipelineStage[]>([])
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState('')
   const [search, setSearch] = useState('')
   const [sortDir, setSortDir] = useState<'desc' | 'asc'>('desc')
   const [refreshKey, setRefreshKey] = useState(0)
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
+
+  useEffect(() => {
+    getMemberFieldSchema(id).then(setFieldSchema).catch(() => {})
+    getPipelineStages(id).then(setPipelineStages).catch(() => {})
+  }, [id])
 
   useEffect(() => {
     setLoading(true)
@@ -69,6 +78,29 @@ export default function ApplicationsPage() {
       setReviewing(false)
     }
   }
+
+  async function handleAdvance() {
+    if (!selected) return
+    setReviewing(true)
+    try {
+      const updated = await advanceApplicationStage(id, selected.id, reviewNote || undefined)
+      toast.success(`Đã chuyển sang vòng: ${updated.currentStageName}`)
+      setSelected(null)
+      setRefreshKey(k => k + 1)
+    } catch (err: any) {
+      toast.error(err.response?.data?.message ?? 'Chuyển vòng thất bại.')
+    } finally {
+      setReviewing(false)
+    }
+  }
+
+  const hasPipeline = pipelineStages.length > 0
+  const isAtLastStage = selected?.currentStageId != null &&
+    pipelineStages.length > 0 &&
+    selected.currentStageId === pipelineStages[pipelineStages.length - 1].id
+  const canAdvance = hasPipeline &&
+    (selected?.status === 'Pending' || selected?.status === 'Reviewing') &&
+    !isAtLastStage
 
   useEffect(() => setVisibleCount(PAGE_SIZE), [search, statusFilter, sortDir])
 
@@ -298,6 +330,52 @@ export default function ApplicationsPage() {
                 } catch { return null }
               })()}
 
+              {/* Thông tin hồ sơ thành viên */}
+              {selected.memberFieldData && (() => {
+                try {
+                  const parsed = JSON.parse(selected.memberFieldData) as Record<string, string>
+                  const entries = Object.entries(parsed).filter(([, v]) => v)
+                  if (entries.length === 0) return null
+                  return (
+                    <div>
+                      <p style={{ fontSize: 11, fontWeight: 700, color: D.inkMuted, letterSpacing: '.08em', textTransform: 'uppercase', marginBottom: 8 }}>Thông tin hồ sơ thành viên</p>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        {entries.map(([k, v]) => {
+                          const field = fieldSchema.find(f => f.id === k)
+                          return (
+                            <div key={k} style={{ background: '#eef2ff', borderRadius: 8, padding: '10px 14px' }}>
+                              <p style={{ fontSize: 11.5, color: '#6366f1', marginBottom: 3, fontWeight: 600 }}>{field?.label ?? k}</p>
+                              <p style={{ fontSize: 13, color: D.ink }}>{String(v)}</p>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )
+                } catch { return null }
+              })()}
+
+              {/* Vòng pipeline hiện tại */}
+              {selected.status === 'Reviewing' && selected.currentStageName && (
+                <div style={{ borderRadius: 10, padding: '12px 14px', border: '1px solid #c4b5fd', background: '#f5f3ff', fontSize: 13 }}>
+                  <p style={{ fontWeight: 700, color: '#5b21b6', marginBottom: 4 }}>Đang ở vòng: {selected.currentStageName}</p>
+                  {hasPipeline && (
+                    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 6 }}>
+                      {pipelineStages.map((s, i) => (
+                        <span key={s.id} style={{
+                          fontSize: 11, padding: '2px 8px', borderRadius: 4,
+                          background: s.id === selected.currentStageId ? '#5b21b6' : '#ede9fe',
+                          color: s.id === selected.currentStageId ? '#fff' : '#7c3aed',
+                          fontWeight: s.id === selected.currentStageId ? 700 : 400,
+                        }}>
+                          {i + 1}. {s.name}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Kết quả duyệt */}
               {(selected.status === 'Accepted' || selected.status === 'Rejected') && (
                 <div style={{ borderRadius: 10, padding: '12px 14px', fontSize: 13, border: `1px solid ${selected.status === 'Accepted' ? '#bbf7d0' : '#fecaca'}`, background: selected.status === 'Accepted' ? '#f0fdf4' : '#fff1f2' }}>
@@ -310,8 +388,8 @@ export default function ApplicationsPage() {
                 </div>
               )}
 
-              {/* Ghi chú (chỉ khi đang chờ) */}
-              {(selected.status === 'Pending' || selected.status === 'Interview') && (
+              {/* Ghi chú (chỉ khi đang xét) */}
+              {(selected.status === 'Pending' || selected.status === 'Interview' || selected.status === 'Reviewing') && (
                 <div>
                   <label style={{ fontSize: 12, fontWeight: 700, color: D.inkDim, display: 'block', marginBottom: 6 }}>
                     Ghi chú phản hồi <span style={{ fontWeight: 400, color: D.inkMuted }}>(tuỳ chọn)</span>
@@ -325,17 +403,28 @@ export default function ApplicationsPage() {
           )}
 
           <DialogFooter style={{ flexWrap: 'wrap', gap: 8 }}>
-            {selected && (selected.status === 'Pending' || selected.status === 'Interview') && (
+            {selected && (selected.status === 'Pending' || selected.status === 'Interview' || selected.status === 'Reviewing') && (
               <>
-                {selected.status === 'Pending' && (
-                  <button disabled={reviewing} onClick={() => handleReview('Interview')} style={{ padding: '9px 16px', borderRadius: D.pill, background: D.card, color: '#0284c7', border: '1.5px solid #38bdf8', fontSize: 13, fontWeight: 700, cursor: reviewing ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
+                {/* Pipeline advance button */}
+                {canAdvance && (
+                  <button disabled={reviewing} onClick={handleAdvance}
+                    style={{ padding: '9px 16px', borderRadius: D.pill, background: '#ede9fe', color: '#5b21b6', border: '1.5px solid #c4b5fd', fontSize: 13, fontWeight: 700, cursor: reviewing ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
+                    → Vòng tiếp theo
+                  </button>
+                )}
+                {/* Legacy interview (only when no pipeline and status is Pending) */}
+                {!hasPipeline && selected.status === 'Pending' && (
+                  <button disabled={reviewing} onClick={() => handleReview('Interview')}
+                    style={{ padding: '9px 16px', borderRadius: D.pill, background: D.card, color: '#0284c7', border: '1.5px solid #38bdf8', fontSize: 13, fontWeight: 700, cursor: reviewing ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
                     Mời phỏng vấn
                   </button>
                 )}
-                <button disabled={reviewing} onClick={() => handleReview('Accepted')} style={{ padding: '9px 16px', borderRadius: D.pill, background: '#10b981', color: '#fff', border: '1.5px solid #15131a', boxShadow: D.shadow(2, 2), fontSize: 13, fontWeight: 700, cursor: reviewing ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
+                <button disabled={reviewing} onClick={() => handleReview('Accepted')}
+                  style={{ padding: '9px 16px', borderRadius: D.pill, background: '#10b981', color: '#fff', border: '1.5px solid #15131a', boxShadow: D.shadow(2, 2), fontSize: 13, fontWeight: 700, cursor: reviewing ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
                   {reviewing ? 'Đang xử lý...' : 'Chấp nhận'}
                 </button>
-                <button disabled={reviewing} onClick={() => handleReview('Rejected')} style={{ padding: '9px 16px', borderRadius: D.pill, background: D.card, color: '#ef4444', border: '1.5px solid #ef4444', fontSize: 13, fontWeight: 700, cursor: reviewing ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
+                <button disabled={reviewing} onClick={() => handleReview('Rejected')}
+                  style={{ padding: '9px 16px', borderRadius: D.pill, background: D.card, color: '#ef4444', border: '1.5px solid #ef4444', fontSize: 13, fontWeight: 700, cursor: reviewing ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
                   Từ chối
                 </button>
               </>

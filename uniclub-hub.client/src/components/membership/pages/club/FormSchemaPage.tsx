@@ -19,6 +19,19 @@ const TYPE_STYLE: Record<string, { bg: string; label: string }> = {
   file:     { bg: '#ff5a3c', label: 'TẢI FILE' },
 }
 
+const FILE_TYPE_OPTIONS = [
+  { value: '.pdf',  label: 'PDF' },
+  { value: '.doc',  label: 'DOC' },
+  { value: '.docx', label: 'DOCX' },
+  { value: '.xls',  label: 'XLS' },
+  { value: '.xlsx', label: 'XLSX' },
+  { value: '.ppt',  label: 'PPT' },
+  { value: '.pptx', label: 'PPTX' },
+  { value: '.jpg',  label: 'JPG' },
+  { value: '.png',  label: 'PNG' },
+  { value: '.zip',  label: 'ZIP' },
+]
+
 const D = {
   border: '1.5px solid #15131a', borderLight: '1px solid #e8e3d6',
   shadow: (x = 3, y = 3) => `${x}px ${y}px 0 #15131a`,
@@ -277,8 +290,41 @@ export default function FormSchemaPage() {
               {/* File accept */}
               {field.type === 'file' && (
                 <div style={{ marginTop: 14 }}>
-                  <label style={labelS}>Loại file chấp nhận <span style={{ fontWeight: 400, color: D.inkMuted }}>(để trống = mọi định dạng)</span></label>
-                  <input value={field.accept ?? ''} onChange={e => updateField(i, { accept: e.target.value || undefined })} placeholder=".pdf, .docx, .jpg, .png" style={{ ...inputS, height: 38 }} />
+                  <label style={labelS}>
+                    Loại file chấp nhận
+                    <span style={{ fontWeight: 400, color: D.inkMuted, marginLeft: 6 }}>
+                      {field.accept ? `(${field.accept})` : '(mọi định dạng)'}
+                    </span>
+                  </label>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                    {FILE_TYPE_OPTIONS.map(opt => {
+                      const selected = (field.accept ?? '').split(',').map(s => s.trim()).includes(opt.value)
+                      return (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() => {
+                            const current = (field.accept ?? '').split(',').map(s => s.trim()).filter(Boolean)
+                            const next = selected
+                              ? current.filter(v => v !== opt.value)
+                              : [...current, opt.value]
+                            updateField(i, { accept: next.length ? next.join(', ') : undefined })
+                          }}
+                          style={{
+                            padding: '5px 14px', borderRadius: D.pill, fontSize: 12, fontWeight: 700,
+                            cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap',
+                            background: selected ? D.ink : D.card,
+                            color: selected ? '#facc15' : D.inkDim,
+                            border: selected ? D.border : D.borderLight,
+                            boxShadow: selected ? D.shadow(2, 2) : 'none',
+                            transition: 'all .1s',
+                          }}
+                        >
+                          {opt.label}
+                        </button>
+                      )
+                    })}
+                  </div>
                 </div>
               )}
             </div>

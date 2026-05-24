@@ -82,6 +82,7 @@ export default function ClubManageDashboard() {
   const [growth, setGrowth] = useState<MonthlyGrowth[]>([])
   const [depts, setDepts] = useState<DepartmentItem[]>([])
   const [alerts, setAlerts] = useState<AlertItem[]>([])
+  const [approvedResignCount, setApprovedResignCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -93,6 +94,7 @@ export default function ClubManageDashboard() {
         setStats(s)
         setGrowth(g)
         setDepts(dpts)
+        setApprovedResignCount(resignations.filter(r => r.status === 'Approved').length)
 
         const items: AlertItem[] = []
         dpts.filter(d => !d.deptLeadName).forEach(d => items.push({
@@ -134,6 +136,16 @@ export default function ClubManageDashboard() {
     { val: stats.applications.accepted, color: D.emerald },
     { val: stats.applications.rejected, color: D.red },
   ]
+
+  const reviewedApps = stats.applications.accepted + stats.applications.rejected
+  const acceptanceRate = reviewedApps > 0
+    ? Math.round(stats.applications.accepted / reviewedApps * 100)
+    : null
+
+  const totalHistorical = stats.totalActiveMembers + stats.totalProbationMembers + approvedResignCount
+  const retentionRate = totalHistorical > 0
+    ? Math.round((stats.totalActiveMembers + stats.totalProbationMembers) / totalHistorical * 100)
+    : null
 
   return (
     <PageShell>
@@ -242,7 +254,42 @@ export default function ClubManageDashboard() {
         </ChartCard>
       )}
 
-      {/* Recent activity (static) */}
+      {/* Advanced KPIs */}
+      {(acceptanceRate !== null || retentionRate !== null) && (
+        <ChartCard title="Chỉ số hiệu suất" sub="Tính từ dữ liệu tích lũy" style={{ marginBottom: 20 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            {acceptanceRate !== null && (
+              <div style={{ padding: '16px 20px', borderRadius: 12, background: D.bg, border: '1.5px solid #d1fae5' }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: D.emerald, letterSpacing: '.06em', marginBottom: 6 }}>TỶ LỆ CHẤP NHẬN ĐƠN</div>
+                <div style={{ fontSize: 36, fontWeight: 900, color: D.emerald, letterSpacing: '-.04em', lineHeight: 1 }}>
+                  {acceptanceRate}<span style={{ fontSize: 18 }}>%</span>
+                </div>
+                <div style={{ fontSize: 12, color: D.inkMuted, marginTop: 6 }}>
+                  {stats.applications.accepted} chấp nhận / {reviewedApps} đã xét
+                </div>
+                <div style={{ marginTop: 10, height: 6, borderRadius: 3, background: '#d1fae5', overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${acceptanceRate}%`, background: D.emerald, borderRadius: 3, transition: 'width .6s ease' }} />
+                </div>
+              </div>
+            )}
+            {retentionRate !== null && (
+              <div style={{ padding: '16px 20px', borderRadius: 12, background: D.bg, border: '1.5px solid #dbeafe' }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: D.sky, letterSpacing: '.06em', marginBottom: 6 }}>TỶ LỆ GIỮ CHÂN THÀNH VIÊN</div>
+                <div style={{ fontSize: 36, fontWeight: 900, color: D.sky, letterSpacing: '-.04em', lineHeight: 1 }}>
+                  {retentionRate}<span style={{ fontSize: 18 }}>%</span>
+                </div>
+                <div style={{ fontSize: 12, color: D.inkMuted, marginTop: 6 }}>
+                  {stats.totalActiveMembers + stats.totalProbationMembers} đang hoạt động / {totalHistorical} lịch sử
+                </div>
+                <div style={{ marginTop: 10, height: 6, borderRadius: 3, background: '#dbeafe', overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${retentionRate}%`, background: D.sky, borderRadius: 3, transition: 'width .6s ease' }} />
+                </div>
+              </div>
+            )}
+          </div>
+        </ChartCard>
+      )}
+
       {depts.length > 0 && (
         <ChartCard title="Cơ cấu ban bộ phận">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>

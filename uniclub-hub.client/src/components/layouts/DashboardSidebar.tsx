@@ -44,6 +44,8 @@ const ADMIN_NAV = [
   { to: '/admin/support', icon: '◉', label: 'Hỗ trợ' },
   { to: '/admin/resignations', icon: '↗', label: 'Đơn từ chức' },
   { to: '/admin/audit-log', icon: '◎', label: 'Lịch sử thay đổi' },
+  { to: '/admin/settings', icon: '⚙', label: 'Cài đặt hệ thống' },
+  { to: '/admin/notification-preferences', icon: '◑', label: 'Cài đặt thông báo' },
 ]
 
 function clubNav(id: string) {
@@ -52,10 +54,10 @@ function clubNav(id: string) {
     { to: `/clubs/${id}/manage/members`, icon: '◐', label: 'Thành viên' },
     { to: `/clubs/${id}/manage/applications`, icon: '✦', label: 'Đơn ứng tuyển' },
     { to: `/clubs/${id}/manage/departments`, icon: '▦', label: 'Ban bộ phận', dividerAfter: true },
-    { to: `/clubs/${id}/manage/form`, icon: '◈', label: 'Form đăng ký' },
     { to: `/clubs/${id}/manage/orgchart`, icon: '⊹', label: 'Sơ đồ tổ chức' },
     { to: `/clubs/${id}/manage/audit-log`, icon: '◎', label: 'Lịch sử thay đổi' },
     { to: `/clubs/${id}/manage/resignations`, icon: '⊖', label: 'Đơn từ chức' },
+    { to: `/clubs/${id}/manage/notifications`, icon: '◑', label: 'Cài đặt thông báo' },
     { to: `/clubs/${id}/manage/settings`, icon: '◉', label: 'Cài đặt CLB' },
   ]
 }
@@ -119,8 +121,18 @@ export default function DashboardSidebar({ mode, clubId }: Props) {
       borderRight: '1.5px solid rgba(255,255,255,.08)',
       fontFamily: "'Be Vietnam Pro', sans-serif",
     }}>
-      {/* Logo */}
-      <div style={{ padding: '18px 16px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
+      {/* Logo — click to go home */}
+      <button
+        onClick={() => navigate('/')}
+        title="Về trang chủ"
+        style={{
+          padding: '18px 16px 14px', display: 'flex', alignItems: 'center', gap: 10,
+          background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left',
+          fontFamily: 'inherit', width: '100%', transition: 'opacity .15s',
+        }}
+        onMouseEnter={e => (e.currentTarget.style.opacity = '0.75')}
+        onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
+      >
         <div style={{
           width: 30, height: 30, borderRadius: 8, background: '#facc15',
           display: 'grid', placeItems: 'center', fontWeight: 900, fontSize: 13,
@@ -131,7 +143,7 @@ export default function DashboardSidebar({ mode, clubId }: Props) {
           <div style={{ fontSize: 14, fontWeight: 800, color: '#fff', letterSpacing: '-.02em', lineHeight: 1 }}>UniClub</div>
           <div style={{ fontSize: 9, fontWeight: 700, color: '#ff5a3c', letterSpacing: '.08em', textTransform: 'uppercase', marginTop: 1 }}>★ UEF Campus</div>
         </div>
-      </div>
+      </button>
 
       {/* Mode switcher */}
       <div style={{ padding: '0 12px', marginBottom: 8 }}>

@@ -1,4 +1,23 @@
-import { useEffect, useRef, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { getPublicSettings } from '@/components/membership/services/adminApi'
+
+function IconFacebook() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" />
+    </svg>
+  )
+}
+
+function IconInstagram() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="2" y="2" width="20" height="20" rx="5" ry="5" />
+      <circle cx="12" cy="12" r="4" />
+      <circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none" />
+    </svg>
+  )
+}
 
 // ─── Design tokens ───────────────────────────────────────────────
 export const C = {
@@ -223,18 +242,47 @@ export function CatPill({ label, active, onClick }: {
 
 // ─── V3 Footer ───────────────────────────────────────────────────
 export function PublicFooter() {
+  const [s, setS] = useState<Record<string, string>>({})
+  useEffect(() => { getPublicSettings().then(setS).catch(() => {}) }, [])
+
+  const facebook  = s['footer.facebook_url']?.trim()
+  const instagram = s['footer.instagram_url']?.trim()
+  const address   = s['footer.address']?.trim()
+
   return (
     <footer style={{
       padding: '24px 28px', borderTop: C.border, background: C.ink,
-      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+      display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12,
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 12.5 }}>
         <span style={{ fontWeight: 800, color: C.lemon }}>UniClub Hub</span>
-        <span style={{ opacity: 0.5, color: C.bg }}>© 2026 · Đại học Kinh tế Tài chính TP.HCM</span>
+        <span style={{ opacity: 0.5, color: C.bg }}>
+          © 2026 · {address || 'Đại học Kinh tế Tài chính TP.HCM'}
+        </span>
       </div>
-      <div style={{ display: 'flex', gap: 16, opacity: 0.6, fontSize: 12.5, color: C.bg }}>
-        <span>Hỗ trợ</span>
-        <span>Điều khoản</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+        {facebook && (
+          <a href={facebook} target="_blank" rel="noopener noreferrer"
+            style={{ color: C.bg, opacity: 0.7, display: 'flex', transition: 'opacity .15s' }}
+            onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
+            onMouseLeave={e => (e.currentTarget.style.opacity = '0.7')}
+          >
+            <IconFacebook />
+          </a>
+        )}
+        {instagram && (
+          <a href={instagram} target="_blank" rel="noopener noreferrer"
+            style={{ color: C.bg, opacity: 0.7, display: 'flex', transition: 'opacity .15s' }}
+            onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
+            onMouseLeave={e => (e.currentTarget.style.opacity = '0.7')}
+          >
+            <IconInstagram />
+          </a>
+        )}
+        <div style={{ display: 'flex', gap: 16, opacity: 0.6, fontSize: 12.5, color: C.bg }}>
+          <span>Hỗ trợ</span>
+          <span>Điều khoản</span>
+        </div>
       </div>
     </footer>
   )

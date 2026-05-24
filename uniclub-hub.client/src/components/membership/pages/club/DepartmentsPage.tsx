@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 import api from '@/lib/axiosInstance'
 import { Crown, Pencil, Trash2 } from 'lucide-react'
 import { Tooltip } from '@/components/shared/Tooltip'
+import { FilterSelect } from '@/components/shared/FilterSelect'
 
 const D = {
   border: '1.5px solid #15131a',
@@ -50,10 +51,24 @@ export default function DepartmentsPage() {
   const [deleteTarget, setDeleteTarget] = useState<DepartmentItem | null>(null)
   const [deleting, setDeleting] = useState(false)
 
+  const [search, setSearch] = useState('')
+  const [sortBy, setSortBy] = useState<'name' | 'members'>('name')
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
+
   const [leadDept, setLeadDept] = useState<DepartmentItem | null>(null)
   const [deptMembers, setDeptMembers] = useState<MemberItem[]>([])
   const [selectedMembershipId, setSelectedMembershipId] = useState<string>('')
   const [settingLead, setSettingLead] = useState(false)
+
+  const q = search.toLowerCase()
+  const filtered = departments
+    .filter(d => !q || d.name.toLowerCase().includes(q))
+    .sort((a, b) => {
+      const cmp = sortBy === 'name'
+        ? a.name.localeCompare(b.name)
+        : a.memberCount - b.memberCount
+      return sortDir === 'asc' ? cmp : -cmp
+    })
 
   function load() {
     getDepartments(id)
@@ -141,12 +156,45 @@ export default function DepartmentsPage() {
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20, gap: 16 }}>
         <div>
           <h1 style={{ fontSize: 24, fontWeight: 900, color: D.ink, letterSpacing: '-.025em', margin: 0 }}>Ban bộ phận</h1>
-          <p style={{ fontSize: 13, color: D.inkMuted, marginTop: 4 }}>{departments.length} ban tổng cộng</p>
+          <p style={{ fontSize: 13, color: D.inkMuted, marginTop: 4 }}>
+            {filtered.length !== departments.length ? `${filtered.length}/${departments.length}` : departments.length} ban tổng cộng
+          </p>
         </div>
         <button onClick={openAdd}
           style={{ background: D.indigo, color: '#fff', border: D.border, boxShadow: D.shadow(2,2), padding: '8px 16px', borderRadius: D.pill, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
           + Thêm ban
         </button>
+      </div>
+
+      {/* Filter bar */}
+      <div style={{ padding: '10px 14px', borderRadius: D.radius, background: D.card, border: D.border, boxShadow: D.shadow(), display: 'flex', gap: 10, alignItems: 'center', marginBottom: 16, flexWrap: 'wrap' }}>
+        <input
+          placeholder="⌕  Tìm tên ban..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          style={{ ...inputStyle, flex: 1, minWidth: 180 }}
+        />
+        <FilterSelect
+          value={`${sortBy}-${sortDir}`}
+          onChange={v => {
+            const [col, dir] = v.split('-')
+            setSortBy(col as 'name' | 'members')
+            setSortDir(dir as 'asc' | 'desc')
+          }}
+          options={[
+            { value: 'name-asc', label: 'Tên A → Z' },
+            { value: 'name-desc', label: 'Tên Z → A' },
+            { value: 'members-desc', label: 'Thành viên nhiều nhất' },
+            { value: 'members-asc', label: 'Thành viên ít nhất' },
+          ]}
+          style={{ width: 200 }}
+        />
+        {search && (
+          <button onClick={() => setSearch('')}
+            style={{ fontSize: 12, color: D.indigo, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
+            Xoá lọc
+          </button>
+        )}
       </div>
 
       {/* Table */}
@@ -165,9 +213,9 @@ export default function DepartmentsPage() {
           <tbody>
             {loading ? (
               <tr><td colSpan={6} style={{ textAlign: 'center', color: D.inkMuted, padding: '48px 0' }}>Đang tải...</td></tr>
-            ) : departments.length === 0 ? (
-              <tr><td colSpan={6} style={{ textAlign: 'center', color: D.inkMuted, padding: '48px 0' }}>Chưa có ban bộ phận nào.</td></tr>
-            ) : departments.map(dept => (
+            ) : filtered.length === 0 ? (
+              <tr><td colSpan={6} style={{ textAlign: 'center', color: D.inkMuted, padding: '48px 0' }}>{search ? 'Không tìm thấy ban nào.' : 'Chưa có ban bộ phận nào.'}</td></tr>
+            ) : filtered.map(dept => (
               <tr key={dept.id}
                 onMouseEnter={() => setHoverRow(dept.id)}
                 onMouseLeave={() => setHoverRow(null)}

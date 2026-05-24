@@ -29,10 +29,12 @@ import MembersPage from "@/components/membership/pages/club/MembersPage";
 import ApplicationsPage from "@/components/membership/pages/club/ApplicationsPage";
 import DepartmentsPage from "@/components/membership/pages/club/DepartmentsPage";
 import FormSchemaPage from "@/components/membership/pages/club/FormSchemaPage";
+import MemberFieldsPage from "@/components/membership/pages/club/MemberFieldsPage";
 import ClubSettingsPage from "@/components/membership/pages/club/ClubSettingsPage";
 import ResignationPage from "@/components/membership/pages/club/ResignationPage";
 import OrgChartPage from "@/components/membership/pages/club/OrgChartPage";
 import AuditLogPage from "@/components/membership/pages/club/AuditLogPage";
+import PipelineSettingsPage from "@/components/membership/pages/club/PipelineSettingsPage";
 
 import MemberDashboard from "@/components/membership/pages/MemberDashboard";
 import ClubListPage from "@/components/membership/pages/ClubListPage";
@@ -41,6 +43,9 @@ import SupportPage from "@/components/membership/pages/SupportPage";
 import SupportAdminPage from "@/components/membership/pages/admin/SupportAdminPage";
 import AdminResignationPage from "@/components/membership/pages/admin/AdminResignationPage";
 import AdminAuditLogPage from "@/components/membership/pages/admin/AdminAuditLogPage";
+import SystemSettingsPage from "@/components/membership/pages/admin/SystemSettingsPage";
+import AdminNotificationPreferencePage from "@/components/membership/pages/admin/NotificationPreferencePage";
+import ClubNotificationPreferencePage from "@/components/membership/pages/club/NotificationPreferencePage";
 import ClubDetailPage from "@/components/membership/pages/ClubDetailPage";
 import ProfilePage from "@/components/membership/pages/ProfilePage";
 import MemberHistoryPage from "@/components/membership/pages/MemberHistoryPage";
@@ -94,6 +99,8 @@ export default function App() {
               <Route path="/admin/support" element={<SupportAdminPage />} />
               <Route path="/admin/resignations" element={<AdminResignationPage />} />
               <Route path="/admin/audit-log" element={<AdminAuditLogPage />} />
+              <Route path="/admin/settings" element={<SystemSettingsPage />} />
+              <Route path="/admin/notification-preferences" element={<AdminNotificationPreferencePage />} />
             </Route>
           </Route>
 
@@ -153,8 +160,11 @@ export default function App() {
                   <Route path="manage/applications" element={<ApplicationsPage />} />
                   <Route path="manage/departments" element={<DepartmentsPage />} />
                   <Route path="manage/form" element={<FormSchemaPage />} />
+                  <Route path="manage/member-fields" element={<MemberFieldsPage />} />
                   <Route path="manage/orgchart" element={<OrgChartPage />} />
+                  <Route path="manage/pipeline" element={<PipelineSettingsPage />} />
                   <Route path="manage/audit-log" element={<AuditLogPage />} />
+                  <Route path="manage/notifications" element={<ClubNotificationPreferencePage />} />
                   <Route path="manage/resignations" element={<ResignationPage />} />
                   <Route path="manage/settings" element={<ClubSettingsPage />} />
                 </Route>

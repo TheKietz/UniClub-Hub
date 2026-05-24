@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { toast } from 'sonner'
 import { Trash2, LockKeyhole, LockKeyholeOpen, ShieldCheck, ShieldOff, Upload, Download, FileSpreadsheet, CheckCircle2, XCircle, AlertCircle } from 'lucide-react'
+import { FilterSelect } from '@/components/shared/FilterSelect'
 import api from '@/lib/axiosInstance'
 import { LoadMoreBar } from '@/components/shared/LoadMoreBar'
 
@@ -253,14 +254,16 @@ export default function UsersPage() {
             fontFamily: 'inherit',
           }} />
         ))}
-        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} style={{
-          height: 36, borderRadius: 8, border: D.borderLight, padding: '0 12px',
-          fontSize: 12, color: D.ink, background: D.bg, fontFamily: 'inherit',
-        }}>
-          <option value="">Tất cả trạng thái</option>
-          <option value="active">Hoạt động</option>
-          <option value="locked">Đã khoá</option>
-        </select>
+        <FilterSelect
+          value={statusFilter}
+          onChange={setStatusFilter}
+          options={[
+            { value: '', label: 'Tất cả trạng thái' },
+            { value: 'active', label: 'Hoạt động' },
+            { value: 'locked', label: 'Đã khoá' },
+          ]}
+          style={{ width: 160 }}
+        />
         {hasFilter && (
           <button onClick={() => { setSearchName(''); setSearchEmail(''); setSearchStudentId(''); setStatusFilter('') }}
             style={{ fontSize: 12, color: D.indigo, fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
@@ -275,8 +278,7 @@ export default function UsersPage() {
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
           <thead>
             <tr style={{ background: D.bg, borderBottom: D.borderLight }}>
-              <th style={thS}><button onClick={() => toggleSort('name')} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', fontFamily: 'inherit', fontSize: 12, fontWeight: 700, color: D.inkMuted }}>Họ tên <span style={{ color: sortBy === 'name' ? D.indigo : '#ccc' }}>↕</span></button></th>
-              <th style={thS}><button onClick={() => toggleSort('email')} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', fontFamily: 'inherit', fontSize: 12, fontWeight: 700, color: D.inkMuted }}>Email <span style={{ color: sortBy === 'email' ? D.indigo : '#ccc' }}>↕</span></button></th>
+              <th style={thS}><button onClick={() => toggleSort('name')} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', fontFamily: 'inherit', fontSize: 12, fontWeight: 700, color: D.inkMuted }}>Người dùng <span style={{ color: sortBy === 'name' ? D.indigo : '#ccc' }}>↕</span></button></th>
               <th style={thS}>MSSV</th>
               <th style={thS}>Ngành</th>
               <th style={thS}><button onClick={() => toggleSort('role')} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', fontFamily: 'inherit', fontSize: 12, fontWeight: 700, color: D.inkMuted }}>Quyền <span style={{ color: sortBy === 'role' ? D.indigo : '#ccc' }}>↕</span></button></th>
@@ -286,9 +288,9 @@ export default function UsersPage() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={7} style={{ padding: '48px 20px', textAlign: 'center', color: D.inkMuted }}>Đang tải...</td></tr>
+              <tr><td colSpan={6} style={{ padding: '48px 20px', textAlign: 'center', color: D.inkMuted }}>Đang tải...</td></tr>
             ) : filtered.length === 0 ? (
-              <tr><td colSpan={7} style={{ padding: '48px 20px', textAlign: 'center', color: D.inkMuted }}>Không tìm thấy người dùng nào.</td></tr>
+              <tr><td colSpan={6} style={{ padding: '48px 20px', textAlign: 'center', color: D.inkMuted }}>Không tìm thấy người dùng nào.</td></tr>
             ) : filtered.map(user => {
               const isSuperAdmin = user.roles?.includes('SUPER_ADMIN')
               return (
@@ -300,10 +302,10 @@ export default function UsersPage() {
                       <Avatar name={user.fullName} email={user.email} />
                       <div>
                         <div style={{ fontWeight: 600, color: D.ink }}>{user.fullName ?? '—'}</div>
+                        <div style={{ fontSize: 12, color: D.inkMuted, marginTop: 1 }}>{user.email}</div>
                       </div>
                     </div>
                   </td>
-                  <td style={{ ...tdS, color: D.inkDim }}>{user.email}</td>
                   <td style={{ ...tdS, color: D.inkMuted }}>{user.studentId ?? '—'}</td>
                   <td style={{ ...tdS, color: D.inkDim, maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.major ?? '—'}</td>
                   <td style={tdS}>

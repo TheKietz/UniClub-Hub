@@ -1,7 +1,10 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using System.Text.Json;
 using UniClub_Hub.Membership.DTOs.Application;
+using UniClub_Hub.Membership.DTOs.Pipeline;
 using UniClub_Hub.Membership.Services.Interfaces;
+using UniClub_Hub.Shared.Constants;
 using UniClub_Hub.Shared.Data;
 using UniClub_Hub.Shared.Email;
 using UniClub_Hub.Shared.Enums;
@@ -11,17 +14,22 @@ namespace UniClub_Hub.Membership.Services.Implements
 {
     public class ApplicationService : IApplicationService
     {
+        private static readonly JsonSerializerOptions _jsonOpts = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+
         private readonly UniClubDbContext _db;
-        private readonly INotificationService _notifications;
         private readonly IEmailService _email;
         private readonly IConfiguration _config;
+        private readonly ISystemSettingService _settings;
+        private readonly INotificationDispatchService _dispatch;
 
-        public ApplicationService(UniClubDbContext db, INotificationService notifications, IEmailService email, IConfiguration config)
+        public ApplicationService(UniClubDbContext db, IEmailService email, IConfiguration config,
+            ISystemSettingService settings, INotificationDispatchService dispatch)
         {
             _db = db;
-            _notifications = notifications;
             _email = email;
             _config = config;
+            _settings = settings;
+            _dispatch = dispatch;
         }
 
         public async Task<IEnumerable<ApplicationDto>> GetMyApplicationsAsync(string userId)
@@ -46,6 +54,7 @@ namespace UniClub_Hub.Membership.Services.Implements
                 .Applications.AsNoTracking()
                 .Include(a => a.Club)
                 .Include(a => a.User)
+                .Include(a => a.CurrentStage)
                 .Where(a => a.ClubId == clubId);
 
             if (
@@ -89,7 +98,9 @@ namespace UniClub_Hub.Membership.Services.Implements
                 a.ClubId == clubId
                 && a.UserId == userId
                 && (
-                    a.Status == ApplicationStatus.Pending || a.Status == ApplicationStatus.Interview
+                    a.Status == ApplicationStatus.Pending
+                    || a.Status == ApplicationStatus.Interview
+                    || a.Status == ApplicationStatus.Reviewing
                 )
             );
             if (hasPending)
@@ -99,7 +110,12 @@ namespace UniClub_Hub.Membership.Services.Implements
             {
                 UserId = userId,
                 ClubId = clubId,
-                Answers = dto.Answers,
+                Answers = dto.Answers is { Count: > 0 }
+                    ? JsonSerializer.Serialize(dto.Answers, _jsonOpts)
+                    : null,
+                MemberFieldData = dto.MemberFieldData is { Count: > 0 }
+                    ? JsonSerializer.Serialize(dto.MemberFieldData, _jsonOpts)
+                    : null,
                 Status = ApplicationStatus.Pending,
                 AppliedAt = DateTime.UtcNow,
             };
@@ -107,27 +123,15 @@ namespace UniClub_Hub.Membership.Services.Implements
             _db.Applications.Add(application);
             await _db.SaveChangesAsync();
 
-            // Thông báo cho tất cả CLUB_ADMIN của CLB
-            var clubName = await _db
-                .Clubs.Where(c => c.Id == clubId)
-                .Select(c => c.Name)
-                .FirstAsync();
-            var adminIds = await _db
-                .ClubMemberships.Where(m =>
-                    m.ClubId == clubId
-                    && m.ClubRole == UniClub_Hub.Shared.Enums.ClubRole.CLUB_ADMIN
-                    && m.Status == MembershipStatus.Active
-                )
-                .Select(m => m.UserId)
-                .ToListAsync();
+            var clubName = await _db.Clubs.Where(c => c.Id == clubId).Select(c => c.Name).FirstAsync();
+            var applicantName = await _db.Users.Where(u => u.Id == userId)
+                .Select(u => u.FullName ?? u.Email ?? userId).FirstOrDefaultAsync() ?? userId;
 
-            foreach (var adminId in adminIds)
-                await _notifications.SendAsync(
-                    adminId,
-                    "Đơn đăng ký mới",
-                    $"Có đơn đăng ký mới vào CLB {clubName}.",
-                    NotificationType.Application
-                );
+            await _dispatch.FireAsync(NotificationTriggers.ApplicationSubmitted, clubId, new()
+            {
+                ["clubName"] = clubName,
+                ["userName"] = applicantName,
+            });
 
             return await _db
                 .Applications.AsNoTracking()
@@ -185,56 +189,50 @@ namespace UniClub_Hub.Membership.Services.Implements
             application.ReviewNote = dto.ReviewNote;
             application.ReviewedAt = DateTime.UtcNow;
             application.ReviewerId = reviewerId;
+            if (dto.Status is ApplicationStatus.Accepted or ApplicationStatus.Rejected)
+                application.CurrentStageId = null;
             await _db.SaveChangesAsync();
 
-            // Thông báo cho người nộp đơn
-            var clubName = await _db
-                .Clubs.Where(c => c.Id == clubId)
-                .Select(c => c.Name)
-                .FirstAsync();
-            var (title, message) = dto.Status switch
-            {
-                ApplicationStatus.Interview => (
-                    "Mời phỏng vấn",
-                    $"Đơn đăng ký vào CLB {clubName} của bạn được mời phỏng vấn."
-                ),
-                ApplicationStatus.Accepted => (
-                    "Đơn được chấp nhận",
-                    $"Chúc mừng! Bạn đã được chấp nhận vào CLB {clubName}."
-                ),
-                ApplicationStatus.Rejected => (
-                    "Đơn bị từ chối",
-                    $"Đơn đăng ký vào CLB {clubName} của bạn đã bị từ chối."
-                ),
-                _ => ("Cập nhật đơn", $"Đơn đăng ký vào CLB {clubName} của bạn đã được cập nhật."),
-            };
-            await _notifications.SendAsync(
-                application.UserId,
-                title,
-                message,
-                NotificationType.Application
-            );
+            var clubName = await _db.Clubs.Where(c => c.Id == clubId).Select(c => c.Name).FirstAsync();
 
-            // Gửi email cho kết quả đơn (Interview, Accepted, Rejected)
+            var triggerKey = dto.Status switch
+            {
+                ApplicationStatus.Interview => NotificationTriggers.ApplicationInterview,
+                ApplicationStatus.Accepted  => NotificationTriggers.ApplicationAccepted,
+                ApplicationStatus.Rejected  => NotificationTriggers.ApplicationRejected,
+                _                           => NotificationTriggers.ApplicationInterview,
+            };
+
+            // In-app notification (controlled by preferences)
+            await _dispatch.FireAsync(triggerKey, clubId, new()
+            {
+                ["applicantUserId"] = application.UserId,
+                ["clubName"] = clubName,
+            });
+
+            // Email (controlled by preferences)
             var applicant = await _db.Users.FindAsync(application.UserId);
-            if (applicant?.Email != null)
+            if (applicant?.Email != null
+                && await _dispatch.IsEmailEnabledAsync(triggerKey, NotificationRecipientRoles.TargetUser, clubId))
             {
                 try
                 {
                     var appUrl = _config["AppUrl"] ?? "https://localhost:54610";
+                    var logoUrl = await _settings.GetValueAsync("system.logo_url");
                     var html = EmailTemplates.ApplicationResult(
                         applicant.FullName ?? applicant.Email,
                         clubName,
                         dto.Status.ToString(),
                         dto.ReviewNote,
-                        $"{appUrl}/my-activity"
+                        $"{appUrl}/my-activity",
+                        logoUrl
                     );
                     var subject = dto.Status switch
                     {
                         ApplicationStatus.Interview => $"Mời phỏng vấn – {clubName}",
                         ApplicationStatus.Accepted  => $"Đơn được chấp nhận – {clubName}",
                         ApplicationStatus.Rejected  => $"Kết quả đơn đăng ký – {clubName}",
-                        _ => $"Cập nhật đơn đăng ký – {clubName}"
+                        _                           => $"Cập nhật đơn đăng ký – {clubName}"
                     };
                     await _email.SendAsync(applicant.Email, subject, html);
                 }
@@ -260,6 +258,7 @@ namespace UniClub_Hub.Membership.Services.Implements
                             ClubRole = UniClub_Hub.Shared.Enums.ClubRole.MEMBER,
                             JoinedDate = DateOnly.FromDateTime(DateTime.UtcNow),
                             Status = MembershipStatus.Probation,
+                            MemberCustomData = application.MemberFieldData,
                         }
                     );
                     await _db.SaveChangesAsync();
@@ -267,7 +266,7 @@ namespace UniClub_Hub.Membership.Services.Implements
             }
 
             var app = await _db.Applications.AsNoTracking()
-                .Include(a => a.Club).Include(a => a.User)
+                .Include(a => a.Club).Include(a => a.User).Include(a => a.CurrentStage)
                 .Where(a => a.Id == applicationId)
                 .FirstAsync();
 
@@ -309,6 +308,72 @@ namespace UniClub_Hub.Membership.Services.Implements
                 Email = a.User?.Email ?? "",
                 StudentId = a.User?.StudentId,
                 Answers = a.Answers,
+                MemberFieldData = a.MemberFieldData,
+                CurrentStageId = a.CurrentStageId,
+                CurrentStageName = a.CurrentStage?.Name,
             };
+
+        public async Task<AdminApplicationDto> AdvanceStageAsync(
+            int clubId, int applicationId, AdvanceApplicationRequest req,
+            string reviewerId, bool isSuperAdmin)
+        {
+            var application = await _db.Applications
+                .Include(a => a.CurrentStage)
+                .FirstOrDefaultAsync(a => a.Id == applicationId && a.ClubId == clubId)
+                ?? throw new KeyNotFoundException("Không tìm thấy đơn ứng tuyển.");
+
+            if (application.Status is ApplicationStatus.Accepted or ApplicationStatus.Rejected)
+                throw new InvalidOperationException("Đơn này đã được xử lý xong, không thể thay đổi.");
+
+            if (!isSuperAdmin)
+            {
+                var isClubAdmin = await _db.ClubMemberships.AnyAsync(m =>
+                    m.ClubId == clubId && m.UserId == reviewerId &&
+                    m.ClubRole == UniClub_Hub.Shared.Enums.ClubRole.CLUB_ADMIN &&
+                    m.Status == MembershipStatus.Active);
+                if (!isClubAdmin)
+                    throw new UnauthorizedAccessException("Bạn không có quyền xét đơn của CLB này.");
+            }
+
+            var stages = await _db.ClubPipelineStages
+                .Where(s => s.ClubId == clubId && s.IsActive)
+                .OrderBy(s => s.StageOrder)
+                .ToListAsync();
+
+            if (!stages.Any())
+                throw new InvalidOperationException("CLB chưa cấu hình quy trình tuyển dụng.");
+
+            UniClub_Hub.Shared.Models.ClubPipelineStage nextStage;
+            if (application.CurrentStageId == null)
+            {
+                nextStage = stages.First();
+            }
+            else
+            {
+                var currentIdx = stages.FindIndex(s => s.Id == application.CurrentStageId);
+                if (currentIdx == -1 || currentIdx >= stages.Count - 1)
+                    throw new InvalidOperationException("Đơn đang ở vòng cuối. Vui lòng chọn Duyệt hoặc Từ chối.");
+                nextStage = stages[currentIdx + 1];
+            }
+
+            application.CurrentStageId = nextStage.Id;
+            application.Status = ApplicationStatus.Reviewing;
+            application.ReviewNote = req.ReviewNote;
+            application.ReviewedAt = DateTime.UtcNow;
+            application.ReviewerId = reviewerId;
+            await _db.SaveChangesAsync();
+
+            var updated = await _db.Applications.AsNoTracking()
+                .Include(a => a.Club).Include(a => a.User).Include(a => a.CurrentStage)
+                .Where(a => a.Id == applicationId)
+                .FirstAsync();
+
+            string? reviewerName = null;
+            if (updated.ReviewerId != null)
+                reviewerName = await _db.Users.Where(u => u.Id == updated.ReviewerId)
+                    .Select(u => u.FullName ?? u.Email).FirstOrDefaultAsync();
+
+            return ToAdminDto(updated, reviewerName);
+        }
     }
 }

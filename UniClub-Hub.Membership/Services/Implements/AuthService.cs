@@ -23,16 +23,20 @@ namespace UniClub_Hub.Membership.Services.Implements
         private readonly UniClubDbContext _db;
         private readonly IConfiguration _config;
 
+        private readonly ISystemSettingService _settings;
+
         public AuthService(
             UserManager<ApplicationUser> userManager,
             RoleManager<IdentityRole> roleManager,
             UniClubDbContext db,
-            IConfiguration config)
+            IConfiguration config,
+            ISystemSettingService settings)
         {
             _userManager = userManager;
             _roleManager = roleManager;
             _db = db;
             _config = config;
+            _settings = settings;
         }
 
         public async Task<AuthResponseDto> RegisterAsync(RegisterDto dto)
@@ -112,6 +116,18 @@ namespace UniClub_Hub.Membership.Services.Implements
 
             if (user == null)
             {
+                // Apply the same registration restrictions as the normal register flow
+                if (!await _settings.IsRegistrationOpenAsync())
+                    throw new InvalidOperationException("Hệ thống tạm ngừng nhận đăng ký mới.");
+
+                var allowedDomains = await _settings.GetAllowedDomainsAsync();
+                if (allowedDomains.Count > 0)
+                {
+                    var domain = email.Split('@').LastOrDefault()?.ToLower() ?? "";
+                    if (!allowedDomains.Contains(domain))
+                        throw new InvalidOperationException($"Email phải thuộc domain: {string.Join(", ", allowedDomains)}.");
+                }
+
                 user = new ApplicationUser
                 {
                     UserName = email,

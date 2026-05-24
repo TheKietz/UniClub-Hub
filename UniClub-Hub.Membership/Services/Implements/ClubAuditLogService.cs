@@ -3,6 +3,7 @@ using UniClub_Hub.Membership.DTOs.AuditLog;
 using UniClub_Hub.Membership.Services.Interfaces;
 using UniClub_Hub.Shared.Common;
 using UniClub_Hub.Shared.Data;
+using UniClub_Hub.Shared.Enums;
 
 namespace UniClub_Hub.Membership.Services.Implements
 {
@@ -17,7 +18,7 @@ namespace UniClub_Hub.Membership.Services.Implements
         };
 
         public async Task<PagedResult<ClubAuditLogDto>> GetByClubAsync(
-            int clubId, string? module, int page, int pageSize)
+            int clubId, string? module, string? search, string? action, DateTime? dateFrom, DateTime? dateTo, int page, int pageSize)
         {
             var membershipIds = await db.ClubMemberships
                 .Where(m => m.ClubId == clubId)
@@ -46,6 +47,25 @@ namespace UniClub_Hub.Membership.Services.Implements
             {
                 var entityName = EntityToModule.First(kv => kv.Value == module).Key;
                 query = query.Where(a => a.EntityName == entityName);
+            }
+
+            if (!string.IsNullOrEmpty(action) && Enum.TryParse<AuditAction>(action, out var actionEnum))
+                query = query.Where(a => a.Action == actionEnum);
+
+            if (dateFrom.HasValue)
+                query = query.Where(a => a.Timestamp >= dateFrom.Value);
+
+            if (dateTo.HasValue)
+                query = query.Where(a => a.Timestamp <= dateTo.Value);
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var lowerSearch = search.ToLower();
+                var matchingUserIds = await db.Users
+                    .Where(u => (u.FullName ?? "").ToLower().Contains(lowerSearch) || u.Email.ToLower().Contains(lowerSearch))
+                    .Select(u => u.Id)
+                    .ToListAsync();
+                query = query.Where(a => matchingUserIds.Contains(a.UserId ?? ""));
             }
 
             var total = await query.CountAsync();
@@ -118,7 +138,7 @@ namespace UniClub_Hub.Membership.Services.Implements
             return new PagedResult<ClubAuditLogDto> { Items = dtos, TotalCount = total, Page = page, PageSize = pageSize };
         }
 
-        public async Task<PagedResult<ClubAuditLogDto>> GetAllAsync(string? module, int page, int pageSize)
+        public async Task<PagedResult<ClubAuditLogDto>> GetAllAsync(string? module, string? search, string? action, DateTime? dateFrom, DateTime? dateTo, int page, int pageSize)
         {
             var query = db.AuditLogs.AsNoTracking()
                 .Where(a => EntityToModule.Keys.Contains(a.EntityName));
@@ -127,6 +147,25 @@ namespace UniClub_Hub.Membership.Services.Implements
             {
                 var entityName = EntityToModule.First(kv => kv.Value == module).Key;
                 query = query.Where(a => a.EntityName == entityName);
+            }
+
+            if (!string.IsNullOrEmpty(action) && Enum.TryParse<AuditAction>(action, out var actionEnum))
+                query = query.Where(a => a.Action == actionEnum);
+
+            if (dateFrom.HasValue)
+                query = query.Where(a => a.Timestamp >= dateFrom.Value);
+
+            if (dateTo.HasValue)
+                query = query.Where(a => a.Timestamp <= dateTo.Value);
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var lowerSearch = search.ToLower();
+                var matchingUserIds = await db.Users
+                    .Where(u => (u.FullName ?? "").ToLower().Contains(lowerSearch) || u.Email.ToLower().Contains(lowerSearch))
+                    .Select(u => u.Id)
+                    .ToListAsync();
+                query = query.Where(a => matchingUserIds.Contains(a.UserId ?? ""));
             }
 
             var total = await query.CountAsync();

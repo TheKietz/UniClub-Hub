@@ -25,6 +25,10 @@ namespace UniClub_Hub.Membership
             services.AddScoped<ISupportService, SupportService>();
             services.AddScoped<IResignationService, ResignationService>();
             services.AddScoped<IClubAuditLogService, ClubAuditLogService>();
+            services.AddScoped<ISystemSettingService, SystemSettingService>();
+            services.AddScoped<INotificationDispatchService, NotificationDispatchService>();
+            services.AddScoped<INotificationPreferenceService, NotificationPreferenceService>();
+            services.AddScoped<IPipelineService, PipelineService>();
             return services;
         }
     }
