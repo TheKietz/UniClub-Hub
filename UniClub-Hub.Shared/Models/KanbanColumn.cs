@@ -16,6 +16,11 @@ namespace UniClub_Hub.Shared.Models
         public DateTime? UpdatedAt { get; set; }
         public string? UpdatedBy { get; set; }
 
+        //department table
+        public int? DepartmentId { get; set; }
+        public Department? Department { get; set; }
+
+
         public Club Club { get; set; } = null!;
         public Sprint? Sprint { get; set; }
     }

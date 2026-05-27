@@ -9,6 +9,7 @@ namespace UniClub_Hub.Operations.DTOs.Task
         public string Title { get; set; } = null!;
         public string? Description { get; set; }
         public TaskPriority Priority { get; set; } = TaskPriority.Medium;
+        public DateTimeOffset? StartDate { get; set; }
         public DateTimeOffset? Deadline { get; set; }
         public float? EstimatedHours { get; set; }
         public float? ActualHours { get; set; }

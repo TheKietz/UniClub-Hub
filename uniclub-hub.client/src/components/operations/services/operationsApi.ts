@@ -9,6 +9,7 @@ import type {
   KanbanColumnItem, CreateKanbanColumnDto, UpdateKanbanColumnDto,
   TaskCommentItem, CreateTaskCommentDto,
   TaskAttachmentItem, AddTaskAttachmentLinkDto,
+  TaskAssigneeItem, AssignTaskDto,
 } from './operations.types'
 
 type ApiResponse<T> = { data: T; success: boolean; message: string }
@@ -80,10 +81,21 @@ export const uploadTaskAttachmentFile = (taskId: number, file: File, note?: stri
 export const deleteTaskAttachment = (taskId: number, attachmentId: number) =>
   api.delete(`/v1/operations/tasks/${taskId}/attachments/${attachmentId}`)
 
+// ── Task Assignees ────────────────────────────────────────────────────────────
+
+export const getTaskAssignees = (taskId: number) =>
+  api.get<ApiResponse<TaskAssigneeItem[]>>(`/v1/operations/tasks/${taskId}/assignees`).then(r => r.data.data)
+
+export const assignTask = (taskId: number, dto: AssignTaskDto) =>
+  api.post<ApiResponse<TaskAssigneeItem>>(`/v1/operations/tasks/${taskId}/assignees`, dto).then(r => r.data.data)
+
+export const unassignTask = (taskId: number, userId: string) =>
+  api.delete(`/v1/operations/tasks/${taskId}/assignees/${userId}`)
+
 // ── Kanban Columns ────────────────────────────────────────────────────────────
 
-export const getKanbanColumns = (clubId: number, sprintId?: number) =>
-  api.get<ApiResponse<KanbanColumnItem[]>>('/v1/operations/kanban-columns', { params: { clubId, sprintId } }).then(r => r.data.data)
+export const getKanbanColumns = (clubId: number, sprintId?: number, departmentId?: number) =>
+  api.get<ApiResponse<KanbanColumnItem[]>>('/v1/operations/kanban-columns', { params: { clubId, sprintId, departmentId } }).then(r => r.data.data)
 
 export const createKanbanColumn = (clubId: number, dto: CreateKanbanColumnDto) =>
   api.post<ApiResponse<KanbanColumnItem>>(`/v1/operations/kanban-columns?clubId=${clubId}`, dto).then(r => r.data.data)

@@ -19,6 +19,9 @@ namespace UniClub_Hub.Operations.Services.Implements
             if (eventId.HasValue)
                 query = query.Where(s => s.EventId == eventId);
 
+            if (departmentId.HasValue)
+                query = query.Where(s => s.DepartmentId == departmentId || s.DepartmentId == null);
+
             var total = await query.CountAsync();
 
             var items = await query
@@ -30,6 +33,7 @@ namespace UniClub_Hub.Operations.Services.Implements
                     Id = s.Id,
                     ClubId = s.ClubId,
                     EventId = s.EventId,
+                    DepartmentId = s.DepartmentId,
                     Name = s.Name,
                     Goal = s.Goal,
                     StartDate = s.StartDate.ToUniversalTime(),
@@ -68,6 +72,7 @@ namespace UniClub_Hub.Operations.Services.Implements
             {
                 ClubId = clubId,
                 EventId = dto.EventId,
+                DepartmentId = dto.DepartmentId,
                 Name = dto.Name,
                 Goal = dto.Goal,
                 StartDate = dto.StartDate.ToUniversalTime(),
@@ -146,6 +151,7 @@ namespace UniClub_Hub.Operations.Services.Implements
             Id = s.Id,
             ClubId = s.ClubId,
             EventId = s.EventId,
+            DepartmentId = s.DepartmentId,
             Name = s.Name,
             Goal = s.Goal,
             StartDate = s.StartDate.ToUniversalTime(),

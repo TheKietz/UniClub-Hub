@@ -15,6 +15,7 @@ namespace UniClub_Hub.Operations
             services.AddScoped<IKanbanColumnService, KanbanColumnService>();
             services.AddScoped<ITaskCommentService, TaskCommentService>();
             services.AddScoped<ITaskAttachmentService, TaskAttachmentService>();
+            services.AddScoped<ITaskAssigneeService, TaskAssigneeService>();
             return services;
         }
     }

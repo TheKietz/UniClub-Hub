@@ -6,7 +6,7 @@ namespace UniClub_Hub.Membership.Services.Interfaces
     public interface IClubMembershipService
     {
         // Public
-        Task<IEnumerable<MemberDto>> GetAllAsync(int clubId, string? status = null);
+        Task<IEnumerable<MemberDto>> GetAllAsync(int clubId, string? status = null, int? departmentId = null);
         Task<MemberDto> GetByIdAsync(int clubId, int membershipId);
 
         // CLUB_ADMIN (kiểm tra quyền theo CLB)

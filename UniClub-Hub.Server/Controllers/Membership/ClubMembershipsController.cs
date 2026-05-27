@@ -23,24 +23,30 @@ namespace UniClub_Hub.Server.Controllers.Membership
             _db = db;
         }
 
-        // Chỉ CLUB_ADMIN của CLB này hoặc SUPER_ADMIN mới xem được danh sách thành viên đầy đủ
+        // CLUB_ADMIN/SUPER_ADMIN/DEPT_LEAD xem toàn bộ thành viên active để hỗ trợ gán task
         [HttpGet]
         [Authorize]
-        public async Task<IActionResult> GetAll(int clubId, [FromQuery] string? status)
+        public async Task<IActionResult> GetAll(int clubId, [FromQuery] string? status, [FromQuery] int? departmentId)
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
             var isSuperAdmin = User.IsInRole("SUPER_ADMIN");
+
             if (!isSuperAdmin)
             {
-                var isClubAdmin = await _db.ClubMemberships.AnyAsync(m =>
-                    m.ClubId == clubId && m.UserId == userId &&
-                    m.ClubRole == ClubRole.CLUB_ADMIN && m.Status == MembershipStatus.Active);
-                if (!isClubAdmin) return Forbid();
+                var membership = await _db.ClubMemberships.AsNoTracking()
+                    .FirstOrDefaultAsync(m =>
+                        m.ClubId == clubId && m.UserId == userId &&
+                        m.Status == MembershipStatus.Active);
+
+                if (membership == null) return Forbid();
+
+                if (membership.ClubRole != ClubRole.CLUB_ADMIN && membership.ClubRole != ClubRole.DEPT_LEAD)
+                    return Forbid();
             }
 
             try
             {
-                var result = await _membershipService.GetAllAsync(clubId, status);
+                var result = await _membershipService.GetAllAsync(clubId, status, departmentId);
                 return Ok(ApiResponse<IEnumerable<MemberDto>>.Ok(result));
             }
             catch (KeyNotFoundException ex)

@@ -15,9 +15,9 @@ namespace UniClub_Hub.Operations.Services.Implements
             ("Hoàn thành", "#10b981"),
         ];
 
-        public async Task<List<KanbanColumnDto>> GetByClubAsync(int clubId, int? sprintId)
+        public async Task<List<KanbanColumnDto>> GetByClubAsync(int clubId, int? sprintId, int? departmentId)
         {
-            await EnsureDefaultColumnsAsync(clubId);
+            await EnsureDefaultColumnsAsync(clubId, departmentId);
 
             var query = db.KanbanColumns
                 .AsNoTracking()
@@ -28,6 +28,8 @@ namespace UniClub_Hub.Operations.Services.Implements
             else
                 query = query.Where(c => c.SprintId == null);
 
+            query = query.Where(c => c.DepartmentId == departmentId);
+
             return await query
                 .OrderBy(c => c.SortOrder)
                 .Select(c => new KanbanColumnDto
@@ -35,6 +37,7 @@ namespace UniClub_Hub.Operations.Services.Implements
                     Id = c.Id,
                     ClubId = c.ClubId,
                     SprintId = c.SprintId,
+                    DepartmentId = c.DepartmentId,
                     Name = c.Name,
                     Color = c.Color,
                     SortOrder = c.SortOrder,
@@ -60,6 +63,7 @@ namespace UniClub_Hub.Operations.Services.Implements
             {
                 ClubId = clubId,
                 SprintId = dto.SprintId,
+                DepartmentId = dto.DepartmentId,
                 Name = dto.Name,
                 Color = dto.Color,
                 SortOrder = dto.SortOrder ?? maxOrder + 1,
@@ -108,9 +112,12 @@ namespace UniClub_Hub.Operations.Services.Implements
             await db.SaveChangesAsync();
         }
 
-        public async Task EnsureDefaultColumnsAsync(int clubId)
+        public async Task EnsureDefaultColumnsAsync(int clubId, int? departmentId)
         {
-            var hasAny = await db.KanbanColumns.AnyAsync(c => c.ClubId == clubId && c.SprintId == null);
+            var hasAny = await db.KanbanColumns.AnyAsync(c =>
+                c.ClubId == clubId &&
+                c.SprintId == null &&
+                c.DepartmentId == departmentId);
             if (hasAny) return;
 
             for (int i = 0; i < DefaultColumns.Length; i++)
@@ -118,6 +125,7 @@ namespace UniClub_Hub.Operations.Services.Implements
                 db.KanbanColumns.Add(new KanbanColumn
                 {
                     ClubId = clubId,
+                    DepartmentId = departmentId,
                     Name = DefaultColumns[i].Name,
                     Color = DefaultColumns[i].Color,
                     SortOrder = i,
@@ -132,6 +140,7 @@ namespace UniClub_Hub.Operations.Services.Implements
             Id = c.Id,
             ClubId = c.ClubId,
             SprintId = c.SprintId,
+            DepartmentId = c.DepartmentId,
             Name = c.Name,
             Color = c.Color,
             SortOrder = c.SortOrder,

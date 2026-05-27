@@ -5,7 +5,7 @@ namespace UniClub_Hub.Operations.Services.Interfaces
 {
     public interface ITaskService
     {
-        Task<PagedResult<TaskDto>> GetByClubAsync(int clubId, string? status, int? sprintId, int? eventId, string? assignedTo, int? parentId, int page, int pageSize);
+        Task<PagedResult<TaskDto>> GetByClubAsync(int clubId, string? status, int? sprintId, int? eventId, string? assignedTo, int? parentId, int? departmentId, int page, int pageSize);
         Task<TaskDto> GetByIdAsync(int id);
         Task<TaskDto> CreateAsync(int clubId, CreateTaskDto dto, string createdBy);
         Task<TaskDto> UpdateAsync(int id, UpdateTaskDto dto);

@@ -21,10 +21,10 @@ const TABS = [
   { id: 'mytasks',    label: 'Task',        icon: '✓', memberAllowed: true  },
   { id: 'sprints',    label: 'Backlog',     icon: '≡', memberAllowed: true  },
   { id: 'board',      label: 'Board',       icon: '▦', memberAllowed: true  },
-  { id: 'events',     label: 'Sự kiện',    icon: '◐', memberAllowed: false },
-  { id: 'workload',   label: 'Phân công',  icon: '◎', memberAllowed: false },
-  { id: 'gantt',      label: 'Gantt',       icon: '↗', memberAllowed: true  },
   { id: 'deadlines',  label: 'Deadlines',   icon: '⊖', memberAllowed: true  },
+  { id: 'workload',   label: 'Phân công',  icon: '◎', memberAllowed: false },
+  { id: 'events',     label: 'Sự kiện',    icon: '◐', memberAllowed: false },
+  { id: 'gantt',      label: 'Gantt',       icon: '↗', memberAllowed: true  },
   { id: 'calendar',   label: 'Lịch',        icon: '◑', memberAllowed: true  },
   { id: 'activity',   label: 'Hoạt động',    icon: '◉', memberAllowed: false },
 ] as const;
@@ -49,9 +49,17 @@ export default function ClubOperationsPage() {
 
   const [departments, setDepartments] = useState<DepartmentItem[]>([]);
   const [selectedDeptId, setSelectedDeptId] = useState<number | undefined>();
+  const [deptLoaded, setDeptLoaded] = useState(false);
 
   useEffect(() => {
-    if (!clubId || !user) return;
+    // Reset so switching clubs shows loading again
+    setDeptLoaded(false);
+
+    if (!clubId || !user) {
+      // No auth context yet — render club-wide immediately
+      setDeptLoaded(true);
+      return;
+    }
 
     getDepartments(clubIdNum).then(depts => {
       let visible: DepartmentItem[];
@@ -76,7 +84,9 @@ export default function ClubOperationsPage() {
         if (prev != null && visible.some(d => d.id === prev)) return prev;
         return visible[0]?.id;
       });
-    }).catch(() => { /* silently fall back to club-wide view */ });
+    })
+      .catch(() => { /* silently fall back to club-wide view */ })
+      .finally(() => setDeptLoaded(true));
   }, [clubId, clubIdNum, user, isClubAdmin]);
 
   function setView(v: TabId) {
@@ -198,18 +208,24 @@ export default function ClubOperationsPage() {
 
       {/* ── Content area ─────────────────────────────────────────────── */}
       <div style={{ flex: 1, overflow: 'auto', minHeight: 0, background: '#FAFAF0' }}>
-        <TasksProvider clubId={clubIdNum} departmentId={selectedDeptId}>
-          {view === 'overview'  && <OperationsDashboard />}
-          {view === 'mytasks'   && <MyTasksPage />}
-          {view === 'board'     && <KanbanPage />}
-          {view === 'sprints'   && <SprintsPage />}
-          {view === 'events'    && <EventListPage />}
-          {view === 'workload'  && <WorkloadPage />}
-          {view === 'gantt'     && <GanttPage />}
-          {view === 'deadlines' && <DeadlinePage />}
-          {view === 'calendar'  && <CalendarPage />}
-          {view === 'activity'  && <ActivityLogPage />}
-        </TasksProvider>
+        {!deptLoaded ? (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+            <span style={{ color: '#999', fontSize: 13 }}>Đang tải...</span>
+          </div>
+        ) : (
+          <TasksProvider clubId={clubIdNum} departmentId={selectedDeptId}>
+            {view === 'overview'  && <OperationsDashboard />}
+            {view === 'mytasks'   && <MyTasksPage />}
+            {view === 'board'     && <KanbanPage />}
+            {view === 'sprints'   && <SprintsPage />}
+            {view === 'events'    && <EventListPage />}
+            {view === 'workload'  && <WorkloadPage />}
+            {view === 'gantt'     && <GanttPage />}
+            {view === 'deadlines' && <DeadlinePage />}
+            {view === 'calendar'  && <CalendarPage />}
+            {view === 'activity'  && <ActivityLogPage />}
+          </TasksProvider>
+        )}
       </div>
     </div>
   );

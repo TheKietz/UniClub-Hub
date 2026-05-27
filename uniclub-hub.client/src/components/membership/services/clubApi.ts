@@ -41,7 +41,7 @@ export const submitApplication = (clubId: number, dto: SubmitApplicationDto) =>
 
 // ── Members ────────────────────────────────────────────────────────────────
 
-export const getClubMembers = (clubId: number, params?: { status?: string; role?: string }) =>
+export const getClubMembers = (clubId: number, params?: { status?: string; role?: string; departmentId?: number }) =>
   api.get<{ data: MemberItem[] }>(`${base(clubId)}/members`, { params }).then(r => r.data.data)
 
 export const addMember = (clubId: number, dto: AddMemberDto) =>
