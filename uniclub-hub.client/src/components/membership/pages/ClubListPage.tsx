@@ -1,252 +1,208 @@
-import { MEMBERSHIP_STATUS } from "@/types/auth";
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import {
-  getClubs,
-  getPublicCategories,
-} from "@/components/membership/services/clubApi";
-import type { ClubListItem } from "@/components/membership/services/club.types";
-import { useAuth } from "@/contexts/AuthContext";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { toast } from "sonner";
-import { Search, Users, ArrowRight } from "lucide-react";
-import PublicHeader from "@/components/layouts/PublicHeader";
+import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { getClubs, getPublicCategories } from '@/components/membership/services/clubApi'
+import type { ClubListItem } from '@/components/membership/services/club.types'
+import { C, Rv, ClubCard, CatPill, Marquee, PublicFooter, type ClubCardData } from '@/components/public/publicComponents'
+import PublicHeader from '@/components/layouts/PublicHeader'
 
-const AVATAR_COLORS = [
-  "bg-indigo-500",
-  "bg-emerald-500",
-  "bg-violet-500",
-  "bg-rose-500",
-  "bg-amber-500",
-  "bg-cyan-500",
-];
+const CLUB_COLORS = [C.indigo, C.violet, C.coral, C.mint, C.sky, C.pink, C.lemon, C.coral]
 
-// Lấy chữ cái đầu của từ sau "CLB " (nếu có)
-function getAvatarLetter(name: string) {
-  const meaningful = name.startsWith("CLB ") ? name.slice(4) : name;
-  return meaningful[0]?.toUpperCase() ?? "?";
+function toCardData(c: ClubListItem, i: number): ClubCardData {
+  return {
+    id: c.id,
+    name: c.name,
+    short: c.name.split(' ').filter(Boolean).map(w => w[0]).slice(0, 3).join('').toUpperCase(),
+    category: c.categoryName ?? '',
+    memberCount: c.memberCount ?? 0,
+    hue: (i * 47 + 200) % 360,
+    description: c.description ?? '',
+    isRecruiting: false,
+    color: CLUB_COLORS[i % CLUB_COLORS.length],
+    logoUrl: c.logoUrl,
+  }
 }
 
 export default function ClubListPage() {
-  const { user } = useAuth();
-  const navigate = useNavigate();
-
-  const [clubs, setClubs] = useState<ClubListItem[]>([]);
-  const [categories, setCategories] = useState<{ id: number; name: string }[]>(
-    [],
-  );
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
-  const [query, setQuery] = useState("");
-  const [categoryId, setCategoryId] = useState<number | undefined>();
-  const [refreshKey, setRefreshKey] = useState(0);
+  const navigate = useNavigate()
+  const [clubs, setClubs] = useState<ClubListItem[]>([])
+  const [categories, setCategories] = useState<{ id: number; name: string }[]>([])
+  const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState('')
+  const [activeCat, setActiveCat] = useState('Tất cả')
+  const [sortBy, setSortBy] = useState<'default' | 'name-asc' | 'name-desc' | 'members-desc' | 'members-asc'>('default')
 
   useEffect(() => {
-    setLoading(true);
-    Promise.all([
-      getClubs({ search: query || undefined, categoryId }),
-      getPublicCategories(),
-    ])
-      .then(([c, cats]) => {
-        setClubs(c);
-        setCategories(cats);
-      })
-      .catch(() => toast.error("Không thể tải danh sách CLB."))
-      .finally(() => setLoading(false));
-  }, [query, categoryId, refreshKey]);
+    Promise.all([getClubs(), getPublicCategories()])
+      .then(([c, cats]) => { setClubs(c); setCategories(cats) })
+      .catch(() => { })
+      .finally(() => setLoading(false))
+  }, [])
 
-  const myClubIds = new Set(
-    user?.memberships
-      .filter((m) => m.status === MEMBERSHIP_STATUS.ACTIVE)
-      .map((m) => m.clubId),
-  );
+  const catLabels = ['Tất cả', ...categories.map(c => c.name)]
 
-  function handleSearch(e: React.FormEvent) {
-    e.preventDefault();
-    setQuery(search);
-  }
+  const filtered = clubs
+    .filter(c => {
+      const matchCat = activeCat === 'Tất cả' || c.categoryName === activeCat
+      const q = search.toLowerCase()
+      const matchSearch = !q || c.name.toLowerCase().includes(q) || (c.description ?? '').toLowerCase().includes(q)
+      return matchCat && matchSearch
+    })
+    .sort((a, b) => {
+      if (sortBy === 'name-asc') return a.name.localeCompare(b.name)
+      if (sortBy === 'name-desc') return b.name.localeCompare(a.name)
+      if (sortBy === 'members-desc') return (b.memberCount ?? 0) - (a.memberCount ?? 0)
+      if (sortBy === 'members-asc') return (a.memberCount ?? 0) - (b.memberCount ?? 0)
+      return 0
+    })
+
+  const cardData = filtered.map(toCardData)
+  const marqueeItems = clubs.length > 0 ? clubs.map(c => c.name.toUpperCase()) : ['CLB UEF']
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className="v3-page v3-enter">
       <PublicHeader />
 
-      {/* Body */}
-      <main className="flex-1">
-        <div className="max-w-5xl mx-auto px-6 pb-10 space-y-8">
-          {/* Title */}
-          <div>
-            <h1
-              className="text-3xl font-bold pt-3"
-              style={{ color: "#0f172a" }}
-            >
-              Khám phá CLB
+      {/* ─── Header / Search ──────────────────────────── */}
+      <section style={{ padding: '44px 28px 28px', position: 'relative', overflow: 'hidden' }}>
+        <div style={{ maxWidth: 1280, margin: '0 auto', position: 'relative' }}>
+          {/* Decoration */}
+          <div aria-hidden style={{
+            position: 'absolute', top: 10, right: 40,
+            fontSize: 48, color: C.lemon, transform: 'rotate(15deg)',
+            animation: 'float 4s ease-in-out infinite', pointerEvents: 'none',
+          }}>✦</div>
+
+          {/* <Rv>
+            <Tag bg={C.coral} color={C.bg} style={{ marginBottom: 14 }}>
+              {clubs.length > 0 ? `${clubs.length} CLB` : '—'} · UEF
+            </Tag>
+          </Rv> */}
+
+          <Rv delay={60}>
+            <h1 style={{
+              fontSize: 'clamp(36px, 6vw, 72px)', fontWeight: 900, color: C.ink,
+              letterSpacing: '-.045em', lineHeight: 0.95, margin: '0 0 20px',
+              fontFamily: "'Be Vietnam Pro', sans-serif",
+            }}>
+              Tìm câu lạc bộ{' '}
+              <span style={{
+                display: 'inline-block', background: C.lemon, padding: '0 14px',
+                border: C.border, borderRadius: 14, transform: 'rotate(-1.5deg)',
+              }}>phù hợp.</span>
             </h1>
-            <p className="text-gray-500 mt-1">
-              Tìm và đăng ký tham gia câu lạc bộ phù hợp với bạn
-            </p>
-          </div>
+          </Rv>
 
-          {/* Search + filter */}
-          <div className="flex flex-wrap gap-3">
-            <form
-              onSubmit={handleSearch}
-              className="flex gap-2 flex-1 min-w-64"
-            >
-              <div className="relative flex-1">
-                <Search
-                  size={15}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
-                />
-                <Input
-                  placeholder="Tìm tên CLB..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="pl-9"
-                />
-              </div>
-              <Button type="submit" variant="outline" size="icon">
-                <Search size={15} />
-              </Button>
-            </form>
-            <select
-              value={categoryId ?? ""}
-              onChange={(e) => {
-                setCategoryId(
-                  e.target.value ? Number(e.target.value) : undefined,
-                );
-                setRefreshKey((k) => k + 1);
-              }}
-              className="border border-input rounded-lg px-3 py-2 text-sm bg-white"
-            >
-              <option value="">Tất cả lĩnh vực</option>
-              {categories.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Result count */}
-          {!loading && (
-            <p className="text-sm text-gray-400">
-              {clubs.length} câu lạc bộ{query && ` cho "${query}"`}
-            </p>
-          )}
-
-          {/* Club grid */}
-          {loading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              {[...Array(6)].map((_, i) => (
-                <div
-                  key={i}
-                  className="bg-white rounded-2xl border border-gray-200 h-52 animate-pulse"
-                />
-              ))}
-            </div>
-          ) : clubs.length === 0 ? (
-            <div className="bg-white rounded-2xl border border-gray-200 p-16 text-center">
-              <Search size={36} className="mx-auto mb-3 text-gray-200" />
-              <p className="text-gray-400">Không tìm thấy CLB nào.</p>
-              {query && (
+          {/* Search */}
+          <Rv delay={100}>
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 10,
+              background: C.card, border: C.border, borderRadius: C.radiusPill,
+              padding: '0 20px', height: 52, marginBottom: 16, boxShadow: C.shadow(),
+            }}>
+              <span style={{ fontSize: 18, color: C.inkMuted }}>⌕</span>
+              <input
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Tìm CLB, hoạt động, kỹ năng…"
+                style={{
+                  flex: 1, border: 'none', outline: 'none', background: 'transparent',
+                  fontSize: 15, color: C.ink, height: '100%', fontWeight: 500,
+                  fontFamily: "'Be Vietnam Pro', sans-serif",
+                }}
+              />
+              {search && (
                 <button
-                  onClick={() => {
-                    setSearch("");
-                    setQuery("");
+                  onClick={() => setSearch('')}
+                  style={{
+                    width: 28, height: 28, borderRadius: 999, border: 'none',
+                    background: C.ink, color: C.lemon, fontSize: 14, fontWeight: 800,
+                    display: 'grid', placeItems: 'center', cursor: 'pointer',
                   }}
-                  className="mt-2 text-sm text-indigo-500 hover:underline"
-                >
-                  Xoá tìm kiếm
-                </button>
+                >×</button>
               )}
             </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              {clubs.map((club) => {
-                const isMember = myClubIds.has(club.id);
-                const avatarColor =
-                  AVATAR_COLORS[club.id % AVATAR_COLORS.length];
-                const letter = getAvatarLetter(club.name);
-                return (
-                  <div
-                    key={club.id}
-                    className="bg-white rounded-2xl border border-gray-200 p-5 flex flex-col gap-3 hover:shadow-md hover:border-indigo-200 transition-all cursor-pointer group"
-                    onClick={() => navigate(`/clubs/${club.id}`)}
-                  >
-                    {/* Logo + tên */}
-                    <div className="flex items-center gap-3">
-                      {club.logoUrl ? (
-                        <img
-                          src={club.logoUrl}
-                          alt=""
-                          className="w-11 h-11 rounded-xl object-cover flex-shrink-0 border border-gray-100"
-                        />
-                      ) : (
-                        <div
-                          className={`w-11 h-11 rounded-xl flex items-center justify-center text-white text-lg font-bold flex-shrink-0 ${avatarColor}`}
-                        >
-                          {letter}
-                        </div>
-                      )}
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-start gap-2">
-                          <p className="font-semibold text-gray-900 leading-snug line-clamp-1 flex-1">
-                            {club.name}
-                          </p>
-                          {isMember && (
-                            <Badge
-                              variant="secondary"
-                              className="text-xs shrink-0 mt-0.5"
-                            >
-                              Tham gia
-                            </Badge>
-                          )}
-                        </div>
-                        <p className="text-xs text-gray-400 font-mono mt-0.5">
-                          {club.code}
-                        </p>
-                      </div>
-                    </div>
+          </Rv>
 
-                    {/* Mô tả */}
-                    <p className="text-sm text-gray-500 line-clamp-2 flex-1 leading-relaxed">
-                      {club.description || "Chưa có mô tả."}
-                    </p>
-
-                    {/* Footer card */}
-                    <div className="pt-3 border-t border-gray-100 space-y-2">
-                      {/* Category */}
-                      {club.categoryName && (
-                        <span className="inline-block text-xs px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 font-medium">
-                          {club.categoryName}
-                        </span>
-                      )}
-                      {/* Members + chi tiết */}
-                      <div className="flex items-center justify-between">
-                        <span className="flex items-center gap-1 text-xs text-gray-400">
-                          <Users size={12} /> {club.memberCount} thành viên
-                        </span>
-                        <span className="text-xs text-indigo-600 font-medium flex items-center gap-1 group-hover:gap-2 transition-all">
-                          Chi tiết <ArrowRight size={12} />
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+          {/* Categories */}
+          <Rv delay={140}>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              {catLabels.map(c => (
+                <CatPill key={c} label={c} active={activeCat === c} onClick={() => setActiveCat(c)} />
+              ))}
             </div>
-          )}
-        </div>
-      </main>
+          </Rv>
 
-      {/* Footer */}
-      <footer className="py-6 px-6 border-t border-gray-100 text-center bg-white mt-auto">
-        <p className="text-xs text-gray-400">
-          © 2026 UniClub Hub · Đại học Kinh tế Tài chính TP.HCM
-        </p>
-      </footer>
+          <Rv delay={160}>
+            <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 13, color: C.inkMuted, fontWeight: 500 }}>
+                Hiển thị <strong style={{ color: C.ink }}>{filtered.length}</strong> trong {clubs.length} câu lạc bộ
+                {activeCat !== 'Tất cả' && <> · <strong style={{ color: C.ink }}>{activeCat}</strong></>}
+              </span>
+              <select
+                value={sortBy}
+                onChange={e => setSortBy(e.target.value as typeof sortBy)}
+                style={{
+                  marginLeft: 'auto', height: 34, borderRadius: 8,
+                  border: C.border, padding: '0 10px', fontSize: 12, fontWeight: 600,
+                  background: C.card, color: C.ink, cursor: 'pointer',
+                  fontFamily: "'Be Vietnam Pro', sans-serif", outline: 'none',
+                }}
+              >
+                <option value="default">Mặc định</option>
+                <option value="name-asc">Tên A → Z</option>
+                <option value="name-desc">Tên Z → A</option>
+                <option value="members-desc">Thành viên nhiều nhất</option>
+                <option value="members-asc">Thành viên ít nhất</option>
+              </select>
+            </div>
+          </Rv>
+        </div>
+      </section>
+
+      {/* ─── Club grid ────────────────────────────────── */}
+      {loading ? (
+        <div style={{ padding: '60px 28px', textAlign: 'center', color: C.inkMuted, fontSize: 15 }}>
+          Đang tải...
+        </div>
+      ) : cardData.length > 0 ? (
+        <section style={{ padding: '16px 28px 60px', flex: 1 }}>
+          <div style={{ maxWidth: 1280, margin: '0 auto' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 14 }}>
+              {cardData.map((club, i) => (
+                <Rv key={club.id} delay={i * 40}>
+                  <ClubCard club={club} onClick={() => navigate(`/clubs/${club.id}`)} />
+                </Rv>
+              ))}
+            </div>
+          </div>
+        </section>
+      ) : (
+        <section style={{ padding: '64px 28px', textAlign: 'center' }}>
+          <div style={{ maxWidth: 400, margin: '0 auto' }}>
+            <div style={{ fontSize: 48, marginBottom: 16 }}>🔍</div>
+            <div style={{ fontSize: 18, fontWeight: 700, color: C.ink, marginBottom: 8 }}>
+              Không tìm thấy CLB nào
+            </div>
+            <div style={{ fontSize: 14, color: C.inkMuted, marginBottom: 20 }}>
+              Thử tìm với từ khóa khác hoặc xóa bộ lọc.
+            </div>
+            <button
+              onClick={() => { setActiveCat('Tất cả'); setSearch('') }}
+              style={{
+                padding: '10px 20px', borderRadius: C.radiusPill,
+                background: C.ink, color: C.lemon, border: C.border,
+                fontSize: 14, fontWeight: 700, boxShadow: C.shadow(),
+                cursor: 'pointer', fontFamily: 'inherit',
+              }}
+            >Xóa bộ lọc</button>
+          </div>
+        </section>
+      )}
+
+      {/* ─── Marquee ──────────────────────────────────── */}
+      <Marquee tone="dark" items={marqueeItems} speed={35} />
+
+      <PublicFooter />
     </div>
-  );
+  )
 }

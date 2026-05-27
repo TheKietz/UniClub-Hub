@@ -16,7 +16,7 @@ type ApiResponse<T> = { data: T; success: boolean; message: string }
 // ── Tasks ─────────────────────────────────────────────────────────────────────
 
 export const getTasks = (params: {
-  clubId: number; status?: string; sprintId?: number; eventId?: number;
+  clubId: number; departmentId?: number; status?: string; sprintId?: number; eventId?: number;
   assignedTo?: string; parentId?: number;
   page?: number; pageSize?: number
 }) =>

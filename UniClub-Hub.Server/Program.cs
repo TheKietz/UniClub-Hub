@@ -103,8 +103,29 @@ builder
 
 builder.Services.AddAuthorization();
 builder.Services.AddHttpContextAccessor();
+
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = 429;
+
+    static System.Threading.RateLimiting.RateLimitPartition<string> ByIp(
+        Microsoft.AspNetCore.Http.HttpContext ctx, int permits, int windowSec) =>
+        System.Threading.RateLimiting.RateLimitPartition.GetFixedWindowLimiter(
+            ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
+            {
+                PermitLimit = permits,
+                Window = TimeSpan.FromSeconds(windowSec),
+                QueueLimit = 0,
+            });
+
+    options.AddPolicy("auth:login",      ctx => ByIp(ctx, 10, 60));
+    options.AddPolicy("auth:register",   ctx => ByIp(ctx, 5,  60));
+    options.AddPolicy("auth:forgot",     ctx => ByIp(ctx, 5,  60));
+    options.AddPolicy("auth:resend",     ctx => ByIp(ctx, 5,  60));
+});
 builder.Services.AddScoped<FileUploadHelper>();
-builder.Services.AddScoped<IEmailService, SmtpEmailService>();
+builder.Services.AddScoped<IEmailService, SendGridEmailService>();
 builder.Services.AddMembershipServices();
 builder.Services.AddOperationsServices();
 builder.Services.AddPortalServices();
@@ -138,6 +159,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseCors("AllowReactApp");
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();

@@ -14,7 +14,7 @@ namespace UniClub_Hub.Operations.Services.Implements
         {
             var query = db.Sprints
                 .AsNoTracking()
-                .Where(s => s.ClubId == clubId);
+                .Where(s => s.ClubId == clubId && s.IsDeleted == false);
 
             if (eventId.HasValue)
                 query = query.Where(s => s.EventId == eventId);

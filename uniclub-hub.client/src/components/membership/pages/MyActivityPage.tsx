@@ -5,16 +5,19 @@ import { getUserApplications, getUserResignations } from '@/components/membershi
 import type { ApplicationItem, ResignationRequestItem } from '@/components/membership/services/club.types'
 import { MEMBERSHIP_STATUS } from '@/types/auth'
 import { toast } from 'sonner'
-import {
-  CheckCircle2, Clock, XCircle, MessageCircle,
-  LogOut, ArrowRight, Users, AlertCircle, History, ChevronDown, ChevronUp,
-} from 'lucide-react'
+import { CheckCircle2, Clock, XCircle, MessageCircle, AlertCircle } from 'lucide-react'
 
-// ── Config ────────────────────────────────────────────────────────────────
+const D = {
+  border: '1.5px solid #15131a', borderLight: '1px solid #e8e3d6',
+  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 #15131a`,
+  radius: 14, pill: 999,
+  ink: '#15131a', inkDim: '#4a4651', inkMuted: '#918c99',
+  bg: '#f7f6f1', card: '#ffffff', indigo: '#4f46e5',
+}
 
 const APP_STATUS: Record<string, { label: string; bg: string; color: string; icon: React.ElementType }> = {
-  Pending:   { label: 'Chờ duyệt',   bg: '#fef3c7', color: '#b45309', icon: Clock },
-  Interview: { label: 'Phỏng vấn',   bg: '#dbeafe', color: '#1d4ed8', icon: MessageCircle },
+  Pending:   { label: 'Chờ duyệt',    bg: '#fef3c7', color: '#b45309', icon: Clock },
+  Interview: { label: 'Phỏng vấn',    bg: '#dbeafe', color: '#1d4ed8', icon: MessageCircle },
   Accepted:  { label: 'Đã chấp nhận', bg: '#dcfce7', color: '#15803d', icon: CheckCircle2 },
   Rejected:  { label: 'Từ chối',      bg: '#fee2e2', color: '#b91c1c', icon: XCircle },
 }
@@ -26,21 +29,20 @@ const RESIGN_STATUS: Record<string, { label: string; bg: string; color: string; 
 }
 
 const ROLE_LABEL: Record<string, string> = {
-  CLUB_ADMIN: 'Trưởng CLB',
-  DEPT_LEAD:  'Trưởng ban',
-  MEMBER:     'Thành viên',
+  CLUB_ADMIN: 'Trưởng CLB', DEPT_LEAD: 'Trưởng ban', MEMBER: 'Thành viên',
 }
 
 const MEMBERSHIP_LABEL: Record<string, { label: string; bg: string; color: string }> = {
-  Active:   { label: 'Thành viên chính thức', bg: '#f0fdf4', color: '#15803d' },
-  Probation:{ label: 'Đang thử việc',          bg: '#eff6ff', color: '#2563eb' },
-  Resigned: { label: 'Đã rời CLB',             bg: '#f3f4f6', color: '#6b7280' },
+  Active:    { label: 'Thành viên chính thức', bg: '#dcfce7', color: '#15803d' },
+  Probation: { label: 'Đang thử việc',         bg: '#dbeafe', color: '#1d4ed8' },
+  Resigned:  { label: 'Đã rời CLB',            bg: '#f3f4f6', color: '#6b7280' },
 }
 
 const TABS = ['CLB của tôi', 'Đơn ứng tuyển', 'Đơn từ chức'] as const
 type Tab = typeof TABS[number]
 
-// ── Component ─────────────────────────────────────────────────────────────
+const thS: React.CSSProperties = { padding: '10px 14px', textAlign: 'left', fontSize: 12, fontWeight: 700, color: D.inkMuted, letterSpacing: '.02em', whiteSpace: 'nowrap' }
+const tdS: React.CSSProperties = { padding: '12px 14px', fontSize: 13 }
 
 export default function MyActivityPage() {
   const { user } = useAuth()
@@ -54,228 +56,188 @@ export default function MyActivityPage() {
     if (!user) return
     if (tab === 'Đơn ứng tuyển' && applications.length === 0) {
       setLoading(true)
-      getUserApplications(user.id)
-        .then(setApplications)
-        .catch(() => toast.error('Không thể tải đơn ứng tuyển.'))
-        .finally(() => setLoading(false))
+      getUserApplications(user.id).then(setApplications).catch(() => toast.error('Không thể tải đơn ứng tuyển.')).finally(() => setLoading(false))
     }
     if (tab === 'Đơn từ chức' && resignations.length === 0) {
       setLoading(true)
-      getUserResignations(user.id)
-        .then(setResignations)
-        .catch(() => toast.error('Không thể tải đơn từ chức.'))
-        .finally(() => setLoading(false))
+      getUserResignations(user.id).then(setResignations).catch(() => toast.error('Không thể tải đơn từ chức.')).finally(() => setLoading(false))
     }
   }, [tab, user])
 
   const memberships = user?.memberships ?? []
   const activeMemberships = memberships.filter(m => m.status === MEMBERSHIP_STATUS.ACTIVE || m.status === MEMBERSHIP_STATUS.PROBATION)
   const historicMemberships = memberships.filter(m => m.status === MEMBERSHIP_STATUS.RESIGNED)
-  const activeCount = activeMemberships.length
+
+  const tabCount = (t: Tab) => t === 'CLB của tôi' ? activeMemberships.length : t === 'Đơn ứng tuyển' ? applications.length : resignations.length
 
   return (
-    <div className="px-8 pt-6 pb-8 space-y-5">
-      {/* Header */}
-      <div>
-        <h1 className="text-xl font-bold text-gray-900">Hoạt động của tôi</h1>
-        <p className="text-sm text-gray-400 mt-0.5">Quản lý CLB, đơn ứng tuyển và đơn từ chức</p>
+    <div style={{ padding: '28px 32px', minHeight: '100%', background: D.bg, fontFamily: "'Be Vietnam Pro', sans-serif" }}>
+      <div style={{ marginBottom: 24 }}>
+        <h1 style={{ fontSize: 24, fontWeight: 900, color: D.ink, letterSpacing: '-.025em', margin: 0 }}>Hoạt động của tôi</h1>
+        <p style={{ fontSize: 13, color: D.inkMuted, marginTop: 4 }}>Quản lý CLB, đơn ứng tuyển và đơn từ chức</p>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1.5 border-b border-gray-200">
+      <div style={{ display: 'flex', gap: 6, marginBottom: 20, flexWrap: 'wrap' }}>
         {TABS.map(t => {
-          const count = t === 'CLB của tôi' ? activeCount
-            : t === 'Đơn ứng tuyển' ? applications.length
-            : resignations.length
+          const active = tab === t
+          const c = tabCount(t)
           return (
-            <button key={t} onClick={() => setTab(t)}
-              className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors flex items-center gap-1.5 ${
-                tab === t
-                  ? 'border-indigo-600 text-indigo-700'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-              }`}>
+            <button key={t} onClick={() => setTab(t)} style={{
+              padding: '7px 14px', borderRadius: D.pill,
+              background: active ? D.ink : D.card, color: active ? '#facc15' : D.ink,
+              border: D.border, boxShadow: active ? 'none' : D.shadow(2, 2),
+              transform: active ? 'translate(2px,2px)' : 'none',
+              fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+              display: 'flex', alignItems: 'center', gap: 6, transition: 'all .12s',
+            }}>
               {t}
-              {count > 0 && (
-                <span className={`text-xs px-1.5 py-0.5 rounded-full font-semibold ${
-                  tab === t ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-100 text-gray-500'
-                }`}>{count}</span>
-              )}
+              {c > 0 && <span style={{ padding: '1px 6px', borderRadius: D.pill, fontSize: 10, fontWeight: 800, background: active ? 'rgba(255,255,255,.2)' : D.bg, color: active ? '#facc15' : D.inkMuted }}>{c}</span>}
             </button>
           )
         })}
       </div>
 
-      {/* ── Tab: CLB của tôi ── */}
+      {/* CLB của tôi */}
       {tab === 'CLB của tôi' && (
-        <div className="space-y-3">
-          {activeMemberships.length === 0 && historicMemberships.length === 0 ? (
-            <EmptyState icon={Users} text="Bạn chưa tham gia CLB nào." />
-          ) : (
-            <>
-              {/* Active / Probation */}
-              {activeMemberships.length === 0 ? (
-                <div className="text-sm text-gray-400 text-center py-4">Bạn chưa là thành viên CLB nào.</div>
-              ) : activeMemberships.map(m => {
-                const st = MEMBERSHIP_LABEL[m.status] ?? MEMBERSHIP_LABEL.Active
-                return (
-                  <div key={`${m.clubId}-${m.status}`}
-                    className="bg-white rounded-xl border border-gray-200 px-5 py-4 flex items-center justify-between gap-4">
-                    <div className="min-w-0">
-                      <p className="font-semibold text-gray-900 text-sm truncate">{m.clubName}</p>
-                      <p className="text-xs text-gray-400 mt-0.5">
-                        {ROLE_LABEL[m.clubRole] ?? m.clubRole}
-                        {' · '}Tham gia {new Date(m.joinedDate).toLocaleDateString('vi-VN')}
+        activeMemberships.length === 0 && historicMemberships.length === 0
+          ? <EmptyCard text="Bạn chưa tham gia CLB nào." />
+          : <>
+            {activeMemberships.map(m => {
+              const st = MEMBERSHIP_LABEL[m.status] ?? MEMBERSHIP_LABEL.Active
+              return (
+                <div key={`${m.clubId}-${m.status}`} style={{ background: D.card, border: D.border, borderRadius: D.radius, boxShadow: D.shadow(), padding: '16px 18px', marginBottom: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                  <div style={{ minWidth: 0 }}>
+                    <p style={{ fontWeight: 700, color: D.ink, fontSize: 14, margin: 0 }}>{m.clubName}</p>
+                    <p style={{ fontSize: 12, color: D.inkMuted, marginTop: 2 }}>
+                      {ROLE_LABEL[m.clubRole] ?? m.clubRole} · Tham gia {new Date(m.joinedDate).toLocaleDateString('vi-VN')}
+                    </p>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: D.pill, background: st.bg, color: st.color }}>{st.label}</span>
+                    <Link to={`/clubs/${m.clubId}`} style={{ fontSize: 12, color: D.indigo, fontWeight: 600, textDecoration: 'none' }}>Xem →</Link>
+                  </div>
+                </div>
+              )
+            })}
+
+            {historicMemberships.length > 0 && (
+              <div style={{ marginTop: 8 }}>
+                <button onClick={() => setHistoryOpen(v => !v)} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: D.inkMuted, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', marginBottom: 10 }}>
+                  ◎ Lịch sử tham gia ({historicMemberships.length}) {historyOpen ? '▲' : '▼'}
+                </button>
+                {historyOpen && historicMemberships.map((m, i) => (
+                  <div key={`${m.clubId}-resigned-${i}`} style={{ background: D.bg, border: D.borderLight, borderRadius: 10, padding: '12px 16px', marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, opacity: 0.8 }}>
+                    <div>
+                      <p style={{ fontWeight: 600, color: D.inkDim, fontSize: 13, margin: 0 }}>{m.clubName}</p>
+                      <p style={{ fontSize: 11, color: D.inkMuted, marginTop: 2 }}>
+                        {ROLE_LABEL[m.clubRole] ?? m.clubRole} · {new Date(m.joinedDate).toLocaleDateString('vi-VN')}
+                        {m.resignedDate && ` → ${new Date(m.resignedDate).toLocaleDateString('vi-VN')}`}
                       </p>
                     </div>
-                    <div className="flex items-center gap-3 flex-shrink-0">
-                      <span className="text-xs px-2.5 py-1 rounded-full font-medium"
-                        style={{ background: st.bg, color: st.color }}>{st.label}</span>
-                      <Link to={`/clubs/${m.clubId}`}
-                        className="text-xs text-indigo-600 hover:text-indigo-700 flex items-center gap-1">
-                        Xem <ArrowRight size={12} />
-                      </Link>
-                    </div>
+                    <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: D.pill, background: '#f3f4f6', color: '#6b7280', flexShrink: 0 }}>Đã rời CLB</span>
                   </div>
-                )
-              })}
-
-              {/* Lịch sử rời CLB */}
-              {historicMemberships.length > 0 && (
-                <div className="pt-1">
-                  <button
-                    onClick={() => setHistoryOpen(v => !v)}
-                    className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700 font-medium mb-2 transition-colors">
-                    <History size={15} />
-                    Lịch sử tham gia ({historicMemberships.length})
-                    {historyOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                  </button>
-                  {historyOpen && (
-                    <div className="space-y-2 pl-1 border-l-2 border-gray-100 ml-1">
-                      {historicMemberships.map((m, i) => (
-                        <div key={`${m.clubId}-resigned-${i}`}
-                          className="bg-gray-50 rounded-lg border border-gray-200 px-4 py-3 flex items-center justify-between gap-4">
-                          <div className="min-w-0">
-                            <p className="font-medium text-gray-700 text-sm truncate">{m.clubName}</p>
-                            <p className="text-xs text-gray-400 mt-0.5">
-                              {ROLE_LABEL[m.clubRole] ?? m.clubRole}
-                              {' · '}Tham gia {new Date(m.joinedDate).toLocaleDateString('vi-VN')}
-                              {m.resignedDate && ` → Rời ${new Date(m.resignedDate).toLocaleDateString('vi-VN')}`}
-                            </p>
-                          </div>
-                          <span className="text-xs px-2.5 py-1 rounded-full font-medium flex-shrink-0"
-                            style={{ background: MEMBERSHIP_LABEL.Resigned.bg, color: MEMBERSHIP_LABEL.Resigned.color }}>
-                            Đã rời CLB
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-            </>
-          )}
-        </div>
+                ))}
+              </div>
+            )}
+          </>
       )}
 
-      {/* ── Tab: Đơn ứng tuyển ── */}
+      {/* Đơn ứng tuyển */}
       {tab === 'Đơn ứng tuyển' && (
-        <div className="space-y-3">
-          {loading ? <LoadingRow /> : applications.length === 0 ? (
-            <EmptyState icon={CheckCircle2} text="Bạn chưa nộp đơn ứng tuyển CLB nào." />
-          ) : applications.map(app => {
-            const s = APP_STATUS[app.status]
-            const Icon = s?.icon ?? Clock
-            return (
-              <div key={app.id} className="bg-white rounded-xl border border-gray-200 px-5 py-4">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="min-w-0">
-                    <Link to={`/clubs/${app.clubId}`}
-                      className="font-semibold text-sm text-gray-900 hover:text-indigo-600 transition-colors">
-                      {app.clubName}
-                    </Link>
-                    <p className="text-xs text-gray-400 mt-0.5">
-                      Nộp {new Date(app.appliedAt).toLocaleDateString('vi-VN')}
-                    </p>
-                  </div>
-                  {s && (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold flex-shrink-0"
-                      style={{ background: s.bg, color: s.color }}>
-                      <Icon size={11} />{s.label}
-                    </span>
-                  )}
-                </div>
-                {app.reviewNote && (
-                  <div className="mt-3 bg-gray-50 rounded-lg px-3 py-2.5 text-sm text-gray-700 whitespace-pre-wrap">
-                    <p className="text-xs text-gray-400 mb-1 font-medium">Phản hồi từ CLB</p>
-                    {app.reviewNote}
-                  </div>
-                )}
-              </div>
-            )
-          })}
-        </div>
+        loading ? <LoadingCard /> : applications.length === 0
+          ? <EmptyCard text="Bạn chưa nộp đơn ứng tuyển CLB nào." />
+          : <div style={{ borderRadius: D.radius, overflow: 'hidden', background: D.card, border: D.border, boxShadow: D.shadow() }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+              <thead>
+                <tr style={{ background: D.bg, borderBottom: D.borderLight }}>
+                  <th style={thS}>Câu lạc bộ</th>
+                  <th style={thS}>Ngày nộp</th>
+                  <th style={thS}>Trạng thái</th>
+                  <th style={thS}>Phản hồi</th>
+                </tr>
+              </thead>
+              <tbody>
+                {applications.map(app => {
+                  const s = APP_STATUS[app.status]
+                  const Icon = s?.icon ?? Clock
+                  return (
+                    <tr key={app.id} style={{ borderBottom: D.borderLight }}>
+                      <td style={{ ...tdS, fontWeight: 700, color: D.ink }}>
+                        <Link to={`/clubs/${app.clubId}`} style={{ color: D.indigo, textDecoration: 'none' }}>{app.clubName}</Link>
+                      </td>
+                      <td style={{ ...tdS, color: D.inkMuted }}>{new Date(app.appliedAt).toLocaleDateString('vi-VN')}</td>
+                      <td style={tdS}>
+                        {s && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: D.pill, background: s.bg, color: s.color, fontSize: 11.5, fontWeight: 700 }}><Icon size={10} />{s.label}</span>}
+                      </td>
+                      <td style={{ ...tdS, color: D.inkDim, fontSize: 12 }}>{app.reviewNote ?? '—'}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
       )}
 
-      {/* ── Tab: Đơn từ chức ── */}
+      {/* Đơn từ chức */}
       {tab === 'Đơn từ chức' && (
-        <div className="space-y-3">
-          {loading ? <LoadingRow /> : resignations.length === 0 ? (
-            <EmptyState icon={LogOut} text="Bạn chưa gửi đơn từ chức nào." />
-          ) : resignations.map(r => {
-            const s = RESIGN_STATUS[r.status]
-            const Icon = s?.icon ?? Clock
-            return (
-              <div key={r.id} className="bg-white rounded-xl border border-gray-200 px-5 py-4">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="min-w-0">
-                    <Link to={`/clubs/${r.clubId}`}
-                      className="font-semibold text-sm text-gray-900 hover:text-indigo-600 transition-colors">
-                      {r.clubName}
-                    </Link>
-                    <p className="text-xs text-gray-400 mt-0.5">
-                      {ROLE_LABEL[r.clubRole] ?? r.clubRole} · {r.preference === 'LeaveClub' ? 'Rời CLB hoàn toàn' : 'Trở thành thành viên thường'} · {new Date(r.requestedAt).toLocaleDateString('vi-VN')}
-                    </p>
-                  </div>
-                  {s && (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold flex-shrink-0"
-                      style={{ background: s.bg, color: s.color }}>
-                      <Icon size={11} />{s.label}
-                    </span>
-                  )}
-                </div>
-                {r.status === 'Pending' && (
-                  <div className="mt-3 flex items-center gap-1.5 text-xs text-amber-600">
-                    <AlertCircle size={13} />
-                    Đang chờ {r.clubRole === 'CLUB_ADMIN' ? 'Ban quản trị' : 'Trưởng CLB'} phê duyệt
-                  </div>
-                )}
-                {r.reviewNote && (
-                  <div className="mt-3 bg-gray-50 rounded-lg px-3 py-2.5 text-sm text-gray-700">
-                    <p className="text-xs text-gray-400 mb-1 font-medium">Phản hồi</p>
-                    {r.reviewNote}
-                  </div>
-                )}
-              </div>
-            )
-          })}
-        </div>
+        loading ? <LoadingCard /> : resignations.length === 0
+          ? <EmptyCard text="Bạn chưa gửi đơn từ chức nào." />
+          : <div style={{ borderRadius: D.radius, overflow: 'hidden', background: D.card, border: D.border, boxShadow: D.shadow() }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+              <thead>
+                <tr style={{ background: D.bg, borderBottom: D.borderLight }}>
+                  <th style={thS}>Câu lạc bộ</th>
+                  <th style={thS}>Vai trò</th>
+                  <th style={thS}>Hình thức</th>
+                  <th style={thS}>Ngày gửi</th>
+                  <th style={thS}>Trạng thái</th>
+                </tr>
+              </thead>
+              <tbody>
+                {resignations.map(r => {
+                  const s = RESIGN_STATUS[r.status]
+                  const Icon = s?.icon ?? Clock
+                  return (
+                    <tr key={r.id} style={{ borderBottom: D.borderLight }}>
+                      <td style={{ ...tdS, fontWeight: 700, color: D.ink }}>
+                        <Link to={`/clubs/${r.clubId}`} style={{ color: D.indigo, textDecoration: 'none' }}>{r.clubName}</Link>
+                      </td>
+                      <td style={{ ...tdS, color: D.inkDim }}>{ROLE_LABEL[r.clubRole] ?? r.clubRole}</td>
+                      <td style={{ ...tdS, color: D.inkDim }}>{r.preference === 'LeaveClub' ? 'Rời CLB hoàn toàn' : 'Trở thành thành viên thường'}</td>
+                      <td style={{ ...tdS, color: D.inkMuted }}>{new Date(r.requestedAt).toLocaleDateString('vi-VN')}</td>
+                      <td style={tdS}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                          {s && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: D.pill, background: s.bg, color: s.color, fontSize: 11.5, fontWeight: 700 }}><Icon size={10} />{s.label}</span>}
+                          {r.status === 'Pending' && (
+                            <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#b45309' }}>
+                              <AlertCircle size={11} />Chờ {r.clubRole === 'CLUB_ADMIN' ? 'Ban quản trị' : 'Trưởng CLB'} duyệt
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
       )}
     </div>
   )
 }
 
-function EmptyState({ icon: Icon, text }: { icon: React.ElementType; text: string }) {
+function EmptyCard({ text }: { text: string }) {
   return (
-    <div className="bg-white rounded-xl border border-gray-200 py-16 flex flex-col items-center gap-2 text-gray-400">
-      <Icon size={32} className="text-gray-200" />
-      <p className="text-sm">{text}</p>
+    <div style={{ background: '#fff', border: '1.5px solid #15131a', borderRadius: 14, padding: '48px 20px', textAlign: 'center', color: '#918c99', fontSize: 13, boxShadow: '3px 3px 0 #15131a' }}>
+      {text}
     </div>
   )
 }
 
-function LoadingRow() {
+function LoadingCard() {
   return (
-    <div className="bg-white rounded-xl border border-gray-200 py-16 text-center text-sm text-gray-400">
+    <div style={{ background: '#fff', border: '1.5px solid #15131a', borderRadius: 14, padding: '48px 20px', textAlign: 'center', color: '#918c99', fontSize: 13 }}>
       Đang tải...
     </div>
   )

@@ -61,6 +61,11 @@ namespace UniClub_Hub.Membership.Services.Implements
             };
         }
 
+        public async Task<int> GetUnreadCountAsync(string userId)
+        {
+            return await _db.Notifications.CountAsync(n => n.UserId == userId && !n.IsRead);
+        }
+
         public async Task MarkAsReadAsync(int id, string userId)
         {
             var notification = await _db.Notifications

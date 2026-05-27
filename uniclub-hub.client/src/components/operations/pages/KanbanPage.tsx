@@ -9,12 +9,13 @@ import { Button } from "@/components/ui/button";
 import KanbanColumn from "../components/kanban/KanbanColumn";
 import TaskDetailModal from "../components/task/TaskDetailModal";
 import {
-  getTasks, updateTaskStatus, getSprints,
+  updateTaskStatus, getSprints,
   getKanbanColumns, createKanbanColumn, updateKanbanColumn, deleteKanbanColumn,
 } from "../services/operationsApi";
 import type { TaskItem, KanbanColumnItem, SprintItem, SprintStatus } from "../services/operations.types";
 import { createKanbanConnection } from "@/lib/kanbanHub";
 import { SIGNALR_EVENTS, HUB_METHODS } from "@/lib/signalrEvents";
+import { useTasks } from "../context/TasksContext";
 
 // ── Background presets ────────────────────────────────────────────────────────
 
@@ -141,7 +142,7 @@ export default function KanbanPage() {
   const { clubId: clubIdParam } = useParams<{ clubId: string }>();
   const clubId = Number(clubIdParam ?? 1);
 
-  const [tasks, setTasks] = useState<TaskItem[]>([]);
+  const { tasks: allTasks, patchTask, addTask, removeTask, reloadTasks } = useTasks();
   const [columns, setColumns] = useState<KanbanColumnItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -152,6 +153,7 @@ export default function KanbanPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editTask, setEditTask] = useState<TaskItem | null>(null);
   const [defaultColumnId, setDefaultColumnId] = useState<number | undefined>(undefined);
+  const [defaultSprintId, setDefaultSprintId] = useState<number | undefined>(undefined);
 
   const [addingColumn, setAddingColumn] = useState(false);
   const [newColName, setNewColName] = useState("");
@@ -285,14 +287,15 @@ export default function KanbanPage() {
   };
 
   // ── Data loading ──────────────────────────────────────────────────────────────
+  // Never show backlog tasks (sprintId = null) on the Kanban board
+  const tasks = selectedSprintId
+    ? allTasks.filter(t => t.sprintId === selectedSprintId)
+    : allTasks.filter(t => t.sprintId != null);
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [taskResult, cols] = await Promise.all([
-        getTasks({ clubId, sprintId: selectedSprintId ?? undefined, pageSize: 200 }),
-        getKanbanColumns(clubId, selectedSprintId ?? undefined),
-      ]);
-      setTasks(taskResult.items);
+      const cols = await getKanbanColumns(clubId, selectedSprintId ?? undefined);
       setColumns(cols);
     } catch { toast.error("Không thể tải dữ liệu"); }
     finally { setLoading(false); }
@@ -301,17 +304,19 @@ export default function KanbanPage() {
   useEffect(() => { load(); }, [load, refreshKey]);
 
   useEffect(() => {
-    getSprints({ clubId, pageSize: 100 }).then(r => setSprints(r.items)).catch(() => {});
+    getSprints({ clubId, pageSize: 100 }).then(r => {
+      setSprints(r.items);
+      // Auto-select the sole active sprint so the board defaults to it
+      const active = r.items.filter(s => s.status === 'Active');
+      if (active.length === 1) setSelectedSprintId(active[0].id);
+    }).catch(() => {});
   }, [clubId]);
 
   useEffect(() => {
     const conn = createKanbanConnection();
-    conn.on(SIGNALR_EVENTS.TASK_STATUS_UPDATED, (u: TaskItem) =>
-      setTasks(prev => prev.map(t => t.id === u.id ? u : t)));
-    conn.on(SIGNALR_EVENTS.TASK_CREATED, (c: TaskItem) =>
-      setTasks(prev => [...prev, c]));
-    conn.on(SIGNALR_EVENTS.TASK_DELETED, (id: number) =>
-      setTasks(prev => prev.filter(t => t.id !== id)));
+    conn.on(SIGNALR_EVENTS.TASK_STATUS_UPDATED, (u: TaskItem) => patchTask(u));
+    conn.on(SIGNALR_EVENTS.TASK_CREATED,        (c: TaskItem) => addTask(c));
+    conn.on(SIGNALR_EVENTS.TASK_DELETED,        (id: number)  => removeTask(id));
     conn.start().then(() => conn.invoke(HUB_METHODS.JOIN_CLUB, clubId)).catch(() => {});
     return () => { conn.invoke(HUB_METHODS.LEAVE_CLUB, clubId).catch(() => {}); conn.stop(); };
   }, [clubId]);
@@ -342,15 +347,37 @@ export default function KanbanPage() {
       toast.error(`Bị chặn bởi ${task.blockingCount} công việc chưa hoàn thành`); return;
     }
     const progress = newStatus === "Done" ? 100 : newStatus === "Doing" ? Math.max(task.progress, 10) : task.progress;
-    setTasks(prev => prev.map(t => t.id === task.id ? { ...t, kanbanColumnId: targetColId, status: newStatus } : t));
+    patchTask({ ...task, kanbanColumnId: targetColId, status: newStatus });
     try {
       const updated = await updateTaskStatus(task.id, { status: newStatus, progress, kanbanColumnId: targetColId });
-      setTasks(prev => prev.map(t => t.id === updated.id ? updated : t));
-    } catch { toast.error("Không thể cập nhật trạng thái"); load(); }
+      patchTask(updated);
+    } catch { toast.error("Không thể cập nhật trạng thái"); reloadTasks(); }
   };
 
-  const openCreate = (columnId?: number) => { setEditTask(null); setDefaultColumnId(columnId); setModalOpen(true); };
-  const openEdit = (task: TaskItem) => { setEditTask(task); setDefaultColumnId(undefined); setModalOpen(true); };
+  const openCreate = (columnId?: number) => {
+    const activeSprints = sprints.filter(s => s.status === 'Active');
+
+    let sprintForNew: number | undefined;
+    if (selectedSprintId != null) {
+      // User already scoped the board to a specific sprint — create inside it
+      sprintForNew = selectedSprintId;
+    } else if (activeSprints.length === 0) {
+      toast.error('Chưa có sprint nào đang chạy. Vui lòng khởi động sprint trước khi tạo công việc.');
+      return;
+    } else if (activeSprints.length === 1) {
+      sprintForNew = activeSprints[0].id;
+    } else {
+      // Multiple active sprints — task goes to backlog; user drags it later
+      toast.info('Có nhiều sprint đang chạy. Task mới sẽ vào Backlog — hãy kéo sang sprint phù hợp.');
+      sprintForNew = undefined;
+    }
+
+    setEditTask(null);
+    setDefaultColumnId(columnId);
+    setDefaultSprintId(sprintForNew);
+    setModalOpen(true);
+  };
+  const openEdit = (task: TaskItem) => { setEditTask(task); setDefaultColumnId(undefined); setDefaultSprintId(undefined); setModalOpen(true); };
 
   const handleRename = async (id: number, newName: string) => {
     const col = columns.find(c => c.id === id);
@@ -430,7 +457,7 @@ export default function KanbanPage() {
               variant="outline"
               size="sm"
               className={activeBg.isDark ? "border-white/30 text-white bg-white/10 hover:bg-white/20" : ""}
-              onClick={() => setRefreshKey(k => k + 1)}
+              onClick={() => { reloadTasks(); setRefreshKey(k => k + 1); }}
               disabled={loading}
             >
               <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
@@ -713,9 +740,10 @@ export default function KanbanPage() {
         task={editTask}
         open={modalOpen}
         defaultColumnId={defaultColumnId}
+        defaultSprintId={defaultSprintId}
         columns={columns}
         onClose={() => setModalOpen(false)}
-        onSaved={() => setRefreshKey(k => k + 1)}
+        onSaved={() => { reloadTasks(); setRefreshKey(k => k + 1); }}
       />
     </div>
   );

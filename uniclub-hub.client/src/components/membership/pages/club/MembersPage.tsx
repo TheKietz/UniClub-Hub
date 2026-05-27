@@ -1,17 +1,35 @@
 import { useEffect, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { getClubMembers, addMember, updateMember, removeMember, getDepartments } from '@/components/membership/services/clubApi'
-import type { MemberItem, DepartmentItem } from '@/components/membership/services/club.types'
+import { getClubMembers, addMember, updateMember, removeMember, getDepartments, getMemberFieldSchema, updateMemberCustomData } from '@/components/membership/services/clubApi'
+import type { MemberItem, DepartmentItem, MemberFieldDef } from '@/components/membership/services/club.types'
 import { CLUB_ROLES, MEMBERSHIP_STATUS } from '@/types/auth'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { toast } from 'sonner'
-import { Plus, Search, Pencil, Trash2, Download, ShieldCheck, Upload, FileSpreadsheet, CheckCircle2, XCircle, AlertCircle, ArrowUpDown, X, AlertTriangle } from 'lucide-react'
 import api from '@/lib/axiosInstance'
+import { Pencil, X } from 'lucide-react'
+import { FilterSelect } from '@/components/shared/FilterSelect'
+import { Tooltip } from '@/components/shared/Tooltip'
+import { LoadMoreBar } from '@/components/shared/LoadMoreBar'
+
+const PAGE_SIZE = 20
+
+const D = {
+  border: '1.5px solid #15131a',
+  borderLight: '1px solid #e8e3d6',
+  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 #15131a`,
+  radius: 14,
+  pill: 999,
+  ink: '#15131a',
+  inkDim: '#4a4651',
+  inkMuted: '#918c99',
+  bg: '#f7f6f1',
+  card: '#ffffff',
+  indigo: '#4f46e5',
+  emerald: '#10b981',
+  amber: '#f59e0b',
+  red: '#ef4444',
+}
 
 const ROLE_LABELS: Record<string, string> = {
   CLUB_ADMIN: 'Ban chủ nhiệm',
@@ -19,26 +37,34 @@ const ROLE_LABELS: Record<string, string> = {
   MEMBER: 'Thành viên',
 }
 
-const ROLE_BADGE: Record<string, { bg: string; text: string }> = {
-  CLUB_ADMIN: { bg: '#ede9fe', text: '#6d28d9' },
-  DEPT_LEAD: { bg: '#dbeafe', text: '#1d4ed8' },
-  MEMBER: { bg: '#f0fdf4', text: '#16a34a' },
+const ROLE_STYLE: Record<string, { bg: string; color: string }> = {
+  CLUB_ADMIN: { bg: '#ede9fe', color: '#5b21b6' },
+  DEPT_LEAD:  { bg: '#dbeafe', color: '#1e40af' },
+  MEMBER:     { bg: '#d1fae5', color: '#065f46' },
 }
+
+const AVATAR_COLORS = ['#4f46e5', '#7c3aed', '#ec4899', '#f59e0b', '#10b981', '#3b82f6']
 
 function Avatar({ name }: { name: string }) {
   const initials = name.split(' ').slice(-2).map(w => w[0]).join('').toUpperCase()
-  const colors = ['#6366f1', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#3b82f6']
-  const color = colors[name.charCodeAt(0) % colors.length]
+  const bg = AVATAR_COLORS[name.charCodeAt(0) % AVATAR_COLORS.length]
   return (
-    <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-semibold flex-shrink-0"
-      style={{ background: color }}>
+    <div style={{ width: 32, height: 32, borderRadius: '50%', background: bg, border: D.border, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, flexShrink: 0 }}>
       {initials}
     </div>
   )
 }
 
+const inputStyle: React.CSSProperties = {
+  width: '100%', height: 36, borderRadius: 8, border: '1px solid #e8e3d6',
+  padding: '0 12px', fontSize: 13, color: '#15131a', outline: 'none',
+  background: '#f7f6f1', fontFamily: 'inherit', boxSizing: 'border-box',
+}
+const labelStyle: React.CSSProperties = { fontSize: 12, fontWeight: 700, color: '#4a4651', display: 'block', marginBottom: 4 }
+const selectStyle: React.CSSProperties = { ...inputStyle, height: 36, cursor: 'pointer' }
+
 type AddForm = { userId: string; clubRole: string; departmentId: string }
-type EditForm = { clubRole: string; departmentId: string }
+type EditForm = { clubRole: string; departmentId: string; customData: Record<string, string> }
 
 export default function MembersPage() {
   const { clubId } = useParams<{ clubId: string }>()
@@ -46,6 +72,7 @@ export default function MembersPage() {
 
   const [members, setMembers] = useState<MemberItem[]>([])
   const [departments, setDepartments] = useState<DepartmentItem[]>([])
+  const [fieldSchema, setFieldSchema] = useState<MemberFieldDef[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshKey, setRefreshKey] = useState(0)
 
@@ -54,7 +81,7 @@ export default function MembersPage() {
   const [saving, setSaving] = useState(false)
 
   const [editTarget, setEditTarget] = useState<MemberItem | null>(null)
-  const [editForm, setEditForm] = useState<EditForm>({ clubRole: CLUB_ROLES.MEMBER, departmentId: '' })
+  const [editForm, setEditForm] = useState<EditForm>({ clubRole: CLUB_ROLES.MEMBER, departmentId: '', customData: {} })
 
   const [removeTarget, setRemoveTarget] = useState<MemberItem | null>(null)
   const [search, setSearch] = useState('')
@@ -63,6 +90,8 @@ export default function MembersPage() {
   const [deptFilter, setDeptFilter] = useState('')
   const [sortBy, setSortBy] = useState<'name' | 'joinedDate' | 'role'>('name')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
+  const [hoverRow, setHoverRow] = useState<number | null>(null)
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
 
   // Import state
   const [importOpen, setImportOpen] = useState(false)
@@ -74,7 +103,6 @@ export default function MembersPage() {
   const [importing, setImporting] = useState(false)
   const importFileRef = useRef<HTMLInputElement>(null)
 
-  // Modal xử lý trưởng CLB duy nhất
   type LastAdminModal = { action: 'remove' | 'update'; membershipId: number; memberName: string; updateDto?: EditForm }
   const [lastAdminModal, setLastAdminModal] = useState<LastAdminModal | null>(null)
   const [replacementId, setReplacementId] = useState('')
@@ -82,8 +110,8 @@ export default function MembersPage() {
 
   useEffect(() => {
     setLoading(true)
-    Promise.all([getClubMembers(id), getDepartments(id)])
-      .then(([m, d]) => { setMembers(m); setDepartments(d) })
+    Promise.all([getClubMembers(id), getDepartments(id), getMemberFieldSchema(id)])
+      .then(([m, d, fs]) => { setMembers(m); setDepartments(d); setFieldSchema(fs) })
       .catch(() => toast.error('Không thể tải danh sách thành viên.'))
       .finally(() => setLoading(false))
   }, [id, refreshKey])
@@ -117,7 +145,9 @@ export default function MembersPage() {
 
   function openEdit(member: MemberItem) {
     setEditTarget(member)
-    setEditForm({ clubRole: member.clubRole, departmentId: member.departmentId?.toString() ?? '' })
+    const existingData: Record<string, string> = {}
+    fieldSchema.forEach(f => { existingData[f.id] = member.customData?.[f.id] ?? '' })
+    setEditForm({ clubRole: member.clubRole, departmentId: member.departmentId?.toString() ?? '', customData: existingData })
   }
 
   async function handleEdit(e: { preventDefault(): void }) {
@@ -129,7 +159,12 @@ export default function MembersPage() {
         clubRole: editForm.clubRole,
         departmentId: editForm.departmentId ? Number(editForm.departmentId) : undefined,
       })
-      toast.success('Đã cập nhật vai trò.')
+      if (fieldSchema.length > 0) {
+        const customDataPayload: Record<string, string | null> = {}
+        fieldSchema.forEach(f => { customDataPayload[f.id] = editForm.customData[f.id] || null })
+        await updateMemberCustomData(id, editTarget.id, customDataPayload)
+      }
+      toast.success('Đã cập nhật thông tin thành viên.')
       setEditTarget(null)
       setRefreshKey(k => k + 1)
     } catch (err: any) {
@@ -221,11 +256,9 @@ export default function MembersPage() {
     if (!lastAdminModal) return
     setForceLoading(true)
     try {
-      // Bổ nhiệm người thay thế trước (nếu có chọn)
       if (replacementId) {
         await updateMember(id, Number(replacementId), { clubRole: CLUB_ROLES.CLUB_ADMIN })
       }
-      // Thực hiện action gốc — nếu đã có người thay thì guard tự pass, không cần force
       const force = !replacementId
       if (lastAdminModal.action === 'remove') {
         await removeMember(id, lastAdminModal.membershipId, force)
@@ -247,19 +280,6 @@ export default function MembersPage() {
     }
   }
 
-  const roleSelect = (value: string, onChange: (e: { target: { value: string } }) => void) => (
-    <select value={value} onChange={onChange} className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background">
-      {Object.entries(ROLE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-    </select>
-  )
-
-  const deptSelect = (value: string, onChange: (e: { target: { value: string } }) => void) => (
-    <select value={value} onChange={onChange} className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background">
-      <option value="">— Không thuộc ban nào —</option>
-      {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-    </select>
-  )
-
   async function handleExport(format: 'xlsx' | 'csv') {
     try {
       const res = await api.get(`/clubs/${id}/members/export?format=${format}`, { responseType: 'blob' })
@@ -273,6 +293,9 @@ export default function MembersPage() {
       toast.error('Xuất dữ liệu thất bại.')
     }
   }
+
+  // reset khi filter thay đổi
+  useEffect(() => setVisibleCount(PAGE_SIZE), [search, roleFilter, statusFilter, deptFilter, sortBy, sortDir])
 
   const hasFilter = !!(search || roleFilter || statusFilter || deptFilter)
 
@@ -297,214 +320,243 @@ export default function MembersPage() {
       return sortDir === 'asc' ? cmp : -cmp
     })
 
-  function toggleSort(col: typeof sortBy) {
-    if (sortBy === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
-    else { setSortBy(col); setSortDir('asc') }
-  }
-
-  function clearFilters() {
-    setSearch(''); setRoleFilter(''); setStatusFilter(''); setDeptFilter('')
-  }
+  function clearFilters() { setSearch(''); setRoleFilter(''); setStatusFilter(''); setDeptFilter('') }
 
   return (
-    <div className="px-8 pt-4 pb-8 space-y-4">
+    <div style={{ padding: '28px 32px', minHeight: '100%', background: D.bg, fontFamily: "'Be Vietnam Pro', sans-serif" }}>
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20, gap: 16 }}>
         <div>
-          <h1 className="text-xl font-bold" style={{ color: '#0f172a' }}>Quản lý thành viên</h1>
-          <p className="text-sm text-gray-400 mt-0.5">{members.length} thành viên trong CLB</p>
+          <h1 style={{ fontSize: 24, fontWeight: 900, color: D.ink, letterSpacing: '-.025em', margin: 0 }}>Quản lý thành viên</h1>
+          <p style={{ fontSize: 13, color: D.inkMuted, marginTop: 4 }}>{members.length} thành viên trong CLB</p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => handleExport('xlsx')} className="gap-1.5 text-gray-600">
-            <Download size={14} /> Excel
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => handleExport('csv')} className="gap-1.5 text-gray-600">
-            <Download size={14} /> CSV
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => { setImportOpen(true); setImportStep('upload') }}
-            className="gap-1.5 border-emerald-300 text-emerald-700 hover:bg-emerald-50">
-            <Upload size={14} /> Import
-          </Button>
-          <Button onClick={() => setAddOpen(true)} className="gap-1.5 bg-indigo-600 hover:bg-indigo-700">
-            <Plus size={16} /> Thêm thành viên
-          </Button>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button onClick={() => handleExport('xlsx')}
+            style={{ background: D.card, color: D.inkDim, border: D.border, boxShadow: D.shadow(2,2), padding: '8px 14px', borderRadius: D.pill, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+            ↓ Excel
+          </button>
+          <button onClick={() => handleExport('csv')}
+            style={{ background: D.card, color: D.inkDim, border: D.border, boxShadow: D.shadow(2,2), padding: '8px 14px', borderRadius: D.pill, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+            ↓ CSV
+          </button>
+          <button onClick={() => { setImportOpen(true); setImportStep('upload') }}
+            style={{ background: D.card, color: '#065f46', border: '1.5px solid #6ee7b7', boxShadow: D.shadow(2,2), padding: '8px 14px', borderRadius: D.pill, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+            ↑ Import
+          </button>
+          <button onClick={() => setAddOpen(true)}
+            style={{ background: D.indigo, color: '#fff', border: D.border, boxShadow: D.shadow(2,2), padding: '8px 16px', borderRadius: D.pill, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+            + Thêm thành viên
+          </button>
         </div>
       </div>
 
       {/* Filter bar */}
-      <div className="bg-white rounded-xl border border-gray-200 p-3 flex flex-wrap items-center gap-2">
-        <div className="relative flex-1 min-w-52">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <Input placeholder="Tìm tên, email, MSSV..." value={search}
-            onChange={e => setSearch(e.target.value)} className="pl-8 h-9 text-sm" />
-        </div>
-        <select value={roleFilter} onChange={e => setRoleFilter(e.target.value)}
-          className="h-9 border border-input rounded-lg px-3 text-sm bg-white">
-          <option value="">Tất cả vai trò</option>
-          {Object.entries(ROLE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-        </select>
-        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
-          className="h-9 border border-input rounded-lg px-3 text-sm bg-white">
-          <option value="">Tất cả trạng thái</option>
-          <option value="Active">Chính thức</option>
-          <option value="Probation">Thử việc</option>
-        </select>
-        <select value={deptFilter} onChange={e => setDeptFilter(e.target.value)}
-          className="h-9 border border-input rounded-lg px-3 text-sm bg-white">
-          <option value="">Tất cả ban</option>
-          <option value="__none__">⚠ Chưa có ban</option>
-          {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-        </select>
-        <div className="flex items-center gap-2 ml-auto">
-          <select value={`${sortBy}-${sortDir}`}
-            onChange={e => { const [col, dir] = e.target.value.split('-'); setSortBy(col as typeof sortBy); setSortDir(dir as 'asc' | 'desc') }}
-            className="h-9 border border-input rounded-lg px-3 text-sm bg-white gap-1">
-            <option value="name-asc">Tên A→Z</option>
-            <option value="name-desc">Tên Z→A</option>
-            <option value="joinedDate-desc">Mới nhất</option>
-            <option value="joinedDate-asc">Cũ nhất</option>
-            <option value="role-asc">Vai trò</option>
-          </select>
+      <div style={{ padding: '10px 14px', borderRadius: D.radius, background: D.card, border: D.border, boxShadow: D.shadow(), display: 'flex', gap: 10, alignItems: 'center', marginBottom: 16, flexWrap: 'wrap' }}>
+        <input placeholder="⌕  Tên, email, MSSV..." value={search} onChange={e => setSearch(e.target.value)}
+          style={{ ...inputStyle, flex: 1, minWidth: 200 }} />
+        <FilterSelect
+          value={roleFilter}
+          onChange={setRoleFilter}
+          options={[
+            { value: '', label: 'Tất cả vai trò' },
+            ...Object.entries(ROLE_LABELS).map(([k, v]) => ({ value: k, label: v as string })),
+          ]}
+          style={{ width: 150 }}
+        />
+        <FilterSelect
+          value={statusFilter}
+          onChange={setStatusFilter}
+          options={[
+            { value: '', label: 'Tất cả trạng thái' },
+            { value: 'Active', label: 'Chính thức' },
+            { value: 'Probation', label: 'Thử việc' },
+          ]}
+          style={{ width: 150 }}
+        />
+        <FilterSelect
+          value={deptFilter}
+          onChange={setDeptFilter}
+          options={[
+            { value: '', label: 'Tất cả ban' },
+            { value: '__none__', label: '⚠ Chưa có ban' },
+            ...departments.map(d => ({ value: String(d.id), label: d.name })),
+          ]}
+          style={{ width: 150 }}
+        />
+        <FilterSelect
+          value={`${sortBy}-${sortDir}`}
+          onChange={v => { const [col, dir] = v.split('-'); setSortBy(col as typeof sortBy); setSortDir(dir as 'asc' | 'desc') }}
+          options={[
+            { value: 'name-asc', label: 'Tên A→Z' },
+            { value: 'name-desc', label: 'Tên Z→A' },
+            { value: 'joinedDate-desc', label: 'Mới nhất' },
+            { value: 'joinedDate-asc', label: 'Cũ nhất' },
+            { value: 'role-asc', label: 'Vai trò' },
+          ]}
+          style={{ width: 140 }}
+        />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto' }}>
           {hasFilter && (
             <button onClick={clearFilters}
-              className="h-9 px-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors flex items-center gap-1 text-sm">
-              <X size={14} /> Xoá lọc
+              style={{ fontSize: 12, color: D.indigo, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
+              Xoá lọc
             </button>
           )}
-          <span className="text-sm text-gray-400 whitespace-nowrap">{filtered.length}/{members.length}</span>
+          <span style={{ fontSize: 12, color: D.inkMuted, whiteSpace: 'nowrap' }}>{filtered.length}/{members.length}</span>
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-gray-50/80">
-              <TableHead className="w-10 text-center text-xs">#</TableHead>
-              <TableHead>
-                <button onClick={() => toggleSort('name')} className="flex items-center gap-1 hover:text-gray-900 font-medium">
-                  Họ tên <ArrowUpDown size={12} className={sortBy === 'name' ? 'text-indigo-500' : 'text-gray-300'} />
-                </button>
-              </TableHead>
-              <TableHead>Email</TableHead>
-              <TableHead>MSSV</TableHead>
-              <TableHead>
-                <button onClick={() => toggleSort('role')} className="flex items-center gap-1 hover:text-gray-900 font-medium">
-                  Vai trò <ArrowUpDown size={12} className={sortBy === 'role' ? 'text-indigo-500' : 'text-gray-300'} />
-                </button>
-              </TableHead>
-              <TableHead>Ban</TableHead>
-              <TableHead>Trạng thái</TableHead>
-              <TableHead>
-                <button onClick={() => toggleSort('joinedDate')} className="flex items-center gap-1 hover:text-gray-900 font-medium">
-                  Ngày vào <ArrowUpDown size={12} className={sortBy === 'joinedDate' ? 'text-indigo-500' : 'text-gray-300'} />
-                </button>
-              </TableHead>
-              <TableHead className="text-center">Hành động</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
+      {/* Table */}
+      <div style={{ borderRadius: D.radius, overflow: 'hidden', background: D.card, border: D.border, boxShadow: D.shadow() }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+          <thead>
+            <tr style={{ background: D.bg, borderBottom: D.borderLight }}>
+              <th style={{ padding: '10px 14px', textAlign: 'left', fontSize: 12, fontWeight: 700, color: D.inkMuted, letterSpacing: '.02em', whiteSpace: 'nowrap' }}>Thành viên</th>
+              <th style={{ padding: '10px 14px', textAlign: 'left', fontSize: 12, fontWeight: 700, color: D.inkMuted, letterSpacing: '.02em', whiteSpace: 'nowrap' }}>MSSV</th>
+              <th style={{ padding: '10px 14px', textAlign: 'left', fontSize: 12, fontWeight: 700, color: D.inkMuted, letterSpacing: '.02em', whiteSpace: 'nowrap' }}>Vai trò</th>
+              <th style={{ padding: '10px 14px', textAlign: 'left', fontSize: 12, fontWeight: 700, color: D.inkMuted, letterSpacing: '.02em', whiteSpace: 'nowrap' }}>Ban</th>
+              <th style={{ padding: '10px 14px', textAlign: 'left', fontSize: 12, fontWeight: 700, color: D.inkMuted, letterSpacing: '.02em', whiteSpace: 'nowrap' }}>Trạng thái</th>
+              <th style={{ padding: '10px 14px', textAlign: 'left', fontSize: 12, fontWeight: 700, color: D.inkMuted, letterSpacing: '.02em', whiteSpace: 'nowrap' }}>Ngày vào</th>
+              <th style={{ padding: '10px 14px', textAlign: 'center', fontSize: 12, fontWeight: 700, color: D.inkMuted, letterSpacing: '.02em', whiteSpace: 'nowrap' }}>Hành động</th>
+            </tr>
+          </thead>
+          <tbody>
             {loading ? (
-              <TableRow><TableCell colSpan={9} className="text-center text-gray-400 py-16">Đang tải...</TableCell></TableRow>
+              <tr><td colSpan={7} style={{ textAlign: 'center', color: D.inkMuted, padding: '64px 0' }}>Đang tải...</td></tr>
             ) : filtered.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={9} className="py-16">
-                  <div className="flex flex-col items-center gap-2 text-gray-400">
-                    <Search size={32} className="text-gray-200" />
-                    <p className="text-sm">{hasFilter ? 'Không có thành viên khớp với bộ lọc.' : 'Chưa có thành viên nào.'}</p>
-                    {hasFilter && <button onClick={clearFilters} className="text-xs text-indigo-500 hover:underline">Xoá bộ lọc</button>}
-                  </div>
-                </TableCell>
-              </TableRow>
-            ) : filtered.map(m => (
-              <TableRow key={m.id} className="hover:bg-gray-50/60 transition-colors">
-                <TableCell className="text-center text-xs font-mono text-gray-300">{m.id}</TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-2.5">
+              <tr>
+                <td colSpan={7} style={{ textAlign: 'center', color: D.inkMuted, padding: '64px 0' }}>
+                  <p style={{ fontSize: 28, margin: '0 0 8px' }}>🔍</p>
+                  <p style={{ fontSize: 13, margin: 0 }}>{hasFilter ? 'Không có thành viên khớp với bộ lọc.' : 'Chưa có thành viên nào.'}</p>
+                  {hasFilter && <button onClick={clearFilters} style={{ fontSize: 12, color: D.indigo, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', marginTop: 6 }}>Xoá bộ lọc</button>}
+                </td>
+              </tr>
+            ) : filtered.slice(0, visibleCount).map(m => (
+              <tr key={m.id}
+                onMouseEnter={() => setHoverRow(m.id)}
+                onMouseLeave={() => setHoverRow(null)}
+                style={{ background: hoverRow === m.id ? D.bg : D.card, borderBottom: D.borderLight }}>
+                <td style={{ padding: '12px 14px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <Avatar name={m.fullName || m.email} />
                     <div>
-                      <p className="font-medium text-sm text-gray-900">{m.fullName ?? '—'}</p>
-                      {m.studentId && <p className="text-xs text-gray-400">{m.studentId}</p>}
+                      <p style={{ fontWeight: 700, color: D.ink, margin: 0, fontSize: 13 }}>{m.fullName ?? '—'}</p>
+                      <p style={{ fontSize: 11, color: D.inkMuted, margin: '1px 0 0' }}>{m.email}</p>
+                      {m.customData && fieldSchema.length > 0 && (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
+                          {fieldSchema.map(f => {
+                            const val = m.customData?.[f.id]
+                            if (!val) return null
+                            return (
+                              <span key={f.id} style={{ fontSize: 10, padding: '1px 7px', borderRadius: 4, background: '#eef2ff', color: D.indigo, fontWeight: 600, border: '1px solid #c7d2fe' }}>
+                                {f.label}: {val}
+                              </span>
+                            )
+                          })}
+                        </div>
+                      )}
                     </div>
                   </div>
-                </TableCell>
-                <TableCell className="text-sm text-gray-500">{m.email}</TableCell>
-                <TableCell className="text-sm text-gray-400">{m.studentId ?? '—'}</TableCell>
-                <TableCell>
+                </td>
+                <td style={{ padding: '12px 14px', fontFamily: 'monospace', fontSize: 12, color: D.inkMuted }}>
+                  {m.studentId ?? '—'}
+                </td>
+                <td style={{ padding: '12px 14px' }}>
                   {(() => {
-                    const c = ROLE_BADGE[m.clubRole] ?? { bg: '#f3f4f6', text: '#374151' }
+                    const s = ROLE_STYLE[m.clubRole] ?? { bg: '#f3f4f6', color: D.inkDim }
                     return (
-                      <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold"
-                        style={{ background: c.bg, color: c.text }}>
+                      <span style={{ display: 'inline-flex', padding: '2px 10px', borderRadius: 4, fontSize: 10, fontWeight: 700, letterSpacing: '.04em', textTransform: 'uppercase', background: s.bg, color: s.color }}>
                         {ROLE_LABELS[m.clubRole] ?? m.clubRole}
                       </span>
                     )
                   })()}
-                </TableCell>
-                <TableCell className="text-sm text-gray-500">
+                </td>
+                <td style={{ padding: '12px 14px', color: D.inkDim }}>
                   {m.departmentName
                     ? m.departmentName
                     : m.clubRole !== CLUB_ROLES.CLUB_ADMIN
-                      ? <span className="inline-flex items-center gap-1 text-xs text-amber-600 font-medium">
-                          <AlertTriangle size={11} /> Chưa có ban
-                        </span>
-                      : <span className="text-gray-300">—</span>
+                      ? <span style={{ fontSize: 11, color: D.amber, fontWeight: 600 }}>⚠ Chưa có ban</span>
+                      : <span style={{ color: D.inkMuted }}>—</span>
                   }
-                </TableCell>
-                <TableCell>
+                </td>
+                <td style={{ padding: '12px 14px' }}>
                   {m.status === MEMBERSHIP_STATUS.ACTIVE
-                    ? <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700">Chính thức</span>
+                    ? <span style={{ display: 'inline-flex', padding: '2px 10px', borderRadius: 4, fontSize: 10, fontWeight: 700, letterSpacing: '.04em', textTransform: 'uppercase', background: '#d1fae5', color: '#065f46' }}>Chính thức</span>
                     : m.status === MEMBERSHIP_STATUS.PROBATION
-                      ? <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700">Thử việc</span>
-                      : <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-500">Đã rời</span>
+                      ? <span style={{ display: 'inline-flex', padding: '2px 10px', borderRadius: 4, fontSize: 10, fontWeight: 700, letterSpacing: '.04em', textTransform: 'uppercase', background: '#dbeafe', color: '#1e40af' }}>Thử việc</span>
+                      : <span style={{ display: 'inline-flex', padding: '2px 10px', borderRadius: 4, fontSize: 10, fontWeight: 700, letterSpacing: '.04em', textTransform: 'uppercase', background: '#f3f4f6', color: D.inkMuted }}>Đã rời</span>
                   }
-                </TableCell>
-                <TableCell className="text-sm text-gray-400">
+                </td>
+                <td style={{ padding: '12px 14px', color: D.inkMuted, fontSize: 12 }}>
                   {m.joinedDate ? new Date(m.joinedDate).toLocaleDateString('vi-VN') : '—'}
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center justify-center gap-0.5">
+                </td>
+                <td style={{ padding: '12px 14px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
                     {m.status === MEMBERSHIP_STATUS.PROBATION && (
-                      <button title="Xác nhận chính thức" onClick={() => handlePromote(m.id)}
-                        className="p-1.5 rounded-md text-emerald-600 hover:bg-emerald-50 transition-colors">
-                        <ShieldCheck size={14} />
-                      </button>
+                      <Tooltip label="Xác nhận chính thức">
+                        <button onClick={() => handlePromote(m.id)}
+                          style={{ width: 28, height: 28, borderRadius: 6, display: 'grid', placeItems: 'center', background: 'transparent', border: '1px solid #6ee7b7', cursor: 'pointer', color: '#065f46', fontSize: 13 }}>
+                          ✓
+                        </button>
+                      </Tooltip>
                     )}
-                    <button title="Chỉnh sửa" onClick={() => openEdit(m)}
-                      className="p-1.5 rounded-md text-indigo-400 hover:bg-indigo-50 transition-colors">
-                      <Pencil size={14} />
-                    </button>
-                    <button title="Xoá" onClick={() => setRemoveTarget(m)}
-                      className="p-1.5 rounded-md text-red-400 hover:bg-red-50 transition-colors">
-                      <Trash2 size={14} />
-                    </button>
+                    <Tooltip label="Chỉnh sửa vai trò">
+                      <button onClick={() => openEdit(m)}
+                        style={{ width: 28, height: 28, borderRadius: 6, display: 'grid', placeItems: 'center', background: 'transparent', border: D.borderLight, cursor: 'pointer', color: D.indigo }}>
+                        <Pencil size={13} />
+                      </button>
+                    </Tooltip>
+                    <Tooltip label="Xoá khỏi CLB">
+                      <button onClick={() => setRemoveTarget(m)}
+                        style={{ width: 28, height: 28, borderRadius: 6, display: 'grid', placeItems: 'center', background: 'transparent', border: D.borderLight, cursor: 'pointer', color: D.red }}>
+                        <X size={13} />
+                      </button>
+                    </Tooltip>
                   </div>
-                </TableCell>
-              </TableRow>
+                </td>
+              </tr>
             ))}
-          </TableBody>
-        </Table>
+          </tbody>
+        </table>
       </div>
+      <LoadMoreBar
+        shown={Math.min(visibleCount, filtered.length)}
+        total={filtered.length}
+        onLoadMore={() => setVisibleCount(v => v + PAGE_SIZE)}
+        label="thành viên"
+      />
 
       {/* Add member dialog */}
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader><DialogTitle>Thêm thành viên</DialogTitle></DialogHeader>
-          <form onSubmit={handleAdd} className="space-y-4 py-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="userId">User ID *</Label>
-              <Input id="userId" value={addForm.userId} onChange={setAddField('userId')} required placeholder="ID tài khoản người dùng" />
+        <DialogContent className="max-w-md" style={{ fontFamily: "'Be Vietnam Pro', sans-serif" }}>
+          <DialogHeader><DialogTitle style={{ color: D.ink, fontWeight: 900 }}>Thêm thành viên</DialogTitle></DialogHeader>
+          <form onSubmit={handleAdd} style={{ display: 'flex', flexDirection: 'column', gap: 14, paddingTop: 8 }}>
+            <div>
+              <label style={labelStyle}>User ID *</label>
+              <input value={addForm.userId} onChange={setAddField('userId')} required placeholder="ID tài khoản người dùng" style={inputStyle} />
             </div>
-            <div className="space-y-1.5">
-              <Label>Vai trò</Label>
-              {roleSelect(addForm.clubRole, setAddField('clubRole'))}
+            <div>
+              <label style={labelStyle}>Vai trò</label>
+              <select value={addForm.clubRole} onChange={setAddField('clubRole')} style={selectStyle}>
+                {Object.entries(ROLE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+              </select>
             </div>
-            <div className="space-y-1.5">
-              <Label>Ban</Label>
-              {deptSelect(addForm.departmentId, setAddField('departmentId'))}
+            <div>
+              <label style={labelStyle}>Ban</label>
+              <select value={addForm.departmentId} onChange={setAddField('departmentId')} style={selectStyle}>
+                <option value="">— Không thuộc ban nào —</option>
+                {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+              </select>
             </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setAddOpen(false)}>Huỷ</Button>
-              <Button type="submit" disabled={saving}>{saving ? 'Đang lưu...' : 'Thêm'}</Button>
+            <DialogFooter style={{ borderTop: 'none', background: 'transparent', paddingTop: 4 }}>
+              <button type="button" onClick={() => setAddOpen(false)}
+                style={{ background: D.card, color: D.inkDim, border: D.border, boxShadow: D.shadow(2,2), padding: '8px 14px', borderRadius: D.pill, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                Huỷ
+              </button>
+              <button type="submit" disabled={saving}
+                style={{ background: D.indigo, color: '#fff', border: D.border, boxShadow: D.shadow(2,2), padding: '8px 16px', borderRadius: D.pill, fontSize: 12, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1, fontFamily: 'inherit' }}>
+                {saving ? 'Đang lưu...' : 'Thêm'}
+              </button>
             </DialogFooter>
           </form>
         </DialogContent>
@@ -512,20 +564,84 @@ export default function MembersPage() {
 
       {/* Edit role dialog */}
       <Dialog open={!!editTarget} onOpenChange={open => !open && setEditTarget(null)}>
-        <DialogContent className="max-w-md">
-          <DialogHeader><DialogTitle>Chỉnh sửa vai trò — {editTarget?.fullName}</DialogTitle></DialogHeader>
-          <form onSubmit={handleEdit} className="space-y-4 py-2">
-            <div className="space-y-1.5">
-              <Label>Vai trò</Label>
-              {roleSelect(editForm.clubRole, setEditField('clubRole'))}
+        <DialogContent className="max-w-md" style={{ fontFamily: "'Be Vietnam Pro', sans-serif" }}>
+          <DialogHeader>
+            <DialogTitle style={{ color: D.ink, fontWeight: 900, fontSize: 17 }}>
+              Chỉnh sửa vai trò — {editTarget?.fullName}
+            </DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleEdit} style={{ display: 'flex', flexDirection: 'column', gap: 14, paddingTop: 4 }}>
+            {/* Member info card */}
+            {editTarget && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 10, background: D.bg, border: D.borderLight }}>
+                <Avatar name={editTarget.fullName || editTarget.email} />
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 14, color: D.ink }}>{editTarget.fullName ?? '—'}</div>
+                  <div style={{ fontSize: 12, color: D.inkMuted }}>{editTarget.email}</div>
+                </div>
+              </div>
+            )}
+            <div>
+              <label style={labelStyle}>Vai trò</label>
+              <select value={editForm.clubRole} onChange={setEditField('clubRole')} style={selectStyle}>
+                {Object.entries(ROLE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+              </select>
             </div>
-            <div className="space-y-1.5">
-              <Label>Ban</Label>
-              {deptSelect(editForm.departmentId, setEditField('departmentId'))}
+            <div>
+              <label style={labelStyle}>Ban</label>
+              <select value={editForm.departmentId} onChange={setEditField('departmentId')} style={selectStyle}>
+                <option value="">— Không thuộc ban nào —</option>
+                {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+              </select>
             </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setEditTarget(null)}>Huỷ</Button>
-              <Button type="submit" disabled={saving}>{saving ? 'Đang lưu...' : 'Lưu'}</Button>
+
+            {fieldSchema.length > 0 && (
+              <div style={{ borderTop: '1px solid #e8e3d6', paddingTop: 14 }}>
+                <p style={{ fontSize: 11, fontWeight: 700, color: D.inkMuted, letterSpacing: '.06em', textTransform: 'uppercase', margin: '0 0 12px' }}>Thông tin đặc thù CLB</p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {fieldSchema.map(f => (
+                    <div key={f.id}>
+                      <label style={labelStyle}>{f.label}{f.required && <span style={{ color: '#ef4444' }}> *</span>}</label>
+                      {f.type === 'select' ? (
+                        <select
+                          value={editForm.customData[f.id] ?? ''}
+                          onChange={e => setEditForm(p => ({ ...p, customData: { ...p.customData, [f.id]: e.target.value } }))}
+                          style={selectStyle}
+                        >
+                          <option value="">— Chọn —</option>
+                          {(f.options ?? []).map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                        </select>
+                      ) : f.type === 'textarea' ? (
+                        <textarea
+                          value={editForm.customData[f.id] ?? ''}
+                          onChange={e => setEditForm(p => ({ ...p, customData: { ...p.customData, [f.id]: e.target.value } }))}
+                          placeholder={f.label}
+                          rows={3}
+                          style={{ ...inputStyle, height: 'auto', padding: '8px 12px', resize: 'vertical' }}
+                        />
+                      ) : (
+                        <input
+                          value={editForm.customData[f.id] ?? ''}
+                          onChange={e => setEditForm(p => ({ ...p, customData: { ...p.customData, [f.id]: e.target.value } }))}
+                          placeholder={f.label}
+                          style={inputStyle}
+                        />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <DialogFooter style={{ borderTop: 'none', background: 'transparent', paddingTop: 4 }}>
+              <button type="button" onClick={() => setEditTarget(null)}
+                style={{ background: D.card, color: D.inkDim, border: D.border, boxShadow: D.shadow(2,2), padding: '8px 16px', borderRadius: D.pill, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                Huỷ
+              </button>
+              <button type="submit" disabled={saving}
+                style={{ background: D.ink, color: '#facc15', border: D.border, boxShadow: D.shadow(2,2), padding: '8px 18px', borderRadius: D.pill, fontSize: 13, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1, fontFamily: 'inherit' }}>
+                {saving ? 'Đang lưu...' : 'Lưu thay đổi'}
+              </button>
             </DialogFooter>
           </form>
         </DialogContent>
@@ -533,61 +649,53 @@ export default function MembersPage() {
 
       {/* Confirm remove */}
       <AlertDialog open={!!removeTarget} onOpenChange={open => !open && setRemoveTarget(null)}>
-        <AlertDialogContent>
+        <AlertDialogContent style={{ fontFamily: "'Be Vietnam Pro', sans-serif" }}>
           <AlertDialogHeader>
-            <AlertDialogTitle>Xoá khỏi CLB?</AlertDialogTitle>
-            <AlertDialogDescription>
+            <AlertDialogTitle style={{ color: D.ink, fontWeight: 900 }}>Xoá khỏi CLB?</AlertDialogTitle>
+            <AlertDialogDescription style={{ color: D.inkDim }}>
               <strong>{removeTarget?.fullName ?? removeTarget?.email}</strong> sẽ bị xoá khỏi câu lạc bộ.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Huỷ</AlertDialogCancel>
-            <AlertDialogAction onClick={handleRemove} className="bg-red-600 hover:bg-red-700">Xoá</AlertDialogAction>
+            <AlertDialogCancel style={{ fontFamily: 'inherit' }}>Huỷ</AlertDialogCancel>
+            <AlertDialogAction onClick={handleRemove} style={{ background: D.red, color: '#fff', border: D.border, fontFamily: 'inherit' }}>Xoá</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
       {/* Import dialog */}
       <Dialog open={importOpen} onOpenChange={open => { if (!open) resetImport() }}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl" style={{ fontFamily: "'Be Vietnam Pro', sans-serif" }}>
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <FileSpreadsheet size={18} className="text-emerald-600" />
-              Import thành viên từ file
-            </DialogTitle>
+            <DialogTitle style={{ color: D.ink, fontWeight: 900 }}>📥 Import thành viên từ file</DialogTitle>
           </DialogHeader>
 
-          {/* Step: Upload */}
           {importStep === 'upload' && (
-            <div className="space-y-4 py-2">
-              <div className="bg-gray-50 rounded-lg p-4 space-y-2 text-sm text-gray-600">
-                <p className="font-medium text-gray-800">Hướng dẫn:</p>
-                <ol className="list-decimal list-inside space-y-1">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14, paddingTop: 8 }}>
+              <div style={{ background: D.bg, borderRadius: 10, padding: '12px 16px', border: D.borderLight, fontSize: 13, color: D.inkDim }}>
+                <p style={{ fontWeight: 700, color: D.ink, margin: '0 0 6px' }}>Hướng dẫn:</p>
+                <ol style={{ margin: 0, paddingLeft: 18, lineHeight: 1.8 }}>
                   <li>Tải file template về, điền dữ liệu theo đúng cột</li>
                   <li>Upload file (.xlsx hoặc .csv)</li>
                   <li>Kiểm tra preview và xác nhận import</li>
                 </ol>
-                <p className="text-xs text-gray-400 mt-2">Cột: <strong>Email</strong> (bắt buộc), <strong>ClubRole</strong> (MEMBER/DEPT_LEAD/CLUB_ADMIN), <strong>Ban</strong> (tên ban, nếu có)</p>
+                <p style={{ fontSize: 11, color: D.inkMuted, marginTop: 6 }}>Cột: <strong>Email</strong> (bắt buộc), <strong>ClubRole</strong>, <strong>Ban</strong></p>
               </div>
-              <div className="flex gap-3">
-                <Button variant="outline" size="sm" className="gap-1.5"
-                  onClick={() => window.open(`/api/clubs/${id}/members/import/template`)}>
-                  <Download size={14} /> Tải template CSV
-                </Button>
+              <div>
+                <button onClick={() => window.open(`/api/clubs/${id}/members/import/template`)}
+                  style={{ background: D.card, color: D.inkDim, border: D.border, boxShadow: D.shadow(2,2), padding: '7px 14px', borderRadius: D.pill, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                  ↓ Tải template CSV
+                </button>
               </div>
               <div
-                className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center cursor-pointer hover:border-emerald-400 hover:bg-emerald-50 transition-colors"
                 onClick={() => importFileRef.current?.click()}
-              >
+                style={{ border: '2px dashed #c4bdb1', borderRadius: D.radius, padding: '32px', textAlign: 'center', cursor: 'pointer', background: D.bg }}>
                 {importing
-                  ? <div className="flex flex-col items-center gap-2">
-                    <div className="w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-                    <p className="text-sm text-gray-500">Đang phân tích file...</p>
-                  </div>
-                  : <div className="flex flex-col items-center gap-2">
-                    <Upload size={28} className="text-gray-400" />
-                    <p className="text-sm font-medium text-gray-700">Nhấn để chọn file hoặc kéo thả vào đây</p>
-                    <p className="text-xs text-gray-400">Hỗ trợ .xlsx và .csv</p>
+                  ? <p style={{ color: D.inkMuted, fontSize: 13, margin: 0 }}>Đang phân tích file...</p>
+                  : <div>
+                    <p style={{ fontSize: 28, margin: '0 0 8px' }}>📂</p>
+                    <p style={{ fontSize: 13, fontWeight: 600, color: D.ink, margin: 0 }}>Nhấn để chọn file hoặc kéo thả</p>
+                    <p style={{ fontSize: 11, color: D.inkMuted, marginTop: 4 }}>Hỗ trợ .xlsx và .csv</p>
                   </div>
                 }
               </div>
@@ -596,47 +704,38 @@ export default function MembersPage() {
             </div>
           )}
 
-          {/* Step: Preview */}
           {importStep === 'preview' && importPreview && (
-            <div className="space-y-4 py-2">
-              <div className="flex items-center gap-4 text-sm">
-                <span className="flex items-center gap-1.5 text-emerald-600 font-medium">
-                  <CheckCircle2 size={15} /> {importPreview.validRows.length} dòng hợp lệ
-                </span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14, paddingTop: 8 }}>
+              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', fontSize: 13 }}>
+                <span style={{ color: '#065f46', fontWeight: 700 }}>✓ {importPreview.validRows.length} dòng hợp lệ</span>
                 {importPreview.invalidRows.length > 0 && (
-                  <span className="flex items-center gap-1.5 text-red-500 font-medium">
-                    <XCircle size={15} /> {importPreview.invalidRows.length} dòng lỗi
-                  </span>
+                  <span style={{ color: D.red, fontWeight: 700 }}>✕ {importPreview.invalidRows.length} dòng lỗi</span>
                 )}
-                <span className="text-gray-400">/ {importPreview.totalRows} tổng</span>
+                <span style={{ color: D.inkMuted }}>/ {importPreview.totalRows} tổng</span>
               </div>
-
-              <div className="max-h-72 overflow-y-auto rounded-lg border border-gray-200">
-                <table className="w-full text-xs">
-                  <thead className="bg-gray-50 sticky top-0">
+              <div style={{ maxHeight: 288, overflowY: 'auto', borderRadius: 10, border: D.borderLight }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                  <thead style={{ background: D.bg, position: 'sticky', top: 0 }}>
                     <tr>
-                      <th className="px-3 py-2 text-left font-medium text-gray-600">Dòng</th>
-                      <th className="px-3 py-2 text-left font-medium text-gray-600">Email</th>
-                      <th className="px-3 py-2 text-left font-medium text-gray-600">Tên</th>
-                      <th className="px-3 py-2 text-left font-medium text-gray-600">Vai trò</th>
-                      <th className="px-3 py-2 text-left font-medium text-gray-600">Ban</th>
-                      <th className="px-3 py-2 text-left font-medium text-gray-600">Kết quả</th>
+                      {['Dòng', 'Email', 'Tên', 'Vai trò', 'Ban', 'Kết quả'].map(h => (
+                        <th key={h} style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 700, color: D.inkMuted }}>{h}</th>
+                      ))}
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-100">
+                  <tbody>
                     {[...importPreview.validRows, ...importPreview.invalidRows]
                       .sort((a, b) => a.rowNumber - b.rowNumber)
                       .map(row => (
-                        <tr key={row.rowNumber} className={row.isValid ? 'bg-white' : 'bg-red-50'}>
-                          <td className="px-3 py-2 text-gray-400">{row.rowNumber}</td>
-                          <td className="px-3 py-2 text-gray-700">{row.email}</td>
-                          <td className="px-3 py-2 text-gray-600">{row.fullName ?? '—'}</td>
-                          <td className="px-3 py-2 text-gray-600">{row.clubRole}</td>
-                          <td className="px-3 py-2 text-gray-600">{row.departmentName ?? '—'}</td>
-                          <td className="px-3 py-2">
+                        <tr key={row.rowNumber} style={{ background: row.isValid ? D.card : '#fff1f2', borderTop: D.borderLight }}>
+                          <td style={{ padding: '7px 12px', color: D.inkMuted }}>{row.rowNumber}</td>
+                          <td style={{ padding: '7px 12px', color: D.inkDim }}>{row.email}</td>
+                          <td style={{ padding: '7px 12px', color: D.inkDim }}>{row.fullName ?? '—'}</td>
+                          <td style={{ padding: '7px 12px', color: D.inkDim }}>{row.clubRole}</td>
+                          <td style={{ padding: '7px 12px', color: D.inkDim }}>{row.departmentName ?? '—'}</td>
+                          <td style={{ padding: '7px 12px' }}>
                             {row.isValid
-                              ? <span className="flex items-center gap-1 text-emerald-600"><CheckCircle2 size={12} /> OK</span>
-                              : <span className="flex items-center gap-1 text-red-500"><AlertCircle size={12} /> {row.error}</span>
+                              ? <span style={{ color: '#065f46', fontWeight: 600 }}>✓ OK</span>
+                              : <span style={{ color: D.red, fontWeight: 600 }}>✕ {row.error}</span>
                             }
                           </td>
                         </tr>
@@ -644,30 +743,31 @@ export default function MembersPage() {
                   </tbody>
                 </table>
               </div>
-
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setImportStep('upload')}>Chọn file khác</Button>
-                <Button disabled={importPreview.validRows.length === 0 || importing}
-                  className="bg-emerald-600 hover:bg-emerald-700 gap-1.5"
-                  onClick={handleImportConfirm}>
+              <DialogFooter style={{ borderTop: 'none', paddingTop: 4 }}>
+                <button onClick={() => setImportStep('upload')}
+                  style={{ background: D.card, color: D.inkDim, border: D.border, boxShadow: D.shadow(2,2), padding: '8px 14px', borderRadius: D.pill, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                  Chọn file khác
+                </button>
+                <button disabled={importPreview.validRows.length === 0 || importing} onClick={handleImportConfirm}
+                  style={{ background: D.emerald, color: '#fff', border: D.border, boxShadow: D.shadow(2,2), padding: '8px 16px', borderRadius: D.pill, fontSize: 12, fontWeight: 700, cursor: (importPreview.validRows.length === 0 || importing) ? 'not-allowed' : 'pointer', opacity: importing ? 0.7 : 1, fontFamily: 'inherit' }}>
                   {importing ? 'Đang import...' : `Import ${importPreview.validRows.length} thành viên`}
-                </Button>
+                </button>
               </DialogFooter>
             </div>
           )}
 
-          {/* Step: Done */}
           {importStep === 'done' && importResult && (
-            <div className="py-6 text-center space-y-3">
-              <CheckCircle2 size={40} className="mx-auto text-emerald-500" />
-              <p className="font-semibold text-gray-900">Import hoàn tất!</p>
-              <p className="text-sm text-gray-500">
-                Đã thêm <strong className="text-emerald-600">{importResult.imported}</strong> thành viên
+            <div style={{ paddingTop: 24, paddingBottom: 16, textAlign: 'center', display: 'flex', flexDirection: 'column', gap: 12, alignItems: 'center' }}>
+              <p style={{ fontSize: 40, margin: 0 }}>✅</p>
+              <p style={{ fontWeight: 800, fontSize: 16, color: D.ink, margin: 0 }}>Import hoàn tất!</p>
+              <p style={{ fontSize: 13, color: D.inkDim, margin: 0 }}>
+                Đã thêm <strong style={{ color: D.emerald }}>{importResult.imported}</strong> thành viên
                 {importResult.skipped > 0 && `, bỏ qua ${importResult.skipped} dòng trùng.`}
               </p>
-              <DialogFooter className="justify-center pt-2">
-                <Button onClick={resetImport} className="bg-indigo-600 hover:bg-indigo-700">Đóng</Button>
-              </DialogFooter>
+              <button onClick={resetImport}
+                style={{ background: D.indigo, color: '#fff', border: D.border, boxShadow: D.shadow(2,2), padding: '8px 20px', borderRadius: D.pill, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+                Đóng
+              </button>
             </div>
           )}
         </DialogContent>
@@ -675,25 +775,21 @@ export default function MembersPage() {
 
       {/* Modal: Trưởng CLB duy nhất */}
       <Dialog open={!!lastAdminModal} onOpenChange={open => { if (!open) { setLastAdminModal(null); setReplacementId('') } }}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md" style={{ fontFamily: "'Be Vietnam Pro', sans-serif" }}>
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-amber-600">
-              <AlertCircle size={18} /> CLB sẽ không có Trưởng CLB
+            <DialogTitle style={{ color: D.amber, fontWeight: 900, fontSize: 16 }}>
+              ⚠ CLB sẽ không có Trưởng CLB
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-1">
-            <p className="text-sm text-gray-600">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14, paddingTop: 4 }}>
+            <p style={{ fontSize: 13, color: D.inkDim, margin: 0 }}>
               <strong>{lastAdminModal?.memberName}</strong> là Trưởng CLB duy nhất.
               {lastAdminModal?.action === 'remove' ? ' Nếu xoá người này' : ' Nếu hạ cấp người này'},
               {' '}CLB sẽ không có người quản lý.
             </p>
-            <div className="space-y-1.5">
-              <Label className="text-sm">Bổ nhiệm Trưởng CLB mới (khuyến nghị)</Label>
-              <select
-                value={replacementId}
-                onChange={e => setReplacementId(e.target.value)}
-                className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-white"
-              >
+            <div>
+              <label style={labelStyle}>Bổ nhiệm Trưởng CLB mới (khuyến nghị)</label>
+              <select value={replacementId} onChange={e => setReplacementId(e.target.value)} style={selectStyle}>
                 <option value="">— Bỏ qua, không bổ nhiệm ai —</option>
                 {members
                   .filter(m => m.id !== lastAdminModal?.membershipId && m.status === MEMBERSHIP_STATUS.ACTIVE)
@@ -705,22 +801,20 @@ export default function MembersPage() {
               </select>
             </div>
             {!replacementId && (
-              <p className="text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2">
+              <p style={{ fontSize: 12, color: '#b45309', background: '#fef3c7', borderRadius: 8, padding: '8px 12px', margin: 0 }}>
                 Nếu không chọn người thay thế, CLB sẽ tạm thời không có Trưởng CLB.
               </p>
             )}
           </div>
-          <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => { setLastAdminModal(null); setReplacementId('') }}>
+          <DialogFooter style={{ paddingTop: 8 }}>
+            <button onClick={() => { setLastAdminModal(null); setReplacementId('') }}
+              style={{ background: D.card, color: D.inkDim, border: D.border, boxShadow: D.shadow(2,2), padding: '8px 14px', borderRadius: D.pill, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
               Huỷ
-            </Button>
-            <Button
-              onClick={handleForceAction}
-              disabled={forceLoading}
-              className={replacementId ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-red-600 hover:bg-red-700'}
-            >
+            </button>
+            <button onClick={handleForceAction} disabled={forceLoading}
+              style={{ background: replacementId ? D.indigo : D.red, color: '#fff', border: D.border, boxShadow: D.shadow(2,2), padding: '8px 16px', borderRadius: D.pill, fontSize: 12, fontWeight: 700, cursor: forceLoading ? 'not-allowed' : 'pointer', opacity: forceLoading ? 0.7 : 1, fontFamily: 'inherit' }}>
               {forceLoading ? 'Đang xử lý...' : replacementId ? 'Bổ nhiệm và tiếp tục' : 'Vẫn tiếp tục'}
-            </Button>
+            </button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

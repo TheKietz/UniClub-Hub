@@ -1,7 +1,14 @@
+@import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,400&family=Instrument+Serif:ital@0;1&display=swap');
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/geist";
+
+/* Sidebar nav scrollbar — trùng màu background */
+.sidebar-nav::-webkit-scrollbar { width: 4px; }
+.sidebar-nav::-webkit-scrollbar-track { background: white; }
+.sidebar-nav::-webkit-scrollbar-thumb { background: #e5e7eb; border-radius: 4px; }
+.sidebar-nav::-webkit-scrollbar-thumb:hover { background: #d1d5db; }
 
 @custom-variant dark (&:is(.dark *));
 
@@ -232,3 +239,81 @@ code {
     @apply bg-background text-foreground;}
   html {
     @apply font-sans;}}
+
+/* ─── v3 Public Pages Design System ─────────────────────────────── */
+
+:root {
+  --v3-bg: #fbf9f3;
+  --v3-card: #ffffff;
+  --v3-ink: #15131a;
+  --v3-ink-dim: #4a4651;
+  --v3-ink-muted: #918c99;
+  --v3-rule: #e8e3d6;
+  --v3-indigo: #4f46e5;
+  --v3-violet: #7c3aed;
+  --v3-coral: #ff5a3c;
+  --v3-lemon: #facc15;
+  --v3-mint: #14b8a6;
+  --v3-sky: #38bdf8;
+  --v3-pink: #ec4899;
+  --v3-navy: #1e1b4b;
+  --v3-border: 1.5px solid #15131a;
+  --v3-shadow: 4px 4px 0 #15131a;
+  --v3-shadow-sm: 2px 2px 0 #15131a;
+  --v3-shadow-lg: 6px 6px 0 #15131a;
+}
+
+/* ── Public page wrapper ── */
+.v3-page {
+  background: var(--v3-bg);
+  font-family: 'Be Vietnam Pro', system-ui, sans-serif;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Scroll reveal ── */
+.rv {
+  opacity: 0;
+  transform: translateY(18px);
+  transition: opacity 0.55s ease, transform 0.55s ease;
+}
+.rv.seen {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ── Card hover lift ── */
+.card-lift {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.card-lift:hover {
+  transform: translateY(-4px);
+}
+
+/* ── Page transition ── */
+.v3-enter {
+  animation: v3PageIn 0.4s ease forwards;
+}
+@keyframes v3PageIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Marquee ── */
+@keyframes marqueeScroll {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-25%); }
+}
+
+/* ── Float decoration ── */
+@keyframes float {
+  0%, 100% { transform: rotate(var(--rot, 0deg)) translateY(0); }
+  50%       { transform: rotate(var(--rot, 0deg)) translateY(-8px); }
+}
+
+/* ── Pulse dot ── */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.35; }
+}

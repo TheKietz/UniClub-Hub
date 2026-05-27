@@ -22,6 +22,11 @@
     "FromName": "UniClub Hub",
     "FromAddress": "your-email@gmail.com"
   },
+  "SendGrid": {
+    "ApiKey": "SG.YOUR_API_KEY_HERE",
+    "FromName": "UniClub Hub",
+    "FromAddress": "noreply@yourdomain.com"
+  },
   "AppUrl": "https://your-domain.com",
   "Logging": {
     "LogLevel": {

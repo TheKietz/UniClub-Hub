@@ -29,6 +29,14 @@ namespace UniClub_Hub.Server.Controllers.Membership
             return Ok(ApiResponse<PagedResult<NotificationDto>>.Ok(result));
         }
 
+        [HttpGet("unread-count")]
+        public async Task<IActionResult> GetUnreadCount()
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+            var count = await _notificationService.GetUnreadCountAsync(userId);
+            return Ok(ApiResponse<object>.Ok(new { count }));
+        }
+
         [HttpPatch("{id}/read")]
         public async Task<IActionResult> MarkAsRead(int id)
         {

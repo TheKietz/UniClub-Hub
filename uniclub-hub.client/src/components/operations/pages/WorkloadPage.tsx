@@ -26,6 +26,7 @@ import { Button } from "@/components/ui/button";
 import StatCard from "../components/StatCard";
 import AvatarGroup from "../../shared/AvatarGroup";
 import { getTasks } from "../services/operationsApi";
+import { useTasks } from '../context/TasksContext';
 import type { TaskItem } from "../services/operations.types";
 
 const OVERLOAD_THRESHOLD = 5;
@@ -133,6 +134,7 @@ function ChartTooltip({
 export default function WorkloadPage() {
   const { clubId: clubIdParam } = useParams<{ clubId: string }>();
   const clubId = Number(clubIdParam ?? 1);
+  const { departmentId } = useTasks();
 
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -140,14 +142,14 @@ export default function WorkloadPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const result = await getTasks({ clubId, pageSize: 500 });
+      const result = await getTasks({ clubId, departmentId, pageSize: 500 });
       setTasks(result.items);
     } catch {
       toast.error("Không thể tải dữ liệu công việc");
     } finally {
       setLoading(false);
     }
-  }, [clubId]);
+  }, [clubId, departmentId]);
 
   useEffect(() => {
     load();

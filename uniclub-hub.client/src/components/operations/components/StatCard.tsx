@@ -20,30 +20,90 @@ export default function StatCard({
   trend,
 }: StatCardProps) {
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm hover:shadow-md transition-shadow group">
-      <div className="flex items-start justify-between mb-3">
-        <div
-          className="w-11 h-11 rounded-xl flex items-center justify-center transition-transform group-hover:scale-105"
-          style={{ background: iconBg }}
-        >
+    <div style={{
+      background: 'white',
+      border: '2px solid #0A0A0A',
+      boxShadow: '4px 4px 0 #0A0A0A',
+      borderRadius: 0,
+      padding: '20px',
+      transition: 'box-shadow .12s, transform .12s',
+    }}
+      onMouseEnter={e => {
+        (e.currentTarget as HTMLDivElement).style.transform = 'translate(-2px,-2px)';
+        (e.currentTarget as HTMLDivElement).style.boxShadow = '6px 6px 0 #0A0A0A';
+      }}
+      onMouseLeave={e => {
+        (e.currentTarget as HTMLDivElement).style.transform = '';
+        (e.currentTarget as HTMLDivElement).style.boxShadow = '4px 4px 0 #0A0A0A';
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 12 }}>
+        {/* Icon container — square, thick border */}
+        <div style={{
+          width: 44,
+          height: 44,
+          borderRadius: 0,
+          border: '2px solid #0A0A0A',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: iconBg,
+          flexShrink: 0,
+        }}>
           <Icon size={22} style={{ color: iconColor }} />
         </div>
+
+        {/* Trend badge — rectangular, bordered */}
         {trend && (
-          <span
-            className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-              trend.positive
-                ? 'bg-emerald-50 text-emerald-600'
-                : 'bg-red-50 text-red-500'
-            }`}
-          >
+          <span style={{
+            fontSize: 11,
+            fontWeight: 800,
+            padding: '3px 8px',
+            border: '2px solid #0A0A0A',
+            borderRadius: 0,
+            background: trend.positive ? '#DCFCE7' : '#FEE2E2',
+            color: trend.positive ? '#166534' : '#991B1B',
+            letterSpacing: '.04em',
+          }}>
             {trend.value}
           </span>
         )}
       </div>
-      <p className="text-2xl font-bold text-gray-900 tracking-tight">{value}</p>
-      <p className="text-sm text-gray-500 mt-0.5">{label}</p>
+
+      {/* Value */}
+      <p style={{
+        fontSize: 30,
+        fontWeight: 900,
+        color: '#0A0A0A',
+        letterSpacing: '-0.02em',
+        lineHeight: 1.1,
+        margin: 0,
+      }}>
+        {value}
+      </p>
+
+      {/* Label */}
+      <p style={{
+        fontSize: 10,
+        fontWeight: 800,
+        color: '#555',
+        marginTop: 4,
+        textTransform: 'uppercase',
+        letterSpacing: '.1em',
+      }}>
+        {label}
+      </p>
+
+      {/* Subtitle */}
       {subtitle && (
-        <p className="text-xs text-gray-400 mt-1">{subtitle}</p>
+        <p style={{
+          fontSize: 11,
+          color: '#888',
+          marginTop: 4,
+          fontWeight: 600,
+        }}>
+          {subtitle}
+        </p>
       )}
     </div>
   )

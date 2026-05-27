@@ -1,9 +1,13 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 using UniClub_Hub.Membership.DTOs.Application;
+using UniClub_Hub.Membership.DTOs.Pipeline;
 using UniClub_Hub.Membership.Services.Interfaces;
 using UniClub_Hub.Shared.Common;
+using UniClub_Hub.Shared.Data;
+using UniClub_Hub.Shared.Enums;
 
 namespace UniClub_Hub.Server.Controllers.Membership
 {
@@ -12,10 +16,12 @@ namespace UniClub_Hub.Server.Controllers.Membership
     public class ApplicationsController : ControllerBase
     {
         private readonly IApplicationService _applicationService;
+        private readonly UniClubDbContext _db;
 
-        public ApplicationsController(IApplicationService applicationService)
+        public ApplicationsController(IApplicationService applicationService, UniClubDbContext db)
         {
             _applicationService = applicationService;
+            _db = db;
         }
 
         // User xem đơn của mình trong CLB này
@@ -29,22 +35,25 @@ namespace UniClub_Hub.Server.Controllers.Membership
             return Ok(ApiResponse<IEnumerable<ApplicationDto>>.Ok(result));
         }
 
-        // Admin xem tất cả đơn của CLB
+        // Admin xem tất cả đơn của CLB — chỉ CLUB_ADMIN của CLB đó hoặc SUPER_ADMIN
         [HttpGet]
         [Authorize]
         public async Task<IActionResult> GetAll(int clubId, [FromQuery] string? status)
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
             var isSuperAdmin = User.IsInRole("SUPER_ADMIN");
+            if (!isSuperAdmin)
+            {
+                var isClubAdmin = await _db.ClubMemberships.AnyAsync(m =>
+                    m.ClubId == clubId && m.UserId == userId &&
+                    m.ClubRole == ClubRole.CLUB_ADMIN && m.Status == MembershipStatus.Active);
+                if (!isClubAdmin) return Forbid();
+            }
 
             try
             {
                 var result = await _applicationService.GetAllByClubAsync(clubId, status);
                 return Ok(ApiResponse<IEnumerable<AdminApplicationDto>>.Ok(result));
-            }
-            catch (UnauthorizedAccessException)
-            {
-                return Forbid();
             }
             catch (KeyNotFoundException ex)
             {
@@ -72,6 +81,24 @@ namespace UniClub_Hub.Server.Controllers.Membership
             {
                 return Conflict(ApiResponse<object>.Fail(ex.Message));
             }
+        }
+
+        // CLUB_ADMIN chuyển đơn sang vòng tiếp theo trong pipeline
+        [HttpPost("{applicationId}/advance")]
+        [Authorize]
+        public async Task<IActionResult> Advance(int clubId, int applicationId, [FromBody] AdvanceApplicationRequest req)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+            var isSuperAdmin = User.IsInRole("SUPER_ADMIN");
+
+            try
+            {
+                var result = await _applicationService.AdvanceStageAsync(clubId, applicationId, req, userId, isSuperAdmin);
+                return Ok(ApiResponse<AdminApplicationDto>.Ok(result, "Đã chuyển sang vòng tiếp theo."));
+            }
+            catch (UnauthorizedAccessException) { return Forbid(); }
+            catch (KeyNotFoundException ex) { return NotFound(ApiResponse<object>.Fail(ex.Message)); }
+            catch (InvalidOperationException ex) { return Conflict(ApiResponse<object>.Fail(ex.Message)); }
         }
 
         // CLUB_ADMIN hoặc SUPER_ADMIN duyệt đơn

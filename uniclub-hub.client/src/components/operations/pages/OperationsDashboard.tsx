@@ -29,6 +29,7 @@ import type {
   EventItem,
   AuditLogItem,
 } from "../services/operations.types";
+import { useTasks } from "../context/TasksContext";
 
 /* ── Components ─────────────────────────────────────────────────────── */
 import PageHeader from "../../shared/PageHeader";
@@ -74,6 +75,7 @@ export default function OperationsDashboard() {
   const { clubId: clubIdParam } = useParams<{ clubId: string }>();
   const navigate = useNavigate();
   const clubId = Number(clubIdParam ?? 1);
+  const { departmentId } = useTasks();
 
   const [loading, setLoading] = useState(true);
   const [taskStats, setTaskStats] = useState({
@@ -95,8 +97,8 @@ export default function OperationsDashboard() {
   useEffect(() => {
     setLoading(true);
     Promise.all([
-      getTasks({ clubId, pageSize: 500 }),
-      getSprints({ clubId, pageSize: 20 }),
+      getTasks({ clubId, departmentId, pageSize: 500 }),
+      getSprints({ clubId, departmentId, pageSize: 20 }),
       getEvents({ clubId, pageSize: 20 }),
       getAuditLogs({ clubId, pageSize: 5 }),
     ])
@@ -132,7 +134,7 @@ export default function OperationsDashboard() {
       })
       .catch(() => toast.error("Không thể tải dữ liệu"))
       .finally(() => setLoading(false));
-  }, [clubId]);
+  }, [clubId, departmentId]);
 
   const withClub = (sub: string) => `/clubs/${clubId}/${sub}`;
 

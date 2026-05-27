@@ -6,11 +6,13 @@ import { Toaster } from "@/components/ui/sonner";
 import { CLUB_ROLES } from "@/types/auth";
 
 import LandingPage from "@/features/landing/LandingPage";
+import ContactPage from "@/features/contact/ContactPage";
 import NotFoundPage from "@/features/errors/NotFoundPage";
 import LoginPage from "@/features/auth/LoginPage";
 import RegisterPage from "@/features/auth/RegisterPage";
 import ForgotPasswordPage from "@/features/auth/ForgotPasswordPage";
 import ResetPasswordPage from "@/features/auth/ResetPasswordPage";
+import ConfirmEmailPage from "@/features/auth/ConfirmEmailPage";
 import CompleteProfilePage from "@/features/auth/CompleteProfilePage";
 
 import AdminLayout from "@/components/layouts/AdminLayout";
@@ -27,8 +29,12 @@ import MembersPage from "@/components/membership/pages/club/MembersPage";
 import ApplicationsPage from "@/components/membership/pages/club/ApplicationsPage";
 import DepartmentsPage from "@/components/membership/pages/club/DepartmentsPage";
 import FormSchemaPage from "@/components/membership/pages/club/FormSchemaPage";
+import MemberFieldsPage from "@/components/membership/pages/club/MemberFieldsPage";
 import ClubSettingsPage from "@/components/membership/pages/club/ClubSettingsPage";
 import ResignationPage from "@/components/membership/pages/club/ResignationPage";
+import OrgChartPage from "@/components/membership/pages/club/OrgChartPage";
+import AuditLogPage from "@/components/membership/pages/club/AuditLogPage";
+import PipelineSettingsPage from "@/components/membership/pages/club/PipelineSettingsPage";
 
 import MemberDashboard from "@/components/membership/pages/MemberDashboard";
 import ClubListPage from "@/components/membership/pages/ClubListPage";
@@ -36,21 +42,17 @@ import MyActivityPage from "@/components/membership/pages/MyActivityPage";
 import SupportPage from "@/components/membership/pages/SupportPage";
 import SupportAdminPage from "@/components/membership/pages/admin/SupportAdminPage";
 import AdminResignationPage from "@/components/membership/pages/admin/AdminResignationPage";
-
-import EventDetailPage from "@/components/operations/pages/EventDetailPage";
-import KanbanPage from "@/components/operations/pages/KanbanPage";
-import MyTasksPage from "@/components/operations/pages/MyTasksPage";
-import EventListPage from "@/components/operations/pages/EventListPage";
-import WorkloadPage from "@/components/operations/pages/WorkloadPage";
-import GanttPage from "@/components/operations/pages/GanttPage";
-import DeadlinePage from "@/components/operations/pages/DeadlinePage";
-import SprintsPage from "@/components/operations/pages/SprintsPage";
-import OperationsDashboard from "@/components/operations/pages/OperationsDashboard";
-import CalendarPage from "@/components/operations/pages/CalendarPage";
-import ActivityLogPage from "@/components/operations/pages/ActivityLogPage";
+import AdminAuditLogPage from "@/components/membership/pages/admin/AdminAuditLogPage";
+import SystemSettingsPage from "@/components/membership/pages/admin/SystemSettingsPage";
+import AdminNotificationPreferencePage from "@/components/membership/pages/admin/NotificationPreferencePage";
+import ClubNotificationPreferencePage from "@/components/membership/pages/club/NotificationPreferencePage";
 import ClubDetailPage from "@/components/membership/pages/ClubDetailPage";
 import ProfilePage from "@/components/membership/pages/ProfilePage";
 import MemberHistoryPage from "@/components/membership/pages/MemberHistoryPage";
+
+import MyTasksPage from "@/components/operations/pages/MyTasksPage";
+import EventDetailPage from "@/components/operations/pages/EventDetailPage";
+import ClubOperationsPage from "@/components/operations/pages/ClubOperationsPage";
 
 const Soon = ({ label }: { label: string }) => (
   <div className="p-8 text-xl font-semibold text-gray-500">
@@ -71,6 +73,7 @@ export default function App() {
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
+          <Route path="/confirm-email" element={<ConfirmEmailPage />} />
 
           {/* Complete profile — requires auth but not complete profile */}
           <Route element={<ProtectedRoute />}>
@@ -86,12 +89,15 @@ export default function App() {
               <Route path="/admin/structure" element={<AdminStructurePage />} />
               <Route path="/admin/categories" element={<CategoriesPage />} />
               <Route path="/admin/support" element={<SupportAdminPage />} />
-              <Route
-                path="/admin/resignations"
-                element={<AdminResignationPage />}
-              />
+              <Route path="/admin/resignations" element={<AdminResignationPage />} />
+              <Route path="/admin/audit-log" element={<AdminAuditLogPage />} />
+              <Route path="/admin/settings" element={<SystemSettingsPage />} />
+              <Route path="/admin/notification-preferences" element={<AdminNotificationPreferencePage />} />
             </Route>
           </Route>
+
+          {/* Public pages */}
+          <Route path="/contact" element={<ContactPage />} />
 
           {/* Public club pages — không cần đăng nhập */}
           <Route path="/clubs" element={<ClubListPage />} />
@@ -106,24 +112,13 @@ export default function App() {
               <Route path="/my-activity" element={<MyActivityPage />} />
               <Route path="/support" element={<SupportPage />} />
               <Route path="/my-tasks" element={<MyTasksPage />} />
-              <Route path="/clubs/:clubId/operations" element={<OperationsDashboard />} />
-              <Route path="/clubs/:clubId/kanban" element={<KanbanPage />} />
-              <Route path="/clubs/:clubId/sprints" element={<SprintsPage />} />
-              <Route path="/clubs/:clubId/events" element={<EventListPage />} />
+              <Route path="/clubs/:clubId/operations" element={<ClubOperationsPage />} />
               <Route path="/clubs/:clubId/events/:id" element={<EventDetailPage />} />
-              <Route path="/clubs/:clubId/workload" element={<WorkloadPage />} />
-              <Route path="/clubs/:clubId/gantt" element={<GanttPage />} />
-              <Route path="/clubs/:clubId/deadlines" element={<DeadlinePage />} />
-              <Route path="/clubs/:clubId/calendar" element={<CalendarPage />} />
-              <Route path="/clubs/:clubId/activity" element={<ActivityLogPage />} />
               <Route path="/my-kpi" element={<Soon label="KPI của tôi" />} />
               <Route
                 element={
                   <ClubProtectedRoute
-                    requiredRoles={[
-                      CLUB_ROLES.CLUB_ADMIN,
-                      CLUB_ROLES.DEPT_LEAD,
-                    ]}
+                    requiredRoles={[CLUB_ROLES.CLUB_ADMIN, CLUB_ROLES.DEPT_LEAD]}
                   />
                 }
               >
@@ -146,23 +141,16 @@ export default function App() {
                 <Route element={<ClubManageLayout />}>
                   <Route path="manage" element={<ClubManageDashboard />} />
                   <Route path="manage/members" element={<MembersPage />} />
-                  <Route
-                    path="manage/applications"
-                    element={<ApplicationsPage />}
-                  />
-                  <Route
-                    path="manage/departments"
-                    element={<DepartmentsPage />}
-                  />
+                  <Route path="manage/applications" element={<ApplicationsPage />} />
+                  <Route path="manage/departments" element={<DepartmentsPage />} />
                   <Route path="manage/form" element={<FormSchemaPage />} />
-                  <Route
-                    path="manage/resignations"
-                    element={<ResignationPage />}
-                  />
-                  <Route
-                    path="manage/settings"
-                    element={<ClubSettingsPage />}
-                  />
+                  <Route path="manage/member-fields" element={<MemberFieldsPage />} />
+                  <Route path="manage/orgchart" element={<OrgChartPage />} />
+                  <Route path="manage/pipeline" element={<PipelineSettingsPage />} />
+                  <Route path="manage/audit-log" element={<AuditLogPage />} />
+                  <Route path="manage/notifications" element={<ClubNotificationPreferencePage />} />
+                  <Route path="manage/resignations" element={<ResignationPage />} />
+                  <Route path="manage/settings" element={<ClubSettingsPage />} />
                 </Route>
               </Route>
             </Route>

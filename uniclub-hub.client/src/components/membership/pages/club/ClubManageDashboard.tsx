@@ -1,42 +1,76 @@
 import { useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
-import { getClubStats, getClubGrowth } from '@/components/membership/services/clubApi'
-import type { ClubStats, MonthlyGrowth } from '@/components/membership/services/club.types'
+import { Link, useParams } from 'react-router-dom'
+import { getClubStats, getClubGrowth, getDepartments, getClubResignations } from '@/components/membership/services/clubApi'
+import type { ClubStats, MonthlyGrowth, DepartmentItem } from '@/components/membership/services/club.types'
 import { useAuth } from '@/contexts/AuthContext'
-import { Users, Building, FileText, Clock, TrendingUp } from 'lucide-react'
-// eslint-disable-next-line @typescript-eslint/no-deprecated
 import {
-  PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend,
-  BarChart, Bar, XAxis, YAxis, CartesianGrid,
-  AreaChart, Area,
-} from 'recharts'
+  StatCard, ChartCard, MiniAreaChart, MiniBarChart, MiniDonut,
+  PageShell, DTag,
+} from '@/components/shared/DashboardCharts'
 
-function StatCard({ label, value, icon: Icon, color, sub }: {
-  label: string; value: number; icon: React.ElementType; color: string; sub?: string
-}) {
+const ROLE_LABELS: Record<string, string> = {
+  CLUB_ADMIN: 'Ban chủ nhiệm', DEPT_LEAD: 'Trưởng ban', MEMBER: 'Thành viên',
+}
+const ROLE_COLORS = ['#ff5a3c', '#f59e0b', '#4f46e5']
+const DEPT_COLORS = ['#4f46e5', '#7c3aed', '#ec4899', '#14b8a6', '#38bdf8']
+
+const D = {
+  border: '1.5px solid #15131a',
+  borderLight: '1px solid #e8e3d6',
+  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 #15131a`,
+  radius: 14,
+  ink: '#15131a',
+  inkMuted: '#918c99',
+  bg: '#f7f6f1',
+  amber: '#f59e0b',
+  emerald: '#10b981',
+  red: '#ef4444',
+  sky: '#38bdf8',
+}
+
+type AlertItem = { message: string; link: string; linkLabel: string }
+
+function ActionItems({ items }: { items: AlertItem[] }) {
+  const [open, setOpen] = useState(true)
+  if (items.length === 0) return null
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-5 flex items-center gap-4">
-      <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${color}`}>
-        <Icon size={22} className="text-white" />
-      </div>
-      <div>
-        <p className="text-sm text-gray-500">{label}</p>
-        <p className="text-2xl font-bold text-gray-900">{value}</p>
-        {sub && <p className="text-xs text-gray-400 mt-0.5">{sub}</p>}
-      </div>
+    <div style={{
+      borderRadius: D.radius, overflow: 'hidden',
+      border: '1.5px solid #fde68a', background: '#fef3c7', marginBottom: 20,
+    }}>
+      <button onClick={() => setOpen(v => !v)} style={{
+        width: '100%', display: 'flex', alignItems: 'center', gap: 10,
+        padding: '12px 18px', background: 'transparent', border: 'none',
+        cursor: 'pointer', fontFamily: 'inherit',
+      }}>
+        <span style={{ fontSize: 16 }}>⚠️</span>
+        <span style={{ fontWeight: 700, color: '#92400e', fontSize: 13, flex: 1, textAlign: 'left' }}>
+          {items.length} vấn đề cần xử lý
+        </span>
+        <span style={{ fontSize: 12, color: '#b45309' }}>{open ? '▲' : '▼'}</span>
+      </button>
+      {open && (
+        <div style={{ borderTop: '1px solid #fde68a' }}>
+          {items.map((item, i) => (
+            <div key={i} style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16,
+              padding: '10px 18px', borderBottom: i < items.length - 1 ? '1px solid #fde68a' : 'none',
+            }}>
+              <p style={{ fontSize: 13, color: '#92400e' }}>{item.message}</p>
+              <Link to={item.link} style={{
+                fontSize: 12, fontWeight: 700, color: '#b45309', textDecoration: 'none',
+                whiteSpace: 'nowrap', flexShrink: 0,
+              }}>{item.linkLabel} →</Link>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
 
-const ROLE_LABELS: Record<string, string> = {
-  CLUB_ADMIN: 'Ban chủ nhiệm',
-  DEPT_LEAD:  'Trưởng ban',
-  MEMBER:     'Thành viên',
-}
-const PIE_COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#3b82f6']
-const APP_COLORS: Record<string, string> = {
-  'Chờ duyệt': '#f59e0b', 'Phỏng vấn': '#3b82f6',
-  'Đã duyệt': '#10b981',  'Từ chối':   '#ef4444',
+function getClubShort(name: string) {
+  return (name ?? '').split(' ').filter(Boolean).map(w => w[0]).slice(0, 3).join('').toUpperCase()
 }
 
 export default function ClubManageDashboard() {
@@ -46,179 +80,245 @@ export default function ClubManageDashboard() {
 
   const [stats, setStats] = useState<ClubStats | null>(null)
   const [growth, setGrowth] = useState<MonthlyGrowth[]>([])
+  const [depts, setDepts] = useState<DepartmentItem[]>([])
+  const [alerts, setAlerts] = useState<AlertItem[]>([])
+  const [approvedResignCount, setApprovedResignCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
   useEffect(() => {
     if (!clubId) return
     const id = Number(clubId)
-    Promise.all([getClubStats(id), getClubGrowth(id, 12)])
-      .then(([s, g]) => { setStats(s); setGrowth(g) })
+    Promise.all([getClubStats(id), getClubGrowth(id, 12), getDepartments(id), getClubResignations(id)])
+      .then(([s, g, dpts, resignations]) => {
+        setStats(s)
+        setGrowth(g)
+        setDepts(dpts)
+        setApprovedResignCount(resignations.filter(r => r.status === 'Approved').length)
+
+        const items: AlertItem[] = []
+        dpts.filter(d => !d.deptLeadName).forEach(d => items.push({
+          message: `Ban "${d.name}" chưa có Trưởng ban`,
+          link: `/clubs/${id}/manage/departments`,
+          linkLabel: 'Bổ nhiệm',
+        }))
+        const pendingResign = resignations.filter(r => r.status === 'Pending')
+        if (pendingResign.length > 0)
+          items.push({ message: `${pendingResign.length} đơn từ chức đang chờ phê duyệt`, link: `/clubs/${id}/manage/resignations`, linkLabel: 'Xem đơn' })
+        if (s.totalProbationMembers > 0)
+          items.push({ message: `${s.totalProbationMembers} thành viên đang thử việc`, link: `/clubs/${id}/manage/members`, linkLabel: 'Xem danh sách' })
+        if (s.applications.pending > 0)
+          items.push({ message: `${s.applications.pending} đơn ứng tuyển đang chờ xét duyệt`, link: `/clubs/${id}/manage/applications`, linkLabel: 'Xét duyệt' })
+        setAlerts(items)
+      })
       .catch(() => setError('Không thể tải thống kê CLB.'))
       .finally(() => setLoading(false))
   }, [clubId])
 
-  if (loading) return <div className="p-8 text-gray-500">Đang tải...</div>
-  if (error)   return <div className="p-8 text-red-500">{error}</div>
-  if (!stats)  return null
+  if (loading) return <PageShell><div style={{ padding: '60px 0', textAlign: 'center', color: D.inkMuted }}>Đang tải...</div></PageShell>
+  if (error) return <PageShell><div style={{ padding: '60px 0', textAlign: 'center', color: D.red }}>{error}</div></PageShell>
+  if (!stats) return null
 
-  const roleData = Object.entries(stats.membersByRole).map(([role, count]) => ({
-    name: ROLE_LABELS[role] ?? role, value: count,
-  }))
-
-  const deptData = stats.membersByDepartment.map(d => ({
-    name: d.departmentName, 'Thành viên': d.memberCount,
-  }))
-
-  const appData = [
-    { name: 'Chờ duyệt', value: stats.applications.pending },
-    { name: 'Phỏng vấn', value: stats.applications.interview },
-    { name: 'Đã duyệt',  value: stats.applications.accepted },
-    { name: 'Từ chối',   value: stats.applications.rejected },
-  ].filter(d => d.value > 0)
-
-  const growthData = growth.map(g => ({ name: g.label, 'Thành viên mới': g.newMembers }))
   const totalNew = growth.reduce((s, g) => s + g.newMembers, 0)
+  const growthData = growth.map(g => ({ month: g.label, val: g.newMembers }))
+
+  const roleEntries = Object.entries(stats.membersByRole)
+  const roleSegments = roleEntries.map(([, v], i) => ({ val: v, color: ROLE_COLORS[i % ROLE_COLORS.length] }))
+
+  const deptBarData = stats.membersByDepartment.map(d => ({
+    name: d.departmentName.length > 10 ? d.departmentName.slice(0, 8) + '…' : d.departmentName,
+    val: d.memberCount,
+  }))
+
+  const appSegments = [
+    { val: stats.applications.pending, color: D.amber },
+    { val: stats.applications.interview, color: D.sky },
+    { val: stats.applications.accepted, color: D.emerald },
+    { val: stats.applications.rejected, color: D.red },
+  ]
+
+  const reviewedApps = stats.applications.accepted + stats.applications.rejected
+  const acceptanceRate = reviewedApps > 0
+    ? Math.round(stats.applications.accepted / reviewedApps * 100)
+    : null
+
+  const totalHistorical = stats.totalActiveMembers + stats.totalProbationMembers + approvedResignCount
+  const retentionRate = totalHistorical > 0
+    ? Math.round((stats.totalActiveMembers + stats.totalProbationMembers) / totalHistorical * 100)
+    : null
 
   return (
-    <div className="px-8 pt-4 pb-8 space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-5">
+    <PageShell>
+      {/* Club header */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 18, marginBottom: 24 }}>
         {club?.clubLogoUrl ? (
-          <img src={club.clubLogoUrl} alt="" className="w-20 h-20 rounded-2xl object-cover flex-shrink-0" />
+          <img src={club.clubLogoUrl} alt="" style={{
+            width: 64, height: 64, borderRadius: 16, objectFit: 'cover',
+            border: D.border, transform: 'rotate(-3deg)', flexShrink: 0,
+            boxShadow: D.shadow(),
+          }} />
         ) : (
-          <div className="w-20 h-20 rounded-2xl bg-indigo-100 flex items-center justify-center flex-shrink-0">
-            <span className="text-indigo-700 font-bold text-3xl">{(stats.clubName ?? '?')[0]}</span>
-          </div>
+          <div style={{
+            width: 64, height: 64, borderRadius: 16, flexShrink: 0,
+            background: '#4f46e5', border: D.border,
+            display: 'grid', placeItems: 'center',
+            color: '#fff', fontWeight: 900, fontSize: 24,
+            transform: 'rotate(-3deg)', boxShadow: D.shadow(),
+          }}>{getClubShort(stats.clubName)}</div>
         )}
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">{stats.clubName}</h1>
-          <p className="mt-1 text-sm text-gray-500">Tổng quan hoạt động câu lạc bộ</p>
+          <h1 style={{ fontSize: 24, fontWeight: 900, color: D.ink, letterSpacing: '-.025em', margin: 0 }}>{stats.clubName}</h1>
+          <p style={{ fontSize: 13, color: D.inkMuted, marginTop: 4 }}>Tổng quan hoạt động câu lạc bộ</p>
         </div>
       </div>
+
+      <ActionItems items={alerts} />
 
       {/* Stat cards */}
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
-        <StatCard label="Thành viên chính thức" value={stats.totalActiveMembers} icon={Users} color="bg-indigo-500"
-          sub={stats.totalProbationMembers > 0 ? `+ ${stats.totalProbationMembers} thử việc` : undefined} />
-        <StatCard label="Ban bộ phận" value={stats.totalDepartments} icon={Building} color="bg-emerald-500" />
-        <StatCard label="Đơn chờ duyệt" value={stats.applications.pending} icon={FileText} color="bg-amber-500" />
-        <StatCard label="Thành viên mới (12 tháng)" value={totalNew} icon={TrendingUp} color="bg-violet-500" />
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
+        <StatCard icon="◐" label="Thành viên chính thức" value={stats.totalActiveMembers}
+          sub={stats.totalProbationMembers > 0 ? `+ ${stats.totalProbationMembers} thử việc` : undefined} color="#4f46e5" />
+        <StatCard icon="▦" label="Ban bộ phận" value={stats.totalDepartments} color={D.emerald} />
+        <StatCard icon="✦" label="Đơn chờ duyệt" value={stats.applications.pending} color={D.amber} />
+        <StatCard icon="↗" label="TV mới (12 tháng)" value={totalNew} color="#7c3aed" />
       </div>
 
-      {/* Biểu đồ tăng trưởng */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <div className="px-5 py-3 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
-          <div>
-            <p className="text-sm font-semibold text-gray-900">Tăng trưởng thành viên</p>
-            <p className="text-xs text-gray-400 mt-0.5">12 tháng gần nhất</p>
-          </div>
-          <div className="flex items-center gap-1.5 text-sm font-semibold text-indigo-600">
-            <Clock size={14} /> {totalNew} thành viên mới
-          </div>
+      {/* Growth chart */}
+      <ChartCard
+        title="Tăng trưởng thành viên" sub="12 tháng gần nhất"
+        rightLabel={`${totalNew} thành viên mới`}
+        style={{ marginBottom: 20 }}
+      >
+        <MiniAreaChart data={growthData} color="#4f46e5" height={140} />
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8 }}>
+          {growthData.map(g => (
+            <span key={g.month} style={{ fontSize: 10, color: D.inkMuted, fontWeight: 600 }}>{g.month}</span>
+          ))}
         </div>
-        <div className="p-5">
-          <ResponsiveContainer width="100%" height={200}>
-            <AreaChart data={growthData} margin={{ top: 4, right: 8, left: -16, bottom: 4 }}>
-              <defs>
-                <linearGradient id="clubGrowthGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#6366f1" stopOpacity={0.15} />
-                  <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-              <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#9ca3af' }} />
-              <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#9ca3af' }} />
-              <Tooltip formatter={(v) => [`${v} thành viên`, 'Mới']} />
-              <Area type="monotone" dataKey="Thành viên mới"
-                stroke="#6366f1" strokeWidth={2} fill="url(#clubGrowthGrad)"
-                dot={{ r: 3, fill: '#6366f1' }} activeDot={{ r: 5 }} />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
+      </ChartCard>
 
-      {/* Pie vai trò + Pie đơn */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          <div className="px-5 py-3 border-b border-gray-100 bg-gray-50">
-            <p className="text-sm font-semibold text-gray-900">Thành viên theo vai trò</p>
-          </div>
-          <div className="p-5">
-            {roleData.length === 0 ? (
-              <p className="text-sm text-gray-400 text-center py-8">Chưa có dữ liệu.</p>
-            ) : (
-              <ResponsiveContainer width="100%" height={200}>
-                <PieChart>
-                  <Pie data={roleData} dataKey="value" nameKey="name"
-                    cx="50%" cy="50%" outerRadius={75} innerRadius={38} paddingAngle={3}>
-                    {roleData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
-                  </Pie>
-                  <Tooltip formatter={(v) => [`${v} người`, '']} />
-                  <Legend iconType="circle" iconSize={8}
-                    formatter={(v) => <span className="text-xs text-gray-600">{v}</span>} />
-                </PieChart>
-              </ResponsiveContainer>
-            )}
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          <div className="px-5 py-3 border-b border-gray-100 bg-gray-50">
-            <p className="text-sm font-semibold text-gray-900">Tình trạng đơn đăng ký</p>
-          </div>
-          <div className="p-5">
-            {appData.length === 0 ? (
-              <p className="text-sm text-gray-400 text-center py-8">Chưa có đơn nào.</p>
-            ) : (
-              <>
-                <ResponsiveContainer width="100%" height={160}>
-                  <PieChart>
-                    <Pie data={appData} dataKey="value" nameKey="name"
-                      cx="50%" cy="50%" outerRadius={70} innerRadius={35} paddingAngle={3}>
-                      {appData.map((d, i) => <Cell key={i} fill={APP_COLORS[d.name] ?? PIE_COLORS[i]} />)}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
-                <div className="grid grid-cols-4 gap-2 mt-2">
-                  {[
-                    { label: 'Chờ', value: stats.applications.pending,  color: '#f59e0b' },
-                    { label: 'PV',  value: stats.applications.interview, color: '#3b82f6' },
-                    { label: 'OK',  value: stats.applications.accepted,  color: '#10b981' },
-                    { label: 'TC',  value: stats.applications.rejected,  color: '#ef4444' },
-                  ].map(item => (
-                    <div key={item.label} className="text-center p-2 rounded-lg bg-gray-50">
-                      <p className="text-base font-bold" style={{ color: item.color }}>{item.value}</p>
-                      <p className="text-xs text-gray-400">{item.label}</p>
+      {/* Row: Roles donut + Dept bar */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 20 }}>
+        <ChartCard title="Thành viên theo vai trò">
+          {roleEntries.length === 0 ? (
+            <p style={{ textAlign: 'center', color: D.inkMuted, padding: '32px 0', fontSize: 13 }}>Chưa có dữ liệu.</p>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
+              <MiniDonut size={110} thickness={18} segments={roleSegments} />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1 }}>
+                {roleEntries.map(([role, count], i) => (
+                  <div key={role} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ width: 10, height: 10, borderRadius: 5, background: ROLE_COLORS[i % ROLE_COLORS.length], flexShrink: 0 }} />
+                      <span style={{ fontSize: 13, color: D.ink }}>{ROLE_LABELS[role] ?? role}</span>
                     </div>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
-        </div>
+                    <span style={{ fontSize: 14, fontWeight: 800, color: ROLE_COLORS[i % ROLE_COLORS.length] }}>{count}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </ChartCard>
+
+        <ChartCard title="Thành viên theo phòng ban">
+          {deptBarData.length === 0 ? (
+            <p style={{ textAlign: 'center', color: D.inkMuted, padding: '32px 0', fontSize: 13 }}>Chưa có dữ liệu.</p>
+          ) : (
+            <MiniBarChart data={deptBarData} color={i => DEPT_COLORS[i % DEPT_COLORS.length]} height={130} />
+          )}
+        </ChartCard>
       </div>
 
-      {/* Bar theo ban */}
-      {deptData.length > 0 && (
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          <div className="px-5 py-3 border-b border-gray-100 bg-gray-50">
-            <p className="text-sm font-semibold text-gray-900">Thành viên theo ban</p>
+      {/* Application status */}
+      {stats.applications.total > 0 && (
+        <ChartCard title="Tình trạng đơn đăng ký" style={{ marginBottom: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
+            <MiniDonut size={100} thickness={18} segments={appSegments.filter(s => s.val > 0)} />
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, flex: 1 }}>
+              {[
+                { l: 'Chờ duyệt', v: stats.applications.pending, c: D.amber },
+                { l: 'Phỏng vấn', v: stats.applications.interview, c: D.sky },
+                { l: 'Đã duyệt', v: stats.applications.accepted, c: D.emerald },
+                { l: 'Từ chối', v: stats.applications.rejected, c: D.red },
+              ].map(item => (
+                <div key={item.l} style={{ padding: '8px 10px', borderRadius: 8, background: D.bg }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                    <span style={{ width: 8, height: 8, borderRadius: 4, background: item.c, flexShrink: 0 }} />
+                    <span style={{ fontSize: 11, color: D.inkMuted }}>{item.l}</span>
+                  </div>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: item.c, letterSpacing: '-.02em' }}>{item.v}</div>
+                </div>
+              ))}
+            </div>
           </div>
-          <div className="p-5">
-            <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={deptData} margin={{ top: 4, right: 16, left: -16, bottom: 4 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                <XAxis dataKey="name" tick={{ fontSize: 12, fill: '#9ca3af' }} />
-                <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: '#9ca3af' }} />
-                <Tooltip />
-                <Bar dataKey="Thành viên" fill="#6366f1" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
+        </ChartCard>
       )}
-    </div>
+
+      {/* Advanced KPIs */}
+      {(acceptanceRate !== null || retentionRate !== null) && (
+        <ChartCard title="Chỉ số hiệu suất" sub="Tính từ dữ liệu tích lũy" style={{ marginBottom: 20 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            {acceptanceRate !== null && (
+              <div style={{ padding: '16px 20px', borderRadius: 12, background: D.bg, border: '1.5px solid #d1fae5' }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: D.emerald, letterSpacing: '.06em', marginBottom: 6 }}>TỶ LỆ CHẤP NHẬN ĐƠN</div>
+                <div style={{ fontSize: 36, fontWeight: 900, color: D.emerald, letterSpacing: '-.04em', lineHeight: 1 }}>
+                  {acceptanceRate}<span style={{ fontSize: 18 }}>%</span>
+                </div>
+                <div style={{ fontSize: 12, color: D.inkMuted, marginTop: 6 }}>
+                  {stats.applications.accepted} chấp nhận / {reviewedApps} đã xét
+                </div>
+                <div style={{ marginTop: 10, height: 6, borderRadius: 3, background: '#d1fae5', overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${acceptanceRate}%`, background: D.emerald, borderRadius: 3, transition: 'width .6s ease' }} />
+                </div>
+              </div>
+            )}
+            {retentionRate !== null && (
+              <div style={{ padding: '16px 20px', borderRadius: 12, background: D.bg, border: '1.5px solid #dbeafe' }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: D.sky, letterSpacing: '.06em', marginBottom: 6 }}>TỶ LỆ GIỮ CHÂN THÀNH VIÊN</div>
+                <div style={{ fontSize: 36, fontWeight: 900, color: D.sky, letterSpacing: '-.04em', lineHeight: 1 }}>
+                  {retentionRate}<span style={{ fontSize: 18 }}>%</span>
+                </div>
+                <div style={{ fontSize: 12, color: D.inkMuted, marginTop: 6 }}>
+                  {stats.totalActiveMembers + stats.totalProbationMembers} đang hoạt động / {totalHistorical} lịch sử
+                </div>
+                <div style={{ marginTop: 10, height: 6, borderRadius: 3, background: '#dbeafe', overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${retentionRate}%`, background: D.sky, borderRadius: 3, transition: 'width .6s ease' }} />
+                </div>
+              </div>
+            )}
+          </div>
+        </ChartCard>
+      )}
+
+      {depts.length > 0 && (
+        <ChartCard title="Cơ cấu ban bộ phận">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {depts.map((d, i) => (
+              <div key={d.id} style={{
+                display: 'flex', alignItems: 'center', gap: 12,
+                padding: '10px 14px', borderRadius: 10,
+                background: D.bg, border: D.borderLight,
+              }}>
+                <div style={{
+                  width: 36, height: 36, borderRadius: 10, flexShrink: 0,
+                  background: DEPT_COLORS[i % DEPT_COLORS.length], border: D.border,
+                  display: 'grid', placeItems: 'center', color: '#fff', fontSize: 14,
+                }}>▦</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13.5, fontWeight: 700, color: D.ink }}>{d.name}</div>
+                  {d.deptLeadName
+                    ? <div style={{ fontSize: 11.5, color: D.inkMuted }}>Trưởng ban: {d.deptLeadName}</div>
+                    : <DTag bg="#fef3c7" color="#b45309" style={{ marginTop: 2 }}>Chưa có trưởng ban</DTag>
+                  }
+                </div>
+                <DTag bg={D.bg} color={D.inkMuted} style={{ border: D.borderLight }}>
+                  {d.memberCount} TV
+                </DTag>
+              </div>
+            ))}
+          </div>
+        </ChartCard>
+      )}
+    </PageShell>
   )
 }

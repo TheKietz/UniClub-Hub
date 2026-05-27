@@ -21,5 +21,10 @@
   "AppUrl": "https://localhost:54610",
   "Google": {
     "ClientId": "YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com"
+  },
+  "SendGrid": {
+    "ApiKey": "SG.YOUR_API_KEY_HERE",
+    "FromName": "UniClub Hub",
+    "FromAddress": "your-email@gmail.com"
   }
 }

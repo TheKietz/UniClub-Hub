@@ -1,26 +1,45 @@
 import { useEffect, useState } from 'react'
+import { Pencil, Trash2 } from 'lucide-react'
+import { Tooltip } from '@/components/shared/Tooltip'
 import { getCategories, createCategory, updateCategory, deleteCategory } from '@/components/membership/services/adminApi'
 import type { CategoryItem, CreateCategoryDto } from '@/components/membership/services/admin.types'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { toast } from 'sonner'
-import { Plus, Pencil, Trash2, Search } from 'lucide-react'
 
-const CATEGORY_COLORS = [
-  { bg: '#ede9fe', text: '#6d28d9' },
-  { bg: '#dbeafe', text: '#1d4ed8' },
-  { bg: '#dcfce7', text: '#16a34a' },
-  { bg: '#fef9c3', text: '#a16207' },
-  { bg: '#fee2e2', text: '#dc2626' },
-  { bg: '#ffedd5', text: '#c2410c' },
+const D = {
+  border: '1.5px solid #15131a',
+  borderLight: '1px solid #e8e3d6',
+  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 #15131a`,
+  radius: 14,
+  pill: 999,
+  ink: '#15131a',
+  inkDim: '#4a4651',
+  inkMuted: '#918c99',
+  bg: '#f7f6f1',
+  card: '#ffffff',
+  indigo: '#4f46e5',
+  red: '#ef4444',
+}
+
+const CAT_PALETTES = [
+  { bg: '#ede9fe', color: '#5b21b6' },
+  { bg: '#dbeafe', color: '#1e40af' },
+  { bg: '#d1fae5', color: '#065f46' },
+  { bg: '#fef9c3', color: '#854d0e' },
+  { bg: '#fee2e2', color: '#991b1b' },
+  { bg: '#ffedd5', color: '#9a3412' },
 ]
 
 type FormData = { name: string; description: string }
 const emptyForm: FormData = { name: '', description: '' }
+
+const inputStyle: React.CSSProperties = {
+  width: '100%', height: 36, borderRadius: 8, border: '1px solid #e8e3d6',
+  padding: '0 12px', fontSize: 13, color: '#15131a', outline: 'none',
+  background: '#f7f6f1', fontFamily: 'inherit', boxSizing: 'border-box',
+}
+const labelStyle: React.CSSProperties = { fontSize: 12, fontWeight: 700, color: '#4a4651', display: 'block', marginBottom: 4 }
 
 export default function CategoriesPage() {
   const [categories, setCategories] = useState<CategoryItem[]>([])
@@ -32,6 +51,7 @@ export default function CategoriesPage() {
   const [saving, setSaving] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<CategoryItem | null>(null)
   const [search, setSearch] = useState('')
+  const [hoverRow, setHoverRow] = useState<number | null>(null)
 
   useEffect(() => {
     setLoading(true)
@@ -41,11 +61,7 @@ export default function CategoriesPage() {
       .finally(() => setLoading(false))
   }, [refreshKey])
 
-  function openCreate() {
-    setEditing(null)
-    setForm(emptyForm)
-    setDialogOpen(true)
-  }
+  function openCreate() { setEditing(null); setForm(emptyForm); setDialogOpen(true) }
 
   function openEdit(cat: CategoryItem) {
     setEditing(cat)
@@ -90,97 +106,124 @@ export default function CategoriesPage() {
     }
   }
 
+  const filtered = categories.filter(c =>
+    !search || c.name.toLowerCase().includes(search.toLowerCase()) || (c.description ?? '').toLowerCase().includes(search.toLowerCase())
+  )
+
   return (
-    <div className="px-8 pt-3 pb-8 space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold leading-none" style={{ color: '#0f172a' }}>Lĩnh vực</h1>
-        <Button onClick={openCreate} className="gap-2 bg-indigo-600 hover:bg-indigo-700">
-          <Plus size={16} /> Thêm lĩnh vực
-        </Button>
+    <div style={{ padding: '28px 32px', minHeight: '100%', background: D.bg, fontFamily: "'Be Vietnam Pro', sans-serif" }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20, gap: 16 }}>
+        <div>
+          <h1 style={{ fontSize: 24, fontWeight: 900, color: D.ink, letterSpacing: '-.025em', margin: 0 }}>Lĩnh vực</h1>
+          <p style={{ fontSize: 13, color: D.inkMuted, marginTop: 4 }}>{categories.length} lĩnh vực trong hệ thống</p>
+        </div>
+        <button
+          onClick={openCreate}
+          style={{ background: D.indigo, color: '#fff', border: D.border, boxShadow: D.shadow(2,2), padding: '8px 16px', borderRadius: D.pill, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+          + Thêm lĩnh vực
+        </button>
       </div>
 
-      {/* Search */}
-      {(() => {
-        const filtered = categories.filter(c => !search || c.name.toLowerCase().includes(search.toLowerCase()) || (c.description ?? '').toLowerCase().includes(search.toLowerCase()))
-        return (<>
-      <div className="bg-white rounded-xl border border-gray-200 p-3 flex gap-2 items-center">
-        <div className="relative flex-1">
-          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-          <Input placeholder="Tìm tên hoặc mô tả lĩnh vực..." value={search} onChange={e => setSearch(e.target.value)} className="pl-8 h-9 text-sm" />
-        </div>
-        <div className="flex items-center gap-2">
+      {/* Filter bar */}
+      <div style={{ padding: '10px 14px', borderRadius: D.radius, background: D.card, border: D.border, boxShadow: D.shadow(), display: 'flex', gap: 10, alignItems: 'center', marginBottom: 16 }}>
+        <input
+          placeholder="⌕  Tìm tên hoặc mô tả..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          style={{ ...inputStyle, flex: 1 }}
+        />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {search && (
-            <button onClick={() => setSearch('')} className="text-xs text-indigo-500 hover:underline whitespace-nowrap">Xoá lọc</button>
+            <button onClick={() => setSearch('')}
+              style={{ fontSize: 12, color: D.indigo, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
+              Xoá lọc
+            </button>
           )}
-          <span className="text-sm text-gray-400 whitespace-nowrap">{filtered.length}/{categories.length}</span>
+          <span style={{ fontSize: 12, color: D.inkMuted, whiteSpace: 'nowrap' }}>{filtered.length}/{categories.length}</span>
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-gray-50">
-              <TableHead className="w-12 text-center">ID</TableHead>
-              <TableHead>Tên lĩnh vực</TableHead>
-              <TableHead>Mô tả</TableHead>
-              <TableHead>Số CLB</TableHead>
-              <TableHead className="text-center">Hành động</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
+      {/* Table */}
+      <div style={{ borderRadius: D.radius, overflow: 'hidden', background: D.card, border: D.border, boxShadow: D.shadow() }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+          <thead>
+            <tr style={{ background: D.bg, borderBottom: D.borderLight }}>
+              <th style={{ padding: '10px 14px', textAlign: 'left', fontSize: 12, fontWeight: 700, color: D.inkMuted, letterSpacing: '.02em', whiteSpace: 'nowrap' }}>ID</th>
+              <th style={{ padding: '10px 14px', textAlign: 'left', fontSize: 12, fontWeight: 700, color: D.inkMuted, letterSpacing: '.02em', whiteSpace: 'nowrap' }}>Tên lĩnh vực</th>
+              <th style={{ padding: '10px 14px', textAlign: 'left', fontSize: 12, fontWeight: 700, color: D.inkMuted, letterSpacing: '.02em', whiteSpace: 'nowrap' }}>Mô tả</th>
+              <th style={{ padding: '10px 14px', textAlign: 'left', fontSize: 12, fontWeight: 700, color: D.inkMuted, letterSpacing: '.02em', whiteSpace: 'nowrap' }}>Số CLB</th>
+              <th style={{ padding: '10px 14px', textAlign: 'center', fontSize: 12, fontWeight: 700, color: D.inkMuted, letterSpacing: '.02em', whiteSpace: 'nowrap' }}>Hành động</th>
+            </tr>
+          </thead>
+          <tbody>
             {loading ? (
-              <TableRow><TableCell colSpan={5} className="text-center text-gray-400 py-12">Đang tải...</TableCell></TableRow>
+              <tr><td colSpan={5} style={{ textAlign: 'center', color: D.inkMuted, padding: '48px 0' }}>Đang tải...</td></tr>
             ) : filtered.length === 0 ? (
-              <TableRow><TableCell colSpan={5} className="text-center text-gray-400 py-12">Không tìm thấy lĩnh vực nào.</TableCell></TableRow>
+              <tr><td colSpan={5} style={{ textAlign: 'center', color: D.inkMuted, padding: '48px 0' }}>Không tìm thấy lĩnh vực nào.</td></tr>
             ) : filtered.map((cat, i) => {
-              const c = CATEGORY_COLORS[i % CATEGORY_COLORS.length]
+              const palette = CAT_PALETTES[i % CAT_PALETTES.length]
               return (
-              <TableRow key={cat.id} className="hover:bg-gray-50/60">
-                <TableCell className="text-center text-xs font-mono" style={{ color: '#9ca3af' }}>{cat.id}</TableCell>
-                <TableCell>
-                  <span className="px-2.5 py-1 rounded-full text-xs font-semibold" style={{ background: c.bg, color: c.text }}>
-                    {cat.name}
-                  </span>
-                </TableCell>
-                <TableCell className="text-sm" style={{ color: '#6b7280' }}>{cat.description ?? '—'}</TableCell>
-                <TableCell className="text-sm" style={{ color: '#6b7280' }}>{cat.clubCount}</TableCell>
-                <TableCell>
-                  <div className="flex items-center justify-center gap-1">
-                    <Button variant="ghost" size="icon" className="h-7 w-7 text-indigo-500 hover:text-indigo-700 hover:bg-indigo-50" onClick={() => openEdit(cat)}>
-                      <Pencil size={14} />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 text-red-400 hover:text-red-600 hover:bg-red-50" onClick={() => setDeleteTarget(cat)}>
-                      <Trash2 size={14} />
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
+                <tr key={cat.id}
+                  onMouseEnter={() => setHoverRow(cat.id)}
+                  onMouseLeave={() => setHoverRow(null)}
+                  style={{ background: hoverRow === cat.id ? D.bg : D.card, borderBottom: D.borderLight }}>
+                  <td style={{ padding: '12px 14px', fontFamily: 'monospace', fontSize: 12, color: D.inkMuted }}>{cat.id}</td>
+                  <td style={{ padding: '12px 14px' }}>
+                    <span style={{
+                      display: 'inline-flex', padding: '3px 12px', borderRadius: D.pill, fontSize: 12, fontWeight: 700,
+                      background: palette.bg, color: palette.color,
+                    }}>
+                      {cat.name}
+                    </span>
+                  </td>
+                  <td style={{ padding: '12px 14px', color: D.inkDim }}>{cat.description ?? '—'}</td>
+                  <td style={{ padding: '12px 14px', color: D.inkDim, fontWeight: 600 }}>{cat.clubCount}</td>
+                  <td style={{ padding: '12px 14px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                      <Tooltip label="Sửa">
+                        <button onClick={() => openEdit(cat)} style={{ width: 30, height: 30, borderRadius: 6, display: 'grid', placeItems: 'center', border: D.borderLight, background: D.card, color: D.indigo, cursor: 'pointer' }}>
+                          <Pencil size={13} />
+                        </button>
+                      </Tooltip>
+                      <Tooltip label="Xoá">
+                        <button onClick={() => setDeleteTarget(cat)} style={{ width: 30, height: 30, borderRadius: 6, display: 'grid', placeItems: 'center', border: D.borderLight, background: D.card, color: D.red, cursor: 'pointer' }}>
+                          <Trash2 size={13} />
+                        </button>
+                      </Tooltip>
+                    </div>
+                  </td>
+                </tr>
               )
             })}
-          </TableBody>
-        </Table>
+          </tbody>
+        </table>
       </div>
-        </>)
-      })()}
 
       {/* Create / Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md" style={{ fontFamily: "'Be Vietnam Pro', sans-serif" }}>
           <DialogHeader>
-            <DialogTitle style={{ color: '#0f172a', fontWeight: 700 }}>{editing ? 'Chỉnh sửa lĩnh vực' : 'Thêm lĩnh vực mới'}</DialogTitle>
+            <DialogTitle style={{ color: D.ink, fontWeight: 900, fontSize: 18 }}>{editing ? 'Chỉnh sửa lĩnh vực' : 'Thêm lĩnh vực mới'}</DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleSave} className="space-y-4 py-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="name">Tên lĩnh vực *</Label>
-              <Input id="name" value={form.name} onChange={setField('name')} required />
+          <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: 14, paddingTop: 8 }}>
+            <div>
+              <label style={labelStyle}>Tên lĩnh vực *</label>
+              <input id="name" value={form.name} onChange={setField('name')} required style={inputStyle} />
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="description">Mô tả</Label>
-              <Input id="description" value={form.description} onChange={setField('description')} />
+            <div>
+              <label style={labelStyle}>Mô tả</label>
+              <input id="description" value={form.description} onChange={setField('description')} style={inputStyle} />
             </div>
-            <DialogFooter className="border-none bg-transparent">
-              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Huỷ</Button>
-              <Button type="submit" disabled={saving} className="bg-indigo-600 hover:bg-indigo-700">{saving ? 'Đang lưu...' : 'Lưu'}</Button>
+            <DialogFooter style={{ borderTop: 'none', background: 'transparent', paddingTop: 4 }}>
+              <button type="button" onClick={() => setDialogOpen(false)}
+                style={{ background: D.card, color: D.inkDim, border: D.border, boxShadow: D.shadow(2,2), padding: '8px 14px', borderRadius: D.pill, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                Huỷ
+              </button>
+              <button type="submit" disabled={saving}
+                style={{ background: D.indigo, color: '#fff', border: D.border, boxShadow: D.shadow(2,2), padding: '8px 16px', borderRadius: D.pill, fontSize: 12, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1, fontFamily: 'inherit' }}>
+                {saving ? 'Đang lưu...' : 'Lưu'}
+              </button>
             </DialogFooter>
           </form>
         </DialogContent>
@@ -188,21 +231,24 @@ export default function CategoriesPage() {
 
       {/* Confirm delete */}
       <AlertDialog open={!!deleteTarget} onOpenChange={open => !open && setDeleteTarget(null)}>
-        <AlertDialogContent>
+        <AlertDialogContent style={{ fontFamily: "'Be Vietnam Pro', sans-serif" }}>
           <AlertDialogHeader>
-            <AlertDialogTitle>Xoá lĩnh vực?</AlertDialogTitle>
-            <AlertDialogDescription>
+            <AlertDialogTitle style={{ color: D.ink, fontWeight: 900 }}>Xoá lĩnh vực?</AlertDialogTitle>
+            <AlertDialogDescription style={{ color: D.inkDim }}>
               Lĩnh vực <strong>{deleteTarget?.name}</strong> sẽ bị xoá.
               {deleteTarget && deleteTarget.clubCount > 0 && (
-                <span className="text-red-600 block mt-1">
+                <span style={{ color: D.red, display: 'block', marginTop: 4 }}>
                   Lưu ý: lĩnh vực này đang có {deleteTarget.clubCount} CLB.
                 </span>
               )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Huỷ</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">Xoá</AlertDialogAction>
+            <AlertDialogCancel style={{ fontFamily: 'inherit' }}>Huỷ</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete}
+              style={{ background: D.red, color: '#fff', border: D.border, fontFamily: 'inherit' }}>
+              Xoá
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

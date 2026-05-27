@@ -24,6 +24,7 @@ interface Props {
   task: TaskItem | null;
   open: boolean;
   defaultColumnId?: number;
+  defaultSprintId?: number;
   columns: KanbanColumnItem[];
   onClose: () => void;
   onSaved: () => void;
@@ -85,7 +86,7 @@ type FeedEntry =
 type Panel = "add" | "label" | "date" | "member" | "attach" | null;
 
 export default function TaskDetailModal({
-  clubId, task, open, defaultColumnId, columns, onClose, onSaved,
+  clubId, task, open, defaultColumnId, defaultSprintId, columns, onClose, onSaved,
 }: Props) {
   const isEdit = !!task;
 
@@ -97,6 +98,7 @@ export default function TaskDetailModal({
   const [deadline,       setDeadline]      = useState("");
   const [assignedUsers,  setAssignedUsers] = useState<string[]>([]);
   const [kanbanColumnId, setKanbanColumnId]= useState<number | undefined>();
+  const [sprintId,       setSprintId]      = useState<number | undefined>();
   const [saving,         setSaving]        = useState(false);
   const [deleting,       setDeleting]      = useState(false);
 
@@ -181,14 +183,16 @@ export default function TaskDetailModal({
       setDeadline(dl);  setTmpDeadline(dl); setUseDeadline(!!dl);
       setAssignedUsers(task ? loadMembers(task.id, task.assignedTo ?? undefined) : []);
       setKanbanColumnId(task.kanbanColumnId ?? defaultColumnId);
+      setSprintId(task.sprintId);
     } else {
       setTitle(""); setDescription(""); setPriority("Medium");
       setStartDate(""); setDeadline(""); setAssignedUsers([]);
       setUseStart(false); setUseDeadline(false);
       setTmpStart(""); setTmpDeadline(""); setTmpTime("23:59");
       setKanbanColumnId(defaultColumnId);
+      setSprintId(defaultSprintId);
     }
-  }, [task, open, defaultColumnId]);
+  }, [task, open, defaultColumnId, defaultSprintId]);
 
   useEffect(() => {
     if (addingGroupId) newItemRef.current?.focus();
@@ -203,6 +207,7 @@ export default function TaskDetailModal({
         title: title.trim(), description: description || undefined, priority,
         startDate: startDate || undefined, deadline: deadline || undefined,
         assignedTo: assignedUsers[0] || undefined, kanbanColumnId,
+        ...(isEdit ? {} : { sprintId }),
       };
       if (isEdit) { await updateTask(task.id, dto); toast.success("Đã cập nhật công việc"); }
       else        { await createTask(clubId, dto);  toast.success("Đã tạo công việc"); }

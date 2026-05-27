@@ -14,10 +14,13 @@ interface Props {
   isDarkBg?: boolean;
 }
 
-export default function KanbanColumn({ column, tasks, onAdd, onEdit, onRename, onDelete, isDarkBg = false }: Props) {
+export default function KanbanColumn({ column, tasks, onAdd, onEdit, onRename, onDelete }: Props) {
   const [renaming, setRenaming] = useState(false);
   const [nameValue, setNameValue] = useState(column.name);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [plusHovered, setPlusHovered] = useState(false);
+  const [moreHovered, setMoreHovered] = useState(false);
+  const [addBtnHovered, setAddBtnHovered] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -44,22 +47,20 @@ export default function KanbanColumn({ column, tasks, onAdd, onEdit, onRename, o
     setRenaming(false);
   };
 
-  const dotColor = column.color ?? "#6b7280";
-  const titleClass = isDarkBg ? "text-white/90" : "text-gray-700";
-  const countClass = isDarkBg ? "bg-white/20 text-white/80" : "bg-gray-200 text-gray-400";
-  const iconClass  = isDarkBg ? "text-white/60 hover:text-white hover:bg-white/20" : "text-gray-400 hover:text-gray-600 hover:bg-gray-200";
-  const dropBg     = isDarkBg ? "bg-black/25 backdrop-blur-sm" : "bg-gray-100/70";
-  const dropOver   = isDarkBg ? "bg-white/15 border-2 border-dashed border-white/40" : "bg-indigo-50 border-2 border-dashed border-indigo-300";
-  const addBtnClass= isDarkBg ? "text-white/60 hover:text-white hover:bg-white/15" : "text-gray-500 hover:text-gray-700 hover:bg-gray-200/60";
-
   return (
-    <div className="flex-shrink-0 w-[272px] flex flex-col">
+    <div style={{ flexShrink: 0, width: 272, display: 'flex', flexDirection: 'column' }}>
       {/* Header */}
-      <div className="flex items-center gap-2 px-1 py-2 mb-1 group">
-        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: dotColor }} />
-
+      <div style={{
+        background: '#0A0A0A',
+        border: '2px solid #0A0A0A',
+        borderRadius: 0,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        padding: '10px 14px',
+      }}>
         {renaming ? (
-          <div className="flex items-center gap-1 flex-1">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1 }}>
             <input
               ref={inputRef}
               value={nameValue}
@@ -69,67 +70,157 @@ export default function KanbanColumn({ column, tasks, onAdd, onEdit, onRename, o
                 if (e.key === "Escape") { setNameValue(column.name); setRenaming(false); }
               }}
               onBlur={commitRename}
-              className="flex-1 text-sm font-semibold bg-white text-gray-700 border border-indigo-300 rounded px-2 py-0.5 focus:outline-none focus:ring-1 focus:ring-indigo-400"
+              style={{
+                flex: 1,
+                fontSize: 12,
+                fontWeight: 700,
+                background: 'white',
+                color: '#0A0A0A',
+                border: '2px solid #FFE500',
+                borderRadius: 0,
+                padding: '3px 8px',
+                outline: 'none',
+              }}
             />
-            <button type="button" onClick={commitRename} className="text-green-500 hover:text-green-700">
+            <button type="button" onClick={commitRename} style={{ color: '#00C853', background: 'none', border: 'none', cursor: 'pointer', display: 'flex' }}>
               <Check size={13} />
             </button>
-            <button type="button" onClick={() => { setNameValue(column.name); setRenaming(false); }} className="text-gray-400 hover:text-gray-600">
+            <button type="button" onClick={() => { setNameValue(column.name); setRenaming(false); }} style={{ color: '#AAA', background: 'none', border: 'none', cursor: 'pointer', display: 'flex' }}>
               <X size={13} />
             </button>
           </div>
         ) : (
           <>
             <span
-              className={`text-sm font-semibold flex-1 cursor-pointer ${titleClass}`}
+              style={{
+                fontSize: 11,
+                fontWeight: 900,
+                color: 'white',
+                textTransform: 'uppercase',
+                letterSpacing: '.08em',
+                flex: 1,
+                cursor: 'pointer',
+              }}
               onDoubleClick={() => setRenaming(true)}
             >
               {column.name}
             </span>
-            <span className={`text-xs font-semibold px-1.5 py-0.5 rounded-full ${countClass}`}>
+
+            {/* Task count badge */}
+            <span style={{
+              background: '#FFE500',
+              color: '#0A0A0A',
+              border: '2px solid #0A0A0A',
+              fontWeight: 900,
+              fontSize: 11,
+              padding: '1px 7px',
+              borderRadius: 0,
+            }}>
               {tasks.length}
             </span>
-          </>
-        )}
 
-        {/* Actions */}
-        {!renaming && (
-          <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+            {/* Action icons */}
             <button
               type="button"
               onClick={() => onAdd(column.id)}
-              className={`w-6 h-6 flex items-center justify-center rounded transition-colors ${iconClass}`}
+              onMouseEnter={() => setPlusHovered(true)}
+              onMouseLeave={() => setPlusHovered(false)}
+              style={{
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                color: plusHovered ? '#FFE500' : 'white',
+                display: 'flex',
+                alignItems: 'center',
+                transition: 'color .1s',
+                padding: 2,
+              }}
             >
               <Plus size={14} />
             </button>
-            <div className="relative" ref={menuRef}>
+
+            <div className="relative" ref={menuRef} style={{ position: 'relative' }}>
               <button
                 type="button"
                 onClick={() => setMenuOpen(v => !v)}
-                className={`w-6 h-6 flex items-center justify-center rounded transition-colors ${iconClass}`}
+                onMouseEnter={() => setMoreHovered(true)}
+                onMouseLeave={() => setMoreHovered(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: moreHovered ? '#FFE500' : 'white',
+                  display: 'flex',
+                  alignItems: 'center',
+                  transition: 'color .1s',
+                  padding: 2,
+                }}
               >
                 <MoreHorizontal size={14} />
               </button>
+
               {menuOpen && (
-                <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-20 w-36">
+                <div style={{
+                  position: 'absolute',
+                  right: 0,
+                  top: '100%',
+                  marginTop: 4,
+                  background: 'white',
+                  border: '2px solid #0A0A0A',
+                  boxShadow: '3px 3px 0 #0A0A0A',
+                  borderRadius: 0,
+                  padding: '4px 0',
+                  zIndex: 20,
+                  width: 144,
+                }}>
                   <button
                     type="button"
                     onClick={() => { setRenaming(true); setMenuOpen(false); }}
-                    className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      width: '100%',
+                      padding: '8px 12px',
+                      fontSize: 13,
+                      fontWeight: 700,
+                      color: '#0A0A0A',
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.background = '#FFFBE0')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'none')}
                   >
                     <Pencil size={13} /> Đổi tên
                   </button>
                   <button
                     type="button"
                     onClick={() => { onDelete(column.id); setMenuOpen(false); }}
-                    className="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-red-500 hover:bg-red-50"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      width: '100%',
+                      padding: '8px 12px',
+                      fontSize: 13,
+                      fontWeight: 700,
+                      color: '#FF3B3B',
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.background = '#FEE2E2')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'none')}
                   >
                     <Trash2 size={13} /> Xóa cột
                   </button>
                 </div>
               )}
             </div>
-          </div>
+          </>
         )}
       </div>
 
@@ -139,12 +230,33 @@ export default function KanbanColumn({ column, tasks, onAdd, onEdit, onRename, o
           <div
             ref={provided.innerRef}
             {...provided.droppableProps}
-            className={`flex-1 rounded-2xl p-2 flex flex-col gap-2 min-h-[120px] transition-colors ${
-              snapshot.isDraggingOver ? dropOver : dropBg
-            }`}
+            style={{
+              flex: 1,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 8,
+              minHeight: 120,
+              padding: 8,
+              background: snapshot.isDraggingOver ? '#FFFBE0' : '#FAFAF0',
+              border: snapshot.isDraggingOver ? '2px dashed #0A0A0A' : '2px solid #0A0A0A',
+              borderTop: 'none',
+              borderRadius: 0,
+              transition: 'background .1s',
+            }}
           >
             {tasks.length === 0 && !snapshot.isDraggingOver && (
-              <div className={`flex-1 flex items-center justify-center text-xs py-8 ${isDarkBg ? "text-white/30" : "text-gray-300"}`}>
+              <div style={{
+                flex: 1,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 11,
+                fontWeight: 700,
+                color: '#BBB',
+                textTransform: 'uppercase',
+                letterSpacing: '.06em',
+                padding: '32px 0',
+              }}>
                 Không có thẻ
               </div>
             )}
@@ -165,7 +277,24 @@ export default function KanbanColumn({ column, tasks, onAdd, onEdit, onRename, o
             <button
               type="button"
               onClick={() => onAdd(column.id)}
-              className={`flex items-center gap-1.5 w-full px-2 py-1.5 text-xs rounded-lg transition-colors mt-1 ${addBtnClass}`}
+              onMouseEnter={() => setAddBtnHovered(true)}
+              onMouseLeave={() => setAddBtnHovered(false)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                width: '100%',
+                padding: '8px 10px',
+                fontSize: 12,
+                fontWeight: 700,
+                color: '#0A0A0A',
+                background: addBtnHovered ? '#FFE500' : 'transparent',
+                border: '2px dashed #0A0A0A',
+                borderRadius: 0,
+                cursor: 'pointer',
+                marginTop: 4,
+                transition: 'background .1s',
+              }}
             >
               <Plus size={13} /> Thêm thẻ
             </button>

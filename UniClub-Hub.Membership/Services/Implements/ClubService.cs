@@ -11,12 +11,14 @@ namespace UniClub_Hub.Membership.Services.Implements
     public class ClubService : IClubService
     {
         private readonly UniClubDbContext _db;
-        private readonly IClubMembershipService _membershipService; // Inject IClubMembershipService
+        private readonly IClubMembershipService _membershipService;
+        private readonly ISystemSettingService _settings;
 
-        public ClubService(UniClubDbContext db, IClubMembershipService membershipService)
+        public ClubService(UniClubDbContext db, IClubMembershipService membershipService, ISystemSettingService settings)
         {
             _db = db;
             _membershipService = membershipService;
+            _settings = settings;
         }
 
         // ── Public ───────────────────────────────────────────────────────
@@ -93,6 +95,18 @@ namespace UniClub_Hub.Membership.Services.Implements
 
                 // Gán Trưởng câu lạc bộ ngay lập tức bằng dịch vụ ClubMembershipService
                 await _membershipService.AssignClubAdminAsync(club.Id, dto.ClubAdminId);
+
+                // Tạo ban mặc định theo cài đặt hệ thống
+                var defaultDepts = await _settings.GetValueAsync("club.default_departments");
+                if (!string.IsNullOrWhiteSpace(defaultDepts))
+                {
+                    var deptNames = defaultDepts
+                        .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                        .Distinct(StringComparer.OrdinalIgnoreCase);
+                    foreach (var name in deptNames)
+                        _db.Departments.Add(new Department { ClubId = club.Id, Name = name });
+                    await _db.SaveChangesAsync();
+                }
 
                 await transaction.CommitAsync(); // Hoàn tất transaction
                 return await GetByIdAdminAsync(club.Id);

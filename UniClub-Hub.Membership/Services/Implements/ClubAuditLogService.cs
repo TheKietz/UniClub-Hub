@@ -1,0 +1,257 @@
+using Microsoft.EntityFrameworkCore;
+using UniClub_Hub.Membership.DTOs.AuditLog;
+using UniClub_Hub.Membership.Services.Interfaces;
+using UniClub_Hub.Shared.Common;
+using UniClub_Hub.Shared.Data;
+using UniClub_Hub.Shared.Enums;
+
+namespace UniClub_Hub.Membership.Services.Implements
+{
+    public class ClubAuditLogService(UniClubDbContext db) : IClubAuditLogService
+    {
+        private static readonly Dictionary<string, string> EntityToModule = new()
+        {
+            { "Club",            "CLB" },
+            { "ClubMembership",  "Thành viên" },
+            { "Department",      "Ban bộ phận" },
+            { "ClubApplication", "Đơn đăng ký" },
+        };
+
+        public async Task<PagedResult<ClubAuditLogDto>> GetByClubAsync(
+            int clubId, string? module, string? search, string? action, DateTime? dateFrom, DateTime? dateTo, int page, int pageSize)
+        {
+            var membershipIds = await db.ClubMemberships
+                .Where(m => m.ClubId == clubId)
+                .Select(m => m.Id.ToString())
+                .ToListAsync();
+
+            var departmentIds = await db.Departments
+                .Where(d => d.ClubId == clubId)
+                .Select(d => d.Id.ToString())
+                .ToListAsync();
+
+            var applicationIds = await db.Applications
+                .Where(a => a.ClubId == clubId)
+                .Select(a => a.Id.ToString())
+                .ToListAsync();
+
+            var clubIdStr = clubId.ToString();
+
+            var query = db.AuditLogs.AsNoTracking().Where(a =>
+                (a.EntityName == "Club"            && a.EntityId == clubIdStr) ||
+                (a.EntityName == "ClubMembership"  && membershipIds.Contains(a.EntityId)) ||
+                (a.EntityName == "Department"      && departmentIds.Contains(a.EntityId)) ||
+                (a.EntityName == "ClubApplication" && applicationIds.Contains(a.EntityId)));
+
+            if (!string.IsNullOrEmpty(module) && EntityToModule.ContainsValue(module))
+            {
+                var entityName = EntityToModule.First(kv => kv.Value == module).Key;
+                query = query.Where(a => a.EntityName == entityName);
+            }
+
+            if (!string.IsNullOrEmpty(action) && Enum.TryParse<AuditAction>(action, out var actionEnum))
+                query = query.Where(a => a.Action == actionEnum);
+
+            if (dateFrom.HasValue)
+                query = query.Where(a => a.Timestamp >= dateFrom.Value);
+
+            if (dateTo.HasValue)
+                query = query.Where(a => a.Timestamp <= dateTo.Value);
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var lowerSearch = search.ToLower();
+                var matchingUserIds = await db.Users
+                    .Where(u => (u.FullName ?? "").ToLower().Contains(lowerSearch) || u.Email.ToLower().Contains(lowerSearch))
+                    .Select(u => u.Id)
+                    .ToListAsync();
+                query = query.Where(a => matchingUserIds.Contains(a.UserId ?? ""));
+            }
+
+            var total = await query.CountAsync();
+            var logs = await query
+                .OrderByDescending(a => a.Timestamp)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            if (logs.Count == 0)
+                return new PagedResult<ClubAuditLogDto> { Items = [], TotalCount = 0, Page = page, PageSize = pageSize };
+
+            var userIds = logs.Where(l => l.UserId != null).Select(l => l.UserId!).Distinct().ToList();
+            var users = await db.Users
+                .Where(u => userIds.Contains(u.Id))
+                .Select(u => new { u.Id, u.FullName, u.AvatarUrl })
+                .ToDictionaryAsync(u => u.Id);
+
+            var membershipTitleMap = await db.ClubMemberships
+                .Where(m => m.ClubId == clubId)
+                .Include(m => m.User)
+                .Select(m => new { Id = m.Id.ToString(), Name = m.User.FullName ?? m.User.Email })
+                .ToDictionaryAsync(m => m.Id, m => m.Name);
+
+            var departmentTitleMap = await db.Departments
+                .Where(d => d.ClubId == clubId)
+                .Select(d => new { Id = d.Id.ToString(), d.Name })
+                .ToDictionaryAsync(d => d.Id, d => d.Name);
+
+            var applicationTitleMap = await db.Applications
+                .Where(a => a.ClubId == clubId)
+                .Include(a => a.User)
+                .Select(a => new { Id = a.Id.ToString(), Name = a.User.FullName ?? a.User.Email })
+                .ToDictionaryAsync(a => a.Id, a => a.Name);
+
+            var clubName = await db.Clubs
+                .Where(c => c.Id == clubId)
+                .Select(c => c.Name)
+                .FirstOrDefaultAsync();
+
+            var dtos = logs.Select(l =>
+            {
+                users.TryGetValue(l.UserId ?? string.Empty, out var user);
+
+                var entityTitle = l.EntityName switch
+                {
+                    "Club"            => clubName,
+                    "ClubMembership"  => membershipTitleMap.GetValueOrDefault(l.EntityId),
+                    "Department"      => departmentTitleMap.GetValueOrDefault(l.EntityId),
+                    "ClubApplication" => applicationTitleMap.GetValueOrDefault(l.EntityId),
+                    _                 => null,
+                };
+
+                return new ClubAuditLogDto
+                {
+                    Id            = l.Id,
+                    UserId        = l.UserId,
+                    UserName      = user?.FullName ?? "Hệ thống",
+                    UserAvatarUrl = user?.AvatarUrl,
+                    Action        = l.Action.ToString(),
+                    Module        = EntityToModule.GetValueOrDefault(l.EntityName, l.EntityName),
+                    EntityId      = l.EntityId,
+                    EntityTitle   = entityTitle,
+                    OldValue      = l.OldValue,
+                    NewValue      = l.NewValue,
+                    Timestamp     = l.Timestamp,
+                };
+            }).ToList();
+
+            return new PagedResult<ClubAuditLogDto> { Items = dtos, TotalCount = total, Page = page, PageSize = pageSize };
+        }
+
+        public async Task<PagedResult<ClubAuditLogDto>> GetAllAsync(string? module, string? search, string? action, DateTime? dateFrom, DateTime? dateTo, int page, int pageSize)
+        {
+            var query = db.AuditLogs.AsNoTracking()
+                .Where(a => EntityToModule.Keys.Contains(a.EntityName));
+
+            if (!string.IsNullOrEmpty(module) && EntityToModule.ContainsValue(module))
+            {
+                var entityName = EntityToModule.First(kv => kv.Value == module).Key;
+                query = query.Where(a => a.EntityName == entityName);
+            }
+
+            if (!string.IsNullOrEmpty(action) && Enum.TryParse<AuditAction>(action, out var actionEnum))
+                query = query.Where(a => a.Action == actionEnum);
+
+            if (dateFrom.HasValue)
+                query = query.Where(a => a.Timestamp >= dateFrom.Value);
+
+            if (dateTo.HasValue)
+                query = query.Where(a => a.Timestamp <= dateTo.Value);
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var lowerSearch = search.ToLower();
+                var matchingUserIds = await db.Users
+                    .Where(u => (u.FullName ?? "").ToLower().Contains(lowerSearch) || u.Email.ToLower().Contains(lowerSearch))
+                    .Select(u => u.Id)
+                    .ToListAsync();
+                query = query.Where(a => matchingUserIds.Contains(a.UserId ?? ""));
+            }
+
+            var total = await query.CountAsync();
+            var logs = await query
+                .OrderByDescending(a => a.Timestamp)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            if (logs.Count == 0)
+                return new PagedResult<ClubAuditLogDto> { Items = [], TotalCount = 0, Page = page, PageSize = pageSize };
+
+            var userIds = logs.Where(l => l.UserId != null).Select(l => l.UserId!).Distinct().ToList();
+            var users = await db.Users
+                .Where(u => userIds.Contains(u.Id))
+                .Select(u => new { u.Id, u.FullName, u.AvatarUrl })
+                .ToDictionaryAsync(u => u.Id);
+
+            // Resolve club IDs for each log entry
+            var clubEntityIds   = logs.Where(l => l.EntityName == "Club").Select(l => l.EntityId).ToHashSet();
+            var membershipIds   = logs.Where(l => l.EntityName == "ClubMembership").Select(l => l.EntityId).ToHashSet();
+            var departmentIds   = logs.Where(l => l.EntityName == "Department").Select(l => l.EntityId).ToHashSet();
+            var applicationIds  = logs.Where(l => l.EntityName == "ClubApplication").Select(l => l.EntityId).ToHashSet();
+
+            var membershipClubMap = await db.ClubMemberships
+                .Where(m => membershipIds.Contains(m.Id.ToString()))
+                .Select(m => new { Id = m.Id.ToString(), m.ClubId, ClubName = m.Club.Name, MemberName = m.User.FullName ?? m.User.Email })
+                .ToDictionaryAsync(m => m.Id);
+
+            var departmentClubMap = await db.Departments
+                .Where(d => departmentIds.Contains(d.Id.ToString()))
+                .Select(d => new { Id = d.Id.ToString(), d.ClubId, ClubName = d.Club.Name, d.Name })
+                .ToDictionaryAsync(d => d.Id);
+
+            var applicationClubMap = await db.Applications
+                .Where(a => applicationIds.Contains(a.Id.ToString()))
+                .Select(a => new { Id = a.Id.ToString(), a.ClubId, ClubName = a.Club.Name, ApplicantName = a.User.FullName ?? a.User.Email })
+                .ToDictionaryAsync(a => a.Id);
+
+            var clubNameMap = await db.Clubs
+                .Where(c => clubEntityIds.Contains(c.Id.ToString()))
+                .Select(c => new { Id = c.Id.ToString(), c.Name })
+                .ToDictionaryAsync(c => c.Id, c => c.Name);
+
+            var dtos = logs.Select(l =>
+            {
+                users.TryGetValue(l.UserId ?? string.Empty, out var user);
+
+                string? clubName = null;
+                string? entityTitle = null;
+
+                switch (l.EntityName)
+                {
+                    case "Club":
+                        clubName = clubNameMap.GetValueOrDefault(l.EntityId);
+                        entityTitle = clubName;
+                        break;
+                    case "ClubMembership":
+                        if (membershipClubMap.TryGetValue(l.EntityId, out var mc)) { clubName = mc.ClubName; entityTitle = mc.MemberName; }
+                        break;
+                    case "Department":
+                        if (departmentClubMap.TryGetValue(l.EntityId, out var dc)) { clubName = dc.ClubName; entityTitle = dc.Name; }
+                        break;
+                    case "ClubApplication":
+                        if (applicationClubMap.TryGetValue(l.EntityId, out var ac)) { clubName = ac.ClubName; entityTitle = ac.ApplicantName; }
+                        break;
+                }
+
+                return new ClubAuditLogDto
+                {
+                    Id            = l.Id,
+                    UserId        = l.UserId,
+                    UserName      = user?.FullName ?? "Hệ thống",
+                    UserAvatarUrl = user?.AvatarUrl,
+                    Action        = l.Action.ToString(),
+                    Module        = EntityToModule.GetValueOrDefault(l.EntityName, l.EntityName),
+                    EntityId      = l.EntityId,
+                    EntityTitle   = entityTitle,
+                    OldValue      = l.OldValue,
+                    NewValue      = l.NewValue,
+                    Timestamp     = l.Timestamp,
+                    ClubName      = clubName,
+                };
+            }).ToList();
+
+            return new PagedResult<ClubAuditLogDto> { Items = dtos, TotalCount = total, Page = page, PageSize = pageSize };
+        }
+    }
+}
