@@ -1,10 +1,11 @@
 import './gantt.css'
-import { useEffect, useState, useMemo } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useEffect, useState, useMemo, useCallback } from 'react'
+import { useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { RefreshCw, Plus, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { getTasks, getEvents } from '../services/operationsApi'
+import { useTasks } from '../context/TasksContext'
 import type { TaskItem, EventItem, TaskStatus } from '../services/operations.types'
 /* ── Constants ─────────────────────────────────────────────────────────────── */
 
@@ -81,8 +82,9 @@ function GanttAvatar({ name }: { name: string }) {
 /* ══════════════════════════════════════════════════════════════════════════ */
 
 export default function GanttPage() {
-  const [searchParams] = useSearchParams()
-  const clubId = Number(searchParams.get('clubId') ?? 1)
+  const { clubId: clubIdParam } = useParams<{ clubId: string }>()
+  const clubId = Number(clubIdParam ?? 1)
+  const { departmentId } = useTasks()
 
   const [tasks, setTasks]     = useState<TaskItem[]>([])
   const [events, setEvents]   = useState<EventItem[]>([])
@@ -92,18 +94,18 @@ export default function GanttPage() {
   const [weekOffset, setWeekOffset] = useState(0)
 
   /* ── Load ─────────────────────────────────────────────────────────────── */
-  const load = () => {
+  const load = useCallback(() => {
     setLoading(true)
-    Promise.all([getEvents({ clubId, pageSize: 50 }), getTasks({ clubId, pageSize: 200 })])
+    Promise.all([getEvents({ clubId, pageSize: 50 }), getTasks({ clubId, departmentId, pageSize: 200 })])
       .then(([evRes, tkRes]) => {
         setEvents(evRes.items); setTasks(tkRes.items)
         if (evRes.items.length) setSelEventId(evRes.items[0].id)
       })
       .catch(() => toast.error('Không thể tải dữ liệu'))
       .finally(() => setLoading(false))
-  }
+  }, [clubId, departmentId])
 
-  useEffect(() => { load() }, [clubId])  // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { load() }, [load])
 
   /* ── Derived ──────────────────────────────────────────────────────────── */
   const selEvent = events.find(e => e.id === selEventId) ?? events[0] ?? null

@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useMemo } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { RefreshCw, Plus, ArrowRightLeft, Trash2, Download, Search, ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -156,8 +156,8 @@ function EntryCard({ entry }: { entry: AuditLogItem }) {
 /* ─── Page ────────────────────────────────────────────────────────────────── */
 
 export default function ActivityLogPage() {
-  const [searchParams] = useSearchParams()
-  const clubId = Number(searchParams.get('clubId') ?? 1)
+  const { clubId: clubIdParam } = useParams<{ clubId: string }>()
+  const clubId = Number(clubIdParam ?? 1)
 
   const [logs, setLogs] = useState<AuditLogItem[]>([])
   const [loading, setLoading] = useState(true)

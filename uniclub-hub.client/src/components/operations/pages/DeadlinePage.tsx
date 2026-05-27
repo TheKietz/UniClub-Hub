@@ -1,9 +1,10 @@
 import { useEffect, useState, useCallback } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { RefreshCw, AlertTriangle, Clock, CheckCircle, TrendingDown, Minus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { getTasks } from '../services/operationsApi'
+import { useTasks } from '../context/TasksContext'
 import type { TaskItem, TaskStatus } from '../services/operations.types'
 
 const MS_PER_DAY = 86_400_000
@@ -177,8 +178,9 @@ function Section({
 }
 
 export default function DeadlinePage() {
-  const [searchParams] = useSearchParams()
-  const clubId = Number(searchParams.get('clubId') ?? 1)
+  const { clubId: clubIdParam } = useParams<{ clubId: string }>()
+  const clubId = Number(clubIdParam ?? 1)
+  const { departmentId } = useTasks()
 
   const [tasks, setTasks] = useState<TaskItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -186,14 +188,14 @@ export default function DeadlinePage() {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const result = await getTasks({ clubId, pageSize: 500 })
+      const result = await getTasks({ clubId, departmentId, pageSize: 500 })
       setTasks(result.items)
     } catch {
       toast.error('Không thể tải dữ liệu công việc')
     } finally {
       setLoading(false)
     }
-  }, [clubId])
+  }, [clubId, departmentId])
 
   useEffect(() => { load() }, [load])
 

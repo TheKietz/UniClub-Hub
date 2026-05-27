@@ -1,8 +1,9 @@
 import { useEffect, useState, useCallback } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { ChevronLeft, ChevronRight, Bell } from 'lucide-react'
 import { getEvents, getTasks } from '../services/operationsApi'
+import { useTasks } from '../context/TasksContext'
 import type { EventItem, TaskItem, TaskPriority } from '../services/operations.types'
 
 /* ─── Constants ──────────────────────────────────────────────────────────── */
@@ -93,8 +94,9 @@ interface CalEntry {
 /* ─── Component ───────────────────────────────────────────────────────────── */
 
 export default function CalendarPage() {
-  const [searchParams] = useSearchParams()
-  const clubId = Number(searchParams.get('clubId') ?? 1)
+  const { clubId: clubIdParam } = useParams<{ clubId: string }>()
+  const clubId = Number(clubIdParam ?? 1)
+  const { departmentId } = useTasks()
 
   const [view, setView] = useState<'month' | 'week'>('month')
   const [currentDate, setCurrentDate] = useState(() => {
@@ -111,7 +113,7 @@ export default function CalendarPage() {
     try {
       const [evResult, tkResult] = await Promise.all([
         getEvents({ clubId, pageSize: 200 }),
-        getTasks({ clubId, pageSize: 500 }),
+        getTasks({ clubId, departmentId, pageSize: 500 }),
       ])
       setEvents(evResult.items)
       setTasks(tkResult.items)
@@ -120,7 +122,7 @@ export default function CalendarPage() {
     } finally {
       setLoading(false)
     }
-  }, [clubId])
+  }, [clubId, departmentId])
 
   useEffect(() => { load() }, [load])
 

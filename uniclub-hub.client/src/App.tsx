@@ -50,17 +50,9 @@ import ClubDetailPage from "@/components/membership/pages/ClubDetailPage";
 import ProfilePage from "@/components/membership/pages/ProfilePage";
 import MemberHistoryPage from "@/components/membership/pages/MemberHistoryPage";
 
-import KanbanPage from "@/components/operations/pages/KanbanPage";
 import MyTasksPage from "@/components/operations/pages/MyTasksPage";
-import EventListPage from "@/components/operations/pages/EventListPage";
 import EventDetailPage from "@/components/operations/pages/EventDetailPage";
-import WorkloadPage from "@/components/operations/pages/WorkloadPage";
-import GanttPage from "@/components/operations/pages/GanttPage";
-import DeadlinePage from "@/components/operations/pages/DeadlinePage";
-import SprintsPage from "@/components/operations/pages/SprintsPage";
-import OperationsDashboard from "@/components/operations/pages/OperationsDashboard";
-import CalendarPage from "@/components/operations/pages/CalendarPage";
-import ActivityLogPage from "@/components/operations/pages/ActivityLogPage";
+import ClubOperationsPage from "@/components/operations/pages/ClubOperationsPage";
 
 const Soon = ({ label }: { label: string }) => (
   <div className="p-8 text-xl font-semibold text-gray-500">
@@ -120,16 +112,8 @@ export default function App() {
               <Route path="/my-activity" element={<MyActivityPage />} />
               <Route path="/support" element={<SupportPage />} />
               <Route path="/my-tasks" element={<MyTasksPage />} />
-              <Route path="/operations" element={<OperationsDashboard />} />
-              <Route path="/kanban" element={<KanbanPage />} />
-              <Route path="/sprints" element={<SprintsPage />} />
-              <Route path="/events" element={<EventListPage />} />
-              <Route path="/events/:id" element={<EventDetailPage />} />
-              <Route path="/workload" element={<WorkloadPage />} />
-              <Route path="/gantt" element={<GanttPage />} />
-              <Route path="/deadlines" element={<DeadlinePage />} />
-              <Route path="/calendar" element={<CalendarPage />} />
-              <Route path="/activity" element={<ActivityLogPage />} />
+              <Route path="/clubs/:clubId/operations" element={<ClubOperationsPage />} />
+              <Route path="/clubs/:clubId/events/:id" element={<EventDetailPage />} />
               <Route path="/my-kpi" element={<Soon label="KPI của tôi" />} />
               <Route
                 element={

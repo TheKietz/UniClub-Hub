@@ -1,8 +1,14 @@
-import { useRef, useState, useEffect } from 'react'
+import { useRef, useState, useEffect, useMemo } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { CLUB_ROLES, MEMBERSHIP_STATUS } from '@/types/auth'
+import type { UserMembership } from '@/types/auth'
 import NotificationBell from '@/components/shared/NotificationBell'
+
+const ROLE_RANK = { CLUB_ADMIN: 3, DEPT_LEAD: 2, MEMBER: 1 } as const
+function roleRank(role: string) {
+  return ROLE_RANK[role as keyof typeof ROLE_RANK] ?? 0
+}
 
 type Mode = 'member' | 'admin' | 'club'
 
@@ -69,12 +75,24 @@ export default function DashboardSidebar({ mode, clubId }: Props) {
   const pickerRef = useRef<HTMLDivElement>(null)
 
   const isSuperAdmin = user?.roles.includes('SUPER_ADMIN') ?? false
-  const manageableClubs = (user?.memberships ?? []).filter(
-    m => m.status === MEMBERSHIP_STATUS.ACTIVE &&
-      (m.clubRole === CLUB_ROLES.CLUB_ADMIN || m.clubRole === CLUB_ROLES.DEPT_LEAD)
+
+  // Deduplicate by clubId — keep the membership with the highest role per club
+  const uniqueActiveMemberships = useMemo<UserMembership[]>(() => {
+    const map = new Map<number, UserMembership>()
+    for (const m of (user?.memberships ?? []).filter(m => m.status === MEMBERSHIP_STATUS.ACTIVE)) {
+      const existing = map.get(m.clubId)
+      if (!existing || roleRank(m.clubRole) > roleRank(existing.clubRole)) {
+        map.set(m.clubId, m)
+      }
+    }
+    return Array.from(map.values())
+  }, [user?.memberships])
+
+  const manageableClubs = uniqueActiveMemberships.filter(
+    m => m.clubRole === CLUB_ROLES.CLUB_ADMIN || m.clubRole === CLUB_ROLES.DEPT_LEAD
   )
-  const memberOnlyClubs = (user?.memberships ?? []).filter(
-    m => m.status === MEMBERSHIP_STATUS.ACTIVE && m.clubRole === CLUB_ROLES.MEMBER
+  const memberOnlyClubs = uniqueActiveMemberships.filter(
+    m => m.clubRole === CLUB_ROLES.MEMBER
   )
   const activeClub = clubId
     ? user?.memberships.find(m => m.clubId === Number(clubId))
@@ -306,6 +324,48 @@ export default function DashboardSidebar({ mode, clubId }: Props) {
             )}
           </div>
         ))}
+
+        {/* Dynamic clubs section (member mode only) */}
+        {mode === 'member' && uniqueActiveMemberships.length > 0 && (
+          <>
+            <div style={{ height: 1, background: 'rgba(255,255,255,.06)', margin: '6px 12px' }} />
+            <div style={{ padding: '6px 12px 4px', fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,.28)', letterSpacing: '.08em', textTransform: 'uppercase' }}>
+              Câu lạc bộ
+            </div>
+            {uniqueActiveMemberships.map(m => (
+              <NavLink
+                key={m.clubId}
+                to={`/clubs/${m.clubId}/operations`}
+                style={{ textDecoration: 'none', display: 'block' }}
+              >
+                {({ isActive }) => (
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    padding: '8px 12px', borderRadius: 10, marginBottom: 2,
+                    background: isActive ? 'rgba(255,255,255,.10)' : 'transparent',
+                    color: isActive ? '#fff' : 'rgba(255,255,255,.55)',
+                    fontSize: 13, fontWeight: isActive ? 700 : 500,
+                    cursor: 'pointer', transition: 'all .12s',
+                  }}>
+                    <div style={{
+                      width: 24, height: 24, borderRadius: 6, flexShrink: 0,
+                      background: getClubColor(m.clubId),
+                      display: 'grid', placeItems: 'center',
+                      color: '#fff', fontWeight: 900, fontSize: 9,
+                    }}>
+                      {m.clubLogoUrl
+                        ? <img src={m.clubLogoUrl} alt="" style={{ width: '100%', height: '100%', borderRadius: 6, objectFit: 'cover' }} />
+                        : getClubShort(m.clubName)}
+                    </div>
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {m.clubName}
+                    </span>
+                  </div>
+                )}
+              </NavLink>
+            ))}
+          </>
+        )}
       </nav>
 
       {/* User footer */}

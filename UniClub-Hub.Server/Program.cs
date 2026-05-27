@@ -15,6 +15,11 @@ using UniClub_Hub.Shared.Data;
 using UniClub_Hub.Shared.Email;
 using UniClub_Hub.Shared.Models;
 
+// Npgsql 6+ requires DateTimeOffset values sent to timestamptz to be UTC.
+// This switch lets Npgsql accept any offset and convert to UTC on write,
+// matching the pre-6.0 behaviour across the whole application.
+AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
+
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddEndpointsApiExplorer();

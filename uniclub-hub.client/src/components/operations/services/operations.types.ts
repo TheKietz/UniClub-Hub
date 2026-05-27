@@ -3,6 +3,16 @@ export type TaskPriority = 'Low' | 'Medium' | 'High'
 export type EventStatus = 'Draft' | 'InProgress' | 'Completed' | 'Cancelled'
 export type SprintStatus = 'Planning' | 'Active' | 'Completed' | 'Cancelled'
 
+export interface KanbanColumnItem {
+  id: number
+  clubId: number
+  sprintId?: number
+  name: string
+  color?: string
+  sortOrder: number
+  taskCount?: number
+}
+
 export interface TaskItem {
   id: number
   clubId: number
@@ -13,10 +23,12 @@ export interface TaskItem {
   title: string
   description?: string
   priority: TaskPriority
+  startDate?: string
   deadline?: string
   estimatedHours?: number
   actualHours?: number
   status: TaskStatus
+  kanbanColumnId?: number
   progress: number
   completedAt?: string
   assignedTo?: string
@@ -26,6 +38,31 @@ export interface TaskItem {
   subTaskCount: number
   isBlocked: boolean
   blockingCount: number
+}
+
+export interface TaskCommentItem {
+  id: number
+  taskId: number
+  userId: string
+  userName: string
+  userAvatarUrl?: string
+  content: string
+  createdAt: string
+  updatedAt?: string
+  isEdited: boolean
+}
+
+export interface TaskAttachmentItem {
+  id: number
+  taskId: number
+  fileUrl: string
+  fileName?: string
+  contentType?: string
+  fileSize?: number
+  note?: string
+  isLink: boolean
+  uploadedAt: string
+  userId: string
 }
 
 export interface TaskDependencyItem {
@@ -116,6 +153,7 @@ export interface CreateTaskDto {
   title: string
   description?: string
   priority: TaskPriority
+  startDate?: string
   deadline?: string
   estimatedHours?: number
   assignedTo?: string
@@ -123,6 +161,7 @@ export interface CreateTaskDto {
   sprintId?: number
   departmentId?: number
   parentId?: number
+  kanbanColumnId?: number
 }
 
 export interface AddDependencyDto {
@@ -136,6 +175,7 @@ export interface UpdateTaskDto extends CreateTaskDto {
 export interface UpdateTaskStatusDto {
   status: TaskStatus
   progress: number
+  kanbanColumnId?: number
 }
 
 export interface CreateEventDto {
@@ -178,4 +218,26 @@ export interface CreateSprintDto {
 
 export interface UpdateSprintDto extends CreateSprintDto {
   status: SprintStatus
+}
+
+export interface CreateKanbanColumnDto {
+  name: string
+  color?: string
+  sprintId?: number
+  sortOrder?: number
+}
+
+export interface UpdateKanbanColumnDto {
+  name: string
+  color?: string
+  sortOrder: number
+}
+
+export interface CreateTaskCommentDto {
+  content: string
+}
+
+export interface AddTaskAttachmentLinkDto {
+  fileUrl: string
+  note?: string
 }

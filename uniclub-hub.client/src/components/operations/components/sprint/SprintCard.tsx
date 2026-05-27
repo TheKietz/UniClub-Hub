@@ -23,6 +23,7 @@ interface SprintCardProps {
   onEdit: (id: number) => void;
   onDelete: (id: number) => void;
   onViewKanban: (id: number) => void;
+  canManage?: boolean;
 }
 
 export default function SprintCard({
@@ -30,6 +31,7 @@ export default function SprintCard({
   onEdit,
   onDelete,
   onViewKanban,
+  canManage = true,
 }: SprintCardProps) {
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -72,16 +74,18 @@ export default function SprintCard({
                 onClick={() => setMenuOpen(false)}
               />
               <div className="absolute right-0 top-8 z-50 bg-white border border-gray-100 rounded-xl shadow-xl py-1 w-36 animate-in fade-in slide-in-from-top-1 duration-150">
-                <button
-                  type="button"
-                  className="w-full px-3 py-2 text-sm text-left text-gray-700 hover:bg-gray-50 transition-colors"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    onEdit(sprint.id);
-                  }}
-                >
-                  Chỉnh sửa
-                </button>
+                {canManage && (
+                  <button
+                    type="button"
+                    className="w-full px-3 py-2 text-sm text-left text-gray-700 hover:bg-gray-50 transition-colors"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      onEdit(sprint.id);
+                    }}
+                  >
+                    Chỉnh sửa
+                  </button>
+                )}
                 <button
                   type="button"
                   className="w-full px-3 py-2 text-sm text-left text-gray-700 hover:bg-gray-50 transition-colors"
@@ -92,17 +96,21 @@ export default function SprintCard({
                 >
                   Xem Kanban
                 </button>
-                <hr className="my-1 border-gray-100" />
-                <button
-                  type="button"
-                  className="w-full px-3 py-2 text-sm text-left text-red-600 hover:bg-red-50 transition-colors"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    onDelete(sprint.id);
-                  }}
-                >
-                  Xóa sprint
-                </button>
+                {canManage && (
+                  <>
+                    <hr className="my-1 border-gray-100" />
+                    <button
+                      type="button"
+                      className="w-full px-3 py-2 text-sm text-left text-red-600 hover:bg-red-50 transition-colors"
+                      onClick={() => {
+                        setMenuOpen(false);
+                        onDelete(sprint.id);
+                      }}
+                    >
+                      Xóa sprint
+                    </button>
+                  </>
+                )}
               </div>
             </>
           )}

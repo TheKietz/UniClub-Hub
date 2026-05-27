@@ -12,6 +12,9 @@ namespace UniClub_Hub.Operations
             services.AddScoped<ITaskService, TaskService>();
             services.AddScoped<ISprintService, SprintService>();
             services.AddScoped<IAuditLogService, AuditLogService>();
+            services.AddScoped<IKanbanColumnService, KanbanColumnService>();
+            services.AddScoped<ITaskCommentService, TaskCommentService>();
+            services.AddScoped<ITaskAttachmentService, TaskAttachmentService>();
             return services;
         }
     }

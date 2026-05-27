@@ -10,7 +10,7 @@ namespace UniClub_Hub.Operations.Services.Interfaces
         Task<TaskDto> CreateAsync(int clubId, CreateTaskDto dto, string createdBy);
         Task<TaskDto> UpdateAsync(int id, UpdateTaskDto dto);
         Task<TaskDto> UpdateStatusAsync(int id, UpdateTaskStatusDto dto);
-        Task DeleteAsync(int id);
+        Task DeleteAsync(int id, string userId);
         Task<List<TaskDependencyDto>> GetDependenciesAsync(int taskId);
         Task AddDependencyAsync(int taskId, AddDependencyDto dto);
         Task RemoveDependencyAsync(int taskId, int dependsOnTaskId);

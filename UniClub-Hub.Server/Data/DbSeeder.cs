@@ -26,36 +26,25 @@ namespace UniClub_Hub.Server.Data
             }
 
             // ── Categories ────────────────────────────────────────────────
+            var categoryMap = new Dictionary<string, Category>();
             if (!await db.Categories.AnyAsync())
             {
-                db.Categories.AddRange(
-                    new Category
-                    {
-                        Name = "Học thuật & Nghiên cứu",
-                        Description = "Các CLB định hướng học thuật, nghiên cứu khoa học.",
-                    },
-                    new Category
-                    {
-                        Name = "Thể thao & Sức khỏe",
-                        Description = "Các CLB thể dục thể thao và rèn luyện sức khỏe.",
-                    },
-                    new Category
-                    {
-                        Name = "Văn nghệ & Nghệ thuật",
-                        Description = "Các CLB âm nhạc, múa, kịch nghệ, mỹ thuật.",
-                    },
-                    new Category
-                    {
-                        Name = "Kỹ năng & Phát triển bản thân",
-                        Description = "Các CLB phát triển kỹ năng mềm, ngoại ngữ, lãnh đạo.",
-                    },
-                    new Category
-                    {
-                        Name = "Tình nguyện & Cộng đồng",
-                        Description = "Các CLB hoạt động xã hội, thiện nguyện, môi trường.",
-                    }
-                );
-                await db.SaveChangesAsync();
+                var cats = new[]
+                {
+                    new Category { Name = "Học thuật & Nghiên cứu", Description = "..." },
+                    new Category { Name = "Thể thao & Sức khỏe", Description = "..." },
+                    new Category { Name = "Văn nghệ & Nghệ thuật", Description = "..." },
+                    new Category { Name = "Kỹ năng & Phát triển bản thân", Description = "..." },
+                    new Category { Name = "Tình nguyện & Cộng đồng", Description = "..." }
+                };
+                db.Categories.AddRange(cats);
+                foreach (var c in cats) categoryMap[c.Name.Split(' ')[0]] = c;
+            }
+            else
+            {
+                // Nếu đã có data thì mới query 1 lần duy nhất
+                var existingCats = await db.Categories.ToListAsync();
+                foreach (var c in existingCats) categoryMap[c.Name.Split(' ')[0]] = c;
             }
 
             var categories = await db.Categories.ToListAsync();
@@ -66,7 +55,7 @@ namespace UniClub_Hub.Server.Data
             int catTinhNguyen = categories.First(c => c.Name.StartsWith("Tình nguyện")).Id;
 
             // ── Users ─────────────────────────────────────────────────────
-            var usersData = new[]
+            var usersData = new[] 
             {
                 // (email, fullName, studentId, major, gender, role, password)
                 (
@@ -192,9 +181,11 @@ namespace UniClub_Hub.Server.Data
             }
 
             // ── Clubs ─────────────────────────────────────────────────────
-            if (!await db.Clubs.AnyAsync())
+            var clubMap = new Dictionary<string, Club>();
+            if (!await db.Clubs.IgnoreQueryFilters().AnyAsync())
             {
-                db.Clubs.AddRange(
+                var clubs = new[]
+                {
                     new Club
                     {
                         Name = "CLB Công nghệ UEF",
@@ -265,21 +256,27 @@ namespace UniClub_Hub.Server.Data
                         CreatedAt = DateTime.UtcNow,
                         UpdatedAt = DateTime.UtcNow,
                     }
-                );
+                };
+                db.Clubs.AddRange(clubs);
                 await db.SaveChangesAsync();
+                foreach (var c in clubs) clubMap[c.Code] = c;
             }
-
-            var clubs = await db.Clubs.IgnoreQueryFilters().ToListAsync();
-            var clubTech = clubs.First(c => c.Code == "TECH");
-            var clubFootball = clubs.First(c => c.Code == "FOOTBALL");
-            var clubMusic = clubs.First(c => c.Code == "MUSIC");
-            var clubEnglish = clubs.First(c => c.Code == "ENGLISH");
-            var clubVolunteer = clubs.First(c => c.Code == "VOLUNTEER");
+            else
+            {
+                var existingClubs = await db.Clubs.IgnoreQueryFilters().ToListAsync();
+                foreach (var c in existingClubs) clubMap[c.Code] = c;
+            }
+            var clubTech = clubMap["TECH"];
+            var clubFootball = clubMap["FOOTBALL"];
+            var clubMusic = clubMap["MUSIC"];
+            var clubEnglish = clubMap["ENGLISH"];
+            var clubVolunteer = clubMap["VOLUNTEER"];
 
             // ── Departments ───────────────────────────────────────────────
-            if (!await db.Departments.AnyAsync())
+            var deptMap = new Dictionary<string, Department>();
+            if (!await db.Departments.IgnoreQueryFilters().AnyAsync())
             {
-                db.Departments.AddRange(
+                var depts = new[]                {
                     // TECH
                     new Department
                     {
@@ -346,46 +343,25 @@ namespace UniClub_Hub.Server.Data
                         Description = "Tổ chức các buổi biểu diễn và concert.",
                         CreatedAt = DateTime.UtcNow,
                         UpdatedAt = DateTime.UtcNow,
-                    },
-                    // ENGLISH
-                    new Department
-                    {
-                        ClubId = clubEnglish.Id,
-                        Name = "Ban Đào tạo",
-                        Description = "Tổ chức lớp học, workshop IELTS và kỹ năng giao tiếp.",
-                        CreatedAt = DateTime.UtcNow,
-                        UpdatedAt = DateTime.UtcNow,
-                    },
-                    new Department
-                    {
-                        ClubId = clubEnglish.Id,
-                        Name = "Ban Truyền thông",
-                        Description = "Quản lý nội dung song ngữ và mạng xã hội CLB.",
-                        CreatedAt = DateTime.UtcNow,
-                        UpdatedAt = DateTime.UtcNow,
-                    },
-                    // VOLUNTEER
-                    new Department
-                    {
-                        ClubId = clubVolunteer.Id,
-                        Name = "Ban Dự án",
-                        Description = "Lên kế hoạch và triển khai các chương trình tình nguyện.",
-                        CreatedAt = DateTime.UtcNow,
-                        UpdatedAt = DateTime.UtcNow,
-                    },
-                    new Department
-                    {
-                        ClubId = clubVolunteer.Id,
-                        Name = "Ban Truyền thông",
-                        Description = "Lan tỏa giá trị và hình ảnh các hoạt động tình nguyện.",
-                        CreatedAt = DateTime.UtcNow,
-                        UpdatedAt = DateTime.UtcNow,
                     }
-                );
+                };
+                db.Departments.AddRange(depts);
                 await db.SaveChangesAsync();
+                foreach (var d in depts) 
+                {
+                    var clubCode = clubMap.First(x => x.Value.Id == d.ClubId).Key;
+                    deptMap[$"{clubCode}_{d.Name}"] = d;
+                }
             }
-
-            var depts = await db.Departments.IgnoreQueryFilters().ToListAsync();
+            else
+            {
+                var existingDepts = await db.Departments.IgnoreQueryFilters().ToListAsync();
+                foreach (var d in existingDepts)
+                {
+                    var clubCode = clubMap.First(x => x.Value.Id == d.ClubId).Key;
+                    deptMap[$"{clubCode}_{d.Name}"] = d;
+                }
+            }
 
             // ── Memberships ───────────────────────────────────────────────
             if (!await db.ClubMemberships.AnyAsync())
@@ -393,8 +369,8 @@ namespace UniClub_Hub.Server.Data
                 var today = DateOnly.FromDateTime(DateTime.Today);
 
                 // Helper lấy dept ID
-                int DeptId(int clubId, string name) =>
-                    depts.First(d => d.ClubId == clubId && d.Name == name).Id;
+                int? GetDeptId(string clubCode, string deptName) 
+                    => deptMap.TryGetValue($"{clubCode}_{deptName}", out var dept) ? dept.Id : null;
 
                 var memberships = new List<ClubMembership>
                 {
@@ -414,7 +390,25 @@ namespace UniClub_Hub.Server.Data
                         ClubRole = ClubRole.DEPT_LEAD,
                         JoinedDate = new DateOnly(2022, 9, 5),
                         Status = MembershipStatus.Active,
-                        DepartmentId = DeptId(clubTech.Id, "Ban Kỹ thuật"),
+                        DepartmentId = GetDeptId("TECH", "Ban Kỹ thuật"),
+                    },
+                    new()
+                    {
+                        UserId = createdUsers["linh.clb@uef.edu.vn"].Id,
+                        ClubId = clubTech.Id,
+                        ClubRole = ClubRole.DEPT_LEAD,
+                        JoinedDate = new DateOnly(2023, 9, 10), // Hoặc chọn ngày bất kỳ
+                        Status = MembershipStatus.Active,
+                        DepartmentId = GetDeptId("TECH", "Ban Truyền thông"),
+                    },
+                    new()
+                    {
+                        UserId = createdUsers["linh.clb@uef.edu.vn"].Id,
+                        ClubId = clubTech.Id,
+                        ClubRole = ClubRole.MEMBER,
+                        JoinedDate = new DateOnly(2023, 9, 10), // Hoặc chọn ngày bất kỳ
+                        Status = MembershipStatus.Active,
+                        DepartmentId = GetDeptId("TECH", "Ban Sự kiện"),
                     },
                     new()
                     {
@@ -423,7 +417,7 @@ namespace UniClub_Hub.Server.Data
                         ClubRole = ClubRole.MEMBER,
                         JoinedDate = new DateOnly(2023, 1, 10),
                         Status = MembershipStatus.Active,
-                        DepartmentId = DeptId(clubTech.Id, "Ban Truyền thông"),
+                        DepartmentId = GetDeptId("TECH", "Ban Truyền thông"),
                     },
                     new()
                     {
@@ -449,7 +443,7 @@ namespace UniClub_Hub.Server.Data
                         ClubRole = ClubRole.DEPT_LEAD,
                         JoinedDate = new DateOnly(2021, 9, 5),
                         Status = MembershipStatus.Active,
-                        DepartmentId = DeptId(clubFootball.Id, "Ban Chuyên môn"),
+                        DepartmentId = GetDeptId("FOOTBALL", "Ban Chuyên môn"),
                     },
                     new()
                     {
@@ -475,7 +469,7 @@ namespace UniClub_Hub.Server.Data
                         ClubRole = ClubRole.DEPT_LEAD,
                         JoinedDate = new DateOnly(2022, 1, 10),
                         Status = MembershipStatus.Active,
-                        DepartmentId = DeptId(clubMusic.Id, "Ban Thanh nhạc"),
+                        DepartmentId = GetDeptId("MUSIC", "Ban Thanh nhạc"),
                     },
                     new()
                     {
@@ -509,7 +503,7 @@ namespace UniClub_Hub.Server.Data
                         ClubRole = ClubRole.DEPT_LEAD,
                         JoinedDate = new DateOnly(2021, 6, 5),
                         Status = MembershipStatus.Active,
-                        DepartmentId = DeptId(clubEnglish.Id, "Ban Đào tạo"),
+                        DepartmentId = GetDeptId("ENGLISH", "Ban Đào tạo"),
                     },
                     new()
                     {
@@ -535,7 +529,7 @@ namespace UniClub_Hub.Server.Data
                         ClubRole = ClubRole.DEPT_LEAD,
                         JoinedDate = new DateOnly(2023, 1, 10),
                         Status = MembershipStatus.Active,
-                        DepartmentId = DeptId(clubVolunteer.Id, "Ban Dự án"),
+                        DepartmentId = GetDeptId("VOLUNTEER", "Ban Dự án"),
                     },
                     new()
                     {

@@ -5,10 +5,10 @@ namespace UniClub_Hub.Operations.Services.Interfaces
 {
     public interface ISprintService
     {
-        Task<PagedResult<SprintDto>> GetByClubAsync(int clubId, int? eventId, int page, int pageSize);
+        Task<PagedResult<SprintDto>> GetByClubAsync(int clubId, int? departmentId, int? eventId, int page, int pageSize);
         Task<SprintDto> GetByIdAsync(int id);
-        Task<SprintDto> CreateAsync(int clubId, CreateSprintDto dto, string createdBy);
-        Task<SprintDto> UpdateAsync(int id, UpdateSprintDto dto);
-        Task DeleteAsync(int id);
+        Task<SprintDto> CreateAsync(int clubId, CreateSprintDto dto, string userId);
+        Task<SprintDto> UpdateAsync(int id, UpdateSprintDto dto, string userId);
+        Task DeleteAsync(int id, string userId);
     }
 }
