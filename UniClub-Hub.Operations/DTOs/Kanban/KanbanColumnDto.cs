@@ -5,6 +5,7 @@ namespace UniClub_Hub.Operations.DTOs.Kanban
         public int Id { get; set; }
         public int ClubId { get; set; }
         public int? SprintId { get; set; }
+        public int? DepartmentId { get; set; }
         public string Name { get; set; } = null!;
         public string? Color { get; set; }
         public int SortOrder { get; set; }
@@ -16,6 +17,7 @@ namespace UniClub_Hub.Operations.DTOs.Kanban
         public string Name { get; set; } = null!;
         public string? Color { get; set; }
         public int? SprintId { get; set; }
+        public int? DepartmentId { get; set; }
         public int? SortOrder { get; set; }
     }
 

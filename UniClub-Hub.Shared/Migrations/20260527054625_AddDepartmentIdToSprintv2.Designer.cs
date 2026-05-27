@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using UniClub_Hub.Shared.Data;
@@ -11,9 +12,11 @@ using UniClub_Hub.Shared.Data;
 namespace UniClub_Hub.Shared.Migrations
 {
     [DbContext(typeof(UniClubDbContext))]
-    partial class UniClubDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260527054625_AddDepartmentIdToSprintv2")]
+    partial class AddDepartmentIdToSprintv2
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -933,9 +936,6 @@ namespace UniClub_Hub.Shared.Migrations
                     b.Property<string>("CreatedBy")
                         .HasColumnType("text");
 
-                    b.Property<int?>("DepartmentId")
-                        .HasColumnType("integer");
-
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("text");
@@ -955,8 +955,6 @@ namespace UniClub_Hub.Shared.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("ClubId");
-
-                    b.HasIndex("DepartmentId");
 
                     b.HasIndex("SprintId");
 
@@ -1407,36 +1405,6 @@ namespace UniClub_Hub.Shared.Migrations
                     b.ToTable("SystemSettings");
                 });
 
-            modelBuilder.Entity("UniClub_Hub.Shared.Models.TaskAssignee", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("AssignedAt")
-                        .HasColumnType("timestamp without time zone");
-
-                    b.Property<string>("AssignedBy")
-                        .HasColumnType("text");
-
-                    b.Property<int>("TaskId")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("UserId")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TaskId");
-
-                    b.HasIndex("UserId");
-
-                    b.ToTable("TaskAssignees");
-                });
-
             modelBuilder.Entity("UniClub_Hub.Shared.Models.TaskAttachment", b =>
                 {
                     b.Property<int>("Id")
@@ -1825,18 +1793,12 @@ namespace UniClub_Hub.Shared.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("UniClub_Hub.Shared.Models.Department", "Department")
-                        .WithMany()
-                        .HasForeignKey("DepartmentId");
-
                     b.HasOne("UniClub_Hub.Shared.Models.Sprint", "Sprint")
                         .WithMany()
                         .HasForeignKey("SprintId")
                         .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("Club");
-
-                    b.Navigation("Department");
 
                     b.Navigation("Sprint");
                 });
@@ -1988,25 +1950,6 @@ namespace UniClub_Hub.Shared.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("UniClub_Hub.Shared.Models.TaskAssignee", b =>
-                {
-                    b.HasOne("UniClub_Hub.Shared.Models.ClubTask", "Task")
-                        .WithMany("Assignees")
-                        .HasForeignKey("TaskId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("UniClub_Hub.Shared.Models.ApplicationUser", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Task");
-
-                    b.Navigation("User");
-                });
-
             modelBuilder.Entity("UniClub_Hub.Shared.Models.TaskAttachment", b =>
                 {
                     b.HasOne("UniClub_Hub.Shared.Models.ClubTask", "Task")
@@ -2121,8 +2064,6 @@ namespace UniClub_Hub.Shared.Migrations
 
             modelBuilder.Entity("UniClub_Hub.Shared.Models.ClubTask", b =>
                 {
-                    b.Navigation("Assignees");
-
                     b.Navigation("Attachments");
 
                     b.Navigation("Comments");

@@ -10,7 +10,7 @@ import {
   createTask, updateTask, deleteTask,
   getTaskComments, addTaskComment, updateTaskComment, deleteTaskComment,
   getTaskAttachments, addTaskAttachmentLink, deleteTaskAttachment, uploadTaskAttachmentFile,
-  getAuditLogs,
+  getAuditLogs, getTaskAssignees, assignTask, unassignTask,
 } from "../../services/operationsApi";
 import type {
   TaskItem, TaskCommentItem, TaskAttachmentItem, AuditLogItem,
@@ -18,6 +18,29 @@ import type {
 } from "../../services/operations.types";
 import { getClubMembers } from "../../../membership/services/clubApi";
 import type { MemberItem } from "../../../membership/services/club.types";
+import { useAuth } from "@/contexts/AuthContext";
+import { CLUB_ROLES } from "@/types/auth";
+
+/* ── Design tokens ─────────────────────────────────────────────────────────── */
+
+const D = {
+  border: '1.5px solid #15131a',
+  borderLight: '1px solid #e8e3d6',
+  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 #15131a`,
+  radius: 14,
+  pill: 999,
+  ink: '#15131a',
+  inkDim: '#4a4651',
+  inkMuted: '#918c99',
+  bg: '#f7f6f1',
+  card: '#ffffff',
+  indigo: '#4f46e5',
+  emerald: '#10b981',
+  amber: '#f59e0b',
+  red: '#ef4444',
+}
+
+/* ── Interfaces ──────────────────────────────────────────────────────────────── */
 
 interface Props {
   clubId: number;
@@ -25,316 +48,353 @@ interface Props {
   open: boolean;
   defaultColumnId?: number;
   defaultSprintId?: number;
+  departmentId?: number;
   columns: KanbanColumnItem[];
   onClose: () => void;
   onSaved: () => void;
 }
 
-// ── Label / Priority colours ──────────────────────────────────────────────────
-const PRIORITY_LABELS: { value: TaskPriority; color: string; label: string }[] = [
-  { value: "Low",    color: "#61bd4f", label: "Thấp"       },
-  { value: "Medium", color: "#f2d600", label: "Trung bình" },
-  { value: "High",   color: "#eb5a46", label: "Cao"        },
-];
+/* ── Priority config ─────────────────────────────────────────────────────────── */
 
-// ── Checklist (localStorage-backed) ──────────────────────────────────────────
+const PRIORITY_LABELS: { value: TaskPriority; color: string; label: string }[] = [
+  { value: "Low",    color: "#10b981", label: "Thấp"       },
+  { value: "Medium", color: "#f59e0b", label: "Trung bình" },
+  { value: "High",   color: "#ef4444", label: "Cao"        },
+]
+
+/* ── Checklist ─────────────────────────────────────────────────────────────── */
+
 interface CLItem  { id: string; text: string; done: boolean }
 interface CLGroup { id: string; name: string; items: CLItem[] }
-const CL_KEY = (tid: number) => `task_cl_${tid}`;
+const CL_KEY = (tid: number) => `task_cl_${tid}`
 const loadCL = (tid: number): CLGroup[] => {
-  try { const r = localStorage.getItem(CL_KEY(tid)); if (r) return JSON.parse(r); } catch {}
-  return [];
-};
+  try { const r = localStorage.getItem(CL_KEY(tid)); if (r) return JSON.parse(r) } catch {}
+  return []
+}
 const saveCL = (tid: number, gs: CLGroup[]) => {
-  try { localStorage.setItem(CL_KEY(tid), JSON.stringify(gs)); } catch {}
-};
-const uid = () => Math.random().toString(36).slice(2, 9);
+  try { localStorage.setItem(CL_KEY(tid), JSON.stringify(gs)) } catch {}
+}
+const uid = () => Math.random().toString(36).slice(2, 9)
 
-// ── Multi-member (localStorage-backed) ───────────────────────────────────────
-const MEMBERS_KEY = (tid: number) => `task_members_${tid}`;
-const loadMembers = (tid: number, primary?: string): string[] => {
-  try { const r = localStorage.getItem(MEMBERS_KEY(tid)); if (r) return JSON.parse(r); } catch {}
-  return primary ? [primary] : [];
-};
-const saveMembers = (tid: number, ids: string[]) => {
-  try { localStorage.setItem(MEMBERS_KEY(tid), JSON.stringify(ids)); } catch {}
-};
+/* ── Helpers ─────────────────────────────────────────────────────────────────── */
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
 const fmtTime = (iso: string) =>
-  new Date(iso).toLocaleString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+  new Date(iso).toLocaleString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })
 
 const fmtRelative = (iso: string) => {
-  const diff = Date.now() - new Date(iso).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "vừa xong";
-  if (mins < 60) return `${mins} phút trước`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs} giờ trước`;
-  return new Date(iso).toLocaleDateString("vi-VN", { day: "2-digit", month: "long", year: "numeric" });
-};
+  const diff = Date.now() - new Date(iso).getTime()
+  const mins = Math.floor(diff / 60000)
+  if (mins < 1) return "vừa xong"
+  if (mins < 60) return `${mins} phút trước`
+  const hrs = Math.floor(mins / 60)
+  if (hrs < 24) return `${hrs} giờ trước`
+  return new Date(iso).toLocaleDateString("vi-VN", { day: "2-digit", month: "long", year: "numeric" })
+}
 
 const initials = (name: string) =>
-  name.split(" ").map(w => w[0]).filter(Boolean).slice(0, 2).join("").toUpperCase();
+  name.split(" ").map(w => w[0]).filter(Boolean).slice(0, 2).join("").toUpperCase()
 
-// ── Combined feed ─────────────────────────────────────────────────────────────
+/* ── Types ─────────────────────────────────────────────────────────────────── */
+
 type FeedEntry =
   | { kind: "comment";  id: number; userName: string; content: string; time: string }
-  | { kind: "activity"; userName: string; action: string; time: string };
+  | { kind: "activity"; userName: string; action: string; time: string }
 
-// ── Panel type ────────────────────────────────────────────────────────────────
-type Panel = "add" | "label" | "date" | "member" | "attach" | null;
+type Panel = "add" | "label" | "date" | "member" | "attach" | null
+
+/* ── Shared styles ─────────────────────────────────────────────────────────── */
+
+const inputStyle: React.CSSProperties = {
+  width: '100%', height: 36, borderRadius: 8, border: '1px solid #e8e3d6',
+  padding: '0 12px', fontSize: 13, color: D.ink, outline: 'none',
+  background: D.bg, fontFamily: 'inherit', boxSizing: 'border-box',
+}
+
+const labelStyle: React.CSSProperties = {
+  fontSize: 12, fontWeight: 700, color: D.inkDim, display: 'block', marginBottom: 4,
+}
+
+const actionBtnStyle = (active: boolean): React.CSSProperties => ({
+  display: 'flex', alignItems: 'center', gap: 6,
+  padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600,
+  cursor: 'pointer', fontFamily: 'inherit', border: D.border,
+  background: active ? D.ink : D.bg,
+  color: active ? '#fff' : D.inkDim,
+  boxShadow: active ? 'none' : D.shadow(2, 2),
+  transition: 'background .1s, color .1s',
+})
+
+/* ── Component ─────────────────────────────────────────────────────────────── */
 
 export default function TaskDetailModal({
-  clubId, task, open, defaultColumnId, defaultSprintId, columns, onClose, onSaved,
+  clubId, task, open, defaultColumnId, defaultSprintId, departmentId, columns, onClose, onSaved,
 }: Props) {
-  const isEdit = !!task;
+  const { getClubRole } = useAuth()
+  const canManageAssignees = (() => {
+    const role = getClubRole(clubId)
+    return role === CLUB_ROLES.CLUB_ADMIN || role === CLUB_ROLES.DEPT_LEAD
+  })()
+  const isEdit = !!task
 
   // Form fields
-  const [title,          setTitle]         = useState("");
-  const [description,    setDescription]   = useState("");
-  const [priority,       setPriority]      = useState<TaskPriority>("Medium");
-  const [startDate,      setStartDate]     = useState("");
-  const [deadline,       setDeadline]      = useState("");
-  const [assignedUsers,  setAssignedUsers] = useState<string[]>([]);
-  const [kanbanColumnId, setKanbanColumnId]= useState<number | undefined>();
-  const [sprintId,       setSprintId]      = useState<number | undefined>();
-  const [saving,         setSaving]        = useState(false);
-  const [deleting,       setDeleting]      = useState(false);
+  const [title,          setTitle]         = useState("")
+  const [description,    setDescription]   = useState("")
+  const [priority,       setPriority]      = useState<TaskPriority>("Medium")
+  const [startDate,      setStartDate]     = useState("")
+  const [deadline,       setDeadline]      = useState("")
+  const [assignedUsers,  setAssignedUsers] = useState<string[]>([])
+  const [kanbanColumnId, setKanbanColumnId]= useState<number | undefined>()
+  const [sprintId,       setSprintId]      = useState<number | undefined>()
+  const [saving,         setSaving]        = useState(false)
+  const [deleting,       setDeleting]      = useState(false)
 
-  // Active panel (only one open at a time)
-  const [panel, setPanel] = useState<Panel>(null);
-  const panelRef = useRef<HTMLDivElement>(null);
+  const [panel, setPanel] = useState<Panel>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
 
-  // Date panel local state
-  const [useStart,    setUseStart]    = useState(false);
-  const [useDeadline, setUseDeadline] = useState(false);
-  const [tmpStart,    setTmpStart]    = useState("");
-  const [tmpDeadline, setTmpDeadline] = useState("");
-  const [tmpTime,     setTmpTime]     = useState("23:59");
+  const [useStart,    setUseStart]    = useState(false)
+  const [useDeadline, setUseDeadline] = useState(false)
+  const [tmpStart,    setTmpStart]    = useState("")
+  const [tmpDeadline, setTmpDeadline] = useState("")
+  const [tmpTime,     setTmpTime]     = useState("23:59")
 
-  // Checklists
-  const [checklists,      setChecklists]      = useState<CLGroup[]>([]);
-  const [addingGroupId,   setAddingGroupId]   = useState<string | null>(null);
-  const [newItemText,     setNewItemText]     = useState("");
-  const [renamingGroupId, setRenamingGroupId] = useState<string | null>(null);
-  const [renameText,      setRenameText]      = useState("");
-  const newItemRef = useRef<HTMLInputElement>(null);
+  const [checklists,      setChecklists]      = useState<CLGroup[]>([])
+  const [addingGroupId,   setAddingGroupId]   = useState<string | null>(null)
+  const [newItemText,     setNewItemText]     = useState("")
+  const [renamingGroupId, setRenamingGroupId] = useState<string | null>(null)
+  const [renameText,      setRenameText]      = useState("")
+  const newItemRef = useRef<HTMLInputElement>(null)
 
-  // Comments & activity
-  const [comments,     setComments]     = useState<TaskCommentItem[]>([]);
-  const [activityLogs, setActivityLogs] = useState<AuditLogItem[]>([]);
-  const [newComment,   setNewComment]   = useState("");
-  const [posting,      setPosting]      = useState(false);
-  const [editCmtId,    setEditCmtId]    = useState<number | null>(null);
-  const [editCmtText,  setEditCmtText]  = useState("");
-  const [showDetail,   setShowDetail]   = useState(true);
+  const [comments,     setComments]     = useState<TaskCommentItem[]>([])
+  const [activityLogs, setActivityLogs] = useState<AuditLogItem[]>([])
+  const [newComment,   setNewComment]   = useState("")
+  const [posting,      setPosting]      = useState(false)
+  const [editCmtId,    setEditCmtId]    = useState<number | null>(null)
+  const [editCmtText,  setEditCmtText]  = useState("")
+  const [showDetail,   setShowDetail]   = useState(false)
 
-  // Attachments
-  const [attachments, setAttachments] = useState<TaskAttachmentItem[]>([]);
-  const [linkUrl,     setLinkUrl]     = useState("");
-  const [linkNote,    setLinkNote]    = useState("");
-  const fileRef = useRef<HTMLInputElement>(null);
+  const [attachments, setAttachments] = useState<TaskAttachmentItem[]>([])
+  const [linkUrl,     setLinkUrl]     = useState("")
+  const [linkNote,    setLinkNote]    = useState("")
+  const fileRef = useRef<HTMLInputElement>(null)
 
-  // Side data
-  const [members,      setMembers]      = useState<MemberItem[]>([]);
-  const [memberSearch, setMemberSearch] = useState("");
+  const [members,      setMembers]      = useState<MemberItem[]>([])
+  const [memberSearch, setMemberSearch] = useState("")
 
   // ── Close panel on outside click ──────────────────────────────────────────
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (panelRef.current && !panelRef.current.contains(e.target as Node))
-        setPanel(null);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
+        setPanel(null)
+    }
+    document.addEventListener("mousedown", handler)
+    return () => document.removeEventListener("mousedown", handler)
+  }, [])
 
   const togglePanel = useCallback((p: Panel) =>
-    setPanel(prev => prev === p ? null : p), []);
+    setPanel(prev => prev === p ? null : p), [])
 
   // ── Load ──────────────────────────────────────────────────────────────────
   useEffect(() => {
-    if (!open) return;
-    getClubMembers(clubId).then(setMembers).catch(() => {});
-  }, [open, clubId]);
+    if (!open) return
+    getClubMembers(clubId, { departmentId, status: "Active" }).then(setMembers).catch(() => {
+      toast.error("Không thể tải danh sách thành viên")
+    })
+  }, [open, clubId, departmentId])
 
   useEffect(() => {
     if (open && task) {
-      getTaskComments(task.id).then(setComments).catch(() => {});
-      getTaskAttachments(task.id).then(setAttachments).catch(() => {});
+      getTaskAssignees(task.id)
+        .then(list => setAssignedUsers(list.map(a => a.userId)))
+        .catch(() => {})
+    }
+  }, [task?.id, open])
+
+  useEffect(() => {
+    if (open && task) {
+      getTaskComments(task.id).then(setComments).catch(() => {})
+      getTaskAttachments(task.id).then(setAttachments).catch(() => {})
       getAuditLogs({ clubId: task.clubId, module: "Tasks", pageSize: 50 })
         .then(r => setActivityLogs(r.items.filter(l => l.entityId === String(task.id))))
-        .catch(() => {});
-      setChecklists(loadCL(task.id));
+        .catch(() => {})
+      setChecklists(loadCL(task.id))
     } else {
-      setComments([]); setAttachments([]); setActivityLogs([]); setChecklists([]);
+      setComments([]); setAttachments([]); setActivityLogs([]); setChecklists([])
     }
-  }, [task, open, clubId]);
+  }, [task, open, clubId])
 
   useEffect(() => {
     if (task) {
-      setTitle(task.title);
-      setDescription(task.description ?? "");
-      setPriority(task.priority);
-      const sd = task.startDate ? task.startDate.slice(0, 10) : "";
-      const dl = task.deadline  ? task.deadline.slice(0, 10)  : "";
-      setStartDate(sd); setTmpStart(sd); setUseStart(!!sd);
-      setDeadline(dl);  setTmpDeadline(dl); setUseDeadline(!!dl);
-      setAssignedUsers(task ? loadMembers(task.id, task.assignedTo ?? undefined) : []);
-      setKanbanColumnId(task.kanbanColumnId ?? defaultColumnId);
-      setSprintId(task.sprintId);
+      setTitle(task.title)
+      setDescription(task.description ?? "")
+      setPriority(task.priority)
+      const sd = task.startDate ? task.startDate.slice(0, 10) : ""
+      const dl = task.deadline  ? task.deadline.slice(0, 10)  : ""
+      setStartDate(sd); setTmpStart(sd); setUseStart(!!sd)
+      setDeadline(dl);  setTmpDeadline(dl); setUseDeadline(!!dl)
+      setAssignedUsers(task ? (task.assignedTo ? [task.assignedTo] : []) : [])
+      setKanbanColumnId(task.kanbanColumnId ?? defaultColumnId)
+      setSprintId(task.sprintId)
     } else {
-      setTitle(""); setDescription(""); setPriority("Medium");
-      setStartDate(""); setDeadline(""); setAssignedUsers([]);
-      setUseStart(false); setUseDeadline(false);
-      setTmpStart(""); setTmpDeadline(""); setTmpTime("23:59");
-      setKanbanColumnId(defaultColumnId);
-      setSprintId(defaultSprintId);
+      setTitle(""); setDescription(""); setPriority("Medium")
+      setStartDate(""); setDeadline(""); setAssignedUsers([])
+      setUseStart(false); setUseDeadline(false)
+      setTmpStart(""); setTmpDeadline(""); setTmpTime("23:59")
+      setKanbanColumnId(defaultColumnId)
+      setSprintId(defaultSprintId)
     }
-  }, [task, open, defaultColumnId, defaultSprintId]);
+  }, [task, open, defaultColumnId, defaultSprintId])
 
   useEffect(() => {
-    if (addingGroupId) newItemRef.current?.focus();
-  }, [addingGroupId]);
+    if (addingGroupId) newItemRef.current?.focus()
+  }, [addingGroupId])
 
   // ── Save / Delete ──────────────────────────────────────────────────────────
   const handleSave = async () => {
-    if (!title.trim()) { toast.error("Tiêu đề không được để trống"); return; }
-    setSaving(true);
+    if (!title.trim()) { toast.error("Tiêu đề không được để trống"); return }
+    setSaving(true)
     try {
       const dto: CreateTaskDto = {
         title: title.trim(), description: description || undefined, priority,
         startDate: startDate || undefined, deadline: deadline || undefined,
         assignedTo: assignedUsers[0] || undefined, kanbanColumnId,
-        ...(isEdit ? {} : { sprintId }),
-      };
-      if (isEdit) { await updateTask(task.id, dto); toast.success("Đã cập nhật công việc"); }
-      else        { await createTask(clubId, dto);  toast.success("Đã tạo công việc"); }
-      onSaved(); onClose();
-    } catch { toast.error("Có lỗi xảy ra"); }
-    finally { setSaving(false); }
-  };
+        departmentId: task?.departmentId ?? departmentId,
+        sprintId: isEdit ? (task?.sprintId ?? undefined) : sprintId,
+      }
+      if (isEdit) { await updateTask(task.id, dto); toast.success("Đã cập nhật công việc") }
+      else        { await createTask(clubId, dto);  toast.success("Đã tạo công việc") }
+      onSaved(); onClose()
+    } catch { toast.error("Có lỗi xảy ra") }
+    finally { setSaving(false) }
+  }
 
   const handleDelete = async () => {
-    if (!task || !window.confirm("Xóa công việc này?")) return;
-    setDeleting(true);
-    try { await deleteTask(task.id); toast.success("Đã xóa"); onSaved(); onClose(); }
-    catch { toast.error("Không thể xóa"); }
-    finally { setDeleting(false); }
-  };
+    if (!task || !window.confirm("Xóa công việc này?")) return
+    setDeleting(true)
+    try { await deleteTask(task.id); toast.success("Đã xóa"); onSaved(); onClose() }
+    catch { toast.error("Không thể xóa") }
+    finally { setDeleting(false) }
+  }
 
-  // ── Date panel apply ───────────────────────────────────────────────────────
+  // ── Date panel ─────────────────────────────────────────────────────────────
   const applyDates = () => {
-    const sd = useStart    ? tmpStart    : "";
-    const dl = useDeadline ? tmpDeadline : "";
-    setStartDate(sd); setDeadline(dl); setPanel(null);
-  };
+    setStartDate(useStart ? tmpStart : "")
+    setDeadline(useDeadline ? tmpDeadline : "")
+    setPanel(null)
+  }
   const clearDates = () => {
-    setStartDate(""); setDeadline("");
-    setUseStart(false); setUseDeadline(false);
-    setTmpStart(""); setTmpDeadline(""); setPanel(null);
-  };
+    setStartDate(""); setDeadline("")
+    setUseStart(false); setUseDeadline(false)
+    setTmpStart(""); setTmpDeadline(""); setPanel(null)
+  }
 
   // ── Member toggle ──────────────────────────────────────────────────────────
-  const toggleMember = (userId: string) => {
-    const next = assignedUsers.includes(userId)
-      ? assignedUsers.filter(id => id !== userId)
-      : [...assignedUsers, userId];
-    setAssignedUsers(next);
-    if (task) saveMembers(task.id, next);
-  };
+  const toggleMember = async (userId: string) => {
+    const isAssigned = assignedUsers.includes(userId)
+    if (!task) {
+      setAssignedUsers(prev => isAssigned ? prev.filter(id => id !== userId) : [...prev, userId])
+      return
+    }
+    try {
+      if (isAssigned) {
+        await unassignTask(task.id, userId)
+        setAssignedUsers(prev => prev.filter(id => id !== userId))
+      } else {
+        await assignTask(task.id, { userId })
+        setAssignedUsers(prev => [...prev, userId])
+      }
+    } catch { toast.error("Không thể cập nhật thành viên") }
+  }
 
   // ── Checklist ops ──────────────────────────────────────────────────────────
   const addChecklist = () => {
-    if (!isEdit) return;
-    const g: CLGroup = { id: uid(), name: "Việc cần làm", items: [] };
-    const next = [...checklists, g];
-    setChecklists(next); saveCL(task!.id, next);
-    setRenamingGroupId(g.id); setRenameText(g.name);
-    setPanel(null);
-  };
+    if (!isEdit) return
+    const g: CLGroup = { id: uid(), name: "Việc cần làm", items: [] }
+    const next = [...checklists, g]
+    setChecklists(next); saveCL(task!.id, next)
+    setRenamingGroupId(g.id); setRenameText(g.name)
+    setPanel(null)
+  }
 
   const commitRename = (gid: string) => {
-    const trimmed = renameText.trim();
-    if (!trimmed || !task) return;
-    const next = checklists.map(g => g.id === gid ? { ...g, name: trimmed } : g);
-    setChecklists(next); saveCL(task.id, next); setRenamingGroupId(null);
-  };
+    const trimmed = renameText.trim()
+    if (!trimmed || !task) return
+    const next = checklists.map(g => g.id === gid ? { ...g, name: trimmed } : g)
+    setChecklists(next); saveCL(task.id, next); setRenamingGroupId(null)
+  }
 
   const deleteChecklist = (gid: string) => {
-    if (!task) return;
-    const next = checklists.filter(g => g.id !== gid);
-    setChecklists(next); saveCL(task.id, next);
-  };
+    if (!task) return
+    const next = checklists.filter(g => g.id !== gid)
+    setChecklists(next); saveCL(task.id, next)
+  }
 
   const addItem = (gid: string) => {
-    if (!newItemText.trim() || !task) return;
+    if (!newItemText.trim() || !task) return
     const next = checklists.map(g =>
       g.id === gid ? { ...g, items: [...g.items, { id: uid(), text: newItemText.trim(), done: false }] } : g
-    );
-    setChecklists(next); saveCL(task.id, next); setNewItemText("");
-    newItemRef.current?.focus();
-  };
+    )
+    setChecklists(next); saveCL(task.id, next); setNewItemText("")
+    newItemRef.current?.focus()
+  }
 
   const toggleItem = (gid: string, iid: string) => {
-    if (!task) return;
+    if (!task) return
     const next = checklists.map(g =>
       g.id === gid ? { ...g, items: g.items.map(it => it.id === iid ? { ...it, done: !it.done } : it) } : g
-    );
-    setChecklists(next); saveCL(task.id, next);
-  };
+    )
+    setChecklists(next); saveCL(task.id, next)
+  }
 
   const deleteItem = (gid: string, iid: string) => {
-    if (!task) return;
+    if (!task) return
     const next = checklists.map(g =>
       g.id === gid ? { ...g, items: g.items.filter(it => it.id !== iid) } : g
-    );
-    setChecklists(next); saveCL(task.id, next);
-  };
+    )
+    setChecklists(next); saveCL(task.id, next)
+  }
 
   // ── Comments ──────────────────────────────────────────────────────────────
   const handleAddComment = async () => {
-    if (!newComment.trim() || !task) return;
-    setPosting(true);
+    if (!newComment.trim() || !task) return
+    setPosting(true)
     try {
-      const c = await addTaskComment(task.id, { content: newComment.trim() });
-      setComments(prev => [...prev, c]); setNewComment("");
-    } catch { toast.error("Không thể thêm bình luận"); }
-    finally { setPosting(false); }
-  };
+      const c = await addTaskComment(task.id, { content: newComment.trim() })
+      setComments(prev => [...prev, c]); setNewComment("")
+    } catch { toast.error("Không thể thêm bình luận") }
+    finally { setPosting(false) }
+  }
 
   const handleDeleteComment = async (cid: number) => {
-    if (!task) return;
-    try { await deleteTaskComment(task.id, cid); setComments(prev => prev.filter(c => c.id !== cid)); }
-    catch { toast.error("Không thể xóa bình luận"); }
-  };
+    if (!task) return
+    try { await deleteTaskComment(task.id, cid); setComments(prev => prev.filter(c => c.id !== cid)) }
+    catch { toast.error("Không thể xóa bình luận") }
+  }
 
   // ── Attachments ────────────────────────────────────────────────────────────
   const handleAddLink = async () => {
-    if (!linkUrl.trim() || !task) return;
+    if (!linkUrl.trim() || !task) return
     try {
-      const a = await addTaskAttachmentLink(task.id, { fileUrl: linkUrl.trim(), note: linkNote || undefined });
-      setAttachments(prev => [...prev, a]); setLinkUrl(""); setLinkNote(""); setPanel(null);
-    } catch { toast.error("Không thể thêm liên kết"); }
-  };
+      const a = await addTaskAttachmentLink(task.id, { fileUrl: linkUrl.trim(), note: linkNote || undefined })
+      setAttachments(prev => [...prev, a]); setLinkUrl(""); setLinkNote(""); setPanel(null)
+    } catch { toast.error("Không thể thêm liên kết") }
+  }
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!task || !e.target.files?.[0]) return;
+    if (!task || !e.target.files?.[0]) return
     try {
-      const a = await uploadTaskAttachmentFile(task.id, e.target.files[0]);
-      setAttachments(prev => [...prev, a]);
-    } catch { toast.error("Không thể tải lên tệp"); }
-    finally { e.target.value = ""; }
-  };
+      const a = await uploadTaskAttachmentFile(task.id, e.target.files[0])
+      setAttachments(prev => [...prev, a])
+    } catch { toast.error("Không thể tải lên tệp") }
+    finally { e.target.value = "" }
+  }
 
   const handleDeleteAttachment = async (aid: number) => {
-    if (!task) return;
-    try { await deleteTaskAttachment(task.id, aid); setAttachments(prev => prev.filter(a => a.id !== aid)); }
-    catch { toast.error("Không thể xóa đính kèm"); }
-  };
+    if (!task) return
+    try { await deleteTaskAttachment(task.id, aid); setAttachments(prev => prev.filter(a => a.id !== aid)) }
+    catch { toast.error("Không thể xóa đính kèm") }
+  }
 
-  // ── Combined feed (newest first) ───────────────────────────────────────────
+  // ── Feed ───────────────────────────────────────────────────────────────────
   const feed: FeedEntry[] = [
     ...comments.map(c => ({
       kind: "comment" as const, id: c.id,
@@ -348,115 +408,117 @@ export default function TaskDetailModal({
              : "đã cập nhật thẻ này",
       time: l.timestamp,
     })),
-  ].sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime()); // newest first
+  ].sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
 
   // ── Derived ────────────────────────────────────────────────────────────────
-  const currentColumn       = columns.find(c => c.id === kanbanColumnId);
-  const activePriority      = PRIORITY_LABELS.find(l => l.value === priority);
-  const assignedMemberObjs  = assignedUsers
+  const currentColumn      = columns.find(c => c.id === kanbanColumnId)
+  const activePriority     = PRIORITY_LABELS.find(l => l.value === priority)
+  const assignedMemberObjs = assignedUsers
     .map(id => members.find(m => m.userId === id))
-    .filter(Boolean) as MemberItem[];
-  const unassignedMembers   = members.filter(m => !assignedUsers.includes(m.userId));
+    .filter(Boolean) as MemberItem[]
+  const unassignedMembers  = members.filter(m => !assignedUsers.includes(m.userId))
+  const hasDate = !!(startDate || deadline)
 
-  const hasDate = !!(startDate || deadline);
-
-  // ── Shared popover wrapper styles ──────────────────────────────────────────
-  const popoverCls = "absolute left-0 top-full mt-1 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 w-72";
+  // ── Popover wrapper style ──────────────────────────────────────────────────
+  const popoverStyle: React.CSSProperties = {
+    position: 'absolute', left: 0, top: '100%', marginTop: 4,
+    background: D.card, border: D.border, borderRadius: D.radius,
+    boxShadow: D.shadow(4, 4), zIndex: 50, width: 288,
+  }
 
   return (
     <Dialog open={open} onOpenChange={v => !v && onClose()}>
-      <DialogContent className="!max-w-[1000px] !w-[95vw] max-h-[92vh] overflow-hidden p-0 gap-0 rounded-2xl">
+      <DialogContent
+        style={{ maxWidth: 1000, width: '95vw', maxHeight: '92vh', overflow: 'hidden', padding: 0, gap: 0, borderRadius: D.radius, border: D.border, boxShadow: D.shadow(8, 8), fontFamily: "'Be Vietnam Pro', sans-serif" }}
+        className="!max-w-[1000px] !w-[95vw]"
+      >
 
         {/* ── Header ────────────────────────────────────────────────────────── */}
-        <div className="flex items-center gap-3 px-5 py-3 border-b border-gray-100 bg-white shrink-0">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 18px', borderBottom: D.borderLight, background: D.bg, flexShrink: 0 }}>
           {currentColumn && (
-            <div className="flex items-center gap-1 text-xs text-gray-500 shrink-0">
-              <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: currentColumn.color ?? "#6b7280" }} />
-              <span className="font-medium">{currentColumn.name}</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: D.inkMuted, flexShrink: 0 }}>
+              <span style={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0, display: 'inline-block', background: currentColumn.color ?? '#6b7280' }} />
+              <span style={{ fontWeight: 600 }}>{currentColumn.name}</span>
               <ChevronRight size={12} />
             </div>
           )}
-          <span className="flex-1 text-sm font-semibold text-gray-600 truncate">
+          <span style={{ flex: 1, fontSize: 13, fontWeight: 700, color: D.inkDim, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {isEdit ? `#${task.id} · ${task.title}` : "Tạo công việc mới"}
           </span>
-          <div className="flex items-center gap-1 shrink-0">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
             {isEdit && (
               <button type="button" onClick={handleDelete} disabled={deleting}
                 title="Xóa thẻ"
-                className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors">
+                style={{ padding: 6, borderRadius: 6, border: 'none', background: 'transparent', cursor: 'pointer', color: D.inkMuted, display: 'flex', alignItems: 'center' }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = D.red; (e.currentTarget as HTMLElement).style.background = '#fee2e2' }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = D.inkMuted; (e.currentTarget as HTMLElement).style.background = 'transparent' }}
+              >
                 <Trash2 size={15} />
               </button>
-            )}            
+            )}
           </div>
         </div>
 
         {/* ── Body ──────────────────────────────────────────────────────────── */}
-        <div className="flex overflow-hidden" style={{ maxHeight: "calc(92vh - 57px)" }}>
+        <div style={{ display: 'flex', overflow: 'hidden', maxHeight: 'calc(92vh - 57px)' }}>
 
           {/* ══ LEFT PANEL ════════════════════════════════════════════════════ */}
-          <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5 min-w-0">
+          <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 18, minWidth: 0 }}>
 
             {/* Title */}
             <input
-              className="w-full text-xl font-bold text-gray-900 placeholder:text-gray-300 focus:outline-none bg-transparent border-none leading-tight"
+              style={{
+                width: '100%', fontSize: 20, fontWeight: 900, color: D.ink,
+                background: 'transparent', border: 'none', outline: 'none',
+                fontFamily: 'inherit', lineHeight: 1.3,
+              }}
               placeholder="Tiêu đề công việc..."
               value={title}
               onChange={e => setTitle(e.target.value)}
             />
 
             {/* ── Action button row + popovers ─────────────────────────────── */}
-            <div ref={panelRef} className="relative">
-              <div className="flex flex-wrap gap-2">
+            <div ref={panelRef} style={{ position: 'relative' }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
 
                 {/* + Thêm */}
                 <button type="button" onClick={() => togglePanel("add")}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border ${
-                    panel === "add"
-                      ? "bg-gray-800 text-white border-gray-800"
-                      : "bg-gray-100 hover:bg-gray-200 text-gray-700 border-transparent"
-                  }`}>
+                  style={actionBtnStyle(panel === "add")}>
                   <Plus size={13} /> Thêm <ChevronDown size={11} />
                 </button>
 
                 {/* Nhãn */}
                 <button type="button" onClick={() => togglePanel("label")}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border ${
-                    panel === "label"
-                      ? "bg-gray-800 text-white border-gray-800"
-                      : "bg-gray-100 hover:bg-gray-200 text-gray-700 border-transparent"
-                  }`}
-                  style={activePriority && panel !== "label" ? { backgroundColor: activePriority.color + "33", color: activePriority.color, border: `1px solid ${activePriority.color}66` } : {}}>
+                  style={panel === "label"
+                    ? actionBtnStyle(true)
+                    : activePriority
+                      ? { ...actionBtnStyle(false), background: activePriority.color + '22', color: activePriority.color, border: `1.5px solid ${activePriority.color}66` }
+                      : actionBtnStyle(false)
+                  }>
                   <Tag size={13} /> Nhãn
                 </button>
 
                 {/* Ngày */}
                 <button type="button" onClick={() => togglePanel("date")}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border ${
-                    panel === "date"
-                      ? "bg-gray-800 text-white border-gray-800"
-                      : hasDate
-                        ? "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100"
-                        : "bg-gray-100 hover:bg-gray-200 text-gray-700 border-transparent"
-                  }`}>
+                  style={panel === "date"
+                    ? actionBtnStyle(true)
+                    : hasDate
+                      ? { ...actionBtnStyle(false), background: '#fef3c7', color: '#92400e', border: '1.5px solid #fcd34d' }
+                      : actionBtnStyle(false)
+                  }>
                   <Calendar size={13} />
                   {deadline ? new Date(deadline).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" }) : "Ngày"}
                 </button>
 
                 {/* Việc cần làm */}
                 {isEdit && (
-                  <button type="button" onClick={addChecklist}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm text-gray-700 font-medium transition-colors border border-transparent">
+                  <button type="button" onClick={addChecklist} style={actionBtnStyle(false)}>
                     <CheckSquare size={13} /> Việc cần làm
                   </button>
                 )}
 
                 {/* Đính kèm */}
-                <button type="button" onClick={() => togglePanel("attach")}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border ${
-                    panel === "attach"
-                      ? "bg-gray-800 text-white border-gray-800"
-                      : "bg-gray-100 hover:bg-gray-200 text-gray-700 border-transparent"
-                  }`}>
+                <button type="button" onClick={() => togglePanel("attach")} style={actionBtnStyle(panel === "attach")}>
                   <Paperclip size={13} /> Đính kèm
                 </button>
               </div>
@@ -465,26 +527,32 @@ export default function TaskDetailModal({
 
               {/* + Thêm menu */}
               {panel === "add" && (
-                <div className={popoverCls}>
-                  <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-                    <span className="text-sm font-semibold text-gray-800">Thêm vào thẻ</span>
-                    <button type="button" onClick={() => setPanel(null)} className="text-gray-400 hover:text-gray-600"><X size={14} /></button>
+                <div style={popoverStyle}>
+                  <div style={{ padding: '12px 16px', borderBottom: D.borderLight, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: D.ink }}>Thêm vào thẻ</span>
+                    <button type="button" onClick={() => setPanel(null)}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: D.inkMuted, display: 'flex', padding: 4 }}>
+                      <X size={14} />
+                    </button>
                   </div>
-                  <div className="py-2">
+                  <div style={{ padding: '6px 0' }}>
                     {[
-                      { icon: <Tag size={16} className="text-gray-500" />, p: "label" as Panel, title: "Nhãn", desc: "Sắp xếp, phân loại và ưu tiên" },
-                      { icon: <Calendar size={16} className="text-gray-500" />, p: "date" as Panel, title: "Ngày", desc: "Ngày bắt đầu, ngày hết hạn và lời nhắc" },
-                      { icon: <CheckSquare size={16} className="text-gray-500" />, p: null, title: "Việc cần làm", desc: "Thêm tác vụ con", action: addChecklist },
-                      { icon: <User size={16} className="text-gray-500" />, p: "member" as Panel, title: "Thành viên", desc: "Chỉ định thành viên" },
-                      { icon: <Paperclip size={16} className="text-gray-500" />, p: "attach" as Panel, title: "Đính kèm", desc: "Thêm liên kết, trang, hạng mục công việc, v.v." },
+                      { icon: <Tag size={15} style={{ color: D.inkDim }} />, p: "label" as Panel, title: "Nhãn", desc: "Sắp xếp, phân loại và ưu tiên" },
+                      { icon: <Calendar size={15} style={{ color: D.inkDim }} />, p: "date" as Panel, title: "Ngày", desc: "Ngày bắt đầu, ngày hết hạn và lời nhắc" },
+                      { icon: <CheckSquare size={15} style={{ color: D.inkDim }} />, p: null, title: "Việc cần làm", desc: "Thêm tác vụ con", action: addChecklist },
+                      ...(canManageAssignees ? [{ icon: <User size={15} style={{ color: D.inkDim }} />, p: "member" as Panel, title: "Thành viên", desc: "Chỉ định thành viên" }] : []),
+                      { icon: <Paperclip size={15} style={{ color: D.inkDim }} />, p: "attach" as Panel, title: "Đính kèm", desc: "Thêm liên kết, trang, hạng mục công việc, v.v." },
                     ].map(item => (
                       <button key={item.title} type="button"
                         onClick={() => item.action ? item.action() : setPanel(item.p)}
-                        className="flex items-start gap-3 w-full px-4 py-2.5 hover:bg-gray-50 text-left transition-colors">
-                        <span className="mt-0.5 shrink-0">{item.icon}</span>
+                        style={{ display: 'flex', alignItems: 'flex-start', gap: 10, width: '100%', padding: '10px 16px', fontSize: 13, textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', color: D.ink, fontFamily: 'inherit' }}
+                        onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = D.bg}
+                        onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'none'}
+                      >
+                        <span style={{ marginTop: 2, flexShrink: 0 }}>{item.icon}</span>
                         <div>
-                          <p className="text-sm font-medium text-gray-800">{item.title}</p>
-                          <p className="text-xs text-gray-500">{item.desc}</p>
+                          <p style={{ fontSize: 13, fontWeight: 700, color: D.ink, margin: 0 }}>{item.title}</p>
+                          <p style={{ fontSize: 11, color: D.inkMuted, margin: '1px 0 0' }}>{item.desc}</p>
                         </div>
                       </button>
                     ))}
@@ -494,28 +562,26 @@ export default function TaskDetailModal({
 
               {/* Nhãn popover */}
               {panel === "label" && (
-                <div className={popoverCls}>
-                  <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-                    <span className="text-sm font-semibold text-gray-800">Nhãn</span>
-                    <button type="button" onClick={() => setPanel(null)} className="text-gray-400 hover:text-gray-600"><X size={14} /></button>
+                <div style={popoverStyle}>
+                  <div style={{ padding: '12px 16px', borderBottom: D.borderLight, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: D.ink }}>Nhãn</span>
+                    <button type="button" onClick={() => setPanel(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: D.inkMuted, display: 'flex', padding: 4 }}><X size={14} /></button>
                   </div>
-                  <div className="px-4 pt-3 pb-2">
-                    <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-2">Nhãn</p>
-                    <div className="space-y-1.5">
+                  <div style={{ padding: '12px 16px' }}>
+                    <p style={{ fontSize: 10, fontWeight: 700, color: D.inkMuted, textTransform: 'uppercase', letterSpacing: '.06em', margin: '0 0 10px' }}>Nhãn</p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                       {PRIORITY_LABELS.map(l => (
-                        <button key={l.value} type="button"
-                          onClick={() => { setPriority(l.value); }}
-                          className="flex items-center gap-2 w-full group">
-                          <div className="flex-1 h-8 rounded-md flex items-center px-3"
-                            style={{ backgroundColor: l.color }}>
-                            <span className="text-sm font-semibold text-white/90 drop-shadow-sm">{l.label}</span>
+                        <button key={l.value} type="button" onClick={() => setPriority(l.value)}
+                          style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                          <div style={{ flex: 1, height: 32, borderRadius: 6, display: 'flex', alignItems: 'center', paddingLeft: 12, background: l.color, border: D.border }}>
+                            <span style={{ fontSize: 12, fontWeight: 700, color: '#fff' }}>{l.label}</span>
                           </div>
-                          <div className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${
-                            priority === l.value
-                              ? "border-indigo-500 bg-indigo-500"
-                              : "border-gray-300 group-hover:border-gray-400"
-                          }`}>
-                            {priority === l.value && <Check size={11} className="text-white" />}
+                          <div style={{
+                            width: 20, height: 20, borderRadius: 4, border: D.border,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                            background: priority === l.value ? D.indigo : 'transparent',
+                          }}>
+                            {priority === l.value && <Check size={11} style={{ color: '#fff' }} />}
                           </div>
                         </button>
                       ))}
@@ -526,46 +592,42 @@ export default function TaskDetailModal({
 
               {/* Ngày popover */}
               {panel === "date" && (
-                <div className={popoverCls}>
-                  <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-                    <span className="text-sm font-semibold text-gray-800">Ngày</span>
-                    <button type="button" onClick={() => setPanel(null)} className="text-gray-400 hover:text-gray-600"><X size={14} /></button>
+                <div style={popoverStyle}>
+                  <div style={{ padding: '12px 16px', borderBottom: D.borderLight, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: D.ink }}>Ngày</span>
+                    <button type="button" onClick={() => setPanel(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: D.inkMuted, display: 'flex', padding: 4 }}><X size={14} /></button>
                   </div>
-                  <div className="px-4 py-4 space-y-3">
-                    {/* Start date */}
+                  <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
                     <div>
-                      <label className="text-xs font-semibold text-gray-600 block mb-1">Ngày bắt đầu</label>
-                      <div className="flex items-center gap-2">
+                      <label style={labelStyle}>Ngày bắt đầu</label>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <input type="checkbox" checked={useStart} onChange={e => setUseStart(e.target.checked)}
-                          className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-300 cursor-pointer" />
-                        <input type="date" value={tmpStart} onChange={e => { setTmpStart(e.target.value); setUseStart(true); }}
-                          className="flex-1 border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-300 disabled:opacity-40"
-                          disabled={!useStart} />
+                          style={{ width: 16, height: 16, cursor: 'pointer' }} />
+                        <input type="date" value={tmpStart} onChange={e => { setTmpStart(e.target.value); setUseStart(true) }}
+                          disabled={!useStart}
+                          style={{ ...inputStyle, flex: 1, opacity: useStart ? 1 : 0.4 }} />
                       </div>
                     </div>
-
-                    {/* Deadline */}
                     <div>
-                      <label className="text-xs font-semibold text-gray-600 block mb-1">Ngày hết hạn</label>
-                      <div className="flex items-center gap-2">
+                      <label style={labelStyle}>Ngày hết hạn</label>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <input type="checkbox" checked={useDeadline} onChange={e => setUseDeadline(e.target.checked)}
-                          className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-300 cursor-pointer" />
-                        <input type="date" value={tmpDeadline} onChange={e => { setTmpDeadline(e.target.value); setUseDeadline(true); }}
-                          className="flex-1 border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-300 disabled:opacity-40"
-                          disabled={!useDeadline} />
+                          style={{ width: 16, height: 16, cursor: 'pointer' }} />
+                        <input type="date" value={tmpDeadline} onChange={e => { setTmpDeadline(e.target.value); setUseDeadline(true) }}
+                          disabled={!useDeadline}
+                          style={{ ...inputStyle, flex: 1, opacity: useDeadline ? 1 : 0.4 }} />
                         <input type="time" value={tmpTime} onChange={e => setTmpTime(e.target.value)}
-                          className="w-20 border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-300 disabled:opacity-40"
-                          disabled={!useDeadline} />
+                          disabled={!useDeadline}
+                          style={{ ...inputStyle, width: 80, opacity: useDeadline ? 1 : 0.4 }} />
                       </div>
                     </div>
-
-                    <div className="flex gap-2 pt-1">
+                    <div style={{ display: 'flex', gap: 8, paddingTop: 4 }}>
                       <button type="button" onClick={applyDates}
-                        className="flex-1 py-2 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700">
+                        style={{ flex: 1, padding: '8px 0', background: D.indigo, color: '#fff', border: D.border, borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
                         Lưu
                       </button>
                       <button type="button" onClick={clearDates}
-                        className="flex-1 py-2 bg-gray-100 text-gray-700 text-sm rounded-lg hover:bg-gray-200">
+                        style={{ flex: 1, padding: '8px 0', background: D.bg, color: D.inkDim, border: D.border, borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
                         Gỡ bỏ
                       </button>
                     </div>
@@ -575,57 +637,64 @@ export default function TaskDetailModal({
 
               {/* Thành viên popover */}
               {panel === "member" && (
-                <div className={popoverCls}>
-                  <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-                    <span className="text-sm font-semibold text-gray-800">Thành viên</span>
-                    <button type="button" onClick={() => setPanel(null)} className="text-gray-400 hover:text-gray-600"><X size={14} /></button>
+                <div style={popoverStyle}>
+                  <div style={{ padding: '12px 16px', borderBottom: D.borderLight, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: D.ink }}>Thành viên</span>
+                    <button type="button" onClick={() => setPanel(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: D.inkMuted, display: 'flex', padding: 4 }}><X size={14} /></button>
                   </div>
-                  <div className="px-4 pt-3 pb-3">
+                  <div style={{ padding: '12px 16px' }}>
                     <input
                       type="text"
                       placeholder="Tìm kiếm các thành viên"
                       value={memberSearch}
                       onChange={e => setMemberSearch(e.target.value)}
-                      className="w-full border border-indigo-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-400 mb-3"
+                      style={{ ...inputStyle, marginBottom: 12 }}
                     />
                     {assignedMemberObjs.length > 0 && (
-                      <div className="mb-3">
-                        <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Thành viên của thẻ</p>
-                        <div className="space-y-0.5">
+                      <div style={{ marginBottom: 12 }}>
+                        <p style={{ fontSize: 10, fontWeight: 700, color: D.inkMuted, textTransform: 'uppercase', letterSpacing: '.06em', margin: '0 0 8px' }}>Thành viên của thẻ</p>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                           {assignedMemberObjs.map(m => (
-                            <div key={m.userId} className="flex items-center gap-2.5 px-2 py-2 rounded-lg bg-gray-50">
-                              <div className="w-7 h-7 rounded-full bg-indigo-500 flex items-center justify-center text-[10px] font-bold text-white shrink-0">
+                            <div key={m.userId} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 8, background: D.bg, border: D.borderLight }}>
+                              <div style={{ width: 28, height: 28, borderRadius: '50%', background: D.indigo, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800, color: '#fff', flexShrink: 0 }}>
                                 {initials(m.fullName ?? m.email ?? "?")}
                               </div>
-                              <span className="text-sm text-gray-700 flex-1">{m.fullName ?? m.email}</span>
-                              <button type="button" onClick={() => toggleMember(m.userId)}
-                                className="text-gray-400 hover:text-gray-600 shrink-0"><X size={14} /></button>
+                              <span style={{ fontSize: 13, color: D.ink, flex: 1, fontWeight: 600 }}>{m.fullName ?? m.email}</span>
+                              {canManageAssignees && (
+                                <button type="button" onClick={() => toggleMember(m.userId)}
+                                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: D.inkMuted, display: 'flex', padding: 2, flexShrink: 0 }}>
+                                  <X size={13} />
+                                </button>
+                              )}
                             </div>
                           ))}
                         </div>
                       </div>
                     )}
-                    {unassignedMembers.filter(m => {
-                      if (!memberSearch) return true;
-                      const s = memberSearch.toLowerCase();
-                      return (m.fullName ?? "").toLowerCase().includes(s) || (m.email ?? "").toLowerCase().includes(s);
+                    {canManageAssignees && unassignedMembers.filter(m => {
+                      if (!memberSearch) return true
+                      const s = memberSearch.toLowerCase()
+                      return (m.fullName ?? "").toLowerCase().includes(s) || (m.email ?? "").toLowerCase().includes(s)
                     }).length > 0 && (
                       <div>
-                        <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Thành viên của bảng</p>
-                        <div className="space-y-0.5 max-h-40 overflow-y-auto">
+                        <p style={{ fontSize: 10, fontWeight: 700, color: D.inkMuted, textTransform: 'uppercase', letterSpacing: '.06em', margin: '0 0 8px' }}>Thêm thành viên</p>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, maxHeight: 160, overflowY: 'auto' }}>
                           {unassignedMembers
                             .filter(m => {
-                              if (!memberSearch) return true;
-                              const s = memberSearch.toLowerCase();
-                              return (m.fullName ?? "").toLowerCase().includes(s) || (m.email ?? "").toLowerCase().includes(s);
+                              if (!memberSearch) return true
+                              const s = memberSearch.toLowerCase()
+                              return (m.fullName ?? "").toLowerCase().includes(s) || (m.email ?? "").toLowerCase().includes(s)
                             })
                             .map(m => (
                               <button key={m.userId} type="button" onClick={() => toggleMember(m.userId)}
-                                className="flex items-center gap-2.5 w-full px-2 py-2 rounded-lg hover:bg-gray-50 text-left transition-colors">
-                                <div className="w-7 h-7 rounded-full bg-indigo-500 flex items-center justify-center text-[10px] font-bold text-white shrink-0">
+                                style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '8px 10px', borderRadius: 8, background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit' }}
+                                onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = D.bg}
+                                onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'none'}
+                              >
+                                <div style={{ width: 28, height: 28, borderRadius: '50%', background: D.indigo, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800, color: '#fff', flexShrink: 0 }}>
                                   {initials(m.fullName ?? m.email ?? "?")}
                                 </div>
-                                <span className="text-sm text-gray-700">{m.fullName ?? m.email}</span>
+                                <span style={{ fontSize: 13, color: D.ink }}>{m.fullName ?? m.email}</span>
                               </button>
                             ))}
                         </div>
@@ -637,35 +706,36 @@ export default function TaskDetailModal({
 
               {/* Đính kèm popover */}
               {panel === "attach" && (
-                <div className={popoverCls}>
-                  <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-                    <span className="text-sm font-semibold text-gray-800">Đính kèm</span>
-                    <button type="button" onClick={() => setPanel(null)} className="text-gray-400 hover:text-gray-600"><X size={14} /></button>
+                <div style={popoverStyle}>
+                  <div style={{ padding: '12px 16px', borderBottom: D.borderLight, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: D.ink }}>Đính kèm</span>
+                    <button type="button" onClick={() => setPanel(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: D.inkMuted, display: 'flex', padding: 4 }}><X size={14} /></button>
                   </div>
-                  <div className="px-4 py-4 space-y-3">
-                    <p className="text-xs text-gray-500">Đính kèm tệp từ máy tính của bạn.</p>
+                  <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    <p style={{ fontSize: 12, color: D.inkMuted, margin: 0 }}>Đính kèm tệp từ máy tính của bạn.</p>
                     <button type="button" onClick={() => fileRef.current?.click()}
-                      className="w-full py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition font-medium">
+                      style={{ padding: '8px', border: D.borderLight, borderRadius: 8, fontSize: 12, color: D.inkDim, background: D.bg, cursor: 'pointer', fontFamily: 'inherit' }}>
                       Chọn tệp
                     </button>
-                    <input ref={fileRef} type="file" className="hidden" onChange={handleFileUpload} />
-                    <div className="space-y-2 pt-1">
-                      <p className="text-xs font-semibold text-gray-600">
-                        Tìm kiếm hoặc dán liên kết <span className="text-red-400">*</span>
+                    <input ref={fileRef} type="file" style={{ display: 'none' }} onChange={handleFileUpload} />
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      <p style={{ fontSize: 12, fontWeight: 700, color: D.inkDim, margin: 0 }}>
+                        Tìm kiếm hoặc dán liên kết <span style={{ color: D.red }}>*</span>
                       </p>
                       <input type="url" placeholder="Tìm các liên kết gần đây hoặc dán một đường dẫn..."
                         value={linkUrl} onChange={e => setLinkUrl(e.target.value)}
-                        className="w-full border border-indigo-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-400" />
+                        style={{ ...inputStyle }} />
                       <input type="text" placeholder="Văn bản hiển thị (không bắt buộc)"
                         value={linkNote} onChange={e => setLinkNote(e.target.value)}
-                        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-300" />
-                      <p className="text-[10px] text-gray-400">Cung cấp tiêu đề hoặc mô tả cho liên kết này</p>
+                        style={{ ...inputStyle }} />
                     </div>
-                    <div className="flex justify-end gap-2 pt-1">
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
                       <button type="button" onClick={() => setPanel(null)}
-                        className="px-3 py-1.5 text-sm text-gray-500 hover:text-gray-700">Hủy</button>
+                        style={{ padding: '7px 14px', fontSize: 12, color: D.inkMuted, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
+                        Hủy
+                      </button>
                       <button type="button" onClick={handleAddLink} disabled={!linkUrl.trim()}
-                        className="px-4 py-1.5 bg-indigo-600 text-white text-sm rounded-lg hover:bg-indigo-700 disabled:opacity-50">
+                        style={{ padding: '7px 14px', background: D.indigo, color: '#fff', border: D.border, borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: linkUrl.trim() ? 'pointer' : 'not-allowed', opacity: linkUrl.trim() ? 1 : 0.5, fontFamily: 'inherit' }}>
                         Chèn
                       </button>
                     </div>
@@ -674,67 +744,75 @@ export default function TaskDetailModal({
               )}
             </div>
 
-            {/* ── Member avatars row ────────────────────────────────────────── */}
-            <div className="flex items-center gap-1">
+            {/* ── Member avatars ─────────────────────────────────────────────── */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               {assignedMemberObjs.map(m => (
                 <div key={m.userId}
                   title={m.fullName ?? m.email ?? m.userId}
-                  className="w-7 h-7 rounded-full bg-indigo-500 flex items-center justify-center text-[10px] font-bold text-white shrink-0 cursor-default select-none">
+                  style={{ width: 28, height: 28, borderRadius: '50%', background: D.indigo, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800, color: '#fff', flexShrink: 0, cursor: 'default', border: D.border }}>
                   {initials(m.fullName ?? m.email ?? "?")}
                 </div>
               ))}
-              <button type="button" onClick={() => togglePanel("member")}
-                title="Thêm thành viên"
-                className="w-7 h-7 rounded-full bg-gray-200 hover:bg-gray-300 flex items-center justify-center transition-colors shrink-0">
-                <Plus size={13} className="text-gray-600" />
-              </button>
+              {canManageAssignees && (
+                <button type="button" onClick={() => togglePanel("member")} title="Thêm thành viên"
+                  style={{ width: 28, height: 28, borderRadius: '50%', background: D.bg, border: D.border, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
+                  <Plus size={13} style={{ color: D.inkDim }} />
+                </button>
+              )}
             </div>
 
             {/* Description */}
             <div>
-              <div className="flex items-center gap-2 mb-2">
-                <AlignLeft size={15} className="text-gray-500" />
-                <span className="text-sm font-semibold text-gray-700">Mô tả</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <AlignLeft size={14} style={{ color: D.inkMuted }} />
+                <span style={{ fontSize: 13, fontWeight: 700, color: D.inkDim }}>Mô tả</span>
               </div>
               <textarea rows={4}
-                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-700 placeholder:text-gray-400 resize-none focus:outline-none focus:ring-1 focus:ring-indigo-300"
+                style={{
+                  width: '100%', border: D.borderLight, borderRadius: 10, padding: '10px 12px',
+                  fontSize: 13, color: D.ink, resize: 'none', outline: 'none',
+                  background: D.bg, fontFamily: 'inherit', boxSizing: 'border-box',
+                }}
                 placeholder="Thêm mô tả chi tiết hơn..."
                 value={description}
-                onChange={e => setDescription(e.target.value)} />
+                onChange={e => setDescription(e.target.value)}
+                onFocus={e => (e.currentTarget.style.border = D.border)}
+                onBlur={e => (e.currentTarget.style.border = D.borderLight)}
+              />
             </div>
 
             {/* Attachments list */}
             {isEdit && attachments.length > 0 && (
               <div>
-                <div className="flex items-center gap-2 mb-3">
-                  <Paperclip size={15} className="text-gray-500" />
-                  <span className="text-sm font-semibold text-gray-700">Các tập tin đính kèm</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                  <Paperclip size={14} style={{ color: D.inkMuted }} />
+                  <span style={{ fontSize: 13, fontWeight: 700, color: D.inkDim }}>Các tập tin đính kèm</span>
                   <button type="button" onClick={() => togglePanel("attach")}
-                    className="ml-auto text-xs px-2.5 py-1 bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-600">
+                    style={{ marginLeft: 'auto', fontSize: 11, padding: '3px 10px', background: D.bg, border: D.borderLight, borderRadius: D.pill, color: D.inkDim, cursor: 'pointer', fontFamily: 'inherit' }}>
                     Thêm
                   </button>
                 </div>
-                <div className="space-y-2">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {attachments.map(a => (
-                    <div key={a.id} className="flex items-center gap-3 p-2.5 bg-gray-50 rounded-lg border border-gray-100 group/att">
-                      <div className="w-10 h-8 bg-gray-200 rounded flex items-center justify-center shrink-0 text-[10px] font-bold text-gray-500 uppercase">
-                        {a.isLink ? <Link2 size={14} className="text-gray-500" /> : (a.fileName?.split(".").pop() ?? "?")}
+                    <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: D.bg, borderRadius: 8, border: D.borderLight }}>
+                      <div style={{ width: 40, height: 32, background: '#e8e3d6', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 10, fontWeight: 700, color: D.inkMuted, textTransform: 'uppercase' }}>
+                        {a.isLink ? <Link2 size={13} style={{ color: D.inkMuted }} /> : (a.fileName?.split(".").pop() ?? "?")}
                       </div>
-                      <div className="flex-1 min-w-0">
+                      <div style={{ flex: 1, minWidth: 0 }}>
                         <a href={a.fileUrl} target="_blank" rel="noreferrer"
-                          className="text-sm text-indigo-600 hover:underline font-medium truncate block">
+                          style={{ fontSize: 13, color: D.indigo, fontWeight: 600, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: 'none' }}>
                           {a.note ?? a.fileName ?? a.fileUrl}
                         </a>
-                        <span className="text-xs text-gray-400">Đã thêm {fmtTime(a.uploadedAt)}</span>
+                        <span style={{ fontSize: 11, color: D.inkMuted }}>Đã thêm {fmtTime(a.uploadedAt)}</span>
                       </div>
-                      <div className="flex items-center gap-1 opacity-0 group-hover/att:opacity-100 transition-opacity shrink-0">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
                         <a href={a.fileUrl} target="_blank" rel="noreferrer"
-                          className="p-1 rounded text-gray-400 hover:text-indigo-500 hover:bg-indigo-50 transition-colors">
-                          <Upload size={13} />
+                          style={{ padding: 4, borderRadius: 4, color: D.inkMuted, display: 'flex', textDecoration: 'none' }}>
+                          <Upload size={12} />
                         </a>
                         <button type="button" onClick={() => handleDeleteAttachment(a.id)}
-                          className="p-1 rounded text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors">
-                          <Trash2 size={13} />
+                          style={{ padding: 4, borderRadius: 4, color: D.inkMuted, background: 'none', border: 'none', cursor: 'pointer', display: 'flex' }}>
+                          <Trash2 size={12} />
                         </button>
                       </div>
                     </div>
@@ -743,189 +821,223 @@ export default function TaskDetailModal({
               </div>
             )}
 
-            {/* ── Multiple Checklists ────────────────────────────────────────── */}
+            {/* ── Checklists ─────────────────────────────────────────────────── */}
             {isEdit && checklists.map(group => {
-              const doneCnt = group.items.filter(it => it.done).length;
-              const pct = group.items.length > 0 ? Math.round((doneCnt / group.items.length) * 100) : 0;
+              const doneCnt = group.items.filter(it => it.done).length
+              const pct = group.items.length > 0 ? Math.round((doneCnt / group.items.length) * 100) : 0
               return (
                 <div key={group.id}>
-                  <div className="flex items-center gap-2 mb-2">
-                    <CheckSquare size={15} className="text-gray-500 shrink-0" />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                    <CheckSquare size={14} style={{ color: D.inkMuted, flexShrink: 0 }} />
                     {renamingGroupId === group.id ? (
                       <input autoFocus value={renameText}
                         onChange={e => setRenameText(e.target.value)}
-                        onKeyDown={e => { if (e.key === "Enter") commitRename(group.id); if (e.key === "Escape") setRenamingGroupId(null); }}
+                        onKeyDown={e => { if (e.key === "Enter") commitRename(group.id); if (e.key === "Escape") setRenamingGroupId(null) }}
                         onBlur={() => commitRename(group.id)}
-                        className="flex-1 text-sm font-semibold border border-indigo-300 rounded px-2 py-0.5 focus:outline-none focus:ring-1 focus:ring-indigo-400 bg-white" />
+                        style={{ ...inputStyle, flex: 1, height: 30, fontSize: 13, fontWeight: 700 }} />
                     ) : (
                       <button type="button"
-                        onClick={() => { setRenamingGroupId(group.id); setRenameText(group.name); }}
-                        className="flex-1 text-left text-sm font-semibold text-gray-700 hover:text-indigo-600 truncate">
+                        onClick={() => { setRenamingGroupId(group.id); setRenameText(group.name) }}
+                        style={{ flex: 1, textAlign: 'left', fontSize: 13, fontWeight: 700, color: D.ink, background: 'none', border: 'none', cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', fontFamily: 'inherit' }}>
                         {group.name}
                       </button>
                     )}
-                    <span className="text-xs text-gray-400 shrink-0">{doneCnt}/{group.items.length}</span>
+                    <span style={{ fontSize: 11, color: D.inkMuted, flexShrink: 0 }}>{doneCnt}/{group.items.length}</span>
                     <button type="button" onClick={() => deleteChecklist(group.id)}
-                      className="text-xs text-gray-400 hover:text-red-500 px-2 py-0.5 rounded bg-gray-100 hover:bg-red-50 shrink-0 transition-colors">
+                      style={{ fontSize: 11, color: D.inkMuted, background: D.bg, border: D.borderLight, borderRadius: 4, padding: '2px 8px', cursor: 'pointer', flexShrink: 0, fontFamily: 'inherit' }}>
                       Xóa
                     </button>
                   </div>
 
                   {group.items.length > 0 && (
-                    <div className="flex items-center gap-2 mb-3">
-                      <span className="text-xs text-gray-400 w-8 text-right shrink-0">{pct}%</span>
-                      <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
-                        <div className={`h-full rounded-full transition-all ${pct === 100 ? "bg-emerald-500" : "bg-indigo-500"}`}
-                          style={{ width: `${pct}%` }} />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                      <span style={{ fontSize: 11, color: D.inkMuted, width: 28, textAlign: 'right', flexShrink: 0 }}>{pct}%</span>
+                      <div style={{ flex: 1, height: 6, background: '#e8e3d6', borderRadius: 2, overflow: 'hidden', border: '1px solid #ccc' }}>
+                        <div style={{ height: '100%', borderRadius: 2, background: pct === 100 ? D.emerald : D.indigo, width: `${pct}%`, transition: 'width .3s' }} />
                       </div>
                     </div>
                   )}
 
-                  <div className="space-y-0.5 mb-2">
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginBottom: 8 }}>
                     {group.items.map(item => (
-                      <div key={item.id} className="group/item flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-gray-50">
-                        <button type="button" onClick={() => toggleItem(group.id, item.id)} className="shrink-0">
-                          {item.done ? <CheckSquare size={16} className="text-indigo-500" /> : <Square size={16} className="text-gray-300 hover:text-gray-400" />}
+                      <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 8px', borderRadius: 6 }}
+                        onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = D.bg}
+                        onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}
+                      >
+                        <button type="button" onClick={() => toggleItem(group.id, item.id)} style={{ flexShrink: 0, background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: 0 }}>
+                          {item.done
+                            ? <CheckSquare size={16} style={{ color: D.indigo }} />
+                            : <Square size={16} style={{ color: D.inkMuted }} />
+                          }
                         </button>
-                        <span className={`flex-1 text-sm leading-relaxed ${item.done ? "line-through text-gray-400" : "text-gray-700"}`}>
+                        <span style={{ flex: 1, fontSize: 13, color: item.done ? D.inkMuted : D.ink, textDecoration: item.done ? 'line-through' : 'none' }}>
                           {item.text}
                         </span>
                         <button type="button" onClick={() => deleteItem(group.id, item.id)}
-                          className="opacity-0 group-hover/item:opacity-100 p-0.5 rounded text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all shrink-0">
-                          <X size={13} />
+                          style={{ padding: 2, borderRadius: 3, color: D.inkMuted, background: 'none', border: 'none', cursor: 'pointer', display: 'flex', opacity: 0, transition: 'opacity .1s' }}
+                          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = '1'; (e.currentTarget as HTMLElement).style.color = D.red }}
+                          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = '0'; (e.currentTarget as HTMLElement).style.color = D.inkMuted }}
+                        >
+                          <X size={12} />
                         </button>
                       </div>
                     ))}
                   </div>
 
                   {addingGroupId === group.id ? (
-                    <div className="flex items-center gap-2 border border-indigo-200 rounded-lg px-3 py-2 bg-white mb-1">
-                      <Plus size={13} className="text-gray-300 shrink-0" />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, border: D.border, borderRadius: 8, padding: '6px 12px', background: D.card, marginBottom: 4 }}>
+                      <Plus size={12} style={{ color: D.inkMuted, flexShrink: 0 }} />
                       <input ref={newItemRef} type="text" placeholder="Thêm một mục..."
                         value={newItemText} onChange={e => setNewItemText(e.target.value)}
-                        onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addItem(group.id); } if (e.key === "Escape") { setAddingGroupId(null); setNewItemText(""); } }}
-                        className="flex-1 text-sm text-gray-700 placeholder:text-gray-300 focus:outline-none bg-transparent" />
+                        onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addItem(group.id) } if (e.key === "Escape") { setAddingGroupId(null); setNewItemText("") } }}
+                        style={{ flex: 1, fontSize: 13, color: D.ink, background: 'transparent', border: 'none', outline: 'none', fontFamily: 'inherit' }} />
                       {newItemText && (
                         <button type="button" onClick={() => addItem(group.id)}
-                          className="text-xs text-indigo-500 hover:text-indigo-700 font-medium shrink-0">Thêm</button>
+                          style={{ fontSize: 11, color: D.indigo, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700, fontFamily: 'inherit' }}>
+                          Thêm
+                        </button>
                       )}
-                      <button type="button" onClick={() => { setAddingGroupId(null); setNewItemText(""); }}
-                        className="text-gray-300 hover:text-gray-500 shrink-0"><X size={13} /></button>
+                      <button type="button" onClick={() => { setAddingGroupId(null); setNewItemText("") }}
+                        style={{ color: D.inkMuted, background: 'none', border: 'none', cursor: 'pointer', display: 'flex', padding: 2 }}>
+                        <X size={12} />
+                      </button>
                     </div>
                   ) : (
-                    <button type="button" onClick={() => { setAddingGroupId(group.id); setNewItemText(""); }}
-                      className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded-lg hover:bg-gray-100 transition-colors">
+                    <button type="button" onClick={() => { setAddingGroupId(group.id); setNewItemText("") }}
+                      style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: D.inkMuted, background: 'none', border: 'none', cursor: 'pointer', padding: '4px 8px', borderRadius: 6, fontFamily: 'inherit' }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = D.bg; (e.currentTarget as HTMLElement).style.color = D.inkDim }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'none'; (e.currentTarget as HTMLElement).style.color = D.inkMuted }}
+                    >
                       <Plus size={12} /> Thêm một mục
                     </button>
                   )}
                 </div>
-              );
+              )
             })}
 
             {/* Bottom action bar */}
-            <div className="flex items-center justify-end pt-2 border-t border-gray-100">
-              <div className="flex gap-2">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', paddingTop: 8, borderTop: D.borderLight }}>
+              <div style={{ display: 'flex', gap: 8 }}>
                 <button type="button" onClick={onClose}
-                  className="px-4 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50">Hủy</button>
+                  style={{ padding: '8px 16px', fontSize: 13, border: D.border, borderRadius: D.pill, background: D.card, color: D.inkDim, cursor: 'pointer', boxShadow: D.shadow(2, 2), fontFamily: 'inherit', fontWeight: 600 }}>
+                  Hủy
+                </button>
                 <button type="button" onClick={handleSave} disabled={saving}
-                  className="px-4 py-2 text-sm bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg disabled:opacity-60">
+                  style={{ padding: '8px 18px', fontSize: 13, background: D.ink, color: '#facc15', border: D.border, borderRadius: D.pill, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1, boxShadow: D.shadow(2, 2), fontFamily: 'inherit', fontWeight: 700 }}>
                   {saving ? "Đang lưu..." : isEdit ? "Lưu thay đổi" : "Tạo thẻ"}
                 </button>
               </div>
             </div>
           </div>
 
-          {/* ══ RIGHT PANEL — Combined feed (newest first) ════════════════════ */}
+          {/* ══ RIGHT PANEL — Combined feed ═══════════════════════════════════ */}
           {isEdit && (
-            <div className="shrink-0 border-l border-gray-100 flex flex-col bg-gray-50/40 overflow-hidden" style={{ width: "280px" }}>
+            <div style={{ flexShrink: 0, borderLeft: D.borderLight, display: 'flex', flexDirection: 'column', background: D.bg, overflow: 'hidden', width: 280 }}>
 
-              <div className="flex items-center justify-between px-4 pt-4 pb-2 shrink-0">
-                <span className="text-sm font-semibold text-gray-700 flex items-center gap-1.5">
-                  <MessageSquare size={14} /> Nhận xét và hoạt động
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 16px 8px', flexShrink: 0 }}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: D.inkDim, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <MessageSquare size={13} /> Nhận xét và hoạt động
                 </span>
                 <button type="button" onClick={() => setShowDetail(v => !v)}
-                  className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded-lg hover:bg-gray-200 transition-colors">
+                  style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: D.inkMuted, background: 'none', border: 'none', cursor: 'pointer', padding: '4px 8px', borderRadius: 6, fontFamily: 'inherit' }}
+                  onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#e8e3d6'}
+                  onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'none'}
+                >
                   {showDetail ? <EyeOff size={11} /> : <Eye size={11} />}
                   {showDetail ? "Ẩn chi tiết" : "Hiện chi tiết"}
                 </button>
               </div>
 
-              <div className="flex-1 overflow-y-auto px-4 pb-2 space-y-3">
+              <div style={{ flex: 1, overflowY: 'auto', padding: '0 16px 8px', display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {feed.length === 0 && (
-                  <p className="text-xs text-gray-400 text-center py-4">Chưa có hoạt động</p>
+                  <p style={{ fontSize: 12, color: D.inkMuted, textAlign: 'center', padding: '16px 0' }}>Chưa có hoạt động</p>
                 )}
                 {feed.map((entry, i) => {
                   if (entry.kind === "activity") {
-                    if (!showDetail) return null;
+                    if (!showDetail) return null
                     return (
-                      <div key={`act-${i}`} className="flex items-start gap-2">
-                        <div className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center text-[8px] font-bold text-gray-500 shrink-0 mt-0.5">
+                      <div key={`act-${i}`} style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                        <div style={{ width: 22, height: 22, borderRadius: '50%', background: '#e8e3d6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, fontWeight: 800, color: D.inkMuted, flexShrink: 0, marginTop: 2 }}>
                           {initials(entry.userName)}
                         </div>
-                        <div className="min-w-0">
-                          <p className="text-xs text-gray-600 leading-snug">
-                            <span className="font-semibold text-gray-700">{entry.userName}</span>{" "}{entry.action}
+                        <div style={{ minWidth: 0 }}>
+                          <p style={{ fontSize: 12, color: D.inkDim, lineHeight: 1.4, margin: 0 }}>
+                            <span style={{ fontWeight: 700, color: D.ink }}>{entry.userName}</span>{" "}{entry.action}
                           </p>
-                          <p className="text-[10px] text-gray-400 mt-0.5">{fmtRelative(entry.time)}</p>
+                          <p style={{ fontSize: 10, color: D.inkMuted, margin: '2px 0 0' }}>{fmtRelative(entry.time)}</p>
                         </div>
                       </div>
-                    );
+                    )
                   }
                   return (
-                    <div key={`cmt-${entry.id}`} className="group/comment">
-                      <div className="flex items-start gap-2">
-                        <div className="w-6 h-6 rounded-full bg-indigo-400 flex items-center justify-center text-[9px] font-bold text-white shrink-0 mt-0.5">
+                    <div key={`cmt-${entry.id}`} style={{ position: 'relative' }}
+                      onMouseEnter={e => { const btns = e.currentTarget.querySelectorAll('[data-cmtbtn]'); btns.forEach(b => (b as HTMLElement).style.opacity = '1') }}
+                      onMouseLeave={e => { const btns = e.currentTarget.querySelectorAll('[data-cmtbtn]'); btns.forEach(b => (b as HTMLElement).style.opacity = '0') }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                        <div style={{ width: 24, height: 24, borderRadius: '50%', background: D.indigo, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 800, color: '#fff', flexShrink: 0, marginTop: 2, border: D.border }}>
                           {initials(entry.userName)}
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-baseline gap-1.5">
-                            <span className="text-xs font-semibold text-gray-700">{entry.userName}</span>
-                            <span className="text-[9px] text-gray-400">{fmtRelative(entry.time)}</span>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                            <span style={{ fontSize: 12, fontWeight: 700, color: D.ink }}>{entry.userName}</span>
+                            <span style={{ fontSize: 10, color: D.inkMuted }}>{fmtRelative(entry.time)}</span>
                           </div>
                           {editCmtId === entry.id ? (
-                            <div className="mt-1">
+                            <div style={{ marginTop: 4 }}>
                               <textarea value={editCmtText} onChange={e => setEditCmtText(e.target.value)} rows={2}
-                                className="w-full border border-indigo-300 rounded-lg px-2 py-1.5 text-xs resize-none focus:outline-none focus:ring-1 focus:ring-indigo-300" />
-                              <div className="flex gap-1 mt-1">
+                                style={{ width: '100%', border: D.border, borderRadius: 8, padding: '6px 8px', fontSize: 12, resize: 'none', outline: 'none', background: D.card, fontFamily: 'inherit', boxSizing: 'border-box' }} />
+                              <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
                                 <button type="button" onClick={async () => {
-                                  const updated = await updateTaskComment(task!.id, entry.id, editCmtText);
-                                  setComments(prev => prev.map(x => x.id === entry.id ? updated : x));
-                                  setEditCmtId(null);
-                                }} className="text-[10px] text-indigo-600 font-medium">Lưu</button>
-                                <button type="button" onClick={() => setEditCmtId(null)} className="text-[10px] text-gray-400">Hủy</button>
+                                  const updated = await updateTaskComment(task!.id, entry.id, editCmtText)
+                                  setComments(prev => prev.map(x => x.id === entry.id ? updated : x))
+                                  setEditCmtId(null)
+                                }} style={{ fontSize: 11, color: D.indigo, fontWeight: 700, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>Lưu</button>
+                                <button type="button" onClick={() => setEditCmtId(null)} style={{ fontSize: 11, color: D.inkMuted, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>Hủy</button>
                               </div>
                             </div>
                           ) : (
-                            <div className="bg-white border border-gray-100 rounded-xl px-3 py-2 mt-1 shadow-sm">
-                              <p className="text-xs text-gray-600 break-words">{entry.content}</p>
+                            <div style={{ background: D.card, border: D.borderLight, borderRadius: 8, padding: '8px 10px', marginTop: 4 }}>
+                              <p style={{ fontSize: 12, color: D.inkDim, margin: 0, wordBreak: 'break-word' }}>{entry.content}</p>
                             </div>
                           )}
                           {editCmtId !== entry.id && (
-                            <div className="flex gap-2 mt-0.5 opacity-0 group-hover/comment:opacity-100 transition-opacity">
+                            <div data-cmtbtn style={{ display: 'flex', gap: 8, marginTop: 3, opacity: 0, transition: 'opacity .1s' }}>
                               <button type="button"
-                                onClick={() => { setEditCmtId(entry.id); setEditCmtText(entry.content); }}
-                                className="text-[10px] text-gray-400 hover:text-gray-600">Chỉnh sửa</button>
-                              <span className="text-[10px] text-gray-200">·</span>
+                                onClick={() => { setEditCmtId(entry.id); setEditCmtText(entry.content) }}
+                                style={{ fontSize: 10, color: D.inkMuted, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
+                                Chỉnh sửa
+                              </button>
+                              <span style={{ fontSize: 10, color: D.inkMuted }}>·</span>
                               <button type="button" onClick={() => handleDeleteComment(entry.id)}
-                                className="text-[10px] text-gray-400 hover:text-red-500">Xoá</button>
+                                style={{ fontSize: 10, color: D.inkMuted, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
+                                Xoá
+                              </button>
                             </div>
                           )}
                         </div>
                       </div>
                     </div>
-                  );
+                  )
                 })}
               </div>
 
-              <div className="px-4 pb-4 pt-2 border-t border-gray-100 shrink-0">
+              <div style={{ padding: '8px 16px 16px', borderTop: D.borderLight, flexShrink: 0 }}>
                 <textarea rows={2} value={newComment} onChange={e => setNewComment(e.target.value)}
                   placeholder="Viết bình luận..."
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-xs resize-none focus:outline-none focus:ring-1 focus:ring-indigo-300 bg-white"
-                  onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleAddComment(); } }} />
+                  style={{
+                    width: '100%', border: D.borderLight, borderRadius: 8, padding: '8px 10px',
+                    fontSize: 12, resize: 'none', outline: 'none', background: D.card,
+                    fontFamily: 'inherit', boxSizing: 'border-box', color: D.ink,
+                  }}
+                  onFocus={e => (e.currentTarget.style.border = D.border)}
+                  onBlur={e => (e.currentTarget.style.border = D.borderLight)}
+                  onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleAddComment() } }}
+                />
                 {newComment.trim() && (
-                  <div className="flex justify-end mt-1.5">
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 6 }}>
                     <button type="button" onClick={handleAddComment} disabled={posting}
-                      className="px-3 py-1.5 bg-indigo-600 text-white text-xs rounded-lg hover:bg-indigo-700 disabled:opacity-50">
+                      style={{ padding: '6px 14px', background: D.indigo, color: '#fff', border: D.border, borderRadius: D.pill, fontSize: 12, fontWeight: 700, cursor: posting ? 'not-allowed' : 'pointer', opacity: posting ? 0.6 : 1, fontFamily: 'inherit', boxShadow: D.shadow(2, 2) }}>
                       {posting ? "..." : "Lưu"}
                     </button>
                   </div>
@@ -936,5 +1048,5 @@ export default function TaskDetailModal({
         </div>
       </DialogContent>
     </Dialog>
-  );
+  )
 }

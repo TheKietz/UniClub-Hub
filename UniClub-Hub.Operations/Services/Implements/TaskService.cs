@@ -17,11 +17,15 @@ namespace UniClub_Hub.Operations.Services.Implements
             int? eventId,
             string? assignedTo,
             int? parentId,
+            int? departmentId,
             int page,
             int pageSize
         )
         {
             var query = db.Tasks.AsNoTracking().Where(t => t.ClubId == clubId);
+
+            if (departmentId.HasValue)
+                query = query.Where(t => t.DepartmentId == departmentId);
 
             if (Enum.TryParse<ClubTaskStatus>(status, true, out var parsedStatus))
                 query = query.Where(t => t.Status == parsedStatus);
@@ -40,6 +44,7 @@ namespace UniClub_Hub.Operations.Services.Implements
 
             var total = await query.CountAsync();
 
+            // Fetch base fields only — no correlated subqueries in SELECT
             var items = await query
                 .OrderBy(t => t.Priority)
                 .ThenBy(t => t.Deadline)
@@ -53,9 +58,11 @@ namespace UniClub_Hub.Operations.Services.Implements
                     SprintId = t.SprintId,
                     EventId = t.EventId,
                     DepartmentId = t.DepartmentId,
+                    KanbanColumnId = t.KanbanColumnId,
                     Title = t.Title,
                     Description = t.Description,
                     Priority = t.Priority,
+                    StartDate = t.StartDate,
                     Deadline = t.Deadline,
                     EstimatedHours = t.EstimatedHours,
                     ActualHours = t.ActualHours,
@@ -66,15 +73,43 @@ namespace UniClub_Hub.Operations.Services.Implements
                     AssigneeName = t.Assignee != null ? t.Assignee.FullName : null,
                     CreatedBy = t.CreatedBy,
                     CreatedAt = t.CreatedAt,
-                    SubTaskCount = t.SubTasks != null ? t.SubTasks.Count : 0,
-                    BlockingCount = db.TaskDependencies.Count(td =>
-                        td.TaskId == t.Id && td.DependsOnTask.Status != ClubTaskStatus.Done
-                    ),
-                    IsBlocked = db.TaskDependencies.Any(td =>
-                        td.TaskId == t.Id && td.DependsOnTask.Status != ClubTaskStatus.Done
-                    ),
                 })
                 .ToListAsync();
+
+            if (items.Count == 0)
+                return new PagedResult<TaskDto>
+                {
+                    Items = items,
+                    TotalCount = total,
+                    Page = page,
+                    PageSize = pageSize,
+                };
+
+            var taskIds = items.ConvertAll(t => t.Id);
+
+            // Batch query 1: subtask counts — one GROUP BY instead of N correlated subqueries
+            var subTaskCounts = await db.Tasks
+                .AsNoTracking()
+                .Where(t => t.ParentId != null && taskIds.Contains(t.ParentId.Value))
+                .GroupBy(t => t.ParentId!.Value)
+                .Select(g => new { ParentId = g.Key, Count = g.Count() })
+                .ToDictionaryAsync(x => x.ParentId, x => x.Count);
+
+            // Batch query 2: blocking counts — one GROUP BY + WHERE IN instead of N correlated subqueries
+            var blockingCounts = await db.TaskDependencies
+                .AsNoTracking()
+                .Where(td => taskIds.Contains(td.TaskId) && td.DependsOnTask.Status != ClubTaskStatus.Done)
+                .GroupBy(td => td.TaskId)
+                .Select(g => new { TaskId = g.Key, Count = g.Count() })
+                .ToDictionaryAsync(x => x.TaskId, x => x.Count);
+
+            foreach (var item in items)
+            {
+                item.SubTaskCount = subTaskCounts.TryGetValue(item.Id, out var sc) ? sc : 0;
+                var bc = blockingCounts.TryGetValue(item.Id, out var bcount) ? bcount : 0;
+                item.BlockingCount = bc;
+                item.IsBlocked = bc > 0;
+            }
 
             return new PagedResult<TaskDto>
             {
@@ -113,6 +148,7 @@ namespace UniClub_Hub.Operations.Services.Implements
                 Title = dto.Title,
                 Description = dto.Description,
                 Priority = dto.Priority,
+                StartDate = dto.StartDate?.ToUniversalTime(),
                 Deadline = dto.Deadline?.ToUniversalTime(),
                 EstimatedHours = dto.EstimatedHours,
                 AssignedTo = dto.AssignedTo,
@@ -120,6 +156,7 @@ namespace UniClub_Hub.Operations.Services.Implements
                 SprintId = dto.SprintId,
                 DepartmentId = dto.DepartmentId,
                 ParentId = dto.ParentId,
+                KanbanColumnId = dto.KanbanColumnId,
                 Status = ClubTaskStatus.Todo,
                 CreatedBy = createdBy,
             };
@@ -138,12 +175,13 @@ namespace UniClub_Hub.Operations.Services.Implements
             task.Title = dto.Title;
             task.Description = dto.Description;
             task.Priority = dto.Priority;
+            task.StartDate = dto.StartDate?.ToUniversalTime();
             task.Deadline = dto.Deadline?.ToUniversalTime();
             task.EstimatedHours = dto.EstimatedHours;
             task.ActualHours = dto.ActualHours;
             task.AssignedTo = dto.AssignedTo;
             task.EventId = dto.EventId;
-            task.SprintId = dto.SprintId;
+            if (dto.SprintId.HasValue) task.SprintId = dto.SprintId;
             task.DepartmentId = dto.DepartmentId;
 
             await db.SaveChangesAsync();
@@ -173,6 +211,7 @@ namespace UniClub_Hub.Operations.Services.Implements
 
             task.Status = dto.Status;
             task.Progress = dto.Progress;
+            task.KanbanColumnId = dto.KanbanColumnId;
 
             if (dto.Status == ClubTaskStatus.Done && task.CompletedAt == null)
                 task.CompletedAt = DateTimeOffset.UtcNow;
@@ -283,9 +322,11 @@ namespace UniClub_Hub.Operations.Services.Implements
                 SprintId = t.SprintId,
                 EventId = t.EventId,
                 DepartmentId = t.DepartmentId,
+                KanbanColumnId = t.KanbanColumnId,
                 Title = t.Title,
                 Description = t.Description,
                 Priority = t.Priority,
+                StartDate = t.StartDate,
                 Deadline = t.Deadline,
                 EstimatedHours = t.EstimatedHours,
                 ActualHours = t.ActualHours,

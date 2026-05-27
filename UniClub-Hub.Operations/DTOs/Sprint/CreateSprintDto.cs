@@ -12,5 +12,6 @@ namespace UniClub_Hub.Operations.DTOs.Sprint
         [Required]
         public DateTimeOffset EndDate { get; set; }
         public int? EventId { get; set; }
+        public int? DepartmentId { get; set; }
     }
 }

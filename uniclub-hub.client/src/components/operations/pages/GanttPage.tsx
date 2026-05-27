@@ -3,51 +3,52 @@ import { useEffect, useState, useMemo, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { RefreshCw, Plus, ChevronLeft, ChevronRight } from 'lucide-react'
-import { Button } from '@/components/ui/button'
 import { getTasks, getEvents } from '../services/operationsApi'
 import { useTasks } from '../context/TasksContext'
 import type { TaskItem, EventItem, TaskStatus } from '../services/operations.types'
-/* ── Constants ─────────────────────────────────────────────────────────────── */
 
-const DAY_PX = 36          // keep in sync with gantt.css calc(var(--days)*36px)
-const WIN_WEEKS = 4        // visible week window
+/* ─── Design tokens ──────────────────────────────────────────────────────── */
 
-const STATUS_DOT: Record<TaskStatus, string> = {
-  Todo:  'bg-gray-400',
-  Doing: 'bg-blue-500',
-  Done:  'bg-emerald-500',
+const D = {
+  border: '1.5px solid #15131a',
+  borderLight: '1px solid #e8e3d6',
+  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 #15131a`,
+  radius: 14,
+  pill: 999,
+  ink: '#15131a',
+  inkDim: '#4a4651',
+  inkMuted: '#918c99',
+  bg: '#f7f6f1',
+  card: '#ffffff',
+  indigo: '#4f46e5',
+  emerald: '#10b981',
 }
-const PRIORITY_BAR_COLOR: Record<string, string> = {
-  High:   '#ef4444',
-  Medium: '#f59e0b',
-  Low:    '#4f46e5',
-}
 
-/* ── Helpers ────────────────────────────────────────────────────────────────*/
+/* ─── Constants ──────────────────────────────────────────────────────────── */
+
+const DAY_PX = 36
+const WIN_WEEKS = 4
+
+const STATUS_DOT: Record<TaskStatus, string> = { Todo: '#9ca3af', Doing: '#3b82f6', Done: D.emerald }
+const PRIORITY_BAR_COLOR: Record<string, string> = { High: '#ef4444', Medium: '#f59e0b', Low: D.indigo }
+
+/* ─── Helpers ─────────────────────────────────────────────────────────────── */
 
 function startOf(task: TaskItem): Date {
-  const d = new Date(task.createdAt)
-  d.setHours(0, 0, 0, 0)
-  return d
+  const d = new Date(task.createdAt); d.setHours(0, 0, 0, 0); return d
 }
 function endOf(task: TaskItem): Date {
-  return task.deadline ? new Date(task.deadline) : (() => {
-    const d = startOf(task); d.setDate(d.getDate() + 7); return d
-  })()
+  return task.deadline ? new Date(task.deadline) : (() => { const d = startOf(task); d.setDate(d.getDate() + 7); return d })()
 }
 function fmtShort(d: Date) {
   return d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })
 }
-
 function getWeeks(startMs: number, endMs: number) {
   const weeks: { label: string; startMs: number; days: Date[] }[] = []
-  const d = new Date(startMs)
-  const dow = d.getDay()
-  d.setDate(d.getDate() - (dow === 0 ? 6 : dow - 1))
-  d.setHours(0, 0, 0, 0)
+  const d = new Date(startMs); const dow = d.getDay()
+  d.setDate(d.getDate() - (dow === 0 ? 6 : dow - 1)); d.setHours(0, 0, 0, 0)
   while (d.getTime() <= endMs) {
-    const days: Date[] = []
-    const weekMs = d.getTime()
+    const days: Date[] = []; const weekMs = d.getTime()
     for (let i = 0; i < 7; i++) { days.push(new Date(d)); d.setDate(d.getDate() + 1) }
     const mo = new Date(weekMs).toLocaleDateString('vi-VN', { month: 'short' })
     const wn = Math.ceil(new Date(weekMs).getDate() / 7)
@@ -56,16 +57,14 @@ function getWeeks(startMs: number, endMs: number) {
   return weeks
 }
 
-/* ── Avatar ─────────────────────────────────────────────────────────────────*/
+/* ─── Avatar ──────────────────────────────────────────────────────────────── */
 
 const PALETTE = ['#4f46e5', '#0891b2', '#059669', '#d97706', '#dc2626', '#7c3aed']
 function avatarBg(name: string): string {
   let h = 0; for (const c of name) h = c.charCodeAt(0) + ((h << 5) - h)
   return PALETTE[Math.abs(h) % PALETTE.length]
 }
-function initials(name: string) {
-  return name.split(' ').map(w => w[0]).slice(-2).join('').toUpperCase()
-}
+function initials(name: string) { return name.split(' ').map(w => w[0]).slice(-2).join('').toUpperCase() }
 
 function GanttAvatar({ name }: { name: string }) {
   return (
@@ -79,7 +78,7 @@ function GanttAvatar({ name }: { name: string }) {
   )
 }
 
-/* ══════════════════════════════════════════════════════════════════════════ */
+/* ─── Page ────────────────────────────────────────────────────────────────── */
 
 export default function GanttPage() {
   const { clubId: clubIdParam } = useParams<{ clubId: string }>()
@@ -93,7 +92,6 @@ export default function GanttPage() {
   const [zoom, setZoom]       = useState<'Day' | 'Week' | 'Month'>('Week')
   const [weekOffset, setWeekOffset] = useState(0)
 
-  /* ── Load ─────────────────────────────────────────────────────────────── */
   const load = useCallback(() => {
     setLoading(true)
     Promise.all([getEvents({ clubId, pageSize: 50 }), getTasks({ clubId, departmentId, pageSize: 200 })])
@@ -107,7 +105,6 @@ export default function GanttPage() {
 
   useEffect(() => { load() }, [load])
 
-  /* ── Derived ──────────────────────────────────────────────────────────── */
   const selEvent = events.find(e => e.id === selEventId) ?? events[0] ?? null
 
   const filteredTasks = useMemo(() => {
@@ -125,88 +122,99 @@ export default function GanttPage() {
     }
   }, [filteredTasks])
 
-  const weeks = useMemo(() => getWeeks(rangeStartMs, rangeEndMs), [rangeStartMs, rangeEndMs])
-
-  const maxOffset    = Math.max(0, weeks.length - WIN_WEEKS)
-  const clampedOff   = Math.min(weekOffset, maxOffset)
+  const weeks       = useMemo(() => getWeeks(rangeStartMs, rangeEndMs), [rangeStartMs, rangeEndMs])
+  const maxOffset   = Math.max(0, weeks.length - WIN_WEEKS)
+  const clampedOff  = Math.min(weekOffset, maxOffset)
   const visibleWeeks = weeks.slice(clampedOff, clampedOff + WIN_WEEKS)
-
-  const visStart   = visibleWeeks[0]?.startMs ?? rangeStartMs
-  const lastWeek   = visibleWeeks[visibleWeeks.length - 1]
-  const visEnd     = (lastWeek?.days.at(-1)?.getTime() ?? rangeEndMs) + 86_400_000
+  const visStart    = visibleWeeks[0]?.startMs ?? rangeStartMs
+  const lastWeek    = visibleWeeks[visibleWeeks.length - 1]
+  const visEnd      = (lastWeek?.days.at(-1)?.getTime() ?? rangeEndMs) + 86_400_000
   const totalVisDays = Math.ceil((visEnd - visStart) / 86_400_000)
-  const chartWidth   = totalVisDays * DAY_PX
-
+  const chartWidth  = totalVisDays * DAY_PX
   const toPx = (ms: number) => ((ms - visStart) / 86_400_000) * DAY_PX
-
   const todayMs = (() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime() })()
   const todayPx = toPx(todayMs)
-
   const overallProgress = filteredTasks.length
     ? Math.round(filteredTasks.filter(t => t.status === 'Done').length / filteredTasks.length * 100)
     : 0
-
-  /* ── Dependency arrows (real deps require per-task API calls — omitted for overview) */
   const depArrows: { x1: number; y1: number; x2: number; y2: number; key: string }[] = []
 
-  /* ════════════════════════════════════════════════════════════════════════ */
+  const navBtnStyle = (disabled: boolean): React.CSSProperties => ({
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    width: 30, height: 30, border: D.border, borderRadius: 8,
+    background: D.card, cursor: disabled ? 'not-allowed' : 'pointer',
+    color: disabled ? D.inkMuted : D.inkDim, opacity: disabled ? 0.4 : 1,
+  })
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-slate-50 via-white to-indigo-50/30 p-6 lg:p-8">
+    <div style={{ padding: '28px 32px', minHeight: '100%', background: D.bg, fontFamily: "'Be Vietnam Pro', sans-serif" }}>
 
-      {/* ── Event header ──────────────────────────────────────────────── */}
+      {/* Event header */}
       {selEvent && (
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-5">
-          <div className="flex items-start justify-between gap-4 mb-4">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-[10px] font-bold tracking-widest px-2 py-0.5 rounded bg-indigo-600 text-white uppercase">EVENT</span>
-              <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-green-100 text-green-700">
+        <div style={{ background: D.card, border: D.border, borderRadius: D.radius, boxShadow: D.shadow(), padding: 20, marginBottom: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, marginBottom: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: '.08em', padding: '2px 8px', borderRadius: 4, background: D.ink, color: '#facc15', textTransform: 'uppercase' }}>EVENT</span>
+              <span style={{
+                fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: D.pill,
+                background: '#d1fae5', color: '#065f46',
+              }}>
                 {selEvent.status === 'InProgress' ? 'In Progress' : selEvent.status}
               </span>
-              <h1 className="text-xl font-bold text-gray-900">{selEvent.name}</h1>
+              <h1 style={{ fontSize: 18, fontWeight: 900, color: D.ink, margin: 0 }}>{selEvent.name}</h1>
             </div>
-            <div className="flex items-center gap-2 shrink-0">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
               <select
                 aria-label="Chọn sự kiện"
-                className="text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-indigo-300 bg-white"
                 value={selEventId ?? ''}
                 onChange={e => setSelEventId(Number(e.target.value))}
+                style={{
+                  fontSize: 12, border: D.borderLight, borderRadius: 8,
+                  padding: '6px 10px', background: D.bg, color: D.inkDim,
+                  cursor: 'pointer', fontFamily: 'inherit', outline: 'none',
+                }}
               >
                 {events.map(ev => <option key={ev.id} value={ev.id}>{ev.name}</option>)}
               </select>
-              <Button variant="outline" size="sm" onClick={load} disabled={loading}>
-                <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
-              </Button>
+              <button
+                type="button"
+                onClick={load}
+                disabled={loading}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 4,
+                  border: D.border, borderRadius: 8, padding: '6px 10px',
+                  background: D.card, color: D.inkDim, cursor: 'pointer', fontSize: 12,
+                  opacity: loading ? 0.6 : 1,
+                }}
+              >
+                <RefreshCw size={13} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
+              </button>
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-6">
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 24 }}>
             <div>
-              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Timeline</p>
-              <p className="text-sm font-medium text-gray-700">
-                {selEvent.startTime ? fmtShort(new Date(selEvent.startTime)) : '—'}
-                {' → '}
-                {selEvent.endTime ? fmtShort(new Date(selEvent.endTime)) : '—'}
+              <p style={{ fontSize: 10, fontWeight: 800, color: D.inkMuted, textTransform: 'uppercase', letterSpacing: '.08em', margin: '0 0 4px' }}>Timeline</p>
+              <p style={{ fontSize: 13, fontWeight: 600, color: D.inkDim, margin: 0 }}>
+                {selEvent.startTime ? fmtShort(new Date(selEvent.startTime)) : '—'} → {selEvent.endTime ? fmtShort(new Date(selEvent.endTime)) : '—'}
               </p>
             </div>
             <div>
-              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Owner</p>
-              <div className="flex items-center gap-2">
+              <p style={{ fontSize: 10, fontWeight: 800, color: D.inkMuted, textTransform: 'uppercase', letterSpacing: '.08em', margin: '0 0 4px' }}>Owner</p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 {selEvent.createdBy && <GanttAvatar name={selEvent.createdBy} />}
-                <span className="text-sm font-medium text-gray-700">
-                  {selEvent.createdBy ?? 'Chưa xác định'}
-                </span>
+                <span style={{ fontSize: 13, fontWeight: 600, color: D.inkDim }}>{selEvent.createdBy ?? 'Chưa xác định'}</span>
               </div>
             </div>
             <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Overall Progress</p>
-                <span className="text-sm font-bold text-[#1a3a6c]">{overallProgress}%</span>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                <p style={{ fontSize: 10, fontWeight: 800, color: D.inkMuted, textTransform: 'uppercase', letterSpacing: '.08em', margin: 0 }}>Overall Progress</p>
+                <span style={{ fontSize: 13, fontWeight: 900, color: D.ink }}>{overallProgress}%</span>
               </div>
-              <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+              <div style={{ height: 6, background: '#e8e3d6', borderRadius: 3, overflow: 'hidden' }}>
                 <div
                   className="gantt-progress-fill"
-                  style={{ '--bar-color': '#1a3a6c', '--bar-pct': `${overallProgress}%` } as React.CSSProperties}
+                  style={{ '--bar-color': D.indigo, '--bar-pct': `${overallProgress}%` } as React.CSSProperties}
                 />
               </div>
             </div>
@@ -214,136 +222,125 @@ export default function GanttPage() {
         </div>
       )}
 
-      {/* ── Toolbar ───────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-1.5">
-          <button
-            type="button"
-            title="Tuần trước"
-            onClick={() => setWeekOffset(o => Math.max(0, o - 1))}
-            disabled={clampedOff === 0}
-            className="p-1.5 rounded-lg border border-gray-200 hover:bg-white disabled:opacity-30 transition"
-          >
-            <ChevronLeft size={15} />
+      {/* Toolbar */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <button type="button" title="Tuần trước" onClick={() => setWeekOffset(o => Math.max(0, o - 1))} disabled={clampedOff === 0} style={navBtnStyle(clampedOff === 0)}>
+            <ChevronLeft size={14} />
           </button>
-          <button
-            type="button"
-            title="Tuần sau"
-            onClick={() => setWeekOffset(o => Math.min(maxOffset, o + 1))}
-            disabled={clampedOff >= maxOffset}
-            className="p-1.5 rounded-lg border border-gray-200 hover:bg-white disabled:opacity-30 transition"
-          >
-            <ChevronRight size={15} />
+          <button type="button" title="Tuần sau" onClick={() => setWeekOffset(o => Math.min(maxOffset, o + 1))} disabled={clampedOff >= maxOffset} style={navBtnStyle(clampedOff >= maxOffset)}>
+            <ChevronRight size={14} />
           </button>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="flex bg-white border border-gray-200 rounded-lg overflow-hidden">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ display: 'flex', border: D.border, borderRadius: 8, overflow: 'hidden' }}>
             {(['Day', 'Week', 'Month'] as const).map(z => (
               <button
                 key={z} type="button" onClick={() => setZoom(z)}
-                className={`px-3 py-1.5 text-xs font-medium transition-colors ${
-                  zoom === z ? 'bg-[#1a3a6c] text-white' : 'text-gray-600 hover:bg-gray-50'
-                }`}
+                style={{
+                  padding: '6px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                  background: zoom === z ? D.ink : D.card,
+                  color: zoom === z ? '#facc15' : D.inkDim,
+                  border: 'none', borderRight: z !== 'Month' ? D.borderLight : 'none',
+                  fontFamily: 'inherit',
+                }}
               >{z}</button>
             ))}
           </div>
-          <Button size="sm" className="bg-[#1a3a6c] hover:bg-[#152f59] text-white gap-1.5">
-            <Plus size={14} /> Add Task
-          </Button>
+          <button
+            type="button"
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px',
+              border: D.border, borderRadius: 8, background: D.ink, color: '#facc15',
+              fontSize: 12, fontWeight: 800, cursor: 'pointer', boxShadow: D.shadow(2, 2),
+              fontFamily: 'inherit',
+            }}
+          >
+            <Plus size={13} /> Add Task
+          </button>
         </div>
       </div>
 
-      {/* ── Gantt table ───────────────────────────────────────────────── */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+      {/* Gantt table */}
+      <div style={{ background: D.card, border: D.border, borderRadius: D.radius, boxShadow: D.shadow(), overflow: 'hidden' }}>
         {loading ? (
-          <div className="flex items-center justify-center h-60 text-gray-400">Đang tải...</div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 240, color: D.inkMuted }}>Đang tải...</div>
         ) : filteredTasks.length === 0 ? (
-          <div className="flex items-center justify-center h-60 text-gray-300 text-sm">Chưa có công việc</div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 240, color: D.inkMuted, fontSize: 13 }}>Chưa có công việc</div>
         ) : (
-          <div className="flex">
+          <div style={{ display: 'flex' }}>
             {/* Left fixed columns */}
-            <div className="w-[320px] shrink-0 border-r border-gray-100 bg-white z-10">
-              {/* Header */}
-              <div className="grid grid-cols-[1fr_48px_48px] h-12 border-b border-gray-100 bg-gray-50/60">
-                <div className="flex items-center px-4 text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Task Name</div>
-                <div className="flex items-center justify-center text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Status</div>
-                <div className="flex items-center justify-center text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Owner</div>
+            <div style={{ width: 320, flexShrink: 0, borderRight: D.borderLight, background: D.card, zIndex: 10 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 48px 48px', height: 48, borderBottom: D.borderLight, background: D.bg }}>
+                {['Task Name', 'Status', 'Owner'].map((h, i) => (
+                  <div key={h} style={{ display: 'flex', alignItems: 'center', justifyContent: i > 0 ? 'center' : 'flex-start', padding: i === 0 ? '0 16px' : 0, fontSize: 10, fontWeight: 800, color: D.inkMuted, textTransform: 'uppercase', letterSpacing: '.06em' }}>{h}</div>
+                ))}
               </div>
-              {/* Sub-header spacer */}
-              <div className="h-7 border-b border-gray-100" />
-              {/* Rows */}
+              <div style={{ height: 28, borderBottom: D.borderLight }} />
               {filteredTasks.map(task => (
-                <div key={task.id} className="grid grid-cols-[1fr_48px_48px] h-12 border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
-                  <div className="flex items-center gap-2 px-3 min-w-0">
-                    <span className="text-gray-300 text-xs shrink-0 cursor-grab select-none">⠿⠿</span>
-                    <span className="text-sm text-gray-800 truncate">{task.title}</span>
+                <div key={task.id} style={{ display: 'grid', gridTemplateColumns: '1fr 48px 48px', height: 48, borderBottom: D.borderLight }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0 12px', minWidth: 0 }}>
+                    <span style={{ fontSize: 11, color: D.inkMuted, flexShrink: 0, cursor: 'grab', userSelect: 'none' }}>⠿⠿</span>
+                    <span style={{ fontSize: 13, color: D.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 600 }}>{task.title}</span>
                   </div>
-                  <div className="flex items-center justify-center">
-                    <span className={`w-2.5 h-2.5 rounded-full ${STATUS_DOT[task.status]}`} />
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <span style={{ width: 10, height: 10, borderRadius: '50%', background: STATUS_DOT[task.status], display: 'inline-block' }} />
                   </div>
-                  <div className="flex items-center justify-center">
-                    {task.assigneeName
-                      ? <GanttAvatar name={task.assigneeName} />
-                      : <div className="w-6 h-6 rounded-full bg-gray-100" />
-                    }
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {task.assigneeName ? <GanttAvatar name={task.assigneeName} /> : <div style={{ width: 24, height: 24, borderRadius: '50%', background: D.bg }} />}
                   </div>
                 </div>
               ))}
             </div>
 
             {/* Right scrollable chart */}
-            <div className="flex-1 overflow-x-auto">
-              <div
-                className="gantt-area relative"
-                style={{ '--chart-w': `${chartWidth}px` } as React.CSSProperties}
-              >
+            <div style={{ flex: 1, overflowX: 'auto' }}>
+              <div className="gantt-area relative" style={{ '--chart-w': `${chartWidth}px` } as React.CSSProperties}>
                 {/* Week header */}
-                <div className="flex h-12 border-b border-gray-100 bg-gray-50/60">
+                <div style={{ display: 'flex', height: 48, borderBottom: D.borderLight, background: D.bg }}>
                   {visibleWeeks.map(w => (
                     <div
                       key={w.startMs}
                       className="gantt-week-cell border-l border-gray-200 flex items-center px-2 shrink-0"
                       style={{ '--days': w.days.length } as React.CSSProperties}
                     >
-                      <span className="text-xs font-semibold text-gray-500 whitespace-nowrap">{w.label}</span>
+                      <span style={{ fontSize: 11, fontWeight: 800, color: D.inkMuted, whiteSpace: 'nowrap' }}>{w.label}</span>
                     </div>
                   ))}
                 </div>
-
                 {/* Day numbers row */}
-                <div className="flex h-7 border-b border-gray-100">
+                <div style={{ display: 'flex', height: 28, borderBottom: D.borderLight }}>
                   {visibleWeeks.flatMap(w => w.days).map(day => (
                     <div
                       key={day.getTime()}
-                      className={`w-9 shrink-0 flex items-center justify-center text-[10px] border-l border-gray-50 ${
-                        day.getTime() === todayMs ? 'text-blue-600 font-bold' : 'text-gray-400'
-                      }`}
+                      style={{
+                        width: 36, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: 10, borderLeft: D.borderLight,
+                        color: day.getTime() === todayMs ? '#2563eb' : D.inkMuted,
+                        fontWeight: day.getTime() === todayMs ? 900 : 400,
+                      }}
                     >
                       {day.getDate()}
                     </div>
                   ))}
                 </div>
-
                 {/* Task bar rows */}
-                <div className="relative">
+                <div style={{ position: 'relative' }}>
                   {filteredTasks.map((task, idx) => {
                     const barLeft  = toPx(startOf(task).getTime())
                     const barRight = toPx(endOf(task).getTime())
                     const barW     = Math.max(DAY_PX * 0.8, barRight - barLeft)
                     const pct      = task.progress
-                    const barColor = PRIORITY_BAR_COLOR[task.priority] ?? '#4f46e5'
+                    const barColor = PRIORITY_BAR_COLOR[task.priority] ?? D.indigo
 
                     return (
-                      <div key={task.id} className="relative h-12 border-b border-gray-50">
-                        {/* Today marker */}
+                      <div key={task.id} style={{ position: 'relative', height: 48, borderBottom: D.borderLight }}>
                         {todayPx >= 0 && todayPx <= chartWidth && (
                           <div
                             className="gantt-today-line absolute top-0 bottom-0 w-px bg-blue-400/50 z-10 pointer-events-none"
                             style={{ '--today-px': `${todayPx}px` } as React.CSSProperties}
                           />
                         )}
-
-                        {/* Bar */}
                         <div
                           className="gantt-bar-wrap absolute top-1/2 -translate-y-1/2 h-7 rounded-lg overflow-hidden cursor-pointer hover:brightness-95 transition-all"
                           style={{
@@ -357,25 +354,18 @@ export default function GanttPage() {
                           <div className="gantt-bar-bg absolute inset-0 rounded-lg opacity-20" />
                           <div className="gantt-bar-fill absolute left-0 top-0 bottom-0 rounded-lg" />
                           {barW > 44 && (
-                            <div className="absolute inset-0 flex items-center px-2">
-                              <span className="text-[11px] font-semibold text-white drop-shadow-sm whitespace-nowrap">
-                                {pct}%
-                              </span>
+                            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', padding: '0 8px' }}>
+                              <span style={{ fontSize: 11, fontWeight: 700, color: '#fff', whiteSpace: 'nowrap', textShadow: '0 1px 2px rgba(0,0,0,.3)' }}>{pct}%</span>
                             </div>
                           )}
                         </div>
                       </div>
                     )
                   })}
-
-                  {/* Dependency arrows SVG */}
                   {depArrows.length > 0 && (
                     <svg
                       className="gantt-dep-svg absolute inset-0 pointer-events-none"
-                      style={{
-                        '--svg-w': `${chartWidth}px`,
-                        '--svg-h': `${filteredTasks.length * 48}px`,
-                      } as React.CSSProperties}
+                      style={{ '--svg-w': `${chartWidth}px`, '--svg-h': `${filteredTasks.length * 48}px` } as React.CSSProperties}
                     >
                       <defs>
                         <marker id="arr" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
@@ -383,15 +373,7 @@ export default function GanttPage() {
                         </marker>
                       </defs>
                       {depArrows.map(({ x1, y1, x2, y2, key }) => (
-                        <path
-                          key={key}
-                          d={`M${x1},${y1} C${(x1+x2)/2},${y1} ${(x1+x2)/2},${y2} ${x2},${y2}`}
-                          fill="none"
-                          stroke="#6366f1"
-                          strokeWidth={1.5}
-                          strokeDasharray="4 2"
-                          markerEnd="url(#arr)"
-                        />
+                        <path key={key} d={`M${x1},${y1} C${(x1+x2)/2},${y1} ${(x1+x2)/2},${y2} ${x2},${y2}`} fill="none" stroke="#6366f1" strokeWidth={1.5} strokeDasharray="4 2" markerEnd="url(#arr)" />
                       ))}
                     </svg>
                   )}
@@ -402,24 +384,21 @@ export default function GanttPage() {
         )}
       </div>
 
-      {/* ── Legend ────────────────────────────────────────────────────── */}
-      <div className="flex items-center gap-5 mt-4 text-xs text-gray-400">
-        <div className="flex items-center gap-1.5">
-          <div className="w-px h-4 border-l-2 border-dashed border-blue-400/70" />
+      {/* Legend */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 20, marginTop: 16, fontSize: 11, color: D.inkMuted }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <div style={{ width: 1, height: 16, borderLeft: '2px dashed #93c5fd' }} />
           Hôm nay
         </div>
-        <div className="flex items-center gap-1.5">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <svg width="24" height="8" aria-hidden="true">
             <line x1="0" y1="4" x2="20" y2="4" stroke="#6366f1" strokeWidth="1.5" strokeDasharray="4 2" />
           </svg>
           Phụ thuộc
         </div>
         {(['High', 'Medium', 'Low'] as const).map(p => (
-          <div key={p} className="flex items-center gap-1.5">
-            <div
-              className="gantt-dot w-3 h-3 rounded-sm"
-              style={{ '--dot-color': PRIORITY_BAR_COLOR[p] } as React.CSSProperties}
-            />
+          <div key={p} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div className="gantt-dot w-3 h-3 rounded-sm" style={{ '--dot-color': PRIORITY_BAR_COLOR[p] } as React.CSSProperties} />
             {p === 'High' ? 'Cao' : p === 'Medium' ? 'Vừa' : 'Thấp'}
           </div>
         ))}

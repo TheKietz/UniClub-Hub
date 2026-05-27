@@ -1,7 +1,6 @@
 using UniClub_Hub.Shared.Common;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using UniClub_Hub.Shared.Common;
 using UniClub_Hub.Shared.Enums;
 
 namespace UniClub_Hub.Shared.Models
@@ -52,5 +51,6 @@ namespace UniClub_Hub.Shared.Models
         public ICollection<Contribution>? Contributions { get; set; }
         public ICollection<ClubTask>? SubTasks { get; set; }
         public ICollection<TaskDependency>? Dependencies { get; set; }
+        public ICollection<TaskAssignee> Assignees { get; set; } = [];
     }
 }

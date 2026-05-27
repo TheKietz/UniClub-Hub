@@ -7,6 +7,7 @@ export interface KanbanColumnItem {
   id: number
   clubId: number
   sprintId?: number
+  departmentId?: number
   name: string
   color?: string
   sortOrder: number
@@ -38,6 +39,21 @@ export interface TaskItem {
   subTaskCount: number
   isBlocked: boolean
   blockingCount: number
+}
+
+export interface TaskAssigneeItem {
+  id: number
+  taskId: number
+  userId: string
+  fullName?: string
+  email?: string
+  avatarUrl?: string
+  assignedAt: string
+  assignedBy?: string
+}
+
+export interface AssignTaskDto {
+  userId: string
 }
 
 export interface TaskCommentItem {
@@ -116,6 +132,7 @@ export interface SprintItem {
   id: number
   clubId: number
   eventId?: number
+  departmentId?: number
   name: string
   goal?: string
   startDate: string
@@ -214,6 +231,7 @@ export interface CreateSprintDto {
   startDate: string
   endDate: string
   eventId?: number
+  departmentId?: number
 }
 
 export interface UpdateSprintDto extends CreateSprintDto {
@@ -224,6 +242,7 @@ export interface CreateKanbanColumnDto {
   name: string
   color?: string
   sprintId?: number
+  departmentId?: number
   sortOrder?: number
 }
 

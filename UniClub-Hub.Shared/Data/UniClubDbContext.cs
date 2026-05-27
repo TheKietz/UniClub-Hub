@@ -58,6 +58,7 @@ namespace UniClub_Hub.Shared.Data
         public DbSet<SystemSetting> SystemSettings { get; set; }
         public DbSet<NotificationPreference> NotificationPreferences { get; set; }
         public DbSet<ClubPipelineStage> ClubPipelineStages { get; set; }
+        public DbSet<TaskAssignee> TaskAssignees { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
@@ -163,6 +164,25 @@ namespace UniClub_Hub.Shared.Data
                 .WithMany()
                 .HasForeignKey(c => c.SprintId)
                 .OnDelete(DeleteBehavior.SetNull);
+
+            // TaskAssignee — unique (TaskId, UserId), cascade on task delete
+            builder.Entity<TaskAssignee>()
+                .HasIndex(a => new { a.TaskId, a.UserId })
+                .IsUnique();
+
+            builder
+                .Entity<TaskAssignee>()
+                .HasOne(a => a.Task)
+                .WithMany(t => t.Assignees)
+                .HasForeignKey(a => a.TaskId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            builder
+                .Entity<TaskAssignee>()
+                .HasOne(a => a.User)
+                .WithMany()
+                .HasForeignKey(a => a.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
 
             // Indexes for common Operations queries
             builder.Entity<ClubTask>().HasIndex(t => new { t.ClubId, t.Status });

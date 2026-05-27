@@ -14,9 +14,9 @@ namespace UniClub_Hub.Server.Controllers.Operations
     {
         [HttpGet]
         [AllowAnonymous]
-        public async Task<IActionResult> GetAll([FromQuery] int clubId, [FromQuery] int? sprintId)
+        public async Task<IActionResult> GetAll([FromQuery] int clubId, [FromQuery] int? sprintId, [FromQuery] int? departmentId)
         {
-            var result = await kanbanService.GetByClubAsync(clubId, sprintId);
+            var result = await kanbanService.GetByClubAsync(clubId, sprintId, departmentId);
             return Ok(ApiResponse<object>.Ok(result));
         }
 

@@ -27,7 +27,20 @@ function sortedCols(columns: KanbanColumnItem[]) {
   return [...columns].sort((a, b) => a.sortOrder - b.sortOrder);
 }
 
+function nameToStatus(name: string): TaskStatus {
+  const lc = name.toLowerCase();
+  if (lc.includes("hoàn") || lc.includes("done") || lc.includes("xong")) return 'Done';
+  if (lc.includes("đang") || lc.includes("doing")) return 'Doing';
+  return 'Todo';
+}
+
 function inferStatus(colId: number, columns: KanbanColumnItem[]): TaskStatus {
+  const col = columns.find(c => c.id === colId);
+  if (col) {
+    const lc = col.name.toLowerCase();
+    if (lc.includes("hoàn") || lc.includes("done") || lc.includes("xong")) return 'Done';
+    if (lc.includes("đang") || lc.includes("doing")) return 'Doing';
+  }
   const sc = sortedCols(columns);
   const idx = sc.findIndex(c => c.id === colId);
   if (idx === sc.length - 1) return 'Done';
@@ -38,6 +51,9 @@ function inferStatus(colId: number, columns: KanbanColumnItem[]): TaskStatus {
 function currentColumn(task: TaskItem, columns: KanbanColumnItem[]): KanbanColumnItem | undefined {
   if (task.kanbanColumnId) return columns.find(c => c.id === task.kanbanColumnId);
   const sc = sortedCols(columns);
+  // Use name-based matching first (same logic as Board) so fallback is consistent
+  const byName = sc.find(c => nameToStatus(c.name) === task.status);
+  if (byName) return byName;
   if (task.status === 'Done') return sc.at(-1);
   if (task.status === 'Doing') return sc[Math.floor(sc.length / 2)] ?? sc[0];
   return sc[0];
@@ -270,8 +286,8 @@ function TaskRow({ task, columns, canManage, dragHandleProps, onOpen, onStatusCh
 
 // ── Quick-create row ──────────────────────────────────────────────────────────
 
-function QuickCreateRow({ sprintId, clubId, onCreated, onCancel }: {
-  sprintId: number | null; clubId: number;
+function QuickCreateRow({ sprintId, clubId, departmentId, onCreated, onCancel }: {
+  sprintId: number | null; clubId: number; departmentId?: number;
   onCreated: () => void; onCancel: () => void;
 }) {
   const [title, setTitle] = useState('');
@@ -284,7 +300,7 @@ function QuickCreateRow({ sprintId, clubId, onCreated, onCancel }: {
     if (!t) { onCancel(); return; }
     setSaving(true);
     try {
-      await createTask(clubId, { title: t, priority: 'Medium', ...(sprintId != null && { sprintId }) });
+      await createTask(clubId, { title: t, priority: 'Medium', departmentId, ...(sprintId != null && { sprintId }) });
       setTitle('');
       onCreated();
     } catch { toast.error('Không thể tạo công việc'); }
@@ -318,7 +334,7 @@ function QuickCreateRow({ sprintId, clubId, onCreated, onCancel }: {
 // ── Sprint section ────────────────────────────────────────────────────────────
 
 function SprintSection({
-  sprint, tasks, columns, canManage,
+  sprint, tasks, columns, canManage, departmentId,
   onEdit, onDelete, onStart, onComplete,
   onOpenTask, onStatusChange, onTaskCreated,
 }: {
@@ -326,6 +342,7 @@ function SprintSection({
   tasks: TaskItem[];
   columns: KanbanColumnItem[];
   canManage: boolean;
+  departmentId?: number;
   onEdit: (s: SprintItem) => void;
   onDelete: (id: number) => void;
   onStart: (id: number) => void;
@@ -334,7 +351,7 @@ function SprintSection({
   onStatusChange: (id: number, colId: number, status: TaskStatus) => void;
   onTaskCreated: () => void;
 }) {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
   const [creating, setCreating] = useState(false);
 
@@ -486,7 +503,7 @@ function SprintSection({
               {provided.placeholder}
               {canManage && (creating ? (
                 <QuickCreateRow
-                  sprintId={sprint.id} clubId={sprint.clubId}
+                  sprintId={sprint.id} clubId={sprint.clubId} departmentId={departmentId}
                   onCreated={() => { setCreating(false); onTaskCreated(); }}
                   onCancel={() => setCreating(false)}
                 />
@@ -513,11 +530,12 @@ function SprintSection({
 // ── Backlog section ───────────────────────────────────────────────────────────
 
 function BacklogSection({
-  tasks, clubId, columns, canManage,
+  tasks, clubId, departmentId, columns, canManage,
   onOpenTask, onStatusChange, onTaskCreated, onCreateSprint,
 }: {
   tasks: TaskItem[];
   clubId: number;
+  departmentId?: number;
   columns: KanbanColumnItem[];
   canManage: boolean;
   onOpenTask: (t: TaskItem) => void;
@@ -599,7 +617,7 @@ function BacklogSection({
               {provided.placeholder}
               {canManage && (creating ? (
                 <QuickCreateRow
-                  sprintId={null} clubId={clubId}
+                  sprintId={null} clubId={clubId} departmentId={departmentId}
                   onCreated={() => { setCreating(false); onTaskCreated(); }}
                   onCancel={() => setCreating(false)}
                 />
@@ -659,7 +677,7 @@ export default function SprintsPage() {
     try {
       const [sr, cr] = await Promise.all([
         getSprints({ clubId, departmentId, pageSize: 100 }),
-        getKanbanColumns(clubId),
+        getKanbanColumns(clubId, undefined, departmentId),
       ]);
       setSprints(sr.items);
       setColumns(cr);
@@ -678,7 +696,7 @@ export default function SprintsPage() {
     const today = new Date().toISOString();
     const inTwoWeeks = new Date(Date.now() + 14 * 86400000).toISOString();
     try {
-      await createSprint(clubId, { name: `Sprint ${n}`, startDate: today, endDate: inTwoWeeks });
+      await createSprint(clubId, { name: `Sprint ${n}`, startDate: today, endDate: inTwoWeeks, departmentId });
       const r = await getSprints({ clubId, departmentId, pageSize: 100 });
       setSprints(r.items);
       toast.success(`Đã tạo Sprint ${n}`);
@@ -892,6 +910,7 @@ export default function SprintsPage() {
             tasks={tasksForSprint(sprint.id)}
             columns={columns}
             canManage={canManage}
+            departmentId={departmentId}
             onEdit={s => { setEditSprint(s); setEditSprintOpen(true); }}
             onDelete={handleDeleteSprint}
             onStart={handleStart}
@@ -906,6 +925,7 @@ export default function SprintsPage() {
         <BacklogSection
           tasks={backlogTasks}
           clubId={clubId}
+          departmentId={departmentId}
           columns={columns}
           canManage={canManage}
           onOpenTask={t => { setActiveTask(t); setTaskModalOpen(true); }}
@@ -948,6 +968,7 @@ export default function SprintsPage() {
           clubId={clubId}
           task={activeTask}
           open={taskModalOpen}
+          departmentId={departmentId}
           columns={columns}
           onClose={() => { setTaskModalOpen(false); setActiveTask(null); }}
           onSaved={async () => { await reloadTasks(); await load(); }}

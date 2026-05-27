@@ -5,7 +5,6 @@ import { toast } from "sonner";
 import { RefreshCw, Plus, Check, X, Image } from "lucide-react";
 import { DragDropContext } from "@hello-pangea/dnd";
 import type { DropResult } from "@hello-pangea/dnd";
-import { Button } from "@/components/ui/button";
 import KanbanColumn from "../components/kanban/KanbanColumn";
 import TaskDetailModal from "../components/task/TaskDetailModal";
 import {
@@ -142,7 +141,7 @@ export default function KanbanPage() {
   const { clubId: clubIdParam } = useParams<{ clubId: string }>();
   const clubId = Number(clubIdParam ?? 1);
 
-  const { tasks: allTasks, patchTask, addTask, removeTask, reloadTasks } = useTasks();
+  const { tasks: allTasks, patchTask, addTask, removeTask, reloadTasks, departmentId } = useTasks();
   const [columns, setColumns] = useState<KanbanColumnItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -295,22 +294,23 @@ export default function KanbanPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const cols = await getKanbanColumns(clubId, selectedSprintId ?? undefined);
+      const cols = await getKanbanColumns(clubId, selectedSprintId ?? undefined, departmentId);
       setColumns(cols);
     } catch { toast.error("Không thể tải dữ liệu"); }
     finally { setLoading(false); }
-  }, [clubId, selectedSprintId]);
+  }, [clubId, selectedSprintId, departmentId]);
 
   useEffect(() => { load(); }, [load, refreshKey]);
 
   useEffect(() => {
-    getSprints({ clubId, pageSize: 100 }).then(r => {
+    getSprints({ clubId, departmentId, pageSize: 100 }).then(r => {
       setSprints(r.items);
       // Auto-select the sole active sprint so the board defaults to it
       const active = r.items.filter(s => s.status === 'Active');
       if (active.length === 1) setSelectedSprintId(active[0].id);
+      else setSelectedSprintId(null);
     }).catch(() => {});
-  }, [clubId]);
+  }, [clubId, departmentId]);
 
   useEffect(() => {
     const conn = createKanbanConnection();
@@ -401,7 +401,7 @@ export default function KanbanPage() {
     const trimmed = newColName.trim();
     if (!trimmed) { setAddingColumn(false); return; }
     try {
-      const col = await createKanbanColumn(clubId, { name: trimmed, sortOrder: columns.length });
+      const col = await createKanbanColumn(clubId, { name: trimmed, sortOrder: columns.length, departmentId });
       setColumns(prev => [...prev, col]);
       setNewColName(""); setAddingColumn(false);
     } catch { toast.error("Không thể tạo cột mới"); }
@@ -410,21 +410,7 @@ export default function KanbanPage() {
   const selectedSprint = sprints.find(s => s.id === selectedSprintId) ?? null;
 
   // ── Derived background styles ─────────────────────────────────────────────────
-  // Dark backgrounds get a dark overlay; light ones get a very light white wash
-  const overlayClass = activeBg.isDark
-    ? "bg-black/25"
-    : "bg-white/10";
-
-  // Header & filter area: frosted glass effect adapts to dark/light bg
-  const glassClass = activeBg.isDark
-    ? "bg-black/40 backdrop-blur-md border-white/10 text-white"
-    : "bg-white/80 backdrop-blur-md border-white/60 text-gray-800";
-
-  const subTextClass = activeBg.isDark ? "text-white/70" : "text-gray-500";
-  const pillActive = "bg-indigo-600 text-white";
-  const pillInactive = activeBg.isDark
-    ? "bg-white/15 text-white/90 border border-white/20 hover:bg-white/25"
-    : "bg-white text-gray-600 border hover:bg-gray-50";
+  const overlayClass = activeBg.isDark ? "bg-black/25" : "bg-white/10";
 
   return (
     /* ── Outer wrapper — fixed background ───────────────────────────────────── */
@@ -443,25 +429,38 @@ export default function KanbanPage() {
       {/* All content sits above the overlay */}
       <div className="relative z-10 p-6 flex flex-col min-h-screen">
 
-        {/* ── Header ──────────────────────────────────────────────────────────── */}
-        <div className={`flex items-center justify-between mb-4 rounded-2xl px-5 py-3 border ${glassClass}`}>
+        {/* ── Header — neo-brutalism card ──────────────────────────────────────── */}
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          marginBottom: 16, padding: '12px 18px',
+          background: '#ffffff', border: '1.5px solid #15131a',
+          borderRadius: 14, boxShadow: '3px 3px 0 #15131a',
+          fontFamily: "'Be Vietnam Pro', sans-serif",
+        }}>
           <div>
-            <h1 className="text-xl font-bold">Quản Lý Công Việc</h1>
-            <p className={`text-sm mt-0.5 ${subTextClass}`}>
+            <h1 style={{ fontSize: 18, fontWeight: 900, color: '#15131a', margin: 0, letterSpacing: '-.02em' }}>
+              Quản Lý Công Việc
+            </h1>
+            <p style={{ fontSize: 12, color: '#918c99', marginTop: 2 }}>
               Bảng Kanban · {tasks.length} công việc
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className={activeBg.isDark ? "border-white/30 text-white bg-white/10 hover:bg-white/20" : ""}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <button
+              type="button"
               onClick={() => { reloadTasks(); setRefreshKey(k => k + 1); }}
               disabled={loading}
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: '#f7f6f1', color: '#4a4651', border: '1.5px solid #15131a',
+                boxShadow: '2px 2px 0 #15131a', padding: '7px 10px',
+                borderRadius: 999, cursor: loading ? 'not-allowed' : 'pointer',
+                opacity: loading ? 0.6 : 1,
+              }}
             >
-              <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
-            </Button>
+              <RefreshCw size={14} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
+            </button>
 
             {/* ── Background picker trigger ────────────────────────────────── */}
             <div ref={bgPickerRef}>
@@ -476,13 +475,15 @@ export default function KanbanPage() {
                   }
                   setBgPickerOpen(v => !v);
                 }}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border ${
-                  activeBg.isDark
-                    ? "border-white/30 text-white bg-white/10 hover:bg-white/20"
-                    : "border-gray-200 text-gray-600 bg-white hover:bg-gray-50"
-                }`}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  background: '#f7f6f1', color: '#4a4651', border: '1.5px solid #15131a',
+                  boxShadow: '2px 2px 0 #15131a', padding: '7px 12px',
+                  borderRadius: 999, fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                  fontFamily: 'inherit',
+                }}
               >
-                <Image size={14} />
+                <Image size={13} />
                 <span>Nền</span>
               </button>
             </div>
@@ -595,23 +596,34 @@ export default function KanbanPage() {
               document.body
             )}
 
-            <Button
-              className="bg-indigo-600 hover:bg-indigo-700 text-white"
+            <button
+              type="button"
               onClick={() => openCreate()}
+              style={{
+                background: '#4f46e5', color: '#fff', border: '1.5px solid #15131a',
+                boxShadow: '2px 2px 0 #15131a', padding: '8px 16px',
+                borderRadius: 999, fontSize: 12, fontWeight: 700,
+                cursor: 'pointer', fontFamily: 'inherit',
+              }}
             >
               + Tạo công việc
-            </Button>
+            </button>
           </div>
         </div>
 
-        {/* ── Sprint filter ────────────────────────────────────────────────────── */}
-        <div className="flex gap-2 mb-4 flex-wrap">
+        {/* ── Sprint filter ─────────────────────────────────────────────────────── */}
+        <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap', fontFamily: "'Be Vietnam Pro', sans-serif" }}>
           <button
             type="button"
             onClick={() => setSelectedSprintId(null)}
-            className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-              selectedSprintId === null ? pillActive : pillInactive
-            }`}
+            style={{
+              padding: '6px 14px', borderRadius: 999, fontSize: 12, fontWeight: 700,
+              cursor: 'pointer', fontFamily: 'inherit', border: '1.5px solid #15131a',
+              background: selectedSprintId === null ? '#15131a' : '#ffffff',
+              color: selectedSprintId === null ? '#fff' : '#4a4651',
+              boxShadow: selectedSprintId === null ? 'none' : '2px 2px 0 #15131a',
+              transition: 'background .1s, color .1s',
+            }}
           >
             Tất cả
           </button>
@@ -620,29 +632,51 @@ export default function KanbanPage() {
               key={sprint.id}
               type="button"
               onClick={() => setSelectedSprintId(sprint.id)}
-              className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                selectedSprintId === sprint.id ? pillActive : pillInactive
-              }`}
+              style={{
+                padding: '6px 14px', borderRadius: 999, fontSize: 12, fontWeight: 700,
+                cursor: 'pointer', fontFamily: 'inherit', border: '1.5px solid #15131a',
+                background: selectedSprintId === sprint.id ? '#15131a' : '#ffffff',
+                color: selectedSprintId === sprint.id ? '#fff' : '#4a4651',
+                boxShadow: selectedSprintId === sprint.id ? 'none' : '2px 2px 0 #15131a',
+                display: 'flex', alignItems: 'center', gap: 6,
+              }}
             >
               {sprint.name}
-              <span className={`ml-1.5 text-xs ${
-                selectedSprintId === sprint.id ? "text-indigo-200" : (activeBg.isDark ? "text-white/60" : SPRINT_STATUS_COLOR[sprint.status])
-              }`}>
+              <span style={{
+                fontSize: 10, fontWeight: 700, padding: '1px 6px',
+                borderRadius: 4, border: '1px solid rgba(255,255,255,0.3)',
+                background: selectedSprintId === sprint.id ? 'rgba(255,255,255,0.2)' : '#f7f6f1',
+                color: selectedSprintId === sprint.id ? '#fff' : '#918c99',
+              }}>
                 {SPRINT_STATUS_LABEL[sprint.status]}
               </span>
             </button>
           ))}
         </div>
 
-        {/* ── Sprint info banner ───────────────────────────────────────────────── */}
+        {/* ── Sprint info banner ────────────────────────────────────────────────── */}
         {selectedSprint && (
-          <div className={`mb-4 px-4 py-3 rounded-xl flex items-center gap-4 text-sm border ${glassClass}`}>
-            <span className="font-semibold">{selectedSprint.name}</span>
-            {selectedSprint.goal && <span className={`truncate ${subTextClass}`}>{selectedSprint.goal}</span>}
-            <span className={`ml-auto shrink-0 ${subTextClass}`}>
+          <div style={{
+            marginBottom: 16, padding: '10px 16px',
+            background: '#ffffff', border: '1.5px solid #15131a',
+            borderRadius: 10, boxShadow: '2px 2px 0 #15131a',
+            display: 'flex', alignItems: 'center', gap: 12,
+            fontSize: 13, fontFamily: "'Be Vietnam Pro', sans-serif",
+          }}>
+            <span style={{ fontWeight: 800, color: '#15131a' }}>{selectedSprint.name}</span>
+            {selectedSprint.goal && (
+              <span style={{ color: '#918c99', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+                {selectedSprint.goal}
+              </span>
+            )}
+            <span style={{ marginLeft: 'auto', flexShrink: 0, color: '#918c99', fontSize: 12 }}>
               {formatDate(selectedSprint.startDate)} → {formatDate(selectedSprint.endDate)}
             </span>
-            <span className={`text-xs font-medium px-2 py-0.5 rounded-full shrink-0 ${SPRINT_STATUS_BG[selectedSprint.status]}`}>
+            <span style={{
+              fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 999,
+              background: '#eef2ff', color: '#4f46e5', border: '1px solid #c7d2fe',
+              flexShrink: 0,
+            }}>
               {SPRINT_STATUS_LABEL[selectedSprint.status]}
             </span>
           </div>
@@ -741,6 +775,7 @@ export default function KanbanPage() {
         open={modalOpen}
         defaultColumnId={defaultColumnId}
         defaultSprintId={defaultSprintId}
+        departmentId={departmentId}
         columns={columns}
         onClose={() => setModalOpen(false)}
         onSaved={() => { reloadTasks(); setRefreshKey(k => k + 1); }}

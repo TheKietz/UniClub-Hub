@@ -24,7 +24,7 @@ namespace UniClub_Hub.Membership.Services.Implements
 
         // ── Public ───────────────────────────────────────────────────────
 
-        public async Task<IEnumerable<MemberDto>> GetAllAsync(int clubId, string? status = null)
+        public async Task<IEnumerable<MemberDto>> GetAllAsync(int clubId, string? status = null, int? departmentId = null)
         {
             await EnsureClubExistsAsync(clubId);
 
@@ -39,6 +39,9 @@ namespace UniClub_Hub.Membership.Services.Implements
                 && Enum.TryParse<MembershipStatus>(status, true, out var parsedStatus)
             )
                 query = query.Where(m => m.Status == parsedStatus);
+
+            if (departmentId.HasValue)
+                query = query.Where(m => m.DepartmentId == departmentId);
 
             return await query.Select(m => ToDto(m)).ToListAsync();
         }

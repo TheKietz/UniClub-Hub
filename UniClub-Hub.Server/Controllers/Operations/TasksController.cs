@@ -28,10 +28,11 @@ namespace UniClub_Hub.Server.Controllers.Operations
             [FromQuery] int? eventId,
             [FromQuery] string? assignedTo,
             [FromQuery] int? parentId,
+            [FromQuery] int? departmentId,
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 50)
         {
-            var result = await taskService.GetByClubAsync(clubId, status, sprintId, eventId, assignedTo, parentId, page, pageSize);
+            var result = await taskService.GetByClubAsync(clubId, status, sprintId, eventId, assignedTo, parentId, departmentId, page, pageSize);
             return Ok(ApiResponse<object>.Ok(result));
         }
 
