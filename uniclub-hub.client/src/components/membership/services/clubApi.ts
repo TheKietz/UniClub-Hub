@@ -5,6 +5,16 @@ import type {
   FormSchema, SubmitApplicationDto,
   ResignationRequestItem, SubmitResignationDto, ReviewResignationDto,
 } from '@/components/membership/services/club.types'
+import type { LayoutSettings } from '@/components/portal/services/portal.types'
+
+export interface LandingPageSettings {
+  heroImage?: string
+  introduction?: string
+  mission?: string
+  vision?: string
+  socialLinks?: Record<string, string>
+  layoutSettings?: LayoutSettings
+}
 
 const base = (clubId: number) => `/clubs/${clubId}`
 
@@ -96,3 +106,24 @@ export const getUserResignations = (userId: string) =>
 // Public endpoint — không cần SUPER_ADMIN
 export const getPublicCategories = () =>
   api.get<{ data: { id: number; name: string; description?: string }[] }>('/categories').then(r => r.data.data)
+
+// ── Landing Page ──────────────────────────────────────────────────────────
+
+export const getLandingPageSettings = (clubId: number) =>
+  api.get<{ data: LandingPageSettings }>(`${base(clubId)}/landing-page`).then(r => r.data.data)
+
+export const upsertLandingPageSettings = (
+  clubId: number,
+  data: Omit<LandingPageSettings, 'heroImage'>,
+) => api.put<{ data: LandingPageSettings }>(`${base(clubId)}/landing-page`, data).then(r => r.data.data)
+
+export const uploadHeroImage = async (clubId: number, file: File): Promise<string> => {
+  const fd = new FormData()
+  fd.append('file', file)
+  const res = await api.post<{ data: { heroImage: string } }>(
+    `${base(clubId)}/landing-page/hero`,
+    fd,
+    { headers: { 'Content-Type': 'multipart/form-data' } },
+  )
+  return res.data.data.heroImage
+}

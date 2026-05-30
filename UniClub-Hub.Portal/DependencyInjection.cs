@@ -1,4 +1,6 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
+using UniClub_Hub.Portal.Services.Implements;
+using UniClub_Hub.Portal.Services.Interfaces;
 
 namespace UniClub_Hub.Portal
 {
@@ -6,8 +8,7 @@ namespace UniClub_Hub.Portal
     {
         public static IServiceCollection AddPortalServices(this IServiceCollection services)
         {
-            // Đăng ký các Service 
-            //vd: services.AddScoped<IEventService, EventService>();
+            services.AddScoped<IPortalService, PortalService>();
             return services;
         }
     }

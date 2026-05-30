@@ -46,6 +46,18 @@ export default function PublicHeader() {
           >
             Câu lạc bộ
           </NavLink>
+          <NavLink
+            to="/portal"
+            className={({ isActive }) =>
+              `h-9 px-4 rounded-lg text-sm font-medium flex items-center transition-colors ${
+                isActive
+                  ? "text-indigo-700 bg-indigo-50"
+                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+              }`
+            }
+          >
+            Khám phá
+          </NavLink>
         </nav>
 
         {/* Right — Auth */}

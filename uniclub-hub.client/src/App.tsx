@@ -28,7 +28,8 @@ import ApplicationsPage from "@/components/membership/pages/club/ApplicationsPag
 import DepartmentsPage from "@/components/membership/pages/club/DepartmentsPage";
 import FormSchemaPage from "@/components/membership/pages/club/FormSchemaPage";
 import ClubSettingsPage from "@/components/membership/pages/club/ClubSettingsPage";
-import ResignationPage from "@/components/membership/pages/club/ResignationPage";
+import ResignationPage from "@/components/membership/pages/club/ResignationPage"
+import LandingPageManagePage from "@/components/membership/pages/club/LandingPageManagePage";
 
 import MemberDashboard from "@/components/membership/pages/MemberDashboard";
 import ClubListPage from "@/components/membership/pages/ClubListPage";
@@ -51,6 +52,8 @@ import ActivityLogPage from "@/components/operations/pages/ActivityLogPage";
 import ClubDetailPage from "@/components/membership/pages/ClubDetailPage";
 import ProfilePage from "@/components/membership/pages/ProfilePage";
 import MemberHistoryPage from "@/components/membership/pages/MemberHistoryPage";
+import PortalExplorePage from "@/components/portal/pages/PortalExplorePage";
+import ClubLandingPage from "@/components/portal/pages/ClubLandingPage";
 
 const Soon = ({ label }: { label: string }) => (
   <div className="p-8 text-xl font-semibold text-gray-500">
@@ -96,6 +99,10 @@ export default function App() {
           {/* Public club pages — không cần đăng nhập */}
           <Route path="/clubs" element={<ClubListPage />} />
           <Route path="/clubs/:clubId" element={<ClubDetailPage />} />
+
+          {/* Portal — public landing pages, SEO-friendly */}
+          <Route path="/portal" element={<PortalExplorePage />} />
+          <Route path="/portal/:clubId" element={<ClubLandingPage />} />
 
           {/* Member routes — sidebar layout */}
           <Route element={<ProtectedRoute />}>
@@ -162,6 +169,10 @@ export default function App() {
                   <Route
                     path="manage/settings"
                     element={<ClubSettingsPage />}
+                  />
+                  <Route
+                    path="manage/landing-page"
+                    element={<LandingPageManagePage />}
                   />
                 </Route>
               </Route>

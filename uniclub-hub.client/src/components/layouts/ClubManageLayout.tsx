@@ -10,6 +10,7 @@ import {
   ClipboardList,
   Settings,
   LogOut,
+  Globe,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import NotificationBell from "@/components/shared/NotificationBell";
@@ -56,6 +57,11 @@ export default function ClubManageLayout() {
       to: `/clubs/${id}/manage/settings`,
       label: "Cài đặt CLB",
       icon: Settings,
+    },
+    {
+      to: `/clubs/${id}/manage/landing-page`,
+      label: "Landing Page",
+      icon: Globe,
     },
   ];
 
