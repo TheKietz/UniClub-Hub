@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using UniClub_Hub.Shared.Data;
@@ -11,9 +12,11 @@ using UniClub_Hub.Shared.Data;
 namespace UniClub_Hub.Shared.Migrations
 {
     [DbContext(typeof(UniClubDbContext))]
-    partial class UniClubDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260529123934_AddEventSummary")]
+    partial class AddEventSummary
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -794,55 +797,6 @@ namespace UniClub_Hub.Shared.Migrations
                     b.HasIndex("ClubId");
 
                     b.ToTable("Departments");
-                });
-
-            modelBuilder.Entity("UniClub_Hub.Shared.Models.EventAttachment", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("ContentType")
-                        .HasColumnType("text");
-
-                    b.Property<string>("DeletedBy")
-                        .HasColumnType("text");
-
-                    b.Property<int>("EventId")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("FileName")
-                        .HasColumnType("text");
-
-                    b.Property<long?>("FileSize")
-                        .HasColumnType("bigint");
-
-                    b.Property<string>("FileUrl")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("Note")
-                        .HasColumnType("text");
-
-                    b.Property<DateTimeOffset>("UploadedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("UploadedBy")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("EventId");
-
-                    b.HasIndex("UploadedBy");
-
-                    b.ToTable("EventAttachments");
                 });
 
             modelBuilder.Entity("UniClub_Hub.Shared.Models.EventRegistration", b =>
@@ -1819,25 +1773,6 @@ namespace UniClub_Hub.Shared.Migrations
                         .IsRequired();
 
                     b.Navigation("Club");
-                });
-
-            modelBuilder.Entity("UniClub_Hub.Shared.Models.EventAttachment", b =>
-                {
-                    b.HasOne("UniClub_Hub.Shared.Models.ClubEvent", "Event")
-                        .WithMany()
-                        .HasForeignKey("EventId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("UniClub_Hub.Shared.Models.ApplicationUser", "UploadedByUser")
-                        .WithMany()
-                        .HasForeignKey("UploadedBy")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Event");
-
-                    b.Navigation("UploadedByUser");
                 });
 
             modelBuilder.Entity("UniClub_Hub.Shared.Models.EventRegistration", b =>

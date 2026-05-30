@@ -18,5 +18,7 @@ namespace UniClub_Hub.Operations.DTOs.Event
 
         [MaxLength(100)]
         public string? Category { get; set; }
+
+        public string? Summary { get; set; }
     }
 }

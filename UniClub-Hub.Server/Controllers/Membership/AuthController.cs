@@ -6,7 +6,6 @@ using Microsoft.AspNetCore.WebUtilities;
 using System.Text;
 using UniClub_Hub.Membership.DTOs.Auth;
 using UniClub_Hub.Membership.Services.Interfaces;
-using UniClub_Hub.Membership.Services.Interfaces;
 using UniClub_Hub.Shared.Common;
 using UniClub_Hub.Shared.Data;
 using UniClub_Hub.Shared.Email;

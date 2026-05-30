@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Http;
 
-namespace UniClub_Hub.Shared.Common
+namespace UniClub_Hub.Shared.Common.Storage
 {
     public interface IFileStorageService
     {
@@ -8,6 +8,6 @@ namespace UniClub_Hub.Shared.Common
         Task<string?> UploadAsync(IFormFile file, string folder);
 
         /// <summary>Xóa file cũ khi thay ảnh mới</summary>
-        Task DeleteAsync(string? publicId);
+        Task DeleteAsync(string? fileUrl);
     }
 }

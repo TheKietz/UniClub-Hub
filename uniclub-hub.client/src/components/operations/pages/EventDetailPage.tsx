@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useParams, useNavigate, Link } from 'react-router-dom'
+import { useParams, useNavigate, Link, useLocation } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { CLUB_ROLES } from '@/types/auth'
 import {
@@ -9,19 +9,22 @@ import {
 import { toast } from 'sonner'
 import {
   ArrowLeft, Pencil, Share2, Calendar, MapPin, Users, CalendarClock,
-  Wallet, UserCheck, CheckSquare, ChevronRight, Plus, Trash2, Tag,
+  Wallet, UserCheck, ChevronRight, Plus, Trash2, Tag, UserPlus2,
 } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import {
-  getEventById, updateEvent, deleteEvent, getTasks,
+  getEventById, updateEvent, deleteEvent,
   addEventSession, deleteEventSession, assignEventStaff, removeEventStaff,
+  getEventRegistrations, registerEventMember, removeEventRegistration, updateEventAttendance,
 } from '../services/operationsApi'
+import EventDeptTasksBoard from '../components/event/EventDeptTasksBoard'
+import EventAttachmentsSection from '../components/event/EventAttachmentsSection'
 import { getClubMembers } from '@/components/membership/services/clubApi'
-import { EventStatusBadge, TaskStatusBadge } from '../../shared/StatusBadge'
-import ProgressBar from '../../shared/ProgressBar'
+import { EventStatusBadge } from '../../shared/StatusBadge'
 import type {
-  EventItem, TaskItem, UpdateEventDto, EventStatus,
+  EventItem, UpdateEventDto, EventStatus,
   CreateEventSessionDto, AssignEventStaffDto,
+  EventRegistrationItem, AttendanceStatus,
 } from '../services/operations.types'
 import type { MemberItem } from '@/components/membership/services/club.types'
 
@@ -65,23 +68,18 @@ function formatVnd(amount?: number): string {
   return amount.toLocaleString('vi-VN', { style: 'currency', currency: 'VND' })
 }
 
-const PRIORITY_PILL: Record<string, { label: string; bg: string; text: string }> = {
-  High:   { label: 'Cao',      bg: '#fee2e2', text: '#991b1b' },
-  Medium: { label: 'Trung bình', bg: '#fef3c7', text: '#92400e' },
-  Low:    { label: 'Thấp',     bg: '#dbeafe', text: '#1e40af' },
-}
 const ROLE_LABEL: Record<string, string> = { Lead: 'Trưởng ban', Staff: 'Nhân sự' }
 
 /* ─── Edit modal ──────────────────────────────────────────────────────────── */
 
-type EventForm = { name: string; description: string; location: string; startTime: string; endTime: string; maxParticipants?: number; status: EventStatus; budget?: number; category: string }
+type EventForm = { name: string; description: string; location: string; startTime: string; endTime: string; maxParticipants?: number; status: EventStatus; budget?: number; category: string; summary: string }
 
 function EditModal({ open, event, onClose, onSaved }: { open: boolean; event: EventItem; onClose: () => void; onSaved: (u: EventItem) => void }) {
-  const [form, setForm] = useState<EventForm>({ name: '', description: '', location: '', startTime: '', endTime: '', status: 'Draft', category: '' })
+  const [form, setForm] = useState<EventForm>({ name: '', description: '', location: '', startTime: '', endTime: '', status: 'Draft', category: '', summary: '' })
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
-    if (open) setForm({ name: event.name, description: event.description ?? '', location: event.location ?? '', startTime: event.startTime ? event.startTime.slice(0, 16) : '', endTime: event.endTime ? event.endTime.slice(0, 16) : '', maxParticipants: event.maxParticipants, status: event.status, budget: event.budget, category: event.category ?? '' })
+    if (open) setForm({ name: event.name, description: event.description ?? '', location: event.location ?? '', startTime: event.startTime ? event.startTime.slice(0, 16) : '', endTime: event.endTime ? event.endTime.slice(0, 16) : '', maxParticipants: event.maxParticipants, status: event.status, budget: event.budget, category: event.category ?? '', summary: event.summary ?? '' })
   }, [open, event])
 
   const set = (field: keyof EventForm, value: unknown) => setForm(prev => ({ ...prev, [field]: value }))
@@ -90,7 +88,7 @@ function EditModal({ open, event, onClose, onSaved }: { open: boolean; event: Ev
     if (!form.name.trim()) { toast.error('Tên sự kiện không được để trống'); return }
     setSaving(true)
     try {
-      const dto: UpdateEventDto = { name: form.name, description: form.description, location: form.location, startTime: form.startTime || undefined, endTime: form.endTime || undefined, maxParticipants: form.maxParticipants, status: form.status, budget: form.budget, category: form.category || undefined }
+      const dto: UpdateEventDto = { name: form.name, description: form.description, location: form.location, startTime: form.startTime || undefined, endTime: form.endTime || undefined, maxParticipants: form.maxParticipants, status: form.status, budget: form.budget, category: form.category || undefined, summary: form.summary || undefined }
       const updated = await updateEvent(event.id, dto)
       toast.success('Đã cập nhật sự kiện'); onSaved(updated); onClose()
     } catch { toast.error('Có lỗi xảy ra, vui lòng thử lại') }
@@ -121,6 +119,10 @@ function EditModal({ open, event, onClose, onSaved }: { open: boolean; event: Ev
             <div><label style={labelStyle}>Danh mục</label><input style={inputStyle} value={form.category} onChange={e => set('category', e.target.value)} placeholder="Văn hoá, Học thuật..." /></div>
           </div>
           <div><label style={labelStyle}>Ngân sách (VNĐ)</label><input style={inputStyle} type="number" min={0} value={form.budget ?? ''} onChange={e => set('budget', e.target.value ? Number(e.target.value) : undefined)} placeholder="Chưa xác định" /></div>
+          <div>
+            <label style={labelStyle}>Kết quả / Tổng kết sự kiện</label>
+            <textarea style={{ ...inputStyle, resize: 'none', minHeight: 80 }} rows={3} value={form.summary} onChange={e => set('summary', e.target.value)} placeholder="Ghi lại kết quả, số lượng tham dự thực tế, đánh giá sau sự kiện..." />
+          </div>
         </div>
         <DialogFooter style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
           <button type="button" onClick={onClose} style={{ padding: '8px 18px', fontSize: 13, fontWeight: 700, border: D.border, borderRadius: D.radius, background: D.card, color: D.inkDim, cursor: 'pointer', fontFamily: 'inherit' }}>Hủy</button>
@@ -224,27 +226,91 @@ function AssignStaffModal({ open, eventId, members, onClose, onAssigned }: { ope
   )
 }
 
+/* ─── Attendance config ───────────────────────────────────────────────────── */
+
+const ATTENDANCE_CONFIG: Record<AttendanceStatus, { label: string; bg: string; text: string }> = {
+  Pending:   { label: 'Chờ xác nhận', bg: '#f3f4f6', text: '#374151' },
+  CheckedIn: { label: 'Đã điểm danh', bg: '#d1fae5', text: '#065f46' },
+  Absent:    { label: 'Vắng mặt',     bg: '#fee2e2', text: '#991b1b' },
+}
+
+/* ─── Add participant modal ───────────────────────────────────────────────── */
+
+function AddParticipantModal({ open, eventId, members, onClose, onAdded }: {
+  open: boolean; eventId: number; members: MemberItem[]; onClose: () => void; onAdded: () => void
+}) {
+  const [userId, setUserId] = useState('')
+  const [note, setNote] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => { if (open) { setUserId(''); setNote('') } }, [open])
+
+  const handleSave = async () => {
+    if (!userId) { toast.error('Vui lòng chọn thành viên'); return }
+    setSaving(true)
+    try { await registerEventMember(eventId, { userId, note: note || undefined }); toast.success('Đã thêm người tham gia'); onAdded(); onClose() }
+    catch { toast.error('Thành viên này đã được đăng ký hoặc có lỗi xảy ra') }
+    finally { setSaving(false) }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={v => !v && onClose()}>
+      <DialogContent style={{ maxWidth: 360, fontFamily: "'Be Vietnam Pro', sans-serif" }}>
+        <DialogHeader><DialogTitle style={{ fontSize: 15, fontWeight: 900, color: D.ink }}>Thêm người tham gia</DialogTitle></DialogHeader>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: '8px 0' }}>
+          <div>
+            <label style={labelStyle}>Thành viên <span style={{ color: D.red }}>*</span></label>
+            <select aria-label="Chọn thành viên" style={{ ...inputStyle, cursor: 'pointer' }} value={userId} onChange={e => setUserId(e.target.value)}>
+              <option value="">-- Chọn thành viên --</option>
+              {members.map(m => <option key={m.userId} value={m.userId}>{m.fullName ?? m.email}</option>)}
+            </select>
+          </div>
+          <div>
+            <label style={labelStyle}>Ghi chú</label>
+            <input style={inputStyle} value={note} onChange={e => setNote(e.target.value)} placeholder="Ghi chú (tùy chọn)..." />
+          </div>
+        </div>
+        <DialogFooter style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+          <button type="button" onClick={onClose} style={{ padding: '8px 18px', fontSize: 13, fontWeight: 700, border: D.border, borderRadius: D.radius, background: D.card, color: D.inkDim, cursor: 'pointer', fontFamily: 'inherit' }}>Hủy</button>
+          <button type="button" onClick={handleSave} disabled={saving} style={{ padding: '8px 20px', fontSize: 13, fontWeight: 900, border: D.border, borderRadius: D.radius, background: saving ? '#6b7280' : D.ink, color: '#facc15', cursor: saving ? 'not-allowed' : 'pointer', boxShadow: saving ? 'none' : D.shadow(2, 2), fontFamily: 'inherit' }}>
+            {saving ? 'Đang thêm...' : 'Thêm'}
+          </button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 /* ─── Page ────────────────────────────────────────────────────────────────── */
 
 export default function EventDetailPage() {
   const { id, clubId: clubIdParam } = useParams<{ id: string; clubId: string }>()
   const navigate = useNavigate()
+  const location = useLocation()
   const clubId = Number(clubIdParam ?? 1)
+  const isManageContext = location.pathname.includes('/manage/')
+  const eventsListUrl = isManageContext
+    ? `/clubs/${clubId}/manage/events`
+    : `/clubs/${clubId}/operations?view=events`
 
   const { isSuperAdmin, getClubRole } = useAuth()
   const canManage = isSuperAdmin || getClubRole(clubId) === CLUB_ROLES.CLUB_ADMIN
 
   const [event, setEvent]   = useState<EventItem | null>(null)
-  const [tasks, setTasks]   = useState<TaskItem[]>([])
   const [members, setMembers] = useState<MemberItem[]>([])
+  const [registrations, setRegistrations] = useState<EventRegistrationItem[]>([])
   const [loading, setLoading] = useState(true)
   const [editOpen, setEditOpen] = useState(false)
   const [addSessionOpen, setAddSessionOpen] = useState(false)
   const [assignStaffOpen, setAssignStaffOpen] = useState(false)
+  const [addParticipantOpen, setAddParticipantOpen] = useState(false)
   const [deleteEventOpen, setDeleteEventOpen] = useState(false)
   const [deletingEvent, setDeletingEvent] = useState(false)
   const [staffDeleteTarget, setStaffDeleteTarget] = useState<string | null>(null)
   const [deletingStaff, setDeletingStaff] = useState(false)
+  const [participantDeleteTarget, setParticipantDeleteTarget] = useState<string | null>(null)
+  const [deletingParticipant, setDeletingParticipant] = useState(false)
+  const [updatingAttendance, setUpdatingAttendance] = useState<string | null>(null)
 
   const loadEvent = async () => {
     if (!id) return
@@ -252,11 +318,23 @@ export default function EventDetailPage() {
     setEvent(ev)
   }
 
+  const loadRegistrations = async () => {
+    if (!id) return
+    const regs = await getEventRegistrations(Number(id))
+    setRegistrations(regs)
+  }
+
   useEffect(() => {
     if (!id) return
     setLoading(true)
-    Promise.all([getEventById(Number(id)), getTasks({ clubId, eventId: Number(id), pageSize: 100 }), getClubMembers(clubId)])
-      .then(([ev, taskResult, memberList]) => { setEvent(ev); setTasks(taskResult.items); setMembers(memberList) })
+    Promise.all([
+      getEventById(Number(id)),
+      getClubMembers(clubId),
+      getEventRegistrations(Number(id)),
+    ])
+      .then(([ev, memberList, regs]) => {
+        setEvent(ev); setMembers(memberList); setRegistrations(regs)
+      })
       .catch(() => toast.error('Không thể tải thông tin sự kiện'))
       .finally(() => setLoading(false))
   }, [id, clubId])
@@ -275,10 +353,26 @@ export default function EventDetailPage() {
     finally { setDeletingStaff(false) }
   }
 
+  const confirmRemoveParticipant = async () => {
+    if (!event || !participantDeleteTarget) return
+    setDeletingParticipant(true)
+    try { await removeEventRegistration(event.id, participantDeleteTarget); toast.success('Đã xóa người tham gia'); setParticipantDeleteTarget(null); await loadRegistrations() }
+    catch { toast.error('Không thể xóa người tham gia này') }
+    finally { setDeletingParticipant(false) }
+  }
+
+  const handleUpdateAttendance = async (userId: string, attendance: AttendanceStatus) => {
+    if (!event) return
+    setUpdatingAttendance(userId)
+    try { await updateEventAttendance(event.id, userId, { attendance }); await loadRegistrations() }
+    catch { toast.error('Không thể cập nhật điểm danh') }
+    finally { setUpdatingAttendance(null) }
+  }
+
   const handleDeleteEvent = async () => {
     if (!event) return
     setDeletingEvent(true)
-    try { await deleteEvent(event.id); toast.success('Đã xóa sự kiện'); navigate(`/clubs/${clubId}/events`) }
+    try { await deleteEvent(event.id); toast.success('Đã xóa sự kiện'); navigate(eventsListUrl) }
     catch { toast.error('Không thể xóa sự kiện này'); setDeletingEvent(false); setDeleteEventOpen(false) }
   }
 
@@ -300,14 +394,13 @@ export default function EventDetailPage() {
     return (
       <div style={{ minHeight: '100vh', background: D.bg, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, fontFamily: "'Be Vietnam Pro', sans-serif" }}>
         <p style={{ color: D.inkMuted }}>Không tìm thấy sự kiện</p>
-        <button type="button" onClick={() => navigate(`/clubs/${clubId}/events`)} style={{ padding: '8px 18px', fontSize: 13, fontWeight: 700, border: D.border, borderRadius: D.pill, background: D.card, color: D.inkDim, cursor: 'pointer', boxShadow: D.shadow(2, 2) }}>
+        <button type="button" onClick={() => navigate(eventsListUrl)} style={{ padding: '8px 18px', fontSize: 13, fontWeight: 700, border: D.border, borderRadius: D.pill, background: D.card, color: D.inkDim, cursor: 'pointer', boxShadow: D.shadow(2, 2) }}>
           Quay lại danh sách
         </button>
       </div>
     )
   }
 
-  const doneTasks = tasks.filter(t => t.status === 'Done').length
   const sessions  = event.sessions ?? []
   const staff     = event.staff ?? []
 
@@ -325,9 +418,12 @@ export default function EventDetailPage() {
 
       {/* Breadcrumb */}
       <nav style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: D.inkMuted, marginBottom: 16 }}>
-        <Link to="/operations" style={{ color: D.inkMuted, textDecoration: 'none', fontWeight: 600 }}>Vận hành</Link>
+        {isManageContext
+          ? <Link to={`/clubs/${clubId}/manage`} style={{ color: D.inkMuted, textDecoration: 'none', fontWeight: 600 }}>Quản lý CLB</Link>
+          : <Link to={`/clubs/${clubId}/operations`} style={{ color: D.inkMuted, textDecoration: 'none', fontWeight: 600 }}>Vận hành</Link>
+        }
         <ChevronRight size={12} />
-        <Link to={`/clubs/${clubId}/events`} style={{ color: D.inkMuted, textDecoration: 'none', fontWeight: 600 }}>Sự kiện</Link>
+        <Link to={eventsListUrl} style={{ color: D.inkMuted, textDecoration: 'none', fontWeight: 600 }}>Sự kiện</Link>
         <ChevronRight size={12} />
         <span style={{ color: D.ink, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 240 }}>{event.name}</span>
       </nav>
@@ -335,7 +431,7 @@ export default function EventDetailPage() {
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24, gap: 16 }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, minWidth: 0 }}>
-          <button type="button" onClick={() => navigate(`/clubs/${clubId}/events`)} style={{ marginTop: 2, padding: 6, borderRadius: 8, border: D.borderLight, background: D.card, color: D.inkMuted, cursor: 'pointer', flexShrink: 0 }}>
+          <button type="button" onClick={() => navigate(eventsListUrl)} style={{ marginTop: 2, padding: 6, borderRadius: 8, border: D.borderLight, background: D.card, color: D.inkMuted, cursor: 'pointer', flexShrink: 0 }}>
             <ArrowLeft size={16} />
           </button>
           <div style={{ minWidth: 0 }}>
@@ -391,7 +487,13 @@ export default function EventDetailPage() {
                 <span>{event.participantCount} người tham gia{event.maxParticipants ? ` / tối đa ${event.maxParticipants}` : ''}</span>
               </div>
               {event.description && (
-                <p style={{ margin: '8px 0 0', color: D.inkMuted, lineHeight: 1.6, paddingTop: 12, borderTop: D.borderLight }}>{event.description}</p>
+                <p style={{ margin: '8px 0 0', color: D.inkMuted, lineHeight: 1.6, paddingTop: 12, borderTop: D.borderLight, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{event.description}</p>
+              )}
+              {event.summary && (
+                <div style={{ margin: '10px 0 0', paddingTop: 12, borderTop: D.borderLight }}>
+                  <p style={{ fontSize: 10, fontWeight: 800, color: D.inkMuted, textTransform: 'uppercase', letterSpacing: '.06em', margin: '0 0 6px' }}>Kết quả / Tổng kết</p>
+                  <p style={{ fontSize: 13, color: D.inkDim, lineHeight: 1.7, margin: 0, whiteSpace: 'pre-wrap' }}>{event.summary}</p>
+                </div>
               )}
             </div>
           </div>
@@ -450,16 +552,6 @@ export default function EventDetailPage() {
 
         {/* Right column */}
         <div style={{ width: 280, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {/* Task progress */}
-          <div style={cardStyle}>
-            <h2 style={{ fontSize: 11, fontWeight: 800, color: D.inkMuted, textTransform: 'uppercase', letterSpacing: '.08em', margin: '0 0 12px' }}>Tiến độ công việc</h2>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-              <span style={{ fontSize: 12, color: D.inkDim }}>Hoàn thành</span>
-              <span style={{ fontSize: 13, fontWeight: 800, color: D.ink }}>{doneTasks} / {tasks.length}</span>
-            </div>
-            <ProgressBar value={tasks.length ? Math.round((doneTasks / tasks.length) * 100) : 0} showLabel={false} size="md" color={D.indigo} />
-          </div>
-
           {/* Budget */}
           <div style={cardStyle}>
             <h2 style={{ fontSize: 11, fontWeight: 800, color: D.inkMuted, textTransform: 'uppercase', letterSpacing: '.08em', margin: '0 0 12px', display: 'flex', alignItems: 'center', gap: 5 }}>
@@ -519,41 +611,80 @@ export default function EventDetailPage() {
         </div>
       </div>
 
-      {/* Tasks table */}
+      {/* Tasks by department */}
+      <EventDeptTasksBoard eventId={event.id} clubId={clubId} isManager={canManage} />
+
+      {/* Attachments */}
+      <EventAttachmentsSection eventId={event.id} isManager={canManage} />
+
+      {/* Participants table */}
       <div style={{ marginTop: 20, background: D.card, border: D.border, borderRadius: D.radius, boxShadow: D.shadow(), overflow: 'hidden' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', borderBottom: D.borderLight }}>
           <h2 style={{ fontSize: 13, fontWeight: 800, color: D.ink, margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <CheckSquare size={14} style={{ color: D.indigo }} />
-            Công việc liên quan
-            {tasks.length > 0 && <span style={{ fontSize: 10, background: '#ede9fe', color: D.indigo, padding: '1px 6px', borderRadius: 4, fontWeight: 700 }}>{tasks.length}</span>}
+            <UserPlus2 size={14} style={{ color: '#10b981' }} />
+            Danh sách người tham gia
+            {registrations.length > 0 && <span style={{ fontSize: 10, background: '#d1fae5', color: '#065f46', padding: '1px 6px', borderRadius: 4, fontWeight: 700 }}>{registrations.length}</span>}
           </h2>
+          {canManage && (
+            <button type="button" onClick={() => setAddParticipantOpen(true)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 14px', fontSize: 11, fontWeight: 800, border: D.border, borderRadius: D.pill, background: D.ink, color: '#facc15', cursor: 'pointer', boxShadow: D.shadow(2, 2), fontFamily: 'inherit' }}>
+              <Plus size={11} /> Thêm người tham gia
+            </button>
+          )}
         </div>
-        {tasks.length === 0 ? (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '48px 0', color: D.inkMuted, fontSize: 13 }}>
-            Chưa có công việc nào liên kết với sự kiện này
+        {registrations.length === 0 ? (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '48px 0', gap: 10 }}>
+            <UserPlus2 size={28} style={{ color: '#c4bfb0' }} />
+            <p style={{ color: D.inkMuted, fontSize: 13, margin: 0 }}>Chưa có người tham gia nào được đăng ký</p>
           </div>
         ) : (
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', fontSize: 13, borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ background: D.bg }}>
-                  {['Tiêu đề', 'Trạng thái', 'Ưu tiên', 'Người thực hiện', 'Deadline'].map(h => (
-                    <th key={h} style={{ padding: '10px 16px', fontSize: 10, fontWeight: 800, color: D.inkMuted, textTransform: 'uppercase', letterSpacing: '.06em', textAlign: 'left', borderBottom: D.borderLight }}>{h}</th>
+                  {['Thành viên', 'Email', 'Ngày đăng ký', 'Điểm danh', ''].map((h, i) => (
+                    <th key={i} style={{ padding: '10px 16px', fontSize: 10, fontWeight: 800, color: D.inkMuted, textTransform: 'uppercase', letterSpacing: '.06em', textAlign: 'left', borderBottom: D.borderLight }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {tasks.map(t => {
-                  const pri = PRIORITY_PILL[t.priority] ?? PRIORITY_PILL.Medium
+                {registrations.map(reg => {
+                  const att = ATTENDANCE_CONFIG[reg.attendance] ?? ATTENDANCE_CONFIG.Pending
                   return (
-                    <tr key={t.id} style={{ borderBottom: D.borderLight }}>
-                      <td style={{ padding: '12px 16px', fontWeight: 700, color: D.ink }}>{t.title}</td>
-                      <td style={{ padding: '12px 16px' }}><TaskStatusBadge status={t.status} /></td>
+                    <tr key={reg.id} style={{ borderBottom: D.borderLight }}>
                       <td style={{ padding: '12px 16px' }}>
-                        <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 4, background: pri.bg, color: pri.text }}>{pri.label}</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <div style={{ width: 30, height: 30, borderRadius: '50%', background: '#d1fae5', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 900, color: '#065f46', flexShrink: 0, overflow: 'hidden', border: D.borderLight }}>
+                            {reg.avatarUrl ? <img src={reg.avatarUrl} alt={reg.userName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : reg.userName.charAt(0).toUpperCase()}
+                          </div>
+                          <span style={{ fontWeight: 700, color: D.ink }}>{reg.userName}</span>
+                        </div>
                       </td>
-                      <td style={{ padding: '12px 16px', color: D.inkDim }}>{t.assigneeName ?? '—'}</td>
-                      <td style={{ padding: '12px 16px', color: D.inkMuted }}>{t.deadline ? new Date(t.deadline).toLocaleDateString('vi-VN') : '—'}</td>
+                      <td style={{ padding: '12px 16px', color: D.inkMuted, fontSize: 12 }}>{reg.email ?? '—'}</td>
+                      <td style={{ padding: '12px 16px', color: D.inkMuted, fontSize: 12 }}>{new Date(reg.registeredAt).toLocaleDateString('vi-VN')}</td>
+                      <td style={{ padding: '12px 16px' }}>
+                        {canManage ? (
+                          <select
+                            aria-label="Điểm danh"
+                            disabled={updatingAttendance === reg.userId}
+                            value={reg.attendance}
+                            onChange={e => handleUpdateAttendance(reg.userId, e.target.value as AttendanceStatus)}
+                            style={{ fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 4, border: '1.5px solid #c4bfb0', background: att.bg, color: att.text, cursor: 'pointer', outline: 'none', fontFamily: 'inherit' }}
+                          >
+                            <option value="Pending">Chờ xác nhận</option>
+                            <option value="CheckedIn">Đã điểm danh</option>
+                            <option value="Absent">Vắng mặt</option>
+                          </select>
+                        ) : (
+                          <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 4, background: att.bg, color: att.text }}>{att.label}</span>
+                        )}
+                      </td>
+                      <td style={{ padding: '12px 16px', textAlign: 'right' }}>
+                        {canManage && (
+                          <button type="button" aria-label="Xóa người tham gia" onClick={() => setParticipantDeleteTarget(reg.userId)} style={{ padding: 4, color: D.inkMuted, background: 'transparent', border: 'none', cursor: 'pointer', borderRadius: 4 }}>
+                            <Trash2 size={12} />
+                          </button>
+                        )}
+                      </td>
                     </tr>
                   )
                 })}
@@ -567,6 +698,7 @@ export default function EventDetailPage() {
       {editOpen && <EditModal open={editOpen} event={event} onClose={() => setEditOpen(false)} onSaved={updated => setEvent(updated)} />}
       <AddSessionModal open={addSessionOpen} eventId={event.id} onClose={() => setAddSessionOpen(false)} onAdded={loadEvent} />
       <AssignStaffModal open={assignStaffOpen} eventId={event.id} members={members} onClose={() => setAssignStaffOpen(false)} onAssigned={loadEvent} />
+      <AddParticipantModal open={addParticipantOpen} eventId={event.id} members={members} onClose={() => setAddParticipantOpen(false)} onAdded={loadRegistrations} />
 
       <AlertDialog open={deleteEventOpen} onOpenChange={v => !v && setDeleteEventOpen(false)}>
         <AlertDialogContent>
@@ -595,6 +727,21 @@ export default function EventDetailPage() {
             <AlertDialogCancel disabled={deletingStaff}>Hủy</AlertDialogCancel>
             <AlertDialogAction onClick={confirmRemoveStaff} disabled={deletingStaff} className="bg-red-600 hover:bg-red-700 text-white focus:ring-red-600">
               {deletingStaff ? 'Đang xóa...' : 'Xóa'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!participantDeleteTarget} onOpenChange={v => !v && setParticipantDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Xóa người tham gia</AlertDialogTitle>
+            <AlertDialogDescription>Bạn có chắc muốn xóa người tham gia này khỏi sự kiện không?</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deletingParticipant}>Hủy</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmRemoveParticipant} disabled={deletingParticipant} className="bg-red-600 hover:bg-red-700 text-white focus:ring-red-600">
+              {deletingParticipant ? 'Đang xóa...' : 'Xóa'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

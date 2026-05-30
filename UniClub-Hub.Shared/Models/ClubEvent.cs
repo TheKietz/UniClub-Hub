@@ -18,6 +18,8 @@ namespace UniClub_Hub.Shared.Models
         public DateTimeOffset? EndTime { get; set; }
         public int? MaxParticipants { get; set; }
         public EventStatus Status { get; set; } = EventStatus.Draft;
+        public string? Summary { get; set; }
+
 
         // IAuditable
         public DateTime CreatedAt { get; set; }

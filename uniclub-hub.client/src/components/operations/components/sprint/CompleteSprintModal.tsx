@@ -15,14 +15,20 @@ export default function CompleteSprintModal({
   open, sprint, tasks, columns, otherSprints, onClose, onComplete,
 }: CompleteSprintModalProps) {
   if (!open || !sprint) return null
-  const lastCol = [...columns].sort((a, b) => a.sortOrder - b.sortOrder).at(-1)
 
-  const completedTasks = tasks.filter(t =>
-    lastCol ? t.kanbanColumnId === lastCol.id : t.status === 'Done'
-  )
-  const openTasks = tasks.filter(t =>
-    lastCol ? t.kanbanColumnId !== lastCol.id : t.status !== 'Done'
-  )
+  // Identify "done" columns by name, not by position (new columns are appended last
+  // and would otherwise be misidentified as the completion column).
+  const isDoneColName = (name: string) => {
+    const lc = name.toLowerCase()
+    return lc.includes('hoàn') || lc.includes('done') || lc.includes('xong')
+  }
+  const doneCol = columns
+    .sort((a, b) => a.sortOrder - b.sortOrder)
+    .find(c => isDoneColName(c.name))
+
+  // task.status is set by the backend when dragged — it is the reliable source of truth
+  const completedTasks = tasks.filter(t => t.status === 'Done')
+  const openTasks      = tasks.filter(t => t.status !== 'Done')
 
   // destination: null = backlog, number = sprintId
   const [destination, setDestination] = useState<string>('backlog')
@@ -97,14 +103,14 @@ export default function CompleteSprintModal({
 
           <ul style={{ margin: '0 0 20px', paddingLeft: 20, fontSize: 13, color: '#444', lineHeight: 1.7 }}>
             <li>
-              Completed work items includes everything in the last column on the board
-              {lastCol && (
-                <>, <span style={{ color: '#3B4EFF', fontWeight: 700, cursor: 'default' }}>{lastCol.name}</span></>
+              Các công việc hoàn thành bao gồm tất cả thẻ có trạng thái <em>Done</em>
+              {doneCol && (
+                <> (cột <span style={{ color: '#3B4EFF', fontWeight: 700, cursor: 'default' }}>{doneCol.name}</span>)</>
               )}.
             </li>
             <li>
-              Open work items includes everything from any other column on the board.
-              Move these to a new sprint or the backlog.
+              Các công việc chưa hoàn thành là tất cả thẻ còn lại.
+              Chuyển chúng sang sprint khác hoặc Backlog.
             </li>
           </ul>
 

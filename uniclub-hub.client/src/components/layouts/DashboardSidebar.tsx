@@ -58,6 +58,7 @@ function clubNav(id: string) {
   return [
     { to: `/clubs/${id}/manage`, icon: '◇', label: 'Tổng quan', end: true },
     { to: `/clubs/${id}/manage/members`, icon: '◐', label: 'Thành viên' },
+    { to: `/clubs/${id}/manage/events`, icon: '◐', label: 'Sự kiện' },
     { to: `/clubs/${id}/manage/applications`, icon: '✦', label: 'Đơn ứng tuyển' },
     { to: `/clubs/${id}/manage/departments`, icon: '▦', label: 'Ban bộ phận', dividerAfter: true },
     { to: `/clubs/${id}/manage/orgchart`, icon: '⊹', label: 'Sơ đồ tổ chức' },

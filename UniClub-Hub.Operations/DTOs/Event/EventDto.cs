@@ -16,6 +16,7 @@ namespace UniClub_Hub.Operations.DTOs.Event
         public EventStatus Status { get; set; }
         public decimal? Budget { get; set; }
         public string? Category { get; set; }
+        public string? Summary { get; set; }
         public int ParticipantCount { get; set; }
         public List<EventSessionDto> Sessions { get; set; } = [];
         public List<EventStaffDto> Staff { get; set; } = [];

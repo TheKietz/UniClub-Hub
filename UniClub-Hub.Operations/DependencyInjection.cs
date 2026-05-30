@@ -16,6 +16,7 @@ namespace UniClub_Hub.Operations
             services.AddScoped<ITaskCommentService, TaskCommentService>();
             services.AddScoped<ITaskAttachmentService, TaskAttachmentService>();
             services.AddScoped<ITaskAssigneeService, TaskAssigneeService>();
+            services.AddScoped<IKpiService, KpiService>();
             return services;
         }
     }
