@@ -286,10 +286,13 @@ export default function KanbanPage() {
   };
 
   // ── Data loading ──────────────────────────────────────────────────────────────
-  // Never show backlog tasks (sprintId = null) on the Kanban board
+  const activeSprints   = sprints.filter(s => s.status === "Active");
+  const activeSprintIds = new Set(activeSprints.map(s => s.id));
+
+  // Only show tasks belonging to running (Active) sprints
   const tasks = selectedSprintId
     ? allTasks.filter(t => t.sprintId === selectedSprintId)
-    : allTasks.filter(t => t.sprintId != null);
+    : allTasks.filter(t => t.sprintId != null && activeSprintIds.has(t.sprintId));
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -355,8 +358,6 @@ export default function KanbanPage() {
   };
 
   const openCreate = (columnId?: number) => {
-    const activeSprints = sprints.filter(s => s.status === 'Active');
-
     let sprintForNew: number | undefined;
     if (selectedSprintId != null) {
       // User already scoped the board to a specific sprint — create inside it
@@ -627,7 +628,7 @@ export default function KanbanPage() {
           >
             Tất cả
           </button>
-          {sprints.map(sprint => (
+          {activeSprints.map(sprint => (
             <button
               key={sprint.id}
               type="button"
@@ -638,20 +639,16 @@ export default function KanbanPage() {
                 background: selectedSprintId === sprint.id ? '#15131a' : '#ffffff',
                 color: selectedSprintId === sprint.id ? '#fff' : '#4a4651',
                 boxShadow: selectedSprintId === sprint.id ? 'none' : '2px 2px 0 #15131a',
-                display: 'flex', alignItems: 'center', gap: 6,
               }}
             >
               {sprint.name}
-              <span style={{
-                fontSize: 10, fontWeight: 700, padding: '1px 6px',
-                borderRadius: 4, border: '1px solid rgba(255,255,255,0.3)',
-                background: selectedSprintId === sprint.id ? 'rgba(255,255,255,0.2)' : '#f7f6f1',
-                color: selectedSprintId === sprint.id ? '#fff' : '#918c99',
-              }}>
-                {SPRINT_STATUS_LABEL[sprint.status]}
-              </span>
             </button>
           ))}
+          {activeSprints.length === 0 && (
+            <span style={{ fontSize: 12, color: '#918c99', alignSelf: 'center' }}>
+              Không có sprint nào đang chạy
+            </span>
+          )}
         </div>
 
         {/* ── Sprint info banner ────────────────────────────────────────────────── */}

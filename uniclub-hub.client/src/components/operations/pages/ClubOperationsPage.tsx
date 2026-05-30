@@ -3,7 +3,6 @@ import { useSearchParams, useParams } from 'react-router-dom';
 import { TasksProvider } from '../context/TasksContext';
 import KanbanPage from './KanbanPage';
 import SprintsPage from './SprintsPage';
-import EventListPage from './EventListPage';
 import WorkloadPage from './WorkloadPage';
 import GanttPage from './GanttPage';
 import DeadlinePage from './DeadlinePage';
@@ -11,6 +10,7 @@ import CalendarPage from './CalendarPage';
 import ActivityLogPage from './ActivityLogPage';
 import OperationsDashboard from './OperationsDashboard';
 import MyTasksPage from './MyTasksPage';
+import KpiPage from './KpiPage';
 import { getDepartments } from '../../membership/services/clubApi';
 import type { DepartmentItem } from '../../membership/services/club.types';
 import { useAuth } from '@/contexts/AuthContext';
@@ -23,10 +23,10 @@ const TABS = [
   { id: 'board',      label: 'Board',       icon: '▦', memberAllowed: true  },
   { id: 'deadlines',  label: 'Deadlines',   icon: '⊖', memberAllowed: true  },
   { id: 'workload',   label: 'Phân công',  icon: '◎', memberAllowed: false },
-  { id: 'events',     label: 'Sự kiện',    icon: '◐', memberAllowed: false },
   { id: 'gantt',      label: 'Gantt',       icon: '↗', memberAllowed: true  },
   { id: 'calendar',   label: 'Lịch',        icon: '◑', memberAllowed: true  },
   { id: 'activity',   label: 'Hoạt động',    icon: '◉', memberAllowed: false },
+  { id: 'kpi',        label: 'KPI',          icon: '◈', memberAllowed: true  },
 ] as const;
 
 type TabId = typeof TABS[number]['id'];
@@ -218,12 +218,12 @@ export default function ClubOperationsPage() {
             {view === 'mytasks'   && <MyTasksPage />}
             {view === 'board'     && <KanbanPage />}
             {view === 'sprints'   && <SprintsPage />}
-            {view === 'events'    && <EventListPage />}
             {view === 'workload'  && <WorkloadPage />}
             {view === 'gantt'     && <GanttPage />}
             {view === 'deadlines' && <DeadlinePage />}
             {view === 'calendar'  && <CalendarPage />}
             {view === 'activity'  && <ActivityLogPage />}
+            {view === 'kpi'       && <KpiPage />}
           </TasksProvider>
         )}
       </div>

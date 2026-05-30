@@ -10,6 +10,9 @@ import type {
   TaskCommentItem, CreateTaskCommentDto,
   TaskAttachmentItem, AddTaskAttachmentLinkDto,
   TaskAssigneeItem, AssignTaskDto,
+  PersonalKpiData, DepartmentKpiData,
+  EventRegistrationItem, RegisterMemberForEventDto, UpdateAttendanceDto,
+  EventAttachmentItem,
 } from './operations.types'
 
 type ApiResponse<T> = { data: T; success: boolean; message: string }
@@ -149,6 +152,35 @@ export const assignEventStaff = (eventId: number, dto: AssignEventStaffDto) =>
 export const removeEventStaff = (eventId: number, userId: string) =>
   api.delete(`/v1/operations/events/${eventId}/staff/${userId}`)
 
+// ── Event Registrations ───────────────────────────────────────────────────────
+
+export const getEventRegistrations = (eventId: number) =>
+  api.get<ApiResponse<EventRegistrationItem[]>>(`/v1/operations/events/${eventId}/registrations`).then(r => r.data.data)
+
+export const registerEventMember = (eventId: number, dto: RegisterMemberForEventDto) =>
+  api.post<ApiResponse<EventRegistrationItem>>(`/v1/operations/events/${eventId}/registrations`, dto).then(r => r.data.data)
+
+export const removeEventRegistration = (eventId: number, userId: string) =>
+  api.delete(`/v1/operations/events/${eventId}/registrations/${userId}`)
+
+export const updateEventAttendance = (eventId: number, userId: string, dto: UpdateAttendanceDto) =>
+  api.patch(`/v1/operations/events/${eventId}/registrations/${userId}/attendance`, dto)
+
+export const getEventAttachments = (eventId: number) =>
+  api.get<ApiResponse<EventAttachmentItem[]>>(`/v1/operations/events/${eventId}/attachments`).then(r => r.data.data)
+
+export const uploadEventAttachment = (eventId: number, file: File, note?: string) => {
+  const form = new FormData()
+  form.append('file', file)
+  if (note) form.append('note', note)
+  return api.post<ApiResponse<EventAttachmentItem>>(`/v1/operations/events/${eventId}/attachments`, form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }).then(r => r.data.data)
+}
+
+export const deleteEventAttachment = (eventId: number, attachmentId: number) =>
+  api.delete(`/v1/operations/events/${eventId}/attachments/${attachmentId}`)
+
 // ── Sprints ───────────────────────────────────────────────────────────────────
 
 export const getSprints = (params: {
@@ -171,3 +203,15 @@ export const getAuditLogs = (params: {
   clubId: number; module?: string; page?: number; pageSize?: number
 }) =>
   api.get<ApiResponse<PagedResult<AuditLogItem>>>('/v1/operations/audit-logs', { params }).then(r => r.data.data)
+
+// ── KPI ───────────────────────────────────────────────────────────────────────
+
+export const getPersonalKpi = (params: {
+  clubId: number; departmentId?: number; sprintId?: number
+}) =>
+  api.get<ApiResponse<PersonalKpiData>>('/v1/operations/kpi/me', { params }).then(r => r.data.data)
+
+export const getDepartmentKpi = (departmentId: number, params: {
+  clubId: number; sprintId?: number
+}) =>
+  api.get<ApiResponse<DepartmentKpiData>>(`/v1/operations/kpi/departments/${departmentId}`, { params }).then(r => r.data.data)

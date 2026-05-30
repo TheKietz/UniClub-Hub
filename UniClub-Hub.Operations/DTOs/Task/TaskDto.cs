@@ -9,6 +9,7 @@ namespace UniClub_Hub.Operations.DTOs.Task
         public int? ParentId { get; set; }
         public int? SprintId { get; set; }
         public int? EventId { get; set; }
+        public string? EventName { get; set; }
         public int? DepartmentId { get; set; }
         public int? KanbanColumnId { get; set; }
         public string Title { get; set; } = null!;

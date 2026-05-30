@@ -20,6 +20,7 @@ export interface TaskItem {
   parentId?: number
   sprintId?: number
   eventId?: number
+  eventName?: string
   departmentId?: number
   title: string
   description?: string
@@ -121,6 +122,7 @@ export interface EventItem {
   status: EventStatus
   budget?: number
   category?: string
+  summary?: string
   participantCount: number
   sessions: EventSessionItem[]
   staff: EventStaffItem[]
@@ -162,6 +164,51 @@ export interface PagedResult<T> {
   page: number
   pageSize: number
   totalPages: number
+}
+
+// ── KPI ───────────────────────────────────────────────────────────────────────
+
+export interface PersonalKpiData {
+  userId: string
+  fullName: string
+  totalTasks: number
+  completedTasks: number
+  overdueTasks: number
+  activeTasks: number
+  todoTasks: number
+  doingTasks: number
+  totalEstimatedHours?: number
+  totalActualHours?: number
+  completionRate: number
+  onTimeRate: number
+  productivityScore: number
+  highPriorityTasks: number
+  mediumPriorityTasks: number
+  lowPriorityTasks: number
+}
+
+export interface DepartmentMemberKpiRow {
+  userId: string
+  fullName: string
+  avatarUrl?: string
+  totalTasks: number
+  completedTasks: number
+  activeTasks: number
+  overdueTasks: number
+  totalEstimatedHours?: number
+  totalActualHours?: number
+  completionRate: number
+  onTimeRate: number
+  productivityScore: number
+}
+
+export interface DepartmentKpiData {
+  departmentId: number
+  departmentName: string
+  totalTasks: number
+  completedTasks: number
+  deptCompletionRate: number
+  members: DepartmentMemberKpiRow[]
 }
 
 // ── Request DTOs ──────────────────────────────────────────────────────────────
@@ -209,6 +256,7 @@ export interface CreateEventDto {
 
 export interface UpdateEventDto extends CreateEventDto {
   status: EventStatus
+  summary?: string
 }
 
 export interface CreateEventSessionDto {
@@ -258,5 +306,45 @@ export interface CreateTaskCommentDto {
 
 export interface AddTaskAttachmentLinkDto {
   fileUrl: string
+  note?: string
+}
+
+// ── Registration / Attendance ─────────────────────────────────────────────────
+
+export type AttendanceStatus = 'Pending' | 'CheckedIn' | 'Absent'
+
+export interface EventRegistrationItem {
+  id: number
+  eventId: number
+  userId: string
+  userName: string
+  avatarUrl?: string
+  email?: string
+  registeredAt: string
+  attendance: AttendanceStatus
+  checkedInAt?: string
+  note?: string
+}
+
+export interface RegisterMemberForEventDto {
+  userId: string
+  note?: string
+}
+
+export interface EventAttachmentItem {
+  id: number
+  eventId: number
+  uploadedBy: string
+  uploaderName: string
+  fileUrl: string
+  fileName?: string
+  contentType?: string
+  fileSize?: number
+  note?: string
+  uploadedAt: string
+}
+
+export interface UpdateAttendanceDto {
+  attendance: AttendanceStatus
   note?: string
 }

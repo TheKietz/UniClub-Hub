@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { Link } from "react-router-dom";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import {
@@ -760,6 +761,24 @@ export default function TaskDetailModal({
                 </button>
               )}
             </div>
+
+            {/* ── Event badge ────────────────────────────────────────────────── */}
+            {isEdit && task?.eventId && (
+              <Link
+                to={`/clubs/${clubId}/events/${task.eventId}`}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 5,
+                  fontSize: 11, fontWeight: 700, color: D.indigo,
+                  background: '#ede9fe', border: `1.5px solid ${D.indigo}55`,
+                  borderRadius: D.pill, padding: '4px 12px',
+                  textDecoration: 'none', width: 'fit-content',
+                  boxShadow: '1px 1px 0 #4f46e544',
+                }}
+              >
+                <Calendar size={11} />
+                {task.eventName ?? `Sự kiện #${task.eventId}`}
+              </Link>
+            )}
 
             {/* Description */}
             <div>

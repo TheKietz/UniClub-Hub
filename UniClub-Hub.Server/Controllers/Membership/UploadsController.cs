@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 using UniClub_Hub.Shared.Common;
+using UniClub_Hub.Shared.Common.Storage;
 using UniClub_Hub.Shared.Data;
 
 namespace UniClub_Hub.Server.Controllers.Membership

@@ -10,10 +10,11 @@ using UniClub_Hub.Membership;
 using UniClub_Hub.Operations;
 using UniClub_Hub.Portal;
 using UniClub_Hub.Server.Hubs;
-using UniClub_Hub.Shared.Common.Helper;
+using UniClub_Hub.Shared.Common.Storage;
 using UniClub_Hub.Shared.Data;
 using UniClub_Hub.Shared.Email;
 using UniClub_Hub.Shared.Models;
+using CloudinaryDotNet;
 
 // Npgsql 6+ requires DateTimeOffset values sent to timestamptz to be UTC.
 // This switch lets Npgsql accept any offset and convert to UTC on write,
@@ -124,7 +125,13 @@ builder.Services.AddRateLimiter(options =>
     options.AddPolicy("auth:forgot",     ctx => ByIp(ctx, 5,  60));
     options.AddPolicy("auth:resend",     ctx => ByIp(ctx, 5,  60));
 });
-builder.Services.AddScoped<FileUploadHelper>();
+var cloudinaryAccount = new Account(
+    builder.Configuration["Cloudinary:CloudName"],
+    builder.Configuration["Cloudinary:ApiKey"],
+    builder.Configuration["Cloudinary:ApiSecret"]
+);
+builder.Services.AddSingleton(new Cloudinary(cloudinaryAccount));
+builder.Services.AddScoped<IFileStorageService, CloudinaryStorageService>();
 builder.Services.AddScoped<IEmailService, SendGridEmailService>();
 builder.Services.AddMembershipServices();
 builder.Services.AddOperationsServices();

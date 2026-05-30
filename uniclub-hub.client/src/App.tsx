@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useParams } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import ProtectedRoute from "@/components/shared/ProtectedRoute";
 import ClubProtectedRoute from "@/components/shared/ClubProtectedRoute";
@@ -52,7 +52,20 @@ import MemberHistoryPage from "@/components/membership/pages/MemberHistoryPage";
 
 import MyTasksPage from "@/components/operations/pages/MyTasksPage";
 import EventDetailPage from "@/components/operations/pages/EventDetailPage";
+import EventListPage from "@/components/operations/pages/EventListPage";
+import GanttPage from "@/components/operations/pages/GanttPage";
+import CalendarPage from "@/components/operations/pages/CalendarPage";
 import ClubOperationsPage from "@/components/operations/pages/ClubOperationsPage";
+import { TasksProvider } from "@/components/operations/context/TasksContext";
+
+function WithTasksProvider({ children }: { children: React.ReactNode }) {
+  const { clubId } = useParams<{ clubId: string }>()
+  return (
+    <TasksProvider clubId={Number(clubId ?? 0)}>
+      {children}
+    </TasksProvider>
+  )
+}
 
 const Soon = ({ label }: { label: string }) => (
   <div className="p-8 text-xl font-semibold text-gray-500">
@@ -147,6 +160,10 @@ export default function App() {
                   <Route path="manage/member-fields" element={<MemberFieldsPage />} />
                   <Route path="manage/orgchart" element={<OrgChartPage />} />
                   <Route path="manage/pipeline" element={<PipelineSettingsPage />} />
+                  <Route path="manage/events" element={<EventListPage />} />
+                  <Route path="manage/events/:id" element={<EventDetailPage />} />
+                  <Route path="manage/gantt" element={<WithTasksProvider><GanttPage /></WithTasksProvider>} />
+                  <Route path="manage/calendar" element={<WithTasksProvider><CalendarPage /></WithTasksProvider>} />
                   <Route path="manage/audit-log" element={<AuditLogPage />} />
                   <Route path="manage/notifications" element={<ClubNotificationPreferencePage />} />
                   <Route path="manage/resignations" element={<ResignationPage />} />
