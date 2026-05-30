@@ -4,7 +4,7 @@ import type {
   ApplicationItem, AddMemberDto, UpdateMemberDto, ReviewApplicationDto,
   FormSchema, SubmitApplicationDto,
   ResignationRequestItem, SubmitResignationDto, ReviewResignationDto,
-  ClubAuditLogPage, MemberFieldDef, PipelineStage,
+  ClubAuditLogPage, MemberFieldDef, PipelineStage, RoleSuggestion,
 } from '@/components/membership/services/club.types'
 
 const base = (clubId: number) => `/clubs/${clubId}`
@@ -49,6 +49,9 @@ export const addMember = (clubId: number, dto: AddMemberDto) =>
 
 export const updateMember = (clubId: number, membershipId: number, dto: UpdateMemberDto, force = false) =>
   api.put<{ data: MemberItem }>(`${base(clubId)}/members/${membershipId}${force ? '?force=true' : ''}`, dto).then(r => r.data.data)
+
+export const suggestMemberRole = (clubId: number, membershipId: number) =>
+  api.post<{ data: RoleSuggestion }>(`${base(clubId)}/members/${membershipId}/role-suggestions`).then(r => r.data.data)
 
 export const removeMember = (clubId: number, membershipId: number, force = false) =>
   api.delete(`${base(clubId)}/members/${membershipId}${force ? '?force=true' : ''}`)

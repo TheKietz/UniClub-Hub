@@ -620,6 +620,90 @@ namespace UniClub_Hub.Server.Data
                 await db.SaveChangesAsync();
             }
 
+            // ── Resignation requests ──────────────────────────────────────
+            if (!await db.ResignationRequests.AnyAsync())
+            {
+                var techClubId = (await db.Clubs.IgnoreQueryFilters().FirstAsync(c => c.Code == "TECH")).Id;
+                var techAdminId = createdUsers["truong.clb@uef.edu.vn"].Id;
+                var linhId = createdUsers["linh.clb@uef.edu.vn"].Id;
+
+                var linhTechLeadMemberships = await db.ClubMemberships
+                    .Where(m =>
+                        m.ClubId == techClubId &&
+                        m.UserId == linhId &&
+                        m.ClubRole == ClubRole.DEPT_LEAD)
+                    .OrderBy(m => m.DepartmentId)
+                    .ToListAsync();
+
+                if (linhTechLeadMemberships.Count > 0)
+                {
+                    db.ResignationRequests.Add(new ResignationRequest
+                    {
+                        UserId = linhId,
+                        ClubId = techClubId,
+                        MembershipId = linhTechLeadMemberships[0].Id,
+                        Preference = ResignationPreference.BecomeMember,
+                        Status = ResignationStatus.Pending,
+                        RequestedAt = DateTime.UtcNow.AddDays(-2),
+                        ReviewNote = "Em muốn chuyển xuống thành viên thường để tập trung học kỳ này.",
+                    });
+                }
+
+                if (linhTechLeadMemberships.Count > 1)
+                {
+                    db.ResignationRequests.Add(new ResignationRequest
+                    {
+                        UserId = linhId,
+                        ClubId = techClubId,
+                        MembershipId = linhTechLeadMemberships[1].Id,
+                        Preference = ResignationPreference.LeaveClub,
+                        Status = ResignationStatus.Approved,
+                        RequestedAt = DateTime.UtcNow.AddDays(-12),
+                        ReviewedAt = DateTime.UtcNow.AddDays(-10),
+                        ReviewerId = techAdminId,
+                        ReviewNote = "Đã trao đổi và thống nhất bàn giao công việc truyền thông.",
+                    });
+                }
+
+                await db.SaveChangesAsync();
+            }
+
+            // ── Notifications ─────────────────────────────────────────────
+            if (!await db.Notifications.AnyAsync(n => n.UserId == createdUsers["truong.clb@uef.edu.vn"].Id))
+            {
+                var techAdminId = createdUsers["truong.clb@uef.edu.vn"].Id;
+                db.Notifications.AddRange(
+                    new Notification
+                    {
+                        UserId = techAdminId,
+                        Title = "Có đơn từ chức mới",
+                        Message = "Phạm Thị Linh đã gửi đơn xin chuyển xuống thành viên thường tại CLB Công nghệ UEF.",
+                        Type = NotificationType.System,
+                        IsRead = false,
+                        CreatedAt = DateTime.UtcNow.AddMinutes(-25),
+                    },
+                    new Notification
+                    {
+                        UserId = techAdminId,
+                        Title = "Có đơn đăng ký mới",
+                        Message = "CLB Công nghệ UEF vừa nhận thêm một đơn đăng ký cần xem xét.",
+                        Type = NotificationType.Application,
+                        IsRead = false,
+                        CreatedAt = DateTime.UtcNow.AddHours(-3),
+                    },
+                    new Notification
+                    {
+                        UserId = techAdminId,
+                        Title = "Nhắc kiểm tra báo cáo thành viên",
+                        Message = "Bạn có thể xuất danh sách thành viên CLB Công nghệ UEF để rà soát dữ liệu demo.",
+                        Type = NotificationType.System,
+                        IsRead = true,
+                        CreatedAt = DateTime.UtcNow.AddDays(-1),
+                    }
+                );
+                await db.SaveChangesAsync();
+            }
+
             // ── Applications ──────────────────────────────────────────────
             if (!await db.Applications.AnyAsync())
             {
@@ -760,6 +844,10 @@ namespace UniClub_Hub.Server.Data
                 ("landing.banner_color",   "landing", "text",   "Màu nền banner (hex)",         "Ví dụ: #f59e0b (vàng), #4f46e5 (tím), #10b981 (xanh), #ef4444 (đỏ).", "#f59e0b"),
                 ("footer.facebook_url",    "footer",  "text",   "Link Facebook",                "URL trang Facebook của trường/phòng CTSV. Để trống = ẩn icon.",         ""),
                 ("footer.instagram_url",   "footer",  "text",   "Link Instagram",               "URL trang Instagram. Để trống = ẩn icon.",                             ""),
+                ("footer.tiktok_url",      "footer",  "text",   "Link TikTok",                  "URL trang TikTok. Để trống = ẩn icon.",                                ""),
+                ("footer.youtube_url",     "footer",  "text",   "Link YouTube",                 "URL kênh YouTube. Để trống = ẩn icon.",                                ""),
+                ("footer.x_url",           "footer",  "text",   "Link X (Twitter)",             "URL trang X/Twitter. Để trống = ẩn icon.",                             ""),
+                ("footer.linkedin_url",    "footer",  "text",   "Link LinkedIn",                "URL trang LinkedIn. Để trống = ẩn icon.",                              ""),
                 ("footer.address",         "footer",  "text",   "Địa chỉ hiển thị trong footer","Ví dụ: 276 Điện Biên Phủ, Q.3, TP.HCM",                               ""),
             ];
             foreach (var (key, cat, type, label, desc, val) in publicSettings)

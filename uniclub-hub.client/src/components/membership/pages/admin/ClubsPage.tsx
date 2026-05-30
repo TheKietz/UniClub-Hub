@@ -56,6 +56,7 @@ export default function ClubsPage() {
   const [deleteTarget, setDeleteTarget] = useState<ClubItem | null>(null)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+  const [categoryFilter, setCategoryFilter] = useState('')
   const [sortBy, setSortBy] = useState<'id' | 'name' | 'members'>('id')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
   const [hoverRow, setHoverRow] = useState<number | null>(null)
@@ -123,7 +124,7 @@ export default function ClubsPage() {
     }
   }
 
-  const hasFilter = search || statusFilter
+  const hasFilter = search || statusFilter || categoryFilter
   const filtered = clubs
     .filter(c => {
       if (!search) return true
@@ -131,6 +132,7 @@ export default function ClubsPage() {
       return c.name.toLowerCase().includes(q) || c.code.toLowerCase().includes(q)
     })
     .filter(c => !statusFilter || c.status === statusFilter)
+    .filter(c => !categoryFilter || String(c.categoryId ?? '') === categoryFilter)
     .sort((a, b) => {
       const cmp = sortBy === 'name' ? a.name.localeCompare(b.name)
         : sortBy === 'members' ? a.memberCount - b.memberCount
@@ -194,6 +196,15 @@ export default function ClubsPage() {
           style={{ width: 160 }}
         />
         <FilterSelect
+          value={categoryFilter}
+          onChange={setCategoryFilter}
+          options={[
+            { value: '', label: 'Tất cả lĩnh vực' },
+            ...categories.map(c => ({ value: String(c.id), label: c.name })),
+          ]}
+          style={{ width: 160 }}
+        />
+        <FilterSelect
           value={`${sortBy}-${sortDir}`}
           onChange={v => {
             const [col, dir] = v.split('-')
@@ -211,7 +222,7 @@ export default function ClubsPage() {
         />
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto' }}>
           {hasFilter && (
-            <button onClick={() => { setSearch(''); setStatusFilter('') }}
+            <button onClick={() => { setSearch(''); setStatusFilter(''); setCategoryFilter('') }}
               style={{ fontSize: 12, color: D.indigo, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
               Xoá lọc
             </button>

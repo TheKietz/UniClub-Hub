@@ -47,6 +47,25 @@ export interface MemberItem {
   customData?: Record<string, string | null>
 }
 
+export interface RoleSuggestionItem {
+  role: string
+  departmentId?: number
+  departmentName?: string
+  confidence: number
+  reason: string
+}
+
+export interface RoleSuggestion {
+  membershipId: number
+  userId: string
+  memberName: string
+  aiEnabled: boolean
+  source: string
+  summary: string
+  signals: string[]
+  suggestions: RoleSuggestionItem[]
+}
+
 // Custom member profile fields
 export type MemberFieldType = 'text' | 'textarea' | 'select'
 

@@ -53,7 +53,142 @@ export default function LandingPage() {
     : ['CLB ĐANG HOẠT ĐỘNG', 'SỰ KIỆN HÀNG TUẦN', 'TUYỂN THÀNH VIÊN']
 
   return (
-    <div className="v3-page v3-enter">
+    <div className="v3-page v3-enter landing-page">
+      <style>{`
+        .landing-hero {
+          position: relative;
+          overflow: hidden;
+          background: ${C.bg};
+        }
+        .landing-confetti {
+          position: absolute;
+          inset: 0;
+          pointer-events: none;
+          overflow: hidden;
+          z-index: 0;
+        }
+        .landing-confetti span {
+          position: absolute;
+          box-sizing: border-box;
+          z-index: 0;
+        }
+        .landing-confetti .dot-mint {
+          width: 54px;
+          height: 54px;
+          border-radius: 999px;
+          background: ${C.mint};
+          border: ${C.border};
+          opacity: .62;
+        }
+        .landing-confetti .ring-coral {
+          width: 72px;
+          height: 72px;
+          border-radius: 999px;
+          border: 5px solid ${C.coral};
+          background: transparent;
+        }
+        .landing-confetti .ring-mint {
+          width: 68px;
+          height: 68px;
+          border-radius: 999px;
+          border: 5px solid ${C.mint};
+          background: transparent;
+        }
+        .landing-confetti .triangle-sky {
+          width: 0;
+          height: 0;
+          border-left: 18px solid transparent;
+          border-right: 18px solid transparent;
+          border-bottom: 31px solid ${C.sky};
+          filter: drop-shadow(2px 2px 0 ${C.ink});
+          transform: rotate(-12deg);
+        }
+        .landing-confetti .star-coral {
+          width: 36px;
+          height: 36px;
+          background: ${C.coral};
+          clip-path: polygon(50% 0%, 62% 35%, 100% 35%, 68% 56%, 80% 92%, 50% 70%, 20% 92%, 32% 56%, 0 35%, 38% 35%);
+        }
+        .landing-confetti .spark-violet {
+          width: 28px;
+          height: 28px;
+          background: ${C.violet};
+          clip-path: polygon(50% 0%, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0% 50%, 38% 38%);
+          filter: drop-shadow(1.5px 1.5px 0 ${C.ink});
+        }
+        .landing-confetti .pill-sky {
+          width: 70px;
+          height: 22px;
+          border-radius: 999px;
+          border-top: 5px solid ${C.sky};
+          border-bottom: 5px solid ${C.sky};
+          transform: rotate(12deg);
+        }
+        .landing-confetti .square-pink {
+          width: 36px;
+          height: 36px;
+          border-radius: 8px;
+          background: ${C.pink};
+          border: ${C.border};
+          transform: rotate(13deg);
+        }
+        .landing-confetti .plus-coral {
+          width: 30px;
+          height: 30px;
+        }
+        .landing-confetti .plus-coral::before,
+        .landing-confetti .plus-coral::after {
+          content: '';
+          position: absolute;
+          background: ${C.coral};
+          border-radius: 2px;
+        }
+        .landing-confetti .plus-coral::before {
+          width: 30px;
+          height: 9px;
+          top: 10.5px;
+        }
+        .landing-confetti .plus-coral::after {
+          width: 9px;
+          height: 30px;
+          left: 10.5px;
+        }
+        .landing-confetti .welcome {
+          width: 122px;
+          height: 122px;
+          border-radius: 999px;
+          border: ${C.border};
+          background: ${C.lemon};
+          display: grid;
+          place-items: center;
+          text-align: center;
+          color: ${C.ink};
+          font-size: 13px;
+          font-weight: 900;
+          line-height: 1.2;
+          transform: rotate(13deg);
+        }
+        .landing-confetti .welcome b {
+          display: block;
+          transform: rotate(10deg);
+        }
+        .landing-hero-content {
+          position: relative;
+          z-index: 1;
+        }
+        @media (max-width: 820px) {
+          .landing-confetti .welcome,
+          .landing-confetti .ring-coral,
+          .landing-confetti .dot-mint {
+            opacity: .35;
+            transform: scale(.75);
+          }
+          .landing-confetti .pill-sky,
+          .landing-confetti .square-pink {
+            display: none;
+          }
+        }
+      `}</style>
       <PublicHeader />
 
       {/* ─── Banner ───────────────────────────────────── */}
@@ -69,26 +204,23 @@ export default function LandingPage() {
       )}
 
       {/* ─── Hero ─────────────────────────────────────── */}
-      <section style={{ padding: '52px 28px 44px', position: 'relative', overflow: 'hidden' }}>
-        <div style={{ maxWidth: 1280, margin: '0 auto', position: 'relative' }}>
-          {/* Decorations */}
-          <div aria-hidden style={{
-            position: 'absolute', top: 20, right: 80, width: 88, height: 88,
-            borderRadius: C.radiusPill, background: C.lemon, border: C.border,
-            animation: 'float 4s ease-in-out infinite',
-            display: 'grid', placeItems: 'center', color: C.ink,
-            fontWeight: 900, fontSize: 10, textAlign: 'center', lineHeight: 1.2,
-          } as React.CSSProperties}>WELCOME<br />TO UEF</div>
-          <div aria-hidden style={{
-            position: 'absolute', top: 140, right: 200,
-            fontSize: 28, color: C.coral, animation: 'float 3s ease-in-out infinite .5s',
-          }} >★</div>
-          <div aria-hidden style={{
-            position: 'absolute', top: 60, right: 260,
-            width: 40, height: 40, borderRadius: 999,
-            background: C.mint, border: C.border, opacity: 0.6,
-            animation: 'float 5s ease-in-out infinite 1s',
-          }} />
+      <section className="landing-hero" style={{ padding: '52px 28px 44px' }}>
+        <div className="landing-confetti" aria-hidden>
+          <span className="triangle-sky" style={{ left: '73%', top: '13%', animation: 'float 4.5s ease-in-out infinite' }} />
+          <span className="spark-violet" style={{ left: '55%', top: '25%', animation: 'float 4s ease-in-out infinite .3s' }} />
+          <span className="dot-mint" style={{ left: '73%', top: '34%', animation: 'float 5s ease-in-out infinite .8s' }} />
+          <span className="ring-coral" style={{ right: '7%', top: '20%', animation: 'float 5s ease-in-out infinite .5s' }} />
+          <span className="welcome" style={{ right: '12%', top: '26%', animation: 'float 4.8s ease-in-out infinite .2s' }}>
+            <b>WELCOME<br />TO UEF</b>
+          </span>
+          <span className="pill-sky" style={{ right: '10%', top: '55%', animation: 'float 3.8s ease-in-out infinite .9s' }} />
+          <span className="star-coral" style={{ right: '20%', top: '61%', animation: 'float 3.2s ease-in-out infinite .4s' }} />
+          <span className="square-pink" style={{ right: '11%', bottom: '13%', animation: 'float 4.2s ease-in-out infinite .6s' }} />
+          <span className="plus-coral" style={{ left: '70%', bottom: '8%', animation: 'float 4.6s ease-in-out infinite 1s' }} />
+          <span className="ring-mint" style={{ left: '10%', bottom: '8%', animation: 'float 5.2s ease-in-out infinite .7s' }} />
+        </div>
+
+        <div className="landing-hero-content" style={{ maxWidth: 1280, margin: '0 auto' }}>
           {/* 
           <Rv>
             <div style={{

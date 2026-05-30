@@ -59,6 +59,9 @@ namespace UniClub_Hub.Shared.Data
         public DbSet<NotificationPreference> NotificationPreferences { get; set; }
         public DbSet<ClubPipelineStage> ClubPipelineStages { get; set; }
         public DbSet<TaskAssignee> TaskAssignees { get; set; }
+        public DbSet<ClubPosition> ClubPositions { get; set; }
+        public DbSet<ClubPositionPermission> ClubPositionPermissions { get; set; }
+        public DbSet<ClubMemberPosition> ClubMemberPositions { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
@@ -70,6 +73,9 @@ namespace UniClub_Hub.Shared.Data
             builder.Entity<ApplicationUser>().HasQueryFilter(u => !u.IsDeleted);
             builder.Entity<Club>().HasQueryFilter(c => !c.IsDeleted);
             builder.Entity<Department>().HasQueryFilter(d => !d.IsDeleted);
+            builder.Entity<ClubPosition>().HasQueryFilter(p => !p.IsDeleted);
+            builder.Entity<ClubPositionPermission>().HasQueryFilter(p => !p.Position.IsDeleted);
+            builder.Entity<ClubMemberPosition>().HasQueryFilter(p => !p.Position.IsDeleted);
             builder.Entity<ClubEvent>().HasQueryFilter(e => !e.IsDeleted);
             builder.Entity<ClubTask>().HasQueryFilter(t => !t.IsDeleted);
 

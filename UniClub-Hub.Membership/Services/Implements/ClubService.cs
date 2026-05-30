@@ -108,6 +108,20 @@ namespace UniClub_Hub.Membership.Services.Implements
                     await _db.SaveChangesAsync();
                 }
 
+                // Tạo quy trình tuyển mặc định cho CLB mới.
+                var defaultStages = new[] { "Xét CV", "Phỏng vấn", "Thử việc" };
+                for (var i = 0; i < defaultStages.Length; i++)
+                {
+                    _db.ClubPipelineStages.Add(new ClubPipelineStage
+                    {
+                        ClubId = club.Id,
+                        Name = defaultStages[i],
+                        StageOrder = i + 1,
+                        IsActive = true
+                    });
+                }
+                await _db.SaveChangesAsync();
+
                 await transaction.CommitAsync(); // Hoàn tất transaction
                 return await GetByIdAdminAsync(club.Id);
             }

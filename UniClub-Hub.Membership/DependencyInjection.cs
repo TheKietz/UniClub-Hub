@@ -29,6 +29,9 @@ namespace UniClub_Hub.Membership
             services.AddScoped<INotificationDispatchService, NotificationDispatchService>();
             services.AddScoped<INotificationPreferenceService, NotificationPreferenceService>();
             services.AddScoped<IPipelineService, PipelineService>();
+            services.AddScoped<IRoleSuggestionService, RoleSuggestionService>();
+            services.AddScoped<IClubPermissionCatalogService, ClubPermissionCatalogService>();
+            services.AddScoped<IClubPositionService, ClubPositionService>();
             return services;
         }
     }

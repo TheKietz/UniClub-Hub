@@ -49,10 +49,12 @@ import ClubNotificationPreferencePage from "@/components/membership/pages/club/N
 import ClubDetailPage from "@/components/membership/pages/ClubDetailPage";
 import ProfilePage from "@/components/membership/pages/ProfilePage";
 import MemberHistoryPage from "@/components/membership/pages/MemberHistoryPage";
+import NotificationsPage from "@/components/membership/pages/NotificationsPage";
 
 import MyTasksPage from "@/components/operations/pages/MyTasksPage";
 import EventDetailPage from "@/components/operations/pages/EventDetailPage";
 import ClubOperationsPage from "@/components/operations/pages/ClubOperationsPage";
+import { TasksProvider } from "@/components/operations/context/TasksContext";
 
 const Soon = ({ label }: { label: string }) => (
   <div className="p-8 text-xl font-semibold text-gray-500">
@@ -108,10 +110,11 @@ export default function App() {
             <Route element={<MemberLayout />}>
               <Route path="/dashboard" element={<MemberDashboard />} />
               <Route path="/profile" element={<ProfilePage />} />
+              <Route path="/notifications" element={<NotificationsPage />} />
               <Route path="/my-history" element={<MemberHistoryPage />} />
               <Route path="/my-activity" element={<MyActivityPage />} />
               <Route path="/support" element={<SupportPage />} />
-              <Route path="/my-tasks" element={<MyTasksPage />} />
+              <Route path="/my-tasks" element={<TasksProvider clubId={0}><MyTasksPage /></TasksProvider>} />
               <Route path="/clubs/:clubId/operations" element={<ClubOperationsPage />} />
               <Route path="/clubs/:clubId/events/:id" element={<EventDetailPage />} />
               <Route path="/my-kpi" element={<Soon label="KPI của tôi" />} />

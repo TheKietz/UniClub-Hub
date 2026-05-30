@@ -34,6 +34,7 @@ function getClubColor(id: number) {
 
 const MEMBER_NAV = [
   { to: '/dashboard', icon: '◇', label: 'Dashboard', end: true },
+  { to: '/notifications', icon: '◑', label: 'Thông báo' },
   { to: '/profile', icon: '◐', label: 'Hồ sơ cá nhân', dividerAfter: true },
   { to: '/my-activity', icon: '↗', label: 'Hoạt động của tôi' },
   { to: '/my-history', icon: '◎', label: 'Lịch sử thành viên', dividerAfter: true },

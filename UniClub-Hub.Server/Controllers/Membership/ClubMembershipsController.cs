@@ -15,11 +15,17 @@ namespace UniClub_Hub.Server.Controllers.Membership
     public class ClubMembershipsController : ControllerBase
     {
         private readonly IClubMembershipService _membershipService;
+        private readonly IRoleSuggestionService _roleSuggestionService;
         private readonly UniClubDbContext _db;
 
-        public ClubMembershipsController(IClubMembershipService membershipService, UniClubDbContext db)
+        public ClubMembershipsController(
+            IClubMembershipService membershipService,
+            IRoleSuggestionService roleSuggestionService,
+            UniClubDbContext db
+        )
         {
             _membershipService = membershipService;
+            _roleSuggestionService = roleSuggestionService;
             _db = db;
         }
 
@@ -90,6 +96,34 @@ namespace UniClub_Hub.Server.Controllers.Membership
             {
                 var result = await _membershipService.GetByIdAsync(clubId, membershipId);
                 return Ok(ApiResponse<MemberDto>.Ok(result));
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(ApiResponse<object>.Fail(ex.Message));
+            }
+        }
+
+        [HttpPost("{membershipId}/role-suggestions")]
+        [Authorize]
+        public async Task<IActionResult> SuggestRoleForMember(int clubId, int membershipId)
+        {
+            var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+            var isSuperAdmin = User.IsInRole("SUPER_ADMIN");
+
+            try
+            {
+                var result = await _roleSuggestionService.SuggestRoleForMemberAsync(
+                    clubId,
+                    membershipId,
+                    currentUserId,
+                    isSuperAdmin,
+                    HttpContext.RequestAborted
+                );
+                return Ok(ApiResponse<object>.Ok(result, "Đã tạo gợi ý vai trò."));
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Forbid();
             }
             catch (KeyNotFoundException ex)
             {

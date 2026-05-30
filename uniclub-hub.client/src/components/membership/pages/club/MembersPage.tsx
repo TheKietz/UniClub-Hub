@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { getClubMembers, addMember, updateMember, removeMember, getDepartments, getMemberFieldSchema, updateMemberCustomData } from '@/components/membership/services/clubApi'
-import type { MemberItem, DepartmentItem, MemberFieldDef } from '@/components/membership/services/club.types'
+import { getClubMembers, addMember, updateMember, removeMember, getDepartments, getMemberFieldSchema, updateMemberCustomData, suggestMemberRole } from '@/components/membership/services/clubApi'
+import type { MemberItem, DepartmentItem, MemberFieldDef, RoleSuggestion, RoleSuggestionItem } from '@/components/membership/services/club.types'
 import { CLUB_ROLES, MEMBERSHIP_STATUS } from '@/types/auth'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { toast } from 'sonner'
 import api from '@/lib/axiosInstance'
-import { Pencil, X } from 'lucide-react'
+import { Pencil, Sparkles, X } from 'lucide-react'
 import { FilterSelect } from '@/components/shared/FilterSelect'
 import { Tooltip } from '@/components/shared/Tooltip'
 import { LoadMoreBar } from '@/components/shared/LoadMoreBar'
@@ -82,6 +82,9 @@ export default function MembersPage() {
 
   const [editTarget, setEditTarget] = useState<MemberItem | null>(null)
   const [editForm, setEditForm] = useState<EditForm>({ clubRole: CLUB_ROLES.MEMBER, departmentId: '', customData: {} })
+  const [aiTarget, setAiTarget] = useState<MemberItem | null>(null)
+  const [roleSuggestion, setRoleSuggestion] = useState<RoleSuggestion | null>(null)
+  const [roleSuggestionLoading, setRoleSuggestionLoading] = useState(false)
 
   const [removeTarget, setRemoveTarget] = useState<MemberItem | null>(null)
   const [search, setSearch] = useState('')
@@ -148,6 +151,33 @@ export default function MembersPage() {
     const existingData: Record<string, string> = {}
     fieldSchema.forEach(f => { existingData[f.id] = member.customData?.[f.id] ?? '' })
     setEditForm({ clubRole: member.clubRole, departmentId: member.departmentId?.toString() ?? '', customData: existingData })
+  }
+
+  async function openRoleSuggestion(member: MemberItem) {
+    setAiTarget(member)
+    setRoleSuggestion(null)
+    setRoleSuggestionLoading(true)
+    try {
+      const result = await suggestMemberRole(id, member.id)
+      setRoleSuggestion(result)
+    } catch (err: any) {
+      toast.error(err.response?.data?.message ?? 'Không thể tạo gợi ý vai trò.')
+      setAiTarget(null)
+    } finally {
+      setRoleSuggestionLoading(false)
+    }
+  }
+
+  function applyRoleSuggestion(suggestion: RoleSuggestionItem) {
+    if (!aiTarget) return
+    openEdit(aiTarget)
+    setEditForm(p => ({
+      ...p,
+      clubRole: suggestion.role,
+      departmentId: suggestion.departmentId ? String(suggestion.departmentId) : '',
+    }))
+    setAiTarget(null)
+    setRoleSuggestion(null)
   }
 
   async function handleEdit(e: { preventDefault(): void }) {
@@ -506,6 +536,12 @@ export default function MembersPage() {
                         <Pencil size={13} />
                       </button>
                     </Tooltip>
+                    <Tooltip label="Gợi ý vai trò bằng AI">
+                      <button onClick={() => openRoleSuggestion(m)}
+                        style={{ width: 28, height: 28, borderRadius: 6, display: 'grid', placeItems: 'center', background: 'transparent', border: D.borderLight, cursor: 'pointer', color: D.amber }}>
+                        <Sparkles size={13} />
+                      </button>
+                    </Tooltip>
                     <Tooltip label="Xoá khỏi CLB">
                       <button onClick={() => setRemoveTarget(m)}
                         style={{ width: 28, height: 28, borderRadius: 6, display: 'grid', placeItems: 'center', background: 'transparent', border: D.borderLight, cursor: 'pointer', color: D.red }}>
@@ -644,6 +680,85 @@ export default function MembersPage() {
               </button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* AI role suggestion dialog */}
+      <Dialog open={!!aiTarget} onOpenChange={open => { if (!open) { setAiTarget(null); setRoleSuggestion(null) } }}>
+        <DialogContent className="max-w-lg" style={{ fontFamily: "'Be Vietnam Pro', sans-serif" }}>
+          <DialogHeader>
+            <DialogTitle style={{ color: D.ink, fontWeight: 900, fontSize: 17, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Sparkles size={16} color={D.amber} /> Gợi ý vai trò — {aiTarget?.fullName ?? aiTarget?.email}
+            </DialogTitle>
+          </DialogHeader>
+
+          {roleSuggestionLoading ? (
+            <div style={{ padding: '28px 0', textAlign: 'center', color: D.inkMuted, fontSize: 13 }}>
+              Đang phân tích hồ sơ thành viên...
+            </div>
+          ) : roleSuggestion ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, paddingTop: 4 }}>
+              <div style={{ borderRadius: 10, border: D.borderLight, background: D.bg, padding: '10px 12px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center' }}>
+                  <p style={{ margin: 0, fontSize: 13, color: D.inkDim, lineHeight: 1.55 }}>{roleSuggestion.summary}</p>
+                  <span style={{ flexShrink: 0, fontSize: 10, fontWeight: 800, color: roleSuggestion.aiEnabled ? '#065f46' : '#92400e', background: roleSuggestion.aiEnabled ? '#d1fae5' : '#fef3c7', borderRadius: 4, padding: '2px 7px' }}>
+                    {roleSuggestion.aiEnabled ? 'AI' : 'RULES'}
+                  </span>
+                </div>
+                <p style={{ margin: '6px 0 0', fontSize: 11, color: D.inkMuted }}>
+                  Nguồn kết quả: {roleSuggestion.aiEnabled ? `Gemini AI (${roleSuggestion.source})` : 'fallback rule-based'}
+                </p>
+                {roleSuggestion.signals.length > 0 && (
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
+                    {roleSuggestion.signals.map(signal => (
+                      <span key={signal} style={{ fontSize: 11, color: D.inkDim, background: D.card, border: D.borderLight, borderRadius: 4, padding: '2px 7px' }}>
+                        {signal}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {roleSuggestion.suggestions.map((suggestion, index) => {
+                  const pct = Math.round((suggestion.confidence ?? 0) * 100)
+                  return (
+                    <div key={`${suggestion.role}-${suggestion.departmentId ?? 'none'}-${index}`} style={{ border: D.borderLight, borderRadius: 10, padding: '11px 12px', background: D.card }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+                        <div>
+                          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                            <span style={{ fontSize: 12, fontWeight: 900, color: D.ink }}>
+                              {ROLE_LABELS[suggestion.role] ?? suggestion.role}
+                            </span>
+                            {suggestion.departmentName && (
+                              <span style={{ fontSize: 11, color: D.indigo, fontWeight: 700 }}>
+                                {suggestion.departmentName}
+                              </span>
+                            )}
+                          </div>
+                          <p style={{ margin: '6px 0 0', fontSize: 12, color: D.inkDim, lineHeight: 1.55 }}>
+                            {suggestion.reason}
+                          </p>
+                        </div>
+                        <span style={{ fontSize: 11, fontWeight: 800, color: pct >= 75 ? '#065f46' : '#92400e', whiteSpace: 'nowrap' }}>
+                          {pct}%
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 10 }}>
+                        <button onClick={() => applyRoleSuggestion(suggestion)}
+                          style={{ background: D.indigo, color: '#fff', border: D.border, boxShadow: D.shadow(2,2), padding: '7px 12px', borderRadius: D.pill, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+                          Áp dụng vào form
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+              <p style={{ margin: 0, fontSize: 11, color: D.inkMuted }}>
+                Gợi ý chỉ hỗ trợ ra quyết định. Vai trò chỉ thay đổi sau khi bạn lưu ở form chỉnh sửa.
+              </p>
+            </div>
+          ) : null}
         </DialogContent>
       </Dialog>
 
