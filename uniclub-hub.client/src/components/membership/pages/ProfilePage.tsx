@@ -1,7 +1,7 @@
 import { MEMBERSHIP_STATUS } from '@/types/auth'
 import { useRef, useState, useEffect } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
-import api from '@/lib/axiosInstance'
+import { updateUserAvatar, updateUserProfile } from '@/components/membership/services/userApi'
 import { toast } from 'sonner'
 import { Camera, ChevronDown } from 'lucide-react'
 import MajorSelect from '@/components/shared/MajorSelect'
@@ -100,9 +100,7 @@ export default function ProfilePage() {
     if (file.size > 5 * 1024 * 1024) { toast.error('File không được vượt quá 5MB.'); return }
     setUploadingAvatar(true)
     try {
-      const fd = new FormData()
-      fd.append('file', file)
-      await api.patch('/users/me/avatar', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
+      await updateUserAvatar(file)
       await refreshUser()
       toast.success('Đã cập nhật ảnh đại diện.')
     } catch (err: any) {
@@ -117,7 +115,7 @@ export default function ProfilePage() {
     e.preventDefault()
     setSaving(true)
     try {
-      await api.patch('/users/me', {
+      await updateUserProfile({
         fullName: form.fullName || null,
         studentId: form.studentId || null,
         major: form.major || null,

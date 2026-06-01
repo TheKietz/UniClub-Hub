@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { getClubDetail } from '@/components/membership/services/clubApi'
-import api from '@/lib/axiosInstance'
+import { getClubDetail, uploadClubLogo, updateClubSettings } from '@/components/membership/services/clubApi'
 import { toast } from 'sonner'
 import { QRCodeCanvas } from 'qrcode.react'
 import FormSchemaPage from './FormSchemaPage'
@@ -125,18 +124,14 @@ export default function ClubSettingsPage() {
     try {
       let logoUrl = form.logoUrl
       if (pendingFile) {
-        const fd = new FormData()
-        fd.append('file', pendingFile)
-        const res = await api.post<{ data: { logoUrl: string } }>(`/clubs/${id}/logo`, fd, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        })
-        logoUrl = res.data.data.logoUrl
+        const uploaded = await uploadClubLogo(id, pendingFile)
+        logoUrl = uploaded.logoUrl
         if (previewUrl) URL.revokeObjectURL(previewUrl)
         setPendingFile(null)
         setPreviewUrl('')
         setForm(p => ({ ...p, logoUrl }))
       }
-      await api.patch(`/clubs/${id}/settings`, {
+      await updateClubSettings(id, {
         description: form.description || null,
         contactInfo: form.contactInfo || null,
         advisorName: form.advisorName || null,

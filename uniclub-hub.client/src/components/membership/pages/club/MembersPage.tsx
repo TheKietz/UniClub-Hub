@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { getClubMembers, addMember, updateMember, removeMember, getDepartments, getMemberFieldSchema, updateMemberCustomData, suggestMemberRole } from '@/components/membership/services/clubApi'
-import type { MemberItem, DepartmentItem, MemberFieldDef, RoleSuggestion, RoleSuggestionItem } from '@/components/membership/services/club.types'
+import { getClubMembers, addMember, updateMember, removeMember, getDepartments, getMemberFieldSchema, updateMemberCustomData, suggestMemberRole, getMyClubPermissions, promoteMember, importMembersPreview, importMembersConfirm, exportMembers } from '@/components/membership/services/clubApi'
+import type { MemberItem, DepartmentItem, MemberFieldDef, RoleSuggestion, RoleSuggestionItem, MemberImportRow, MemberImportPreview } from '@/components/membership/services/club.types'
 import { CLUB_ROLES, MEMBERSHIP_STATUS } from '@/types/auth'
+import { CLUB_PERMISSIONS } from '@/constants/clubPermissions'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { toast } from 'sonner'
-import api from '@/lib/axiosInstance'
 import { Pencil, Sparkles, X } from 'lucide-react'
 import { FilterSelect } from '@/components/shared/FilterSelect'
 import { Tooltip } from '@/components/shared/Tooltip'
@@ -75,6 +75,7 @@ export default function MembersPage() {
   const [fieldSchema, setFieldSchema] = useState<MemberFieldDef[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshKey, setRefreshKey] = useState(0)
+  const [permCodes, setPermCodes] = useState<Set<string>>(new Set())
 
   const [addOpen, setAddOpen] = useState(false)
   const [addForm, setAddForm] = useState<AddForm>({ userId: '', clubRole: CLUB_ROLES.MEMBER, departmentId: '' })
@@ -98,10 +99,8 @@ export default function MembersPage() {
 
   // Import state
   const [importOpen, setImportOpen] = useState(false)
-  type ImportRow = { rowNumber: number; email: string; fullName?: string; clubRole: string; departmentName?: string; isValid: boolean; error?: string }
-  type ImportPreview = { validRows: ImportRow[]; invalidRows: ImportRow[]; totalRows: number }
   const [importStep, setImportStep] = useState<'upload' | 'preview' | 'done'>('upload')
-  const [importPreview, setImportPreview] = useState<ImportPreview | null>(null)
+  const [importPreview, setImportPreview] = useState<MemberImportPreview | null>(null)
   const [importResult, setImportResult] = useState<{ imported: number; skipped: number } | null>(null)
   const [importing, setImporting] = useState(false)
   const importFileRef = useRef<HTMLInputElement>(null)
@@ -113,11 +112,20 @@ export default function MembersPage() {
 
   useEffect(() => {
     setLoading(true)
-    Promise.all([getClubMembers(id), getDepartments(id), getMemberFieldSchema(id)])
-      .then(([m, d, fs]) => { setMembers(m); setDepartments(d); setFieldSchema(fs) })
+    Promise.all([getClubMembers(id), getDepartments(id), getMemberFieldSchema(id), getMyClubPermissions(id)])
+      .then(([m, d, fs, perms]) => {
+        setMembers(m)
+        setDepartments(d)
+        setFieldSchema(fs)
+        setPermCodes(new Set(perms.permissionCodes.map(c => c.toLowerCase())))
+      })
       .catch(() => toast.error('Không thể tải danh sách thành viên.'))
       .finally(() => setLoading(false))
   }, [id, refreshKey])
+
+  const canManage = permCodes.has(CLUB_PERMISSIONS.MEMBERS_MANAGE)
+  const canImportExport = permCodes.has(CLUB_PERMISSIONS.MEMBER_IMPORT_EXPORT)
+  const canSuggest = permCodes.has(CLUB_PERMISSIONS.ROLE_SUGGESTIONS_USE)
 
   function setAddField(field: keyof AddForm) {
     return (e: { target: { value: string } }) => setAddForm(p => ({ ...p, [field]: e.target.value }))
@@ -212,7 +220,7 @@ export default function MembersPage() {
 
   async function handlePromote(membershipId: number) {
     try {
-      await api.patch(`/clubs/${id}/members/${membershipId}/promote`)
+      await promoteMember(id, membershipId)
       toast.success('Đã xác nhận thành viên chính thức.')
       setRefreshKey(k => k + 1)
     } catch (err: any) {
@@ -223,12 +231,8 @@ export default function MembersPage() {
   async function handleImportPreview(file: File) {
     setImporting(true)
     try {
-      const fd = new FormData()
-      fd.append('file', file)
-      const res = await api.post<{ data: ImportPreview }>(`/clubs/${id}/members/import/preview`, fd, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      })
-      setImportPreview(res.data.data)
+      const preview = await importMembersPreview(id, file)
+      setImportPreview(preview)
       setImportStep('preview')
     } catch (err: any) {
       toast.error(err.response?.data?.message ?? 'Không thể đọc file. Kiểm tra định dạng.')
@@ -244,11 +248,11 @@ export default function MembersPage() {
       const rows = importPreview.validRows.map(r => ({
         email: r.email, clubRole: r.clubRole, departmentName: r.departmentName,
       }))
-      const res = await api.post<{ data: { imported: number; skipped: number } }>(`/clubs/${id}/members/import/confirm`, { rows })
-      setImportResult(res.data.data)
+      const result = await importMembersConfirm(id, rows)
+      setImportResult(result)
       setImportStep('done')
       setRefreshKey(k => k + 1)
-      toast.success(`Đã thêm ${res.data.data.imported} thành viên.`)
+      toast.success(`Đã thêm ${result.imported} thành viên.`)
     } catch (err: any) {
       toast.error(err.response?.data?.message ?? 'Import thất bại.')
     } finally {
@@ -312,7 +316,7 @@ export default function MembersPage() {
 
   async function handleExport(format: 'xlsx' | 'csv') {
     try {
-      const res = await api.get(`/clubs/${id}/members/export?format=${format}`, { responseType: 'blob' })
+      const res = await exportMembers(id, format)
       const url = URL.createObjectURL(res.data)
       const a = document.createElement('a')
       a.href = url
@@ -361,22 +365,28 @@ export default function MembersPage() {
           <p style={{ fontSize: 13, color: D.inkMuted, marginTop: 4 }}>{members.length} thành viên trong CLB</p>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <button onClick={() => handleExport('xlsx')}
-            style={{ background: D.card, color: D.inkDim, border: D.border, boxShadow: D.shadow(2,2), padding: '8px 14px', borderRadius: D.pill, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
-            ↓ Excel
-          </button>
-          <button onClick={() => handleExport('csv')}
-            style={{ background: D.card, color: D.inkDim, border: D.border, boxShadow: D.shadow(2,2), padding: '8px 14px', borderRadius: D.pill, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
-            ↓ CSV
-          </button>
-          <button onClick={() => { setImportOpen(true); setImportStep('upload') }}
-            style={{ background: D.card, color: '#065f46', border: '1.5px solid #6ee7b7', boxShadow: D.shadow(2,2), padding: '8px 14px', borderRadius: D.pill, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
-            ↑ Import
-          </button>
-          <button onClick={() => setAddOpen(true)}
-            style={{ background: D.indigo, color: '#fff', border: D.border, boxShadow: D.shadow(2,2), padding: '8px 16px', borderRadius: D.pill, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
-            + Thêm thành viên
-          </button>
+          {canImportExport && (
+            <>
+              <button onClick={() => handleExport('xlsx')}
+                style={{ background: D.card, color: D.inkDim, border: D.border, boxShadow: D.shadow(2,2), padding: '8px 14px', borderRadius: D.pill, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                ↓ Excel
+              </button>
+              <button onClick={() => handleExport('csv')}
+                style={{ background: D.card, color: D.inkDim, border: D.border, boxShadow: D.shadow(2,2), padding: '8px 14px', borderRadius: D.pill, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                ↓ CSV
+              </button>
+              <button onClick={() => { setImportOpen(true); setImportStep('upload') }}
+                style={{ background: D.card, color: '#065f46', border: '1.5px solid #6ee7b7', boxShadow: D.shadow(2,2), padding: '8px 14px', borderRadius: D.pill, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                ↑ Import
+              </button>
+            </>
+          )}
+          {canManage && (
+            <button onClick={() => setAddOpen(true)}
+              style={{ background: D.indigo, color: '#fff', border: D.border, boxShadow: D.shadow(2,2), padding: '8px 16px', borderRadius: D.pill, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+              + Thêm thành viên
+            </button>
+          )}
         </div>
       </div>
 
@@ -522,7 +532,7 @@ export default function MembersPage() {
                 </td>
                 <td style={{ padding: '12px 14px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
-                    {m.status === MEMBERSHIP_STATUS.PROBATION && (
+                    {canManage && m.status === MEMBERSHIP_STATUS.PROBATION && (
                       <Tooltip label="Xác nhận chính thức">
                         <button onClick={() => handlePromote(m.id)}
                           style={{ width: 28, height: 28, borderRadius: 6, display: 'grid', placeItems: 'center', background: 'transparent', border: '1px solid #6ee7b7', cursor: 'pointer', color: '#065f46', fontSize: 13 }}>
@@ -530,24 +540,30 @@ export default function MembersPage() {
                         </button>
                       </Tooltip>
                     )}
-                    <Tooltip label="Chỉnh sửa vai trò">
-                      <button onClick={() => openEdit(m)}
-                        style={{ width: 28, height: 28, borderRadius: 6, display: 'grid', placeItems: 'center', background: 'transparent', border: D.borderLight, cursor: 'pointer', color: D.indigo }}>
-                        <Pencil size={13} />
-                      </button>
-                    </Tooltip>
-                    <Tooltip label="Gợi ý vai trò bằng AI">
-                      <button onClick={() => openRoleSuggestion(m)}
-                        style={{ width: 28, height: 28, borderRadius: 6, display: 'grid', placeItems: 'center', background: 'transparent', border: D.borderLight, cursor: 'pointer', color: D.amber }}>
-                        <Sparkles size={13} />
-                      </button>
-                    </Tooltip>
-                    <Tooltip label="Xoá khỏi CLB">
-                      <button onClick={() => setRemoveTarget(m)}
-                        style={{ width: 28, height: 28, borderRadius: 6, display: 'grid', placeItems: 'center', background: 'transparent', border: D.borderLight, cursor: 'pointer', color: D.red }}>
-                        <X size={13} />
-                      </button>
-                    </Tooltip>
+                    {canManage && (
+                      <Tooltip label="Chỉnh sửa vai trò">
+                        <button onClick={() => openEdit(m)}
+                          style={{ width: 28, height: 28, borderRadius: 6, display: 'grid', placeItems: 'center', background: 'transparent', border: D.borderLight, cursor: 'pointer', color: D.indigo }}>
+                          <Pencil size={13} />
+                        </button>
+                      </Tooltip>
+                    )}
+                    {canSuggest && (
+                      <Tooltip label="Gợi ý vai trò bằng AI">
+                        <button onClick={() => openRoleSuggestion(m)}
+                          style={{ width: 28, height: 28, borderRadius: 6, display: 'grid', placeItems: 'center', background: 'transparent', border: D.borderLight, cursor: 'pointer', color: D.amber }}>
+                          <Sparkles size={13} />
+                        </button>
+                      </Tooltip>
+                    )}
+                    {canManage && (
+                      <Tooltip label="Xoá khỏi CLB">
+                        <button onClick={() => setRemoveTarget(m)}
+                          style={{ width: 28, height: 28, borderRadius: 6, display: 'grid', placeItems: 'center', background: 'transparent', border: D.borderLight, cursor: 'pointer', color: D.red }}>
+                          <X size={13} />
+                        </button>
+                      </Tooltip>
+                    )}
                   </div>
                 </td>
               </tr>

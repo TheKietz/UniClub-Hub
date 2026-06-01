@@ -11,10 +11,12 @@ namespace UniClub_Hub.Membership.Services.Implements
     public class ClubPositionService : IClubPositionService
     {
         private readonly UniClubDbContext _db;
+        private readonly IClubPermissionService _permissions;
 
-        public ClubPositionService(UniClubDbContext db)
+        public ClubPositionService(UniClubDbContext db, IClubPermissionService permissions)
         {
             _db = db;
+            _permissions = permissions;
         }
 
         public async Task<IReadOnlyList<ClubPositionDto>> GetAllAsync(
@@ -317,27 +319,25 @@ namespace UniClub_Hub.Membership.Services.Implements
 
         private async Task EnsureCanViewClubAsync(int clubId, string requesterUserId, bool isSuperAdmin)
         {
-            if (isSuperAdmin)
-            {
-                await EnsureClubExistsAsync(clubId);
-                return;
-            }
-
-            if (!await _db.ClubMemberships.AnyAsync(m =>
-                m.ClubId == clubId
-                && m.UserId == requesterUserId
-                && (m.Status == MembershipStatus.Active || m.Status == MembershipStatus.Probation)))
-            {
-                throw new UnauthorizedAccessException();
-            }
+            await _permissions.EnsureHasAnyPermissionAsync(
+                clubId,
+                requesterUserId,
+                isSuperAdmin,
+                ClubPermissions.OrgChartView,
+                ClubPermissions.OrgChartManage,
+                ClubPermissions.PositionsManage,
+                ClubPermissions.PositionAssignmentsManage
+            );
         }
 
         private async Task EnsureCanManagePositionsAsync(int clubId, string requesterUserId, bool isSuperAdmin)
         {
-            if (!await IsClubAdminOrSuperAdminAsync(clubId, requesterUserId, isSuperAdmin))
-            {
-                throw new UnauthorizedAccessException();
-            }
+            await _permissions.EnsureHasPermissionAsync(
+                clubId,
+                requesterUserId,
+                isSuperAdmin,
+                ClubPermissions.PositionsManage
+            );
         }
 
         private async Task EnsureCanViewMemberPositionsAsync(
@@ -347,7 +347,12 @@ namespace UniClub_Hub.Membership.Services.Implements
             ClubMembership targetMembership
         )
         {
-            if (await IsClubAdminOrSuperAdminAsync(clubId, requesterUserId, isSuperAdmin))
+            if (await _permissions.HasAnyPermissionAsync(
+                clubId,
+                requesterUserId,
+                isSuperAdmin,
+                ClubPermissions.PositionsManage,
+                ClubPermissions.PositionAssignmentsManage))
             {
                 return;
             }
@@ -378,17 +383,12 @@ namespace UniClub_Hub.Membership.Services.Implements
             bool isSuperAdmin
         )
         {
-            if (isSuperAdmin)
-            {
-                await EnsureClubExistsAsync(clubId);
-                return true;
-            }
-
-            return await _db.ClubMemberships.AnyAsync(m =>
-                m.ClubId == clubId
-                && m.UserId == requesterUserId
-                && m.ClubRole == ClubRole.CLUB_ADMIN
-                && m.Status == MembershipStatus.Active);
+            return await _permissions.HasPermissionAsync(
+                clubId,
+                requesterUserId,
+                isSuperAdmin,
+                ClubPermissions.PositionsManage
+            );
         }
 
         private async Task<ClubMembership?> GetActiveMembershipAsync(int clubId, string requesterUserId)
@@ -425,14 +425,6 @@ namespace UniClub_Hub.Membership.Services.Implements
             if (invalidPosition != null)
             {
                 throw new InvalidOperationException("Trưởng ban chỉ được gán position được phép trong ban của mình.");
-            }
-        }
-
-        private async Task EnsureClubExistsAsync(int clubId)
-        {
-            if (!await _db.Clubs.AnyAsync(c => c.Id == clubId))
-            {
-                throw new KeyNotFoundException($"Không tìm thấy CLB với ID {clubId}.");
             }
         }
 

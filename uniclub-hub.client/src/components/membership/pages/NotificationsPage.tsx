@@ -1,26 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { CalendarDays, Check, CheckCircle2, ClipboardCheck, FileText, ListTodo, Megaphone, Star } from 'lucide-react'
-import api from '@/lib/axiosInstance'
+import { getNotifications, getNotificationUnreadCount, markAllNotificationsRead, markNotificationRead } from '@/components/membership/services/notificationApi'
+import type { NotificationItem, NotificationType } from '@/components/membership/services/notificationApi'
 import { LoadMoreBar } from '@/components/shared/LoadMoreBar'
 
-type NotificationType = 'Task' | 'Event' | 'Application' | 'System'
 type FilterKey = 'all' | 'unread' | 'application' | 'task' | 'event' | 'system'
-
-interface NotificationItem {
-  id: number
-  title: string
-  message: string
-  type: NotificationType
-  isRead: boolean
-  createdAt: string
-}
-
-interface PagedResult<T> {
-  items: T[]
-  totalCount: number
-  page: number
-  pageSize: number
-}
 
 const D = {
   border: '1.5px solid #15131a',
@@ -87,20 +71,14 @@ export default function NotificationsPage() {
 
   useEffect(() => {
     setLoading(true)
-    Promise.all([
-      api.get<{ data: PagedResult<NotificationItem> }>('/notifications', { params: { page: 1, pageSize: 20 } }),
-      api.get<{ data: { count: number } }>('/notifications/unread-count'),
-    ])
-      .then(([listRes, countRes]) => {
-        setItems(listRes.data.data.items ?? [])
-        setTotal(listRes.data.data.totalCount ?? 0)
-        setUnreadCount(countRes.data.data?.count ?? 0)
+    Promise.all([getNotifications(1), getNotificationUnreadCount()])
+      .then(([list, count]) => {
+        setItems(list.items ?? [])
+        setTotal(list.totalCount ?? 0)
+        setUnreadCount(count)
         setPage(1)
       })
-      .catch(() => {
-        setItems([])
-        setTotal(0)
-      })
+      .catch(() => { setItems([]); setTotal(0) })
       .finally(() => setLoading(false))
   }, [])
 
@@ -123,11 +101,9 @@ export default function NotificationsPage() {
     const nextPage = page + 1
     setLoadingMore(true)
     try {
-      const res = await api.get<{ data: PagedResult<NotificationItem> }>('/notifications', {
-        params: { page: nextPage, pageSize: 20 },
-      })
-      setItems(prev => [...prev, ...(res.data.data.items ?? [])])
-      setTotal(res.data.data.totalCount ?? total)
+      const list = await getNotifications(nextPage)
+      setItems(prev => [...prev, ...(list.items ?? [])])
+      setTotal(list.totalCount ?? total)
       setPage(nextPage)
     } finally {
       setLoadingMore(false)
@@ -135,14 +111,14 @@ export default function NotificationsPage() {
   }
 
   async function markAllRead() {
-    await api.patch('/notifications/read-all').catch(() => {})
+    await markAllNotificationsRead().catch(() => {})
     setItems(prev => prev.map(item => ({ ...item, isRead: true })))
     setUnreadCount(0)
   }
 
   async function markRead(item: NotificationItem) {
     if (item.isRead) return
-    await api.patch(`/notifications/${item.id}/read`).catch(() => {})
+    await markNotificationRead(item.id).catch(() => {})
     setItems(prev => prev.map(n => n.id === item.id ? { ...n, isRead: true } : n))
     setUnreadCount(prev => Math.max(0, prev - 1))
   }

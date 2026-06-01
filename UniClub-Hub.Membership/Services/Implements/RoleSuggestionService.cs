@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using UniClub_Hub.Membership.DTOs.Ai;
 using UniClub_Hub.Membership.Services.Interfaces;
 using UniClub_Hub.Shared.AI;
+using UniClub_Hub.Shared.Constants;
 using UniClub_Hub.Shared.Data;
 using UniClub_Hub.Shared.Enums;
 using UniClub_Hub.Shared.Models;
@@ -19,11 +20,13 @@ namespace UniClub_Hub.Membership.Services.Implements
 
         private readonly UniClubDbContext _db;
         private readonly IAiModelClient _aiModel;
+        private readonly IClubPermissionService _permissions;
 
-        public RoleSuggestionService(UniClubDbContext db, IAiModelClient aiModel)
+        public RoleSuggestionService(UniClubDbContext db, IAiModelClient aiModel, IClubPermissionService permissions)
         {
             _db = db;
             _aiModel = aiModel;
+            _permissions = permissions;
         }
 
         public async Task<RoleSuggestionDto> SuggestRoleForMemberAsync(
@@ -46,13 +49,7 @@ namespace UniClub_Hub.Membership.Services.Implements
                     )
                 ?? throw new KeyNotFoundException("Không tìm thấy thành viên này trong CLB.");
 
-            await EnsureCanSuggestAsync(
-                clubId,
-                membership,
-                requesterUserId,
-                isSuperAdmin,
-                cancellationToken
-            );
+            await EnsureCanSuggestAsync(clubId, membership, requesterUserId, isSuperAdmin);
 
             var context = await BuildContextAsync(membership, cancellationToken);
             var fallback = BuildRuleBasedSuggestion(membership, context);
@@ -98,37 +95,12 @@ namespace UniClub_Hub.Membership.Services.Implements
             int clubId,
             ClubMembership target,
             string requesterUserId,
-            bool isSuperAdmin,
-            CancellationToken cancellationToken
+            bool isSuperAdmin
         )
         {
-            if (isSuperAdmin)
-                return;
-
-            var requesterMembership = await _db
-                .ClubMemberships.AsNoTracking()
-                .FirstOrDefaultAsync(
-                    m =>
-                        m.ClubId == clubId
-                        && m.UserId == requesterUserId
-                        && m.Status == MembershipStatus.Active,
-                    cancellationToken
-                );
-
-            if (requesterMembership is null)
-                throw new UnauthorizedAccessException("Bạn không có quyền gợi ý vai trò trong CLB này.");
-
-            if (requesterMembership.ClubRole == ClubRole.CLUB_ADMIN)
-                return;
-
-            if (
-                requesterMembership.ClubRole == ClubRole.DEPT_LEAD
-                && requesterMembership.DepartmentId.HasValue
-                && target.DepartmentId == requesterMembership.DepartmentId
-            )
-                return;
-
-            throw new UnauthorizedAccessException("Bạn không có quyền gợi ý vai trò cho thành viên này.");
+            _ = target; // target reserved for future department-scoped checks
+            await _permissions.EnsureHasPermissionAsync(
+                clubId, requesterUserId, isSuperAdmin, ClubPermissions.RoleSuggestionsUse);
         }
 
         private async Task<RoleSuggestionContext> BuildContextAsync(

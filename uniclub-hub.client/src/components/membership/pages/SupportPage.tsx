@@ -1,17 +1,8 @@
 import { useEffect, useState } from 'react'
-import api from '@/lib/axiosInstance'
+import { getSupportTickets, submitSupportRequest } from '@/components/membership/services/userApi'
+import type { SupportTicket } from '@/components/membership/services/userApi'
 import { toast } from 'sonner'
 import { Clock, CheckCircle2, Loader2 } from 'lucide-react'
-
-interface Ticket {
-  id: number
-  subject: string
-  message: string
-  status: string
-  adminNote?: string
-  createdAt: string
-  resolvedAt?: string
-}
 
 const STATUS_CONFIG: Record<string, { label: string; bg: string; text: string; icon: React.ElementType }> = {
   Open:       { label: 'Đang chờ',      bg: '#fef3c7', text: '#b45309', icon: Clock },
@@ -39,7 +30,7 @@ function fmtDate(d: string) {
 }
 
 export default function SupportPage() {
-  const [tickets, setTickets] = useState<Ticket[]>([])
+  const [tickets, setTickets] = useState<SupportTicket[]>([])
   const [loading, setLoading] = useState(true)
   const [subject, setSubject] = useState('')
   const [message, setMessage] = useState('')
@@ -47,8 +38,8 @@ export default function SupportPage() {
   const [expanded, setExpanded] = useState<number | null>(null)
 
   function load() {
-    api.get<{ data: Ticket[] }>('/support/me')
-      .then(r => setTickets(r.data.data))
+    getSupportTickets()
+      .then(setTickets)
       .catch(() => toast.error('Không thể tải danh sách yêu cầu.'))
       .finally(() => setLoading(false))
   }
@@ -60,7 +51,7 @@ export default function SupportPage() {
     if (!subject.trim() || !message.trim()) { toast.error('Vui lòng điền đầy đủ tiêu đề và nội dung.'); return }
     setSending(true)
     try {
-      await api.post('/support', { subject: subject.trim(), message: message.trim() })
+      await submitSupportRequest(subject.trim(), message.trim())
       toast.success('Đã gửi yêu cầu hỗ trợ.')
       setSubject(''); setMessage('')
       load()

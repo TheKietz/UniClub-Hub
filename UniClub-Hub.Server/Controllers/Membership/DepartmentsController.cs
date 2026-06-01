@@ -1,13 +1,11 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 using UniClub_Hub.Membership.DTOs.Department;
 using UniClub_Hub.Membership.DTOs.Membership;
 using UniClub_Hub.Membership.Services.Interfaces;
 using UniClub_Hub.Shared.Common;
-using UniClub_Hub.Shared.Enums;
-using UniClub_Hub.Shared.Data;
+using UniClub_Hub.Shared.Constants;
 
 namespace UniClub_Hub.Server.Controllers.Membership
 {
@@ -16,12 +14,12 @@ namespace UniClub_Hub.Server.Controllers.Membership
     public class DepartmentsController : ControllerBase
     {
         private readonly IDepartmentService _departmentService;
-        private readonly UniClubDbContext _db;
+        private readonly IClubPermissionService _permissions;
 
-        public DepartmentsController(IDepartmentService departmentService, UniClubDbContext db)
+        public DepartmentsController(IDepartmentService departmentService, IClubPermissionService permissions)
         {
             _departmentService = departmentService;
-            _db = db;
+            _permissions = permissions;
         }
 
         [HttpGet]
@@ -56,7 +54,7 @@ namespace UniClub_Hub.Server.Controllers.Membership
         [Authorize]
         public async Task<IActionResult> Create(int clubId, [FromBody] CreateDepartmentDto dto)
         {
-            if (!await IsClubAdminOrSuperAdmin(clubId)) return Forbid();
+            if (!await CanManageAsync(clubId)) return Forbid();
             try
             {
                 var result = await _departmentService.CreateAsync(clubId, dto);
@@ -70,7 +68,7 @@ namespace UniClub_Hub.Server.Controllers.Membership
         [Authorize]
         public async Task<IActionResult> Update(int clubId, int id, [FromBody] UpdateDepartmentDto dto)
         {
-            if (!await IsClubAdminOrSuperAdmin(clubId)) return Forbid();
+            if (!await CanManageAsync(clubId)) return Forbid();
             try
             {
                 var result = await _departmentService.UpdateAsync(clubId, id, dto);
@@ -84,7 +82,7 @@ namespace UniClub_Hub.Server.Controllers.Membership
         [Authorize]
         public async Task<IActionResult> Delete(int clubId, int id)
         {
-            if (!await IsClubAdminOrSuperAdmin(clubId)) return Forbid();
+            if (!await CanManageAsync(clubId)) return Forbid();
             try
             {
                 await _departmentService.DeleteAsync(clubId, id);
@@ -98,7 +96,7 @@ namespace UniClub_Hub.Server.Controllers.Membership
         [Authorize]
         public async Task<IActionResult> SetLead(int clubId, int id, [FromBody] SetDeptLeadDto dto)
         {
-            if (!await IsClubAdminOrSuperAdmin(clubId)) return Forbid();
+            if (!await CanManageAsync(clubId)) return Forbid();
             try
             {
                 await _departmentService.SetLeadAsync(clubId, id, dto.MembershipId);
@@ -108,13 +106,11 @@ namespace UniClub_Hub.Server.Controllers.Membership
             catch (KeyNotFoundException ex) { return NotFound(ApiResponse<object>.Fail(ex.Message)); }
         }
 
-        private async Task<bool> IsClubAdminOrSuperAdmin(int clubId)
+        private async Task<bool> CanManageAsync(int clubId)
         {
-            if (User.IsInRole("SUPER_ADMIN")) return true;
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
-            return await _db.ClubMemberships.AnyAsync(m =>
-                m.UserId == userId && m.ClubId == clubId &&
-                m.ClubRole == ClubRole.CLUB_ADMIN && m.Status == MembershipStatus.Active);
+            var isSuperAdmin = User.IsInRole("SUPER_ADMIN");
+            return await _permissions.HasPermissionAsync(clubId, userId, isSuperAdmin, ClubPermissions.DepartmentsManage);
         }
     }
 }

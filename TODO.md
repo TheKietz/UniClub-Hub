@@ -1,3 +1,17 @@
+## Task Tracking — Đề tài 1 (Membership)
+
+| Status   | Task                                                                      |
+|----------|---------------------------------------------------------------------------|
+| [x] Done | Trang báo cáo CLB (`/clubs/:id/manage/report`) — 7 sections, print-to-PDF |
+| [x] Done | Trang báo cáo hệ thống admin (`/admin/report`) — 6 sections, print-to-PDF |
+| [ ] Todo | Role suggestion (AI phân công role) — Gemini đã wired, cần data KPI |
+| [ ] Todo | KPI nội bộ thành viên — chờ Đề tài 2 (Operations) có task tracking |
+| [ ] Todo | Tự cấu hình tiêu chí KPI |
+| [ ] Todo | Nâng cấp Org chart (basic page đã có) |
+| [ ] Todo | Kiểm thử (Unit Test các service chính) |
+
+---
+
 "Từ nay, hãy luôn áp dụng quy tắc 'Department-Scope' cho mọi truy vấn dữ liệu liên quan đến dự án UniClub Hub:
 
 Mọi yêu cầu truy xuất dữ liệu (Task, Sprint, Timeline, Workload...) đều phải đi kèm departmentId.

@@ -12,9 +12,9 @@ namespace UniClub_Hub.Shared.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropIndex(
-                name: "IX_TaskAssignees_TaskId",
-                table: "TaskAssignees");
+            migrationBuilder.Sql("""
+                DROP INDEX IF EXISTS "IX_TaskAssignees_TaskId";
+                """);
 
             migrationBuilder.CreateTable(
                 name: "ClubPositions",
@@ -96,11 +96,10 @@ namespace UniClub_Hub.Shared.Migrations
                         onDelete: ReferentialAction.Cascade);
                 });
 
-            migrationBuilder.CreateIndex(
-                name: "IX_TaskAssignees_TaskId_UserId",
-                table: "TaskAssignees",
-                columns: new[] { "TaskId", "UserId" },
-                unique: true);
+            migrationBuilder.Sql("""
+                CREATE UNIQUE INDEX IF NOT EXISTS "IX_TaskAssignees_TaskId_UserId"
+                ON "TaskAssignees" ("TaskId", "UserId");
+                """);
 
             migrationBuilder.CreateIndex(
                 name: "IX_ClubMemberPositions_PositionId",
@@ -132,14 +131,11 @@ namespace UniClub_Hub.Shared.Migrations
             migrationBuilder.DropTable(
                 name: "ClubPositions");
 
-            migrationBuilder.DropIndex(
-                name: "IX_TaskAssignees_TaskId_UserId",
-                table: "TaskAssignees");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_TaskAssignees_TaskId",
-                table: "TaskAssignees",
-                column: "TaskId");
+            migrationBuilder.Sql("""
+                DROP INDEX IF EXISTS "IX_TaskAssignees_TaskId_UserId";
+                CREATE INDEX IF NOT EXISTS "IX_TaskAssignees_TaskId"
+                ON "TaskAssignees" ("TaskId");
+                """);
         }
     }
 }

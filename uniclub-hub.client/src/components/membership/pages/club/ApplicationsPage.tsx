@@ -1,13 +1,13 @@
 import { APPLICATION_STATUS } from '@/types/auth'
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { getApplications, reviewApplication, getMemberFieldSchema, advanceApplicationStage, getPipelineStages } from '@/components/membership/services/clubApi'
+import { getApplications, reviewApplication, getMemberFieldSchema, advanceApplicationStage, getPipelineStages, getMyClubPermissions, exportApplications } from '@/components/membership/services/clubApi'
 import type { ApplicationItem, MemberFieldDef, PipelineStage } from '@/components/membership/services/club.types'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { toast } from 'sonner'
 import { Clock, MessageCircle, CheckCircle2, XCircle, GitBranch } from 'lucide-react'
-import api from '@/lib/axiosInstance'
 import { LoadMoreBar } from '@/components/shared/LoadMoreBar'
+import { CLUB_PERMISSIONS } from '@/constants/clubPermissions'
 
 const PAGE_SIZE = 20
 
@@ -35,6 +35,7 @@ export default function ApplicationsPage() {
   const [applications, setApplications] = useState<ApplicationItem[]>([])
   const [fieldSchema, setFieldSchema] = useState<MemberFieldDef[]>([])
   const [pipelineStages, setPipelineStages] = useState<PipelineStage[]>([])
+  const [permCodes, setPermCodes] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState('')
   const [search, setSearch] = useState('')
@@ -45,6 +46,9 @@ export default function ApplicationsPage() {
   useEffect(() => {
     getMemberFieldSchema(id).then(setFieldSchema).catch(() => {})
     getPipelineStages(id).then(setPipelineStages).catch(() => {})
+    getMyClubPermissions(id)
+      .then(r => setPermCodes(new Set(r.permissionCodes.map(c => c.toLowerCase()))))
+      .catch(() => {})
   }, [id])
 
   useEffect(() => {
@@ -54,6 +58,8 @@ export default function ApplicationsPage() {
       .catch(() => toast.error('Không thể tải danh sách đơn.'))
       .finally(() => setLoading(false))
   }, [id, refreshKey])
+
+  const canReview = permCodes.has(CLUB_PERMISSIONS.APPLICATIONS_REVIEW)
 
   const [selected, setSelected] = useState<ApplicationItem | null>(null)
   const [reviewNote, setReviewNote] = useState('')
@@ -125,9 +131,7 @@ export default function ApplicationsPage() {
 
   async function handleExport(format: 'xlsx' | 'csv') {
     try {
-      const params = new URLSearchParams({ format })
-      if (statusFilter) params.set('status', statusFilter)
-      const res = await api.get(`/clubs/${id}/applications/export?${params}`, { responseType: 'blob' })
+      const res = await exportApplications(id, { format, ...(statusFilter ? { status: statusFilter } : {}) })
       const url = URL.createObjectURL(res.data)
       const a = document.createElement('a')
       a.href = url
@@ -290,7 +294,7 @@ export default function ApplicationsPage() {
                     }}
                       onMouseEnter={e => (e.currentTarget.style.background = '#eef2ff')}
                       onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                      {isPending ? 'Xem & duyệt' : 'Chi tiết'}
+                      {isPending && canReview ? 'Xem & duyệt' : 'Chi tiết'}
                     </button>
                   </td>
                 </tr>
@@ -413,7 +417,7 @@ export default function ApplicationsPage() {
                 </div>
               )}
 
-              {(selected.status === 'Pending' || selected.status === 'Interview' || selected.status === 'Reviewing') && (
+              {canReview && (selected.status === 'Pending' || selected.status === 'Interview' || selected.status === 'Reviewing') && (
                 <div>
                   <label style={labelStyle}>
                     Ghi chú phản hồi <span style={{ fontWeight: 400, color: D.inkMuted }}>(tuỳ chọn)</span>
@@ -427,7 +431,7 @@ export default function ApplicationsPage() {
           )}
 
           <DialogFooter style={{ borderTop: 'none', background: 'transparent', paddingTop: 8, flexWrap: 'wrap', gap: 8 }}>
-            {selected && (selected.status === 'Pending' || selected.status === 'Interview' || selected.status === 'Reviewing') && (
+            {canReview && selected && (selected.status === 'Pending' || selected.status === 'Interview' || selected.status === 'Reviewing') && (
               <>
                 {canAdvance && (
                   <button disabled={reviewing} onClick={handleAdvance}

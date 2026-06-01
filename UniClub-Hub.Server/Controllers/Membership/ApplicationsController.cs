@@ -1,13 +1,11 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 using UniClub_Hub.Membership.DTOs.Application;
 using UniClub_Hub.Membership.DTOs.Pipeline;
 using UniClub_Hub.Membership.Services.Interfaces;
 using UniClub_Hub.Shared.Common;
-using UniClub_Hub.Shared.Data;
-using UniClub_Hub.Shared.Enums;
+using UniClub_Hub.Shared.Constants;
 
 namespace UniClub_Hub.Server.Controllers.Membership
 {
@@ -16,12 +14,12 @@ namespace UniClub_Hub.Server.Controllers.Membership
     public class ApplicationsController : ControllerBase
     {
         private readonly IApplicationService _applicationService;
-        private readonly UniClubDbContext _db;
+        private readonly IClubPermissionService _permissions;
 
-        public ApplicationsController(IApplicationService applicationService, UniClubDbContext db)
+        public ApplicationsController(IApplicationService applicationService, IClubPermissionService permissions)
         {
             _applicationService = applicationService;
-            _db = db;
+            _permissions = permissions;
         }
 
         // User xem đơn của mình trong CLB này
@@ -35,20 +33,15 @@ namespace UniClub_Hub.Server.Controllers.Membership
             return Ok(ApiResponse<IEnumerable<ApplicationDto>>.Ok(result));
         }
 
-        // Admin xem tất cả đơn của CLB — chỉ CLUB_ADMIN của CLB đó hoặc SUPER_ADMIN
+        // Admin xem tất cả đơn của CLB
         [HttpGet]
         [Authorize]
         public async Task<IActionResult> GetAll(int clubId, [FromQuery] string? status)
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
             var isSuperAdmin = User.IsInRole("SUPER_ADMIN");
-            if (!isSuperAdmin)
-            {
-                var isClubAdmin = await _db.ClubMemberships.AnyAsync(m =>
-                    m.ClubId == clubId && m.UserId == userId &&
-                    m.ClubRole == ClubRole.CLUB_ADMIN && m.Status == MembershipStatus.Active);
-                if (!isClubAdmin) return Forbid();
-            }
+            if (!await _permissions.HasPermissionAsync(clubId, userId, isSuperAdmin, ClubPermissions.ApplicationsView))
+                return Forbid();
 
             try
             {

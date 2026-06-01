@@ -27,6 +27,8 @@ namespace UniClub_Hub.Shared.Constants
         public const string ResignationsReview = "membership.resignations.review";
         public const string OrgChartView = "membership.org_chart.view";
         public const string OrgChartManage = "membership.org_chart.manage";
+        public const string PositionsManage = "membership.positions.manage";
+        public const string PositionAssignmentsManage = "membership.position_assignments.manage";
         public const string ReportsView = "membership.reports.view";
         public const string ReportsExport = "membership.reports.export";
         public const string RoleSuggestionsUse = "membership.role_suggestions.use";
@@ -78,6 +80,8 @@ namespace UniClub_Hub.Shared.Constants
             new(ResignationsReview, "Duyet don tu chuc", "Chap nhan hoac tu choi don tu chuc.", "Nhan su", "Membership"),
             new(OrgChartView, "Xem so do to chuc", "Xem co cau to chuc va cac vi tri trong CLB.", "Co cau to chuc", "Membership"),
             new(OrgChartManage, "Quan ly so do to chuc", "Cap nhat co cau, vi tri va nguoi dam nhiem.", "Co cau to chuc", "Membership"),
+            new(PositionsManage, "Quan ly position", "Tao, sua, xoa position va cau hinh permission cho tung position.", "Co cau to chuc", "Membership"),
+            new(PositionAssignmentsManage, "Gan position", "Gan hoac go position cho thanh vien trong pham vi duoc phep.", "Co cau to chuc", "Membership"),
             new(ReportsView, "Xem bao cao", "Xem thong ke thanh vien, don dang ky, hoat dong va phan bo vai tro.", "Bao cao", "Membership"),
             new(ReportsExport, "Xuat bao cao", "Xuat du lieu bao cao phuc vu tong ket va danh gia CLB.", "Bao cao", "Membership"),
             new(RoleSuggestionsUse, "Dung goi y vai tro", "Su dung goi y rule-based/AI de de xuat vai tro hoac ban phu hop.", "Nhan su", "Membership"),

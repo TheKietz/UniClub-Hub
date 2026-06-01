@@ -620,6 +620,337 @@ namespace UniClub_Hub.Server.Data
                 await db.SaveChangesAsync();
             }
 
+            // ── Club Positions & Permissions ─────────────────────────────
+            // Demo data for the flexible position/permission model. This is intentionally
+            // idempotent and only adds missing permissions so admin edits are not wiped.
+            {
+                int? GetDeptId(string clubCode, string deptName)
+                    => deptMap.TryGetValue($"{clubCode}_{deptName}", out var dept) ? dept.Id : null;
+
+                async Task<ClubPosition> EnsurePositionAsync(
+                    Club club,
+                    int? departmentId,
+                    string name,
+                    string description,
+                    bool isDefault,
+                    bool canBeAssignedByDeptLead,
+                    params string[] permissionCodes)
+                {
+                    var position = await db.ClubPositions
+                        .IgnoreQueryFilters()
+                        .Where(p =>
+                            p.ClubId == club.Id &&
+                            p.DepartmentId == departmentId &&
+                            p.Name == name)
+                        .OrderBy(p => p.IsDeleted ? 1 : 0)
+                        .FirstOrDefaultAsync();
+
+                    if (position == null)
+                    {
+                        position = new ClubPosition
+                        {
+                            ClubId = club.Id,
+                            DepartmentId = departmentId,
+                            Name = name,
+                            Description = description,
+                            IsDefault = isDefault,
+                            CanBeAssignedByDeptLead = canBeAssignedByDeptLead,
+                            CreatedAt = DateTime.UtcNow,
+                            UpdatedAt = DateTime.UtcNow,
+                        };
+                        db.ClubPositions.Add(position);
+                        await db.SaveChangesAsync();
+                    }
+                    else
+                    {
+                        position.Description = description;
+                        position.IsDefault = isDefault;
+                        position.CanBeAssignedByDeptLead = canBeAssignedByDeptLead;
+                        position.IsDeleted = false;
+                        position.DeletedBy = null;
+                        position.UpdatedAt = DateTime.UtcNow;
+                        await db.SaveChangesAsync();
+                    }
+
+                    var targetCodes = permissionCodes
+                        .Where(ClubPermissions.IsKnown)
+                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                        .ToList();
+
+                    var existingCodes = await db.ClubPositionPermissions
+                        .IgnoreQueryFilters()
+                        .Where(p => p.PositionId == position.Id)
+                        .Select(p => p.PermissionCode)
+                        .ToListAsync();
+
+                    var existingSet = existingCodes.ToHashSet(StringComparer.OrdinalIgnoreCase);
+                    var missing = targetCodes
+                        .Where(code => !existingSet.Contains(code))
+                        .Select(code => new ClubPositionPermission
+                        {
+                            PositionId = position.Id,
+                            PermissionCode = code,
+                        })
+                        .ToList();
+
+                    if (missing.Count > 0)
+                    {
+                        db.ClubPositionPermissions.AddRange(missing);
+                        await db.SaveChangesAsync();
+                    }
+
+                    return position;
+                }
+
+                async Task AssignPositionAsync(string email, Club club, int? departmentId, ClubPosition position)
+                {
+                    if (!createdUsers.TryGetValue(email, out var user))
+                        return;
+
+                    var membership = await db.ClubMemberships
+                        .Where(m =>
+                            m.UserId == user.Id &&
+                            m.ClubId == club.Id &&
+                            m.DepartmentId == departmentId &&
+                            (m.Status == MembershipStatus.Active || m.Status == MembershipStatus.Probation))
+                        .OrderBy(m => m.Status == MembershipStatus.Active ? 0 : 1)
+                        .ThenBy(m => m.Id)
+                        .FirstOrDefaultAsync();
+
+                    if (membership == null)
+                        return;
+
+                    var exists = await db.ClubMemberPositions.AnyAsync(p =>
+                        p.MembershipId == membership.Id && p.PositionId == position.Id);
+
+                    if (!exists)
+                    {
+                        db.ClubMemberPositions.Add(new ClubMemberPosition
+                        {
+                            MembershipId = membership.Id,
+                            PositionId = position.Id,
+                            AssignedAt = DateTime.UtcNow,
+                            AssignedBy = "seeder",
+                        });
+                        await db.SaveChangesAsync();
+                    }
+                }
+
+                var techDeptId = GetDeptId("TECH", "Ban Kỹ thuật");
+                var mediaDeptId = GetDeptId("TECH", "Ban Truyền thông");
+                var eventDeptId = GetDeptId("TECH", "Ban Sự kiện");
+
+                var clubPresident = await EnsurePositionAsync(
+                    clubTech,
+                    null,
+                    "Chủ nhiệm CLB",
+                    "Điều phối toàn bộ hoạt động, nhân sự, tuyển thành viên và cấu hình CLB.",
+                    isDefault: true,
+                    canBeAssignedByDeptLead: false,
+                    ClubPermissions.MembersView,
+                    ClubPermissions.MembersManage,
+                    ClubPermissions.MemberHistoryView,
+                    ClubPermissions.MemberLifecycleManage,
+                    ClubPermissions.MemberImportExport,
+                    ClubPermissions.DepartmentsManage,
+                    ClubPermissions.ApplicationsView,
+                    ClubPermissions.ApplicationsReview,
+                    ClubPermissions.RecruitmentPipelineManage,
+                    ClubPermissions.RecruitmentFormManage,
+                    ClubPermissions.ResignationsView,
+                    ClubPermissions.ResignationsReview,
+                    ClubPermissions.OrgChartView,
+                    ClubPermissions.OrgChartManage,
+                    ClubPermissions.PositionsManage,
+                    ClubPermissions.PositionAssignmentsManage,
+                    ClubPermissions.ReportsView,
+                    ClubPermissions.ReportsExport,
+                    ClubPermissions.RoleSuggestionsUse,
+                    ClubPermissions.ClubSettingsManage,
+                    ClubPermissions.ClubAuditLogView,
+                    ClubPermissions.ClubProfileManage,
+                    ClubPermissions.NotificationSettingsManage,
+                    ClubPermissions.NotificationsView,
+                    ClubPermissions.OperationsDashboardView,
+                    ClubPermissions.TasksView,
+                    ClubPermissions.TasksManage,
+                    ClubPermissions.SprintsManage,
+                    ClubPermissions.EventsView,
+                    ClubPermissions.EventsManage,
+                    ClubPermissions.EventParticipantsManage,
+                    ClubPermissions.WorkloadView,
+                    ClubPermissions.PortalLandingPageManage,
+                    ClubPermissions.PortalContentView,
+                    ClubPermissions.PortalContentManage,
+                    ClubPermissions.PortalContentReview,
+                    ClubPermissions.PortalMediaManage,
+                    ClubPermissions.PortalAnalyticsView,
+                    ClubPermissions.PortalSocialManage);
+
+                var vicePresident = await EnsurePositionAsync(
+                    clubTech,
+                    null,
+                    "Phó chủ nhiệm",
+                    "Hỗ trợ chủ nhiệm điều phối nhân sự, sự kiện và vận hành CLB.",
+                    isDefault: true,
+                    canBeAssignedByDeptLead: false,
+                    ClubPermissions.MembersView,
+                    ClubPermissions.MembersManage,
+                    ClubPermissions.ApplicationsView,
+                    ClubPermissions.ApplicationsReview,
+                    ClubPermissions.ResignationsView,
+                    ClubPermissions.OrgChartView,
+                    ClubPermissions.PositionAssignmentsManage,
+                    ClubPermissions.ReportsView,
+                    ClubPermissions.TasksView,
+                    ClubPermissions.TasksManage,
+                    ClubPermissions.EventsView,
+                    ClubPermissions.EventsManage,
+                    ClubPermissions.NotificationsView);
+
+                var treasurer = await EnsurePositionAsync(
+                    clubTech,
+                    null,
+                    "Thủ quỹ",
+                    "Theo dõi thu chi, xuất báo cáo và hỗ trợ tổng kết sự kiện.",
+                    isDefault: false,
+                    canBeAssignedByDeptLead: false,
+                    ClubPermissions.ReportsView,
+                    ClubPermissions.ReportsExport,
+                    ClubPermissions.EventsView,
+                    ClubPermissions.EventParticipantsManage,
+                    ClubPermissions.NotificationsView);
+
+                var techLead = await EnsurePositionAsync(
+                    clubTech,
+                    techDeptId,
+                    "Trưởng ban Kỹ thuật",
+                    "Quản lý thành viên, task và sprint của Ban Kỹ thuật.",
+                    isDefault: true,
+                    canBeAssignedByDeptLead: false,
+                    ClubPermissions.MembersView,
+                    ClubPermissions.TasksView,
+                    ClubPermissions.TasksManage,
+                    ClubPermissions.SprintsManage,
+                    ClubPermissions.WorkloadView,
+                    ClubPermissions.EventsView,
+                    ClubPermissions.OrgChartView,
+                    ClubPermissions.PositionAssignmentsManage,
+                    ClubPermissions.NotificationsView);
+
+                var developerLead = await EnsurePositionAsync(
+                    clubTech,
+                    techDeptId,
+                    "Tech Lead",
+                    "Dẫn dắt nhóm kỹ thuật theo từng dự án hoặc sprint.",
+                    isDefault: false,
+                    canBeAssignedByDeptLead: true,
+                    ClubPermissions.TasksView,
+                    ClubPermissions.TasksManage,
+                    ClubPermissions.SprintsManage,
+                    ClubPermissions.WorkloadView);
+
+                var developer = await EnsurePositionAsync(
+                    clubTech,
+                    techDeptId,
+                    "Developer",
+                    "Tham gia phát triển sản phẩm, workshop kỹ thuật và task được giao.",
+                    isDefault: false,
+                    canBeAssignedByDeptLead: true,
+                    ClubPermissions.TasksView,
+                    ClubPermissions.EventsView);
+
+                var mediaLead = await EnsurePositionAsync(
+                    clubTech,
+                    mediaDeptId,
+                    "Trưởng ban Truyền thông",
+                    "Quản lý nội dung, media và lịch truyền thông của CLB.",
+                    isDefault: true,
+                    canBeAssignedByDeptLead: false,
+                    ClubPermissions.MembersView,
+                    ClubPermissions.PortalContentView,
+                    ClubPermissions.PortalContentManage,
+                    ClubPermissions.PortalContentReview,
+                    ClubPermissions.PortalMediaManage,
+                    ClubPermissions.PortalSocialManage,
+                    ClubPermissions.TasksView,
+                    ClubPermissions.TasksManage,
+                    ClubPermissions.PositionAssignmentsManage,
+                    ClubPermissions.NotificationsView);
+
+                var contentWriter = await EnsurePositionAsync(
+                    clubTech,
+                    mediaDeptId,
+                    "Content Writer",
+                    "Viết bài, cập nhật nội dung và phối hợp đăng tải truyền thông.",
+                    isDefault: false,
+                    canBeAssignedByDeptLead: true,
+                    ClubPermissions.PortalContentView,
+                    ClubPermissions.PortalContentManage,
+                    ClubPermissions.PortalMediaManage,
+                    ClubPermissions.TasksView);
+
+                var designer = await EnsurePositionAsync(
+                    clubTech,
+                    mediaDeptId,
+                    "Designer",
+                    "Thiết kế hình ảnh, banner và media cho bài viết/sự kiện.",
+                    isDefault: false,
+                    canBeAssignedByDeptLead: true,
+                    ClubPermissions.PortalMediaManage,
+                    ClubPermissions.TasksView);
+
+                var eventLead = await EnsurePositionAsync(
+                    clubTech,
+                    eventDeptId,
+                    "Trưởng ban Sự kiện",
+                    "Lên kế hoạch, phân công và quản lý người tham gia sự kiện.",
+                    isDefault: true,
+                    canBeAssignedByDeptLead: false,
+                    ClubPermissions.EventsView,
+                    ClubPermissions.EventsManage,
+                    ClubPermissions.EventParticipantsManage,
+                    ClubPermissions.TasksView,
+                    ClubPermissions.TasksManage,
+                    ClubPermissions.PositionAssignmentsManage,
+                    ClubPermissions.NotificationsView);
+
+                var eventCoordinator = await EnsurePositionAsync(
+                    clubTech,
+                    eventDeptId,
+                    "Event Coordinator",
+                    "Điều phối timeline, nhân sự và hạng mục chuẩn bị sự kiện.",
+                    isDefault: false,
+                    canBeAssignedByDeptLead: true,
+                    ClubPermissions.EventsView,
+                    ClubPermissions.EventsManage,
+                    ClubPermissions.EventParticipantsManage,
+                    ClubPermissions.TasksView);
+
+                var logistics = await EnsurePositionAsync(
+                    clubTech,
+                    eventDeptId,
+                    "Hậu cần sự kiện",
+                    "Chuẩn bị vật dụng, địa điểm và hỗ trợ vận hành sự kiện.",
+                    isDefault: false,
+                    canBeAssignedByDeptLead: true,
+                    ClubPermissions.EventsView,
+                    ClubPermissions.TasksView);
+
+                await AssignPositionAsync("truong.clb@uef.edu.vn", clubTech, null, clubPresident);
+                await AssignPositionAsync("khoa.clb@uef.edu.vn", clubTech, null, treasurer);
+                await AssignPositionAsync("linh.clb@uef.edu.vn", clubTech, techDeptId, techLead);
+                await AssignPositionAsync("linh.clb@uef.edu.vn", clubTech, techDeptId, developerLead);
+                await AssignPositionAsync("linh.clb@uef.edu.vn", clubTech, mediaDeptId, mediaLead);
+                await AssignPositionAsync("linh.clb@uef.edu.vn", clubTech, eventDeptId, eventCoordinator);
+                await AssignPositionAsync("an.clb@uef.edu.vn", clubTech, mediaDeptId, contentWriter);
+                await AssignPositionAsync("an.clb@uef.edu.vn", clubTech, mediaDeptId, designer);
+                _ = vicePresident;
+                _ = developer;
+                _ = eventLead;
+                _ = logistics;
+            }
+
             // ── Resignation requests ──────────────────────────────────────
             if (!await db.ResignationRequests.AnyAsync())
             {

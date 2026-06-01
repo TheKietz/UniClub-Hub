@@ -2,12 +2,11 @@ using System.Security.Claims;
 using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using UniClub_Hub.Membership.DTOs.Club;
 using UniClub_Hub.Membership.Services.Interfaces;
 using UniClub_Hub.Shared.Common;
+using UniClub_Hub.Shared.Constants;
 using UniClub_Hub.Shared.Data;
-using UniClub_Hub.Shared.Enums;
 
 namespace UniClub_Hub.Server.Controllers.Membership
 {
@@ -17,11 +16,13 @@ namespace UniClub_Hub.Server.Controllers.Membership
     {
         private readonly IClubService _clubService;
         private readonly UniClubDbContext _db;
+        private readonly IClubPermissionService _permissions;
 
-        public ClubsController(IClubService clubService, UniClubDbContext db)
+        public ClubsController(IClubService clubService, UniClubDbContext db, IClubPermissionService permissions)
         {
             _clubService = clubService;
             _db = db;
+            _permissions = permissions;
         }
 
         [HttpGet]
@@ -75,18 +76,8 @@ namespace UniClub_Hub.Server.Controllers.Membership
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
             var isSuperAdmin = User.IsInRole("SUPER_ADMIN");
 
-            if (!isSuperAdmin)
-            {
-                var isClubAdmin = await _db.ClubMemberships.AnyAsync(m =>
-                    m.UserId == userId
-                    && m.ClubId == id
-                    && m.ClubRole == UniClub_Hub.Shared.Enums.ClubRole.CLUB_ADMIN
-                    && m.Status == MembershipStatus.Active
-                );
-
-                if (!isClubAdmin)
-                    return Forbid();
-            }
+            if (!await _permissions.HasPermissionAsync(id, userId, isSuperAdmin, ClubPermissions.RecruitmentFormManage))
+                return Forbid();
 
             club.FormSchema = JsonSerializer.Serialize(schema);
             await _db.SaveChangesAsync();

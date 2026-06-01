@@ -4,6 +4,8 @@ import { useAuth } from '@/contexts/AuthContext'
 import { CLUB_ROLES, MEMBERSHIP_STATUS } from '@/types/auth'
 import type { UserMembership } from '@/types/auth'
 import NotificationBell from '@/components/shared/NotificationBell'
+import { getMyClubPermissions } from '@/components/membership/services/clubApi'
+import { CLUB_PERMISSIONS } from '@/constants/clubPermissions'
 
 const ROLE_RANK = { CLUB_ADMIN: 3, DEPT_LEAD: 2, MEMBER: 1 } as const
 function roleRank(role: string) {
@@ -48,19 +50,56 @@ const ADMIN_NAV = [
   { to: '/admin/users', icon: '◐', label: 'Người dùng' },
   { to: '/admin/clubs', icon: '▦', label: 'Câu lạc bộ' },
   { to: '/admin/categories', icon: '✦', label: 'Lĩnh vực', dividerAfter: true },
+  { to: '/admin/positions', icon: '✣', label: 'Vị trí & quyền', dividerAfter: true },
   { to: '/admin/support', icon: '◉', label: 'Hỗ trợ' },
   { to: '/admin/resignations', icon: '↗', label: 'Đơn từ chức' },
   { to: '/admin/audit-log', icon: '◎', label: 'Lịch sử thay đổi' },
+  { to: '/admin/report', icon: '↓', label: 'Báo cáo', dividerAfter: true },
   { to: '/admin/settings', icon: '⚙', label: 'Cài đặt hệ thống' },
   { to: '/admin/notification-preferences', icon: '◑', label: 'Cài đặt thông báo' },
 ]
 
-function clubNav(id: string) {
+type ClubPerms = {
+  positions: boolean
+  members: boolean
+  applications: boolean
+  departments: boolean
+  pipeline: boolean
+  form: boolean
+  orgChart: boolean
+  resignations: boolean
+  notifications: boolean
+  settings: boolean
+  auditLog: boolean
+}
+
+function clubNav(id: string, role?: string, isSuperAdmin = false, perms: ClubPerms = {} as ClubPerms) {
+  const positionsItem = { to: `/clubs/${id}/manage/positions`, icon: '✣', label: 'Vị trí & quyền' }
+
+  if (!isSuperAdmin && role === CLUB_ROLES.DEPT_LEAD) {
+    const items: { to: string; icon: string; label: string; dividerAfter?: boolean }[] = []
+    if (perms.positions) items.push(positionsItem)
+    if (perms.members) items.push({ to: `/clubs/${id}/manage/members`, icon: '◐', label: 'Thành viên' })
+    if (perms.applications) items.push({ to: `/clubs/${id}/manage/applications`, icon: '✦', label: 'Đơn ứng tuyển' })
+    if (perms.departments) items.push({ to: `/clubs/${id}/manage/departments`, icon: '▦', label: 'Ban bộ phận' })
+    if (perms.orgChart) items.push({ to: `/clubs/${id}/manage/orgchart`, icon: '⊹', label: 'Sơ đồ tổ chức' })
+    if (perms.pipeline) items.push({ to: `/clubs/${id}/manage/pipeline`, icon: '↗', label: 'Quy trình tuyển' })
+    if (perms.form) items.push({ to: `/clubs/${id}/manage/form`, icon: '✦', label: 'Form đăng ký' })
+    if (perms.resignations) items.push({ to: `/clubs/${id}/manage/resignations`, icon: '⊖', label: 'Đơn từ chức' })
+    if (perms.notifications) items.push({ to: `/clubs/${id}/manage/notifications`, icon: '◑', label: 'Cài đặt thông báo' })
+    if (perms.settings) items.push({ to: `/clubs/${id}/manage/settings`, icon: '◉', label: 'Cài đặt CLB' })
+    if (perms.auditLog) items.push({ to: `/clubs/${id}/manage/audit-log`, icon: '◎', label: 'Lịch sử thay đổi' })
+    return items
+  }
+
+  const positionItems = perms.positions ? [{ ...positionsItem, dividerAfter: true }] : []
   return [
     { to: `/clubs/${id}/manage`, icon: '◇', label: 'Tổng quan', end: true },
+    { to: `/clubs/${id}/manage/report`, icon: '↓', label: 'Báo cáo' },
     { to: `/clubs/${id}/manage/members`, icon: '◐', label: 'Thành viên' },
     { to: `/clubs/${id}/manage/applications`, icon: '✦', label: 'Đơn ứng tuyển' },
     { to: `/clubs/${id}/manage/departments`, icon: '▦', label: 'Ban bộ phận', dividerAfter: true },
+    ...positionItems,
     { to: `/clubs/${id}/manage/orgchart`, icon: '⊹', label: 'Sơ đồ tổ chức' },
     { to: `/clubs/${id}/manage/audit-log`, icon: '◎', label: 'Lịch sử thay đổi' },
     { to: `/clubs/${id}/manage/resignations`, icon: '⊖', label: 'Đơn từ chức' },
@@ -73,6 +112,7 @@ export default function DashboardSidebar({ mode, clubId }: Props) {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
   const [clubPickerOpen, setClubPickerOpen] = useState(false)
+  const [clubPermissionCodes, setClubPermissionCodes] = useState<string[]>([])
   const pickerRef = useRef<HTMLDivElement>(null)
 
   const isSuperAdmin = user?.roles.includes('SUPER_ADMIN') ?? false
@@ -99,9 +139,28 @@ export default function DashboardSidebar({ mode, clubId }: Props) {
     ? user?.memberships.find(m => m.clubId === Number(clubId))
     : manageableClubs[0]
 
+  const clubPerms = useMemo<ClubPerms>(() => {
+    const isAdmin = isSuperAdmin || activeClub?.clubRole === CLUB_ROLES.CLUB_ADMIN
+    const codes = new Set(clubPermissionCodes.map(c => c.toLowerCase()))
+    const has = (...ps: string[]) => isAdmin || ps.some(p => codes.has(p.toLowerCase()))
+    return {
+      positions: has(CLUB_PERMISSIONS.ORG_CHART_VIEW, CLUB_PERMISSIONS.ORG_CHART_MANAGE, CLUB_PERMISSIONS.POSITIONS_MANAGE, CLUB_PERMISSIONS.POSITION_ASSIGNMENTS_MANAGE),
+      members: has(CLUB_PERMISSIONS.MEMBERS_VIEW, CLUB_PERMISSIONS.MEMBERS_MANAGE),
+      applications: has(CLUB_PERMISSIONS.APPLICATIONS_VIEW, CLUB_PERMISSIONS.APPLICATIONS_REVIEW),
+      departments: has(CLUB_PERMISSIONS.DEPARTMENTS_MANAGE),
+      pipeline: has(CLUB_PERMISSIONS.RECRUITMENT_PIPELINE_MANAGE),
+      form: has(CLUB_PERMISSIONS.RECRUITMENT_FORM_MANAGE),
+      orgChart: has(CLUB_PERMISSIONS.ORG_CHART_MANAGE),
+      resignations: has(CLUB_PERMISSIONS.RESIGNATIONS_VIEW, CLUB_PERMISSIONS.RESIGNATIONS_REVIEW),
+      notifications: has(CLUB_PERMISSIONS.NOTIFICATION_SETTINGS_MANAGE),
+      settings: has(CLUB_PERMISSIONS.CLUB_SETTINGS_MANAGE),
+      auditLog: has(CLUB_PERMISSIONS.CLUB_AUDIT_LOG_VIEW),
+    }
+  }, [activeClub?.clubRole, clubPermissionCodes, isSuperAdmin])
+
   const modeColor = mode === 'admin' ? '#ff5a3c' : mode === 'club' ? '#4f46e5' : '#facc15'
   const navItems = mode === 'admin' ? ADMIN_NAV
-    : mode === 'club' && clubId ? clubNav(clubId)
+    : mode === 'club' && clubId ? clubNav(clubId, activeClub?.clubRole, isSuperAdmin, clubPerms)
     : MEMBER_NAV
 
   const initials = user?.fullName
@@ -118,14 +177,42 @@ export default function DashboardSidebar({ mode, clubId }: Props) {
     return () => document.removeEventListener('mousedown', handler)
   }, [clubPickerOpen])
 
+  useEffect(() => {
+    const parsedClubId = Number(clubId)
+    if (mode !== 'club' || !parsedClubId || isSuperAdmin || activeClub?.clubRole === CLUB_ROLES.CLUB_ADMIN) {
+      setClubPermissionCodes([])
+      return
+    }
+
+    let cancelled = false
+    getMyClubPermissions(parsedClubId)
+      .then(result => {
+        if (!cancelled) setClubPermissionCodes(result.permissionCodes)
+      })
+      .catch(() => {
+        if (!cancelled) setClubPermissionCodes([])
+      })
+
+    return () => { cancelled = true }
+  }, [activeClub?.clubRole, clubId, isSuperAdmin, mode])
+
   function switchMode(m: Mode) {
     if (m === 'admin') navigate('/admin')
     else if (m === 'club') {
       const first = manageableClubs[0]
-      if (first) navigate(`/clubs/${first.clubId}/manage`)
+      if (first) navigate(getClubManageEntry(first))
     } else {
       navigate('/dashboard')
     }
+  }
+
+  function getClubManageEntry(club: UserMembership) {
+    if (club.clubRole !== CLUB_ROLES.DEPT_LEAD || isSuperAdmin)
+      return `/clubs/${club.clubId}/manage`
+    if (clubPerms.positions) return `/clubs/${club.clubId}/manage/positions`
+    if (clubPerms.members) return `/clubs/${club.clubId}/manage/members`
+    if (clubPerms.applications) return `/clubs/${club.clubId}/manage/applications`
+    return `/clubs/${club.clubId}/manage/positions`
   }
 
   function handleLogout() {
@@ -229,7 +316,7 @@ export default function DashboardSidebar({ mode, clubId }: Props) {
                 const isActive = club.clubId === Number(clubId)
                 return (
                   <button key={club.clubId}
-                    onClick={() => { navigate(`/clubs/${club.clubId}/manage`); setClubPickerOpen(false) }}
+                    onClick={() => { navigate(getClubManageEntry(club)); setClubPickerOpen(false) }}
                     style={{
                       width: '100%', display: 'flex', alignItems: 'center', gap: 10,
                       padding: '9px 10px', borderRadius: 8, marginBottom: 2, border: 'none',
@@ -261,23 +348,43 @@ export default function DashboardSidebar({ mode, clubId }: Props) {
                 <>
                   <div style={{ height: 1, background: 'rgba(255,255,255,.06)', margin: '4px 8px' }} />
                   <div style={{ padding: '6px 10px 4px', fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,.25)', letterSpacing: '.08em', textTransform: 'uppercase' }}>
-                    Chỉ là thành viên
+                    Thành viên
                   </div>
-                  {memberOnlyClubs.map(club => (
-                    <div key={club.clubId} style={{
-                      display: 'flex', alignItems: 'center', gap: 10,
-                      padding: '8px 10px', borderRadius: 8, opacity: 0.5,
-                    }}>
-                      <div style={{
-                        width: 26, height: 26, borderRadius: 7, background: getClubColor(club.clubId),
-                        display: 'grid', placeItems: 'center', color: '#fff', fontWeight: 800, fontSize: 9,
-                      }}>{getClubShort(club.clubName)}</div>
-                      <div>
-                        <div style={{ fontSize: 11, color: 'rgba(255,255,255,.5)', lineHeight: 1.2 }}>{club.clubName}</div>
-                        <div style={{ fontSize: 9, color: 'rgba(255,255,255,.3)' }}>Xem ở trang SV</div>
-                      </div>
-                    </div>
-                  ))}
+                  {memberOnlyClubs.map(club => {
+                    const isActive = club.clubId === Number(clubId)
+                    return (
+                      <button key={club.clubId}
+                        onClick={() => { navigate(`/clubs/${club.clubId}/manage`); setClubPickerOpen(false) }}
+                        style={{
+                          width: '100%', display: 'flex', alignItems: 'center', gap: 10,
+                          padding: '9px 10px', borderRadius: 8, marginBottom: 2, border: 'none',
+                          background: isActive ? 'rgba(255,255,255,.08)' : 'transparent',
+                          textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit',
+                        }}>
+                        <div style={{
+                          width: 30, height: 30, borderRadius: 8, flexShrink: 0,
+                          background: getClubColor(club.clubId),
+                          display: 'grid', placeItems: 'center',
+                          color: '#fff', fontWeight: 900, fontSize: 11, transform: 'rotate(-2deg)',
+                        }}>{club.clubLogoUrl
+                            ? <img src={club.clubLogoUrl} alt="" style={{ width: '100%', height: '100%', borderRadius: 8, objectFit: 'cover' }} />
+                            : getClubShort(club.clubName)
+                          }</div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{
+                            fontSize: 12, fontWeight: 600, lineHeight: 1.2,
+                            color: isActive ? '#fff' : 'rgba(255,255,255,.7)',
+                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                          }}>{club.clubName}</div>
+                          <span style={{
+                            fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 3,
+                            background: ROLE_COLORS[club.clubRole] ?? '#4f46e5', color: '#fff',
+                          }}>{ROLE_LABELS[club.clubRole] ?? club.clubRole}</span>
+                        </div>
+                        {isActive && <span style={{ color: '#facc15', fontSize: 12 }}>✓</span>}
+                      </button>
+                    )
+                  })}
                 </>
               )}
             </div>

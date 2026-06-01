@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import api from '@/lib/axiosInstance'
+import { updateSupportRequest } from '@/components/membership/services/adminApi'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { toast } from 'sonner'
 
@@ -71,7 +71,7 @@ export default function SupportAdminPage() {
     if (!selected) return
     setSaving(true)
     try {
-      await api.patch(`/support/${selected.id}`, { status: newStatus, adminNote: adminNote || null })
+      await updateSupportRequest(selected.id, newStatus, adminNote || null)
       toast.success('Đã cập nhật trạng thái.')
       setSelected(null)
       load()

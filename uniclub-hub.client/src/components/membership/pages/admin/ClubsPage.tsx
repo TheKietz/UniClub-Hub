@@ -1,11 +1,10 @@
 import { MEMBERSHIP_STATUS } from '@/types/auth'
 import { useEffect, useState } from 'react'
-import { getAdminClubs, createClub, updateClub, deleteClub, getCategories } from '@/components/membership/services/adminApi'
+import { getAdminClubs, createClub, updateClub, deleteClub, getCategories, exportClubs } from '@/components/membership/services/adminApi'
 import type { ClubItem, CategoryItem, CreateClubDto, UpdateClubDto } from '@/components/membership/services/admin.types'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { toast } from 'sonner'
-import api from '@/lib/axiosInstance'
 import { Pencil, Trash2 } from 'lucide-react'
 import { Tooltip } from '@/components/shared/Tooltip'
 import { FilterSelect } from '@/components/shared/FilterSelect'
@@ -152,7 +151,7 @@ export default function ClubsPage() {
           <button
             style={{ background: D.card, color: D.inkDim, border: D.border, boxShadow: D.shadow(2,2), padding: '8px 14px', borderRadius: D.pill, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
             onClick={async () => {
-              const res = await api.get('/admin/export/clubs?format=xlsx', { responseType: 'blob' })
+              const res = await exportClubs('xlsx')
               const url = URL.createObjectURL(res.data)
               const a = document.createElement('a'); a.href = url; a.download = 'clubs.xlsx'; a.click()
               URL.revokeObjectURL(url)
@@ -162,7 +161,7 @@ export default function ClubsPage() {
           <button
             style={{ background: D.card, color: D.inkDim, border: D.border, boxShadow: D.shadow(2,2), padding: '8px 14px', borderRadius: D.pill, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
             onClick={async () => {
-              const res = await api.get('/admin/export/clubs?format=csv', { responseType: 'blob' })
+              const res = await exportClubs('csv')
               const url = URL.createObjectURL(res.data)
               const a = document.createElement('a'); a.href = url; a.download = 'clubs.csv'; a.click()
               URL.revokeObjectURL(url)

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { Tree, TreeNode } from 'react-organizational-chart'
 import { getClubMembers, getDepartments, getClubDetail } from '@/components/membership/services/clubApi'
@@ -30,17 +30,22 @@ function ClubNode({ club }: { club: ClubDetail }) {
   )
 }
 
-function DeptNode({ dept, index }: { dept: DepartmentItem; index: number }) {
+function DeptNode({ dept, index, collapsed, onToggle }: {
+  dept: DepartmentItem; index: number; collapsed: boolean; onToggle: () => void
+}) {
   const color = DEPT_COLORS[index % DEPT_COLORS.length]
   return (
-    <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: 4, background: D.card, border: D.border, borderRadius: 12, padding: '10px 16px', minWidth: 128, boxShadow: D.shadow(2, 2) }}>
+    <div
+      onClick={onToggle}
+      title={collapsed ? 'Nhấn để mở rộng' : 'Nhấn để thu gọn'}
+      style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: 4, background: D.card, border: D.border, borderRadius: 12, padding: '10px 16px', minWidth: 128, boxShadow: D.shadow(2, 2), cursor: 'pointer', userSelect: 'none' }}
+    >
       <div style={{ width: 28, height: 28, borderRadius: 7, background: color, display: 'grid', placeItems: 'center', color: '#fff', fontSize: 12, fontWeight: 800 }}>▦</div>
       <p style={{ fontWeight: 700, fontSize: 12, color: D.ink, margin: 0, textAlign: 'center' }}>{dept.name}</p>
-      {dept.deptLeadName
-        ? <p style={{ fontSize: 11, color: '#4f46e5', margin: 0, textAlign: 'center' }}>{dept.deptLeadName}</p>
-        : <span style={{ fontSize: 10, fontWeight: 700, color: '#b45309', background: '#fef3c7', padding: '1px 6px', borderRadius: 4 }}>⚠ Chưa có TB</span>
-      }
-      <p style={{ fontSize: 10, color: D.inkMuted, margin: 0 }}>{dept.memberCount} TV</p>
+      {!dept.deptLeadName && (
+        <span style={{ fontSize: 10, fontWeight: 700, color: '#b45309', background: '#fef3c7', padding: '1px 6px', borderRadius: 4 }}>⚠ Chưa có TB</span>
+      )}
+      <p style={{ fontSize: 10, color: D.inkMuted, margin: 0 }}>{dept.memberCount} TV {collapsed ? '▶' : '▼'}</p>
     </div>
   )
 }
@@ -57,10 +62,10 @@ function MemberNode({ member }: { member: MemberItem }) {
   return (
     <div style={{
       display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: 4,
-      background: isAdmin ? '#ede9fe' : D.card,
+      background: isAdmin ? '#ede9fe' : isLead ? '#f5f3ff' : D.card,
       border: isAdmin ? '1.5px solid #4f46e5' : isLead ? '1.5px solid #7c3aed' : D.borderLight,
       borderRadius: 12, padding: '8px 12px', minWidth: 100,
-      boxShadow: isAdmin ? '2px 2px 0 #4f46e5' : '2px 2px 0 #e8e3d6',
+      boxShadow: isAdmin ? '2px 2px 0 #4f46e5' : isLead ? '2px 2px 0 #7c3aed' : '2px 2px 0 #e8e3d6',
     }}>
       {member.avatarUrl
         ? <img src={member.avatarUrl} style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover' }} alt="" />
@@ -76,6 +81,14 @@ function MemberNode({ member }: { member: MemberItem }) {
   )
 }
 
+function EmptyNode() {
+  return (
+    <div style={{ fontSize: 11, color: D.inkMuted, border: '1.5px dashed #e8e3d6', borderRadius: 10, padding: '8px 14px' }}>
+      Chưa có thành viên
+    </div>
+  )
+}
+
 export default function OrgChartPage() {
   const { clubId } = useParams<{ clubId: string }>()
   const id = Number(clubId)
@@ -84,6 +97,9 @@ export default function OrgChartPage() {
   const [departments, setDepartments] = useState<DepartmentItem[]>([])
   const [members, setMembers] = useState<MemberItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [zoom, setZoom] = useState(1)
+  const [collapsed, setCollapsed] = useState<Set<number>>(new Set())
+  const chartRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     Promise.all([getClubDetail(id), getDepartments(id), getClubMembers(id)])
@@ -98,34 +114,119 @@ export default function OrgChartPage() {
   if (!club) return null
 
   const activeMembers = members.filter(m => m.status === MEMBERSHIP_STATUS.ACTIVE || m.status === MEMBERSHIP_STATUS.PROBATION)
-  const membersByDept = (deptId: number) => activeMembers.filter(m => m.departmentId === deptId)
   const clubAdmin = activeMembers.find(m => m.clubRole === CLUB_ROLES.CLUB_ADMIN)
+
+  const deptLead   = (deptId: number) => activeMembers.find(m => m.departmentId === deptId && m.clubRole === CLUB_ROLES.DEPT_LEAD)
+  const deptRegular = (deptId: number) => activeMembers.filter(m => m.departmentId === deptId && m.clubRole === CLUB_ROLES.MEMBER)
   const freeMembers = activeMembers.filter(m => !m.departmentId && m.clubRole === CLUB_ROLES.MEMBER)
+
+  const toggleCollapse = (deptId: number) => {
+    setCollapsed(prev => {
+      const next = new Set(prev)
+      next.has(deptId) ? next.delete(deptId) : next.add(deptId)
+      return next
+    })
+  }
+
+  const handlePrint = () => {
+    const prev = zoom
+    setZoom(1)
+    setTimeout(() => { window.print(); setZoom(prev) }, 80)
+  }
+
+  const DeptSubtree = ({ dept, index }: { dept: DepartmentItem; index: number }) => {
+    const lead = deptLead(dept.id)
+    const regular = deptRegular(dept.id)
+    const isCollapsed = collapsed.has(dept.id)
+
+    return (
+      <TreeNode label={<DeptNode dept={dept} index={index} collapsed={isCollapsed} onToggle={() => toggleCollapse(dept.id)} />}>
+        {!isCollapsed && (
+          lead ? (
+            <TreeNode label={<MemberNode member={lead} />}>
+              {regular.length > 0
+                ? regular.map(m => <TreeNode key={m.id} label={<MemberNode member={m} />} />)
+                : <TreeNode label={<EmptyNode />} />
+              }
+            </TreeNode>
+          ) : (
+            regular.length > 0
+              ? regular.map(m => <TreeNode key={m.id} label={<MemberNode member={m} />} />)
+              : <TreeNode label={<EmptyNode />} />
+          )
+        )}
+      </TreeNode>
+    )
+  }
 
   return (
     <div style={{ padding: '28px 32px', minHeight: '100%', background: D.bg, fontFamily: "'Be Vietnam Pro', sans-serif" }}>
-      <div style={{ marginBottom: 20 }}>
-        <h1 style={{ fontSize: 24, fontWeight: 900, color: D.ink, letterSpacing: '-.025em', margin: 0 }}>Sơ đồ cơ cấu tổ chức</h1>
-        <p style={{ fontSize: 13, color: D.inkMuted, marginTop: 4 }}>{activeMembers.length} thành viên đang hoạt động</p>
+      <style>{`
+        @media print {
+          body * { visibility: hidden; }
+          #org-chart-printable, #org-chart-printable * { visibility: visible; }
+          #org-chart-printable {
+            position: fixed; top: 0; left: 0; width: 100%;
+            padding: 10mm 12mm; background: white;
+          }
+          .orgchart-no-print { display: none !important; }
+          @page { size: A3 landscape; margin: 0; }
+        }
+      `}</style>
+
+      {/* Toolbar */}
+      <div className="orgchart-no-print" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20, gap: 16 }}>
+        <div>
+          <h1 style={{ fontSize: 24, fontWeight: 900, color: D.ink, letterSpacing: '-.025em', margin: 0 }}>Sơ đồ cơ cấu tổ chức</h1>
+          <p style={{ fontSize: 13, color: D.inkMuted, marginTop: 4 }}>{activeMembers.length} thành viên đang hoạt động · nhấn vào ban để thu gọn/mở rộng</p>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+          {/* Zoom controls */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: D.card, border: D.border, borderRadius: 999, padding: '6px 12px', boxShadow: D.shadow(2, 2) }}>
+            <button
+              onClick={() => setZoom(z => Math.max(0.4, +(z - 0.1).toFixed(1)))}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', fontWeight: 900, fontSize: 16, color: D.ink, lineHeight: 1, padding: '0 2px' }}
+            >−</button>
+            <span style={{ fontSize: 12, fontWeight: 700, color: D.ink, minWidth: 38, textAlign: 'center' }}>{Math.round(zoom * 100)}%</span>
+            <button
+              onClick={() => setZoom(z => Math.min(1.5, +(z + 0.1).toFixed(1)))}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', fontWeight: 900, fontSize: 16, color: D.ink, lineHeight: 1, padding: '0 2px' }}
+            >+</button>
+          </div>
+          <button
+            onClick={() => setZoom(1)}
+            style={{ padding: '8px 14px', borderRadius: 999, background: D.card, color: D.ink, border: D.border, boxShadow: D.shadow(2, 2), fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}
+          >
+            Reset
+          </button>
+          <button
+            onClick={() => setCollapsed(new Set(departments.map(d => d.id)))}
+            style={{ padding: '8px 14px', borderRadius: 999, background: D.card, color: D.ink, border: D.border, boxShadow: D.shadow(2, 2), fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}
+          >
+            Thu gọn tất cả
+          </button>
+          <button
+            onClick={() => setCollapsed(new Set())}
+            style={{ padding: '8px 14px', borderRadius: 999, background: D.card, color: D.ink, border: D.border, boxShadow: D.shadow(2, 2), fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}
+          >
+            Mở rộng tất cả
+          </button>
+          <button
+            onClick={handlePrint}
+            style={{ padding: '8px 18px', borderRadius: 999, background: D.ink, color: '#facc15', border: D.border, boxShadow: D.shadow(), fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}
+          >
+            ↓ Xuất PDF
+          </button>
+        </div>
       </div>
 
-      <div style={{ background: D.card, border: D.border, borderRadius: D.radius, boxShadow: D.shadow(), padding: '24px', overflowX: 'auto' }}>
-        <div style={{ minWidth: 'max-content', margin: '0 auto' }}>
+      {/* Chart canvas */}
+      <div style={{ background: D.card, border: D.border, borderRadius: D.radius, boxShadow: D.shadow(), overflow: 'auto' }}>
+        <div id="org-chart-printable" ref={chartRef} style={{ minWidth: 'max-content', padding: '28px 32px', transformOrigin: 'top left', transform: `scale(${zoom})` }}>
           <Tree lineWidth="2px" lineColor="#c7d2fe" lineBorderRadius="8px" label={<ClubNode club={club} />}>
-            {clubAdmin && (
+            {clubAdmin ? (
               <TreeNode label={<MemberNode member={clubAdmin} />}>
-                {departments.map((dept, i) => (
-                  <TreeNode key={dept.id} label={<DeptNode dept={dept} index={i} />}>
-                    {membersByDept(dept.id).map(m => (
-                      <TreeNode key={m.id} label={<MemberNode member={m} />} />
-                    ))}
-                    {membersByDept(dept.id).length === 0 && (
-                      <TreeNode label={
-                        <div style={{ fontSize: 11, color: D.inkMuted, border: '1.5px dashed #e8e3d6', borderRadius: 10, padding: '8px 14px' }}>Chưa có thành viên</div>
-                      } />
-                    )}
-                  </TreeNode>
-                ))}
+                {departments.map((dept, i) => <DeptSubtree key={dept.id} dept={dept} index={i} />)}
                 {freeMembers.length > 0 && (
                   <TreeNode label={
                     <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: 4, background: D.bg, border: '1.5px dashed #e8e3d6', borderRadius: 12, padding: '10px 16px', minWidth: 120 }}>
@@ -137,18 +238,15 @@ export default function OrgChartPage() {
                   </TreeNode>
                 )}
               </TreeNode>
+            ) : (
+              departments.map((dept, i) => <DeptSubtree key={dept.id} dept={dept} index={i} />)
             )}
-            {!clubAdmin && departments.map((dept, i) => (
-              <TreeNode key={dept.id} label={<DeptNode dept={dept} index={i} />}>
-                {membersByDept(dept.id).map(m => <TreeNode key={m.id} label={<MemberNode member={m} />} />)}
-              </TreeNode>
-            ))}
           </Tree>
         </div>
       </div>
 
       {/* Legend */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 14, marginTop: 16, fontSize: 12, color: D.inkMuted }}>
+      <div className="orgchart-no-print" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 14, marginTop: 16, fontSize: 12, color: D.inkMuted }}>
         <span style={{ fontWeight: 700, color: D.inkDim }}>Chú thích:</span>
         {[
           { color: '#4f46e5', label: 'Trưởng CLB' },
@@ -160,6 +258,7 @@ export default function OrgChartPage() {
             {l.label}
           </span>
         ))}
+        <span style={{ color: D.inkMuted }}>· Nhấn vào node ban để thu gọn/mở rộng</span>
       </div>
     </div>
   )

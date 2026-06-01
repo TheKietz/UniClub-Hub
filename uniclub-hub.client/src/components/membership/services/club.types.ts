@@ -66,6 +66,61 @@ export interface RoleSuggestion {
   suggestions: RoleSuggestionItem[]
 }
 
+export interface ClubPermissionItem {
+  code: string
+  name: string
+  description: string
+  group: string
+  module: string
+}
+
+export interface ClubEffectivePermissions {
+  clubId: number
+  isSuperAdmin: boolean
+  isClubAdmin: boolean
+  permissionCodes: string[]
+}
+
+export interface ClubPositionItem {
+  id: number
+  clubId: number
+  departmentId?: number
+  departmentName?: string
+  name: string
+  description?: string
+  isDefault: boolean
+  canBeAssignedByDeptLead: boolean
+  memberCount: number
+  permissionCodes: string[]
+}
+
+export interface CreateClubPositionDto {
+  departmentId?: number
+  name: string
+  description?: string
+  isDefault: boolean
+  canBeAssignedByDeptLead: boolean
+  permissionCodes: string[]
+}
+
+export interface UpdateClubPositionDto {
+  departmentId?: number
+  name: string
+  description?: string
+  isDefault: boolean
+  canBeAssignedByDeptLead: boolean
+}
+
+export interface MemberPositionsItem {
+  membershipId: number
+  userId: string
+  fullName?: string
+  email: string
+  departmentId?: number
+  departmentName?: string
+  positions: ClubPositionItem[]
+}
+
 // Custom member profile fields
 export type MemberFieldType = 'text' | 'textarea' | 'select'
 
@@ -215,4 +270,32 @@ export interface ClubAuditLogPage {
   totalCount: number
   page: number
   pageSize: number
+}
+
+export interface MemberImportRow {
+  rowNumber: number
+  email: string
+  fullName?: string
+  clubRole: string
+  departmentName?: string
+  isValid: boolean
+  error?: string
+}
+
+export interface MemberImportPreview {
+  validRows: MemberImportRow[]
+  invalidRows: MemberImportRow[]
+  totalRows: number
+}
+
+export interface CreateDepartmentDto {
+  name: string
+  description?: string | null
+}
+
+export interface UpdateClubSettingsDto {
+  description?: string | null
+  contactInfo?: string | null
+  advisorName?: string | null
+  logoUrl?: string | null
 }

@@ -128,7 +128,7 @@ builder.Services.AddRateLimiter(options =>
     options.AddPolicy("auth:resend",     ctx => ByIp(ctx, 5,  60));
 });
 builder.Services.AddScoped<FileUploadHelper>();
-builder.Services.AddScoped<IEmailService, SendGridEmailService>();
+builder.Services.AddScoped<IEmailService, SmtpEmailService>();
 builder.Services.AddMembershipServices();
 builder.Services.AddOperationsServices();
 builder.Services.AddPortalServices();

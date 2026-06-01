@@ -27,7 +27,4 @@ public const string MemberJoined = "MemberJoined";
 // Frontend must import event names from a mirrored constants file,
 // not hardcode strings.
 
-## Scope
 
-SignalR is used only in the Operations module.
-Do NOT add Hub methods for Membership or Portal features.

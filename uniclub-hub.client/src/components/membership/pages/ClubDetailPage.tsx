@@ -1,14 +1,13 @@
 import { MEMBERSHIP_STATUS, CLUB_ROLES } from '@/types/auth'
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { getClubDetail, getDepartments, getFormSchema, getMemberFieldSchema, getMyApplications, submitApplication, resignFromClub, submitResignation, getUserResignations } from '@/components/membership/services/clubApi'
+import { getClubDetail, getDepartments, getFormSchema, getMemberFieldSchema, getMyApplications, submitApplication, resignFromClub, submitResignation, getUserResignations, uploadApplicationFile } from '@/components/membership/services/clubApi'
 import type { ClubDetail, DepartmentItem, FormSchema, MemberFieldDef, ApplicationItem, ResignationRequestItem, ResignationPreference } from '@/components/membership/services/club.types'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
-import api from '@/lib/axiosInstance'
 import { ArrowLeft, Users, Building, Calendar, Phone, GraduationCap, CheckCircle2, Clock, XCircle, MessageCircle, LogOut, AlertCircle, Paperclip, X, GitBranch } from 'lucide-react'
 import { Tree, TreeNode } from 'react-organizational-chart'
 import PublicHeader from '@/components/layouts/PublicHeader'
@@ -143,12 +142,7 @@ export default function ClubDetailPage() {
       if (fileFields.length > 0) {
         setSubmitStatus('uploading')
         await Promise.all(fileFields.map(async f => {
-          const fd = new FormData()
-          fd.append('file', fileAnswers[f.id]!)
-          const res = await api.post<{ data: { url: string } }>('/uploads/application-file', fd, {
-            headers: { 'Content-Type': 'multipart/form-data' },
-          })
-          finalAnswers[f.id] = res.data.data.url
+          finalAnswers[f.id] = await uploadApplicationFile(fileAnswers[f.id]!)
         }))
       }
 

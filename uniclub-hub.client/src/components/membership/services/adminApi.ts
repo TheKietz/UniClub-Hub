@@ -1,7 +1,7 @@
 import api from '@/lib/axiosInstance'
 import type {
   SystemStats, MonthlyGrowth, UserItem, PagedResult, ClubItem, CategoryItem,
-  CreateClubDto, UpdateClubDto, CreateCategoryDto,
+  CreateClubDto, UpdateClubDto, CreateCategoryDto, UserImportPreview,
 } from '@/components/membership/services/admin.types'
 
 // ── Stats ──────────────────────────────────────────────────────────────────
@@ -82,3 +82,41 @@ export const getPublicContactInfo = () =>
   api.get<{ data: Record<string, string> }>('/admin/settings/contact').then(r => r.data.data)
 export const getPublicSettings = () =>
   api.get<{ data: Record<string, string> }>('/admin/settings/public').then(r => r.data.data)
+
+// ── Users import/export ────────────────────────────────────────────────────
+
+export const importUsersPreview = (file: File) => {
+  const fd = new FormData()
+  fd.append('file', file)
+  return api.post<{ data: UserImportPreview }>('/admin/import/users/preview', fd, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }).then(r => r.data.data)
+}
+
+export const importUsersConfirm = (rows: { email: string; fullName?: string; studentId?: string; major?: string }[]) =>
+  api.post<{ data: { imported: number; skipped: number } }>('/admin/import/users/confirm', { rows })
+    .then(r => r.data.data)
+
+export const exportUsers = (format: 'xlsx' | 'csv') =>
+  api.get('/admin/export/users', { params: { format }, responseType: 'blob' })
+
+// ── Clubs export ───────────────────────────────────────────────────────────
+
+export const exportClubs = (format: 'xlsx' | 'csv') =>
+  api.get('/admin/export/clubs', { params: { format }, responseType: 'blob' })
+
+// ── Support (admin) ────────────────────────────────────────────────────────
+
+export const updateSupportRequest = (id: number, status: string, adminNote?: string | null) =>
+  api.patch(`/support/${id}`, { status, adminNote: adminNote ?? null })
+
+// ── Admin-scoped departments ───────────────────────────────────────────────
+
+export const createAdminDepartment = (clubId: number, dto: { name: string; description?: string }) =>
+  api.post(`/admin/clubs/${clubId}/departments`, dto)
+
+export const updateAdminDepartment = (clubId: number, deptId: number, dto: { name: string; description?: string }) =>
+  api.put(`/admin/clubs/${clubId}/departments/${deptId}`, dto)
+
+export const deleteAdminDepartment = (clubId: number, deptId: number) =>
+  api.delete(`/admin/clubs/${clubId}/departments/${deptId}`)
