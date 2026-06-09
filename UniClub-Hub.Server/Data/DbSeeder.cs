@@ -1253,6 +1253,258 @@ namespace UniClub_Hub.Server.Data
                 }
             }
 
+            // ── KPI demo data ─────────────────────────────────────────────
+            // Seed dữ liệu đủ để test nhanh KPI config/results/my-kpi trong môi trường dev.
+            // Idempotent theo marker trong Title/Note để chạy lại app không tạo trùng task.
+            {
+                static List<KpiCriteria> DefaultKpiCriteria() =>
+                [
+                    new()
+                    {
+                        MetricKey = KpiMetricKey.TaskCompletion,
+                        DisplayName = "Hoàn thành công việc",
+                        Description = "Tỷ lệ task đã hoàn thành trên tổng task được giao trong kỳ.",
+                        Weight = 35,
+                        IsEnabled = true,
+                    },
+                    new()
+                    {
+                        MetricKey = KpiMetricKey.OnTimeCompletion,
+                        DisplayName = "Hoàn thành đúng hạn",
+                        Description = "Tỷ lệ task hoàn thành trước hoặc đúng deadline.",
+                        Weight = 25,
+                        IsEnabled = true,
+                    },
+                    new()
+                    {
+                        MetricKey = KpiMetricKey.AvgProgress,
+                        DisplayName = "Tiến độ trung bình",
+                        Description = "Tiến độ trung bình của các task trong kỳ.",
+                        Weight = 15,
+                        IsEnabled = true,
+                    },
+                    new()
+                    {
+                        MetricKey = KpiMetricKey.ContributionPoints,
+                        DisplayName = "Điểm đóng góp",
+                        Description = "Điểm đóng góp thủ công được ghi nhận cho thành viên.",
+                        Weight = 15,
+                        IsEnabled = true,
+                    },
+                    new()
+                    {
+                        MetricKey = KpiMetricKey.Workload,
+                        DisplayName = "Khối lượng công việc",
+                        Description = "Số task được giao, chuẩn hóa theo thành viên có workload cao nhất trong CLB.",
+                        Weight = 10,
+                        IsEnabled = true,
+                    },
+                ];
+
+                static List<KpiGradeConfig> DefaultKpiGrades() =>
+                [
+                    new() { Label = "Xuất sắc", MinScore = 90, Color = "#16a34a", DisplayOrder = 0 },
+                    new() { Label = "Tốt", MinScore = 75, Color = "#4f46e5", DisplayOrder = 1 },
+                    new() { Label = "Đạt", MinScore = 60, Color = "#d97706", DisplayOrder = 2 },
+                    new() { Label = "Cần cải thiện", MinScore = 0, Color = "#dc2626", DisplayOrder = 3 },
+                ];
+
+                async Task EnsureKpiConfigAsync(Club club)
+                {
+                    var config = await db.KpiConfigs
+                        .Include(c => c.Criteria)
+                        .Include(c => c.Grades)
+                        .FirstOrDefaultAsync(c => c.ClubId == club.Id);
+
+                    if (config == null)
+                    {
+                        db.KpiConfigs.Add(new KpiConfig
+                        {
+                            ClubId = club.Id,
+                            UpdatedAt = DateTimeOffset.UtcNow,
+                            UpdatedBy = "seeder",
+                            Criteria = DefaultKpiCriteria(),
+                            Grades = DefaultKpiGrades(),
+                        });
+                        await db.SaveChangesAsync();
+                        return;
+                    }
+
+                    var existingKeys = config.Criteria.Select(c => c.MetricKey).ToHashSet();
+                    foreach (var criterion in DefaultKpiCriteria().Where(c => !existingKeys.Contains(c.MetricKey)))
+                        config.Criteria.Add(criterion);
+
+                    if (config.Grades.Count == 0)
+                    {
+                        foreach (var grade in DefaultKpiGrades())
+                            config.Grades.Add(grade);
+                    }
+
+                    await db.SaveChangesAsync();
+                }
+
+                await EnsureKpiConfigAsync(clubTech);
+                await EnsureKpiConfigAsync(clubEnglish);
+                await EnsureKpiConfigAsync(clubMusic);
+
+                var now = DateTimeOffset.UtcNow;
+                var marker = $"[KPI-SEED-{now:yyyy-MM}]";
+                if (!await db.Tasks.IgnoreQueryFilters().AnyAsync(t => t.Title.Contains(marker)))
+                {
+                    int? GetDeptId(string clubCode, string deptName)
+                        => deptMap.TryGetValue($"{clubCode}_{deptName}", out var dept) ? dept.Id : null;
+
+                    var monthStart = new DateTimeOffset(
+                        now.Year,
+                        now.Month,
+                        1,
+                        9,
+                        0,
+                        0,
+                        TimeSpan.Zero);
+
+                    var techLeadId = createdUsers["linh.clb@uef.edu.vn"].Id;
+                    var techMemberId = createdUsers["an.clb@uef.edu.vn"].Id;
+                    var techProbationId = createdUsers["duc.clb@uef.edu.vn"].Id;
+                    var englishAdminId = createdUsers["thu.clb@uef.edu.vn"].Id;
+                    var englishLeadId = createdUsers["linh.clb@uef.edu.vn"].Id;
+                    var englishProbationId = createdUsers["an.clb@uef.edu.vn"].Id;
+                    var musicMemberId = createdUsers["thu.clb@uef.edu.vn"].Id;
+
+                    var techDeptId = GetDeptId("TECH", "Ban Kỹ thuật");
+                    var techMediaDeptId = GetDeptId("TECH", "Ban Truyền thông");
+                    var englishDeptId = GetDeptId("ENGLISH", "Ban Đào tạo");
+
+                    ClubTask DemoTask(
+                        Club club,
+                        int? departmentId,
+                        string title,
+                        string userId,
+                        ClubTaskStatus status,
+                        int progress,
+                        int createdDay,
+                        int deadlineDay,
+                        int? completedDay,
+                        TaskPriority priority = TaskPriority.Medium) =>
+                        new()
+                        {
+                            ClubId = club.Id,
+                            DepartmentId = departmentId,
+                            Title = $"{marker} {title}",
+                            Description = "Dữ liệu demo để kiểm tra luồng KPI nội bộ.",
+                            AssignedTo = userId,
+                            Status = status,
+                            Progress = progress,
+                            Priority = priority,
+                            CreatedAt = monthStart.AddDays(createdDay).DateTime,
+                            CreatedBy = "seeder",
+                            UpdatedAt = monthStart.AddDays(createdDay).DateTime,
+                            UpdatedBy = "seeder",
+                            StartDate = monthStart.AddDays(createdDay),
+                            Deadline = monthStart.AddDays(deadlineDay).AddHours(17),
+                            CompletedAt = completedDay.HasValue
+                                ? monthStart.AddDays(completedDay.Value).AddHours(16)
+                                : null,
+                        };
+
+                    var tasks = new List<ClubTask>
+                    {
+                        // TECH: đủ phổ điểm để test xếp hạng/xếp loại
+                        DemoTask(clubTech, techDeptId, "Hoàn thiện module đăng ký workshop", techLeadId, ClubTaskStatus.Done, 100, 0, 6, 1, TaskPriority.High),
+                        DemoTask(clubTech, techDeptId, "Chuẩn bị checklist triển khai demo", techLeadId, ClubTaskStatus.Done, 100, 0, 8, 1),
+                        DemoTask(clubTech, techDeptId, "Rà soát lỗi giao diện dashboard", techLeadId, ClubTaskStatus.Doing, 70, 1, 18, null),
+                        DemoTask(clubTech, techMediaDeptId, "Viết nội dung truyền thông tuyển thành viên", techMemberId, ClubTaskStatus.Done, 100, 0, 7, 2),
+                        DemoTask(clubTech, techMediaDeptId, "Thiết kế poster sự kiện công nghệ", techMemberId, ClubTaskStatus.Doing, 55, 1, 20, null),
+                        DemoTask(clubTech, null, "Phụ trách hậu cần buổi onboarding", techProbationId, ClubTaskStatus.Done, 100, 1, 12, 2),
+                        DemoTask(clubTech, null, "Tổng hợp phản hồi thành viên mới", techProbationId, ClubTaskStatus.Todo, 20, 2, 22, null, TaskPriority.Low),
+
+                        // ENGLISH: thu.clb là Club Admin, dùng để test config/results của CLB này
+                        DemoTask(clubEnglish, null, "Lên kế hoạch English Speaking Day", englishAdminId, ClubTaskStatus.Done, 100, 0, 5, 1, TaskPriority.High),
+                        DemoTask(clubEnglish, null, "Duyệt nội dung bài đăng tuyển thành viên", englishAdminId, ClubTaskStatus.Done, 100, 1, 9, 2),
+                        DemoTask(clubEnglish, englishDeptId, "Chuẩn bị giáo án mini game từ vựng", englishLeadId, ClubTaskStatus.Doing, 80, 1, 17, null),
+                        DemoTask(clubEnglish, null, "Hỗ trợ check-in buổi sinh hoạt", englishProbationId, ClubTaskStatus.Done, 100, 1, 11, 2),
+                        DemoTask(clubEnglish, null, "Tổng hợp ảnh hoạt động", englishProbationId, ClubTaskStatus.Doing, 45, 2, 23, null),
+
+                        // MUSIC: thu.clb chỉ là member, dùng để test my-kpi nhưng không có quyền quản lý
+                        DemoTask(clubMusic, null, "Hỗ trợ chuẩn bị tiết mục acoustic", musicMemberId, ClubTaskStatus.Done, 100, 0, 10, 2),
+                        DemoTask(clubMusic, null, "Ghi nhận danh sách nhạc cụ cần mượn", musicMemberId, ClubTaskStatus.Doing, 60, 2, 21, null),
+                    };
+
+                    db.Tasks.AddRange(tasks);
+                    await db.SaveChangesAsync();
+
+                    var englishPlanningTask = tasks.First(t => t.Title.Contains("English Speaking Day"));
+                    var techPosterTask = tasks.First(t => t.Title.Contains("Thiết kế poster"));
+                    db.TaskAssignees.AddRange(
+                        new TaskAssignee
+                        {
+                            TaskId = englishPlanningTask.Id,
+                            UserId = englishLeadId,
+                            AssignedAt = DateTime.UtcNow,
+                            AssignedBy = "seeder",
+                        },
+                        new TaskAssignee
+                        {
+                            TaskId = techPosterTask.Id,
+                            UserId = techLeadId,
+                            AssignedAt = DateTime.UtcNow,
+                            AssignedBy = "seeder",
+                        });
+
+                    db.Contributions.AddRange(
+                        new Contribution
+                        {
+                            ClubId = clubTech.Id,
+                            UserId = techLeadId,
+                            TaskId = tasks.First(t => t.Title.Contains("checklist")).Id,
+                            ActivityType = ActivityType.Task,
+                            Points = 35,
+                            Note = $"{marker} Chủ động hỗ trợ review kỹ thuật.",
+                            RecordedAt = monthStart.AddDays(1),
+                        },
+                        new Contribution
+                        {
+                            ClubId = clubTech.Id,
+                            UserId = techMemberId,
+                            TaskId = techPosterTask.Id,
+                            ActivityType = ActivityType.Task,
+                            Points = 18,
+                            Note = $"{marker} Thiết kế bổ sung ngoài kế hoạch.",
+                            RecordedAt = monthStart.AddDays(2),
+                        },
+                        new Contribution
+                        {
+                            ClubId = clubEnglish.Id,
+                            UserId = englishAdminId,
+                            TaskId = englishPlanningTask.Id,
+                            ActivityType = ActivityType.Task,
+                            Points = 40,
+                            Note = $"{marker} Điều phối kế hoạch sự kiện.",
+                            RecordedAt = monthStart.AddDays(1),
+                        },
+                        new Contribution
+                        {
+                            ClubId = clubEnglish.Id,
+                            UserId = englishProbationId,
+                            ActivityType = ActivityType.Task,
+                            Points = 12,
+                            Note = $"{marker} Hỗ trợ hậu cần sinh hoạt.",
+                            RecordedAt = monthStart.AddDays(2),
+                        },
+                        new Contribution
+                        {
+                            ClubId = clubMusic.Id,
+                            UserId = musicMemberId,
+                            ActivityType = ActivityType.Task,
+                            Points = 25,
+                            Note = $"{marker} Hỗ trợ chuẩn bị biểu diễn.",
+                            RecordedAt = monthStart.AddDays(2),
+                        });
+
+                    await db.SaveChangesAsync();
+                }
+            }
+
             Console.WriteLine("[Seeder] Done.");
         }
     }

@@ -367,11 +367,15 @@ export default function UsersPage() {
               </div>
               <div className="space-y-1.5">
                 <Label>Giới tính</Label>
-                <select value={form.gender} onChange={field('gender')} className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background">
-                  <option value="">—</option>
-                  <option value="Nam">Nam</option>
-                  <option value="Nữ">Nữ</option>
-                </select>
+                <FilterSelect
+                  value={form.gender}
+                  onChange={value => setForm(prev => ({ ...prev, gender: value }))}
+                  options={[
+                    { value: '', label: '—' },
+                    { value: 'Nam', label: 'Nam' },
+                    { value: 'Nữ', label: 'Nữ' },
+                  ]}
+                />
               </div>
               <div className="col-span-2 space-y-1.5">
                 <Label>Ngành</Label>

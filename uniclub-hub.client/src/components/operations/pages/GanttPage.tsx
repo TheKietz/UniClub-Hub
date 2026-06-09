@@ -6,6 +6,7 @@ import { RefreshCw, Plus, ChevronLeft, ChevronRight } from 'lucide-react'
 import { getTasks, getEvents } from '../services/operationsApi'
 import { useTasks } from '../context/TasksContext'
 import type { TaskItem, EventItem, TaskStatus } from '../services/operations.types'
+import { FilterSelect } from '@/components/shared/FilterSelect'
 
 /* ─── Design tokens ──────────────────────────────────────────────────────── */
 
@@ -164,18 +165,13 @@ export default function GanttPage() {
               <h1 style={{ fontSize: 18, fontWeight: 900, color: D.ink, margin: 0 }}>{selEvent.name}</h1>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-              <select
-                aria-label="Chọn sự kiện"
-                value={selEventId ?? ''}
-                onChange={e => setSelEventId(Number(e.target.value))}
-                style={{
-                  fontSize: 12, border: D.borderLight, borderRadius: 8,
-                  padding: '6px 10px', background: D.bg, color: D.inkDim,
-                  cursor: 'pointer', fontFamily: 'inherit', outline: 'none',
-                }}
-              >
-                {events.map(ev => <option key={ev.id} value={ev.id}>{ev.name}</option>)}
-              </select>
+              <FilterSelect
+                value={selEventId?.toString() ?? ''}
+                onChange={value => setSelEventId(Number(value))}
+                options={events.map(ev => ({ value: ev.id.toString(), label: ev.name }))}
+                style={{ width: 220 }}
+                maxMenuHeight={260}
+              />
               <button
                 type="button"
                 onClick={load}

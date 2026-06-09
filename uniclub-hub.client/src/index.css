@@ -243,24 +243,24 @@ code {
 /* ─── v3 Public Pages Design System ─────────────────────────────── */
 
 :root {
-  --v3-bg: #fbf9f3;
+  --v3-bg: #f8fafc;
   --v3-card: #ffffff;
-  --v3-ink: #15131a;
-  --v3-ink-dim: #4a4651;
-  --v3-ink-muted: #918c99;
-  --v3-rule: #e8e3d6;
-  --v3-indigo: #4f46e5;
+  --v3-ink: #1e293b;
+  --v3-ink-dim: #475569;
+  --v3-ink-muted: #94a3b8;
+  --v3-rule: #e2e8f0;
+  --v3-indigo: #2563eb;
   --v3-violet: #7c3aed;
-  --v3-coral: #ff5a3c;
+  --v3-coral: #e11d48;
   --v3-lemon: #facc15;
   --v3-mint: #14b8a6;
   --v3-sky: #38bdf8;
   --v3-pink: #ec4899;
-  --v3-navy: #1e1b4b;
-  --v3-border: 1.5px solid #15131a;
-  --v3-shadow: 4px 4px 0 #15131a;
-  --v3-shadow-sm: 2px 2px 0 #15131a;
-  --v3-shadow-lg: 6px 6px 0 #15131a;
+  --v3-navy: #0f172a;
+  --v3-border: 1.5px solid #1e293b;
+  --v3-shadow: 4px 4px 0 #1e293b;
+  --v3-shadow-sm: 2px 2px 0 #1e293b;
+  --v3-shadow-lg: 6px 6px 0 #1e293b;
 }
 
 /* ── Public page wrapper ── */

@@ -8,6 +8,8 @@ export const CLUB_PERMISSIONS = {
   // Members (Phase 2 — done)
   MEMBERS_VIEW: 'membership.members.view',
   MEMBERS_MANAGE: 'membership.members.manage',
+  MEMBER_KPI_VIEW: 'membership.member_kpi.view',
+  MEMBER_KPI_MANAGE: 'membership.member_kpi.manage',
   MEMBER_IMPORT_EXPORT: 'membership.members.import_export',
   ROLE_SUGGESTIONS_USE: 'membership.role_suggestions.use',
 

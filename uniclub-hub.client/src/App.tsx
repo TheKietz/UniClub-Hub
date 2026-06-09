@@ -39,6 +39,8 @@ import OrgChartPage from "@/components/membership/pages/club/OrgChartPage";
 import AuditLogPage from "@/components/membership/pages/club/AuditLogPage";
 import PipelineSettingsPage from "@/components/membership/pages/club/PipelineSettingsPage";
 import PositionsPage from "@/components/membership/pages/club/PositionsPage";
+import KpiConfigPage from "@/components/membership/pages/club/KpiConfigPage";
+import KpiDashboardPage from "@/components/membership/pages/club/KpiDashboardPage";
 
 import MemberDashboard from "@/components/membership/pages/MemberDashboard";
 import ClubListPage from "@/components/membership/pages/ClubListPage";
@@ -56,6 +58,7 @@ import ClubDetailPage from "@/components/membership/pages/ClubDetailPage";
 import ProfilePage from "@/components/membership/pages/ProfilePage";
 import MemberHistoryPage from "@/components/membership/pages/MemberHistoryPage";
 import NotificationsPage from "@/components/membership/pages/NotificationsPage";
+import MyKpiPage from "@/components/membership/pages/MyKpiPage";
 
 import MyTasksPage from "@/components/operations/pages/MyTasksPage";
 import EventDetailPage from "@/components/operations/pages/EventDetailPage";
@@ -125,7 +128,7 @@ export default function App() {
               <Route path="/my-tasks" element={<TasksProvider clubId={0}><MyTasksPage /></TasksProvider>} />
               <Route path="/clubs/:clubId/operations" element={<ClubOperationsPage />} />
               <Route path="/clubs/:clubId/events/:id" element={<EventDetailPage />} />
-              <Route path="/my-kpi" element={<Soon label="KPI của tôi" />} />
+              <Route path="/my-kpi" element={<MyKpiPage />} />
               <Route
                 element={
                   <ClubProtectedRoute
@@ -281,6 +284,28 @@ export default function App() {
               >
                 <Route element={<ClubManageLayout />}>
                   <Route path="manage/audit-log" element={<AuditLogPage />} />
+                </Route>
+              </Route>
+
+              {/* KPI results — permission-based */}
+              <Route
+                element={
+                  <PermissionProtectedRoute anyOf={[CLUB_PERMISSIONS.MEMBER_KPI_VIEW]} />
+                }
+              >
+                <Route element={<ClubManageLayout />}>
+                  <Route path="manage/kpi" element={<KpiDashboardPage />} />
+                </Route>
+              </Route>
+
+              {/* KPI config — permission-based */}
+              <Route
+                element={
+                  <PermissionProtectedRoute anyOf={[CLUB_PERMISSIONS.MEMBER_KPI_MANAGE]} />
+                }
+              >
+                <Route element={<ClubManageLayout />}>
+                  <Route path="manage/kpi/config" element={<KpiConfigPage />} />
                 </Route>
               </Route>
 

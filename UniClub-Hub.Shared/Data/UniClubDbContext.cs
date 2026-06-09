@@ -62,6 +62,9 @@ namespace UniClub_Hub.Shared.Data
         public DbSet<ClubPosition> ClubPositions { get; set; }
         public DbSet<ClubPositionPermission> ClubPositionPermissions { get; set; }
         public DbSet<ClubMemberPosition> ClubMemberPositions { get; set; }
+        public DbSet<KpiConfig> KpiConfigs { get; set; }
+        public DbSet<KpiCriteria> KpiCriteria { get; set; }
+        public DbSet<KpiGradeConfig> KpiGradeConfigs { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {

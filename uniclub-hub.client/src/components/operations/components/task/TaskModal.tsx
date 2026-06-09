@@ -38,6 +38,7 @@ import type {
 } from "../../services/operations.types";
 import { getClubMembers } from "../../../membership/services/clubApi";
 import type { MemberItem } from "../../../membership/services/club.types";
+import { FilterSelect } from "@/components/shared/FilterSelect";
 
 interface Props {
   clubId: number;
@@ -462,20 +463,18 @@ export default function TaskModal({
                   </span>
                 </div>
               ) : null}
-              <select
-                aria-label="Người thực hiện"
-                className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-indigo-300"
+              <FilterSelect
                 value={form.assignedTo ?? ""}
-                onChange={(e) => set("assignedTo", e.target.value)}
-              >
-                <option value="">-- Chọn thành viên --</option>
-                {members.map((m) => (
-                  <option key={m.userId} value={m.userId}>
-                    {m.fullName ?? m.email}
-                    {m.studentId ? ` (${m.studentId})` : ""}
-                  </option>
-                ))}
-              </select>
+                onChange={(value) => set("assignedTo", value)}
+                options={[
+                  { value: "", label: "-- Chọn thành viên --" },
+                  ...members.map((m) => ({
+                    value: m.userId,
+                    label: `${m.fullName ?? m.email}${m.studentId ? ` (${m.studentId})` : ""}`,
+                  })),
+                ]}
+                maxMenuHeight={260}
+              />
             </div>
 
             {/* Priority */}
@@ -484,20 +483,12 @@ export default function TaskModal({
                 Mức ưu tiên
               </Label>
               <div className="relative">
-                <select
-                  aria-label="Mức ưu tiên"
-                  className="w-full border border-gray-200 rounded-lg pl-7 pr-2.5 py-1.5 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-indigo-300 appearance-none"
+                <FilterSelect
                   value={form.priority}
-                  onChange={(e) =>
-                    set("priority", e.target.value as TaskPriority)
-                  }
-                >
-                  {PRIORITY_OPTIONS.map((p) => (
-                    <option key={p} value={p}>
-                      {PRIORITY_META[p].label}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(value) => set("priority", value as TaskPriority)}
+                  options={PRIORITY_OPTIONS.map((p) => ({ value: p, label: PRIORITY_META[p].label }))}
+                  buttonStyle={{ paddingLeft: 28 }}
+                />
                 <span
                   className={`absolute left-2.5 top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full ${PRIORITY_META[form.priority].dot} pointer-events-none`}
                 />
@@ -522,24 +513,20 @@ export default function TaskModal({
               <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 block">
                 Sự kiện
               </Label>
-              <select
-                aria-label="Sự kiện liên quan"
-                className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-indigo-300"
-                value={form.eventId ?? ""}
-                onChange={(e) =>
+              <FilterSelect
+                value={form.eventId ? String(form.eventId) : ""}
+                onChange={(value) =>
                   set(
                     "eventId",
-                    e.target.value ? Number(e.target.value) : undefined,
+                    value ? Number(value) : undefined,
                   )
                 }
-              >
-                <option value="">-- Không có --</option>
-                {events.map((ev) => (
-                  <option key={ev.id} value={ev.id}>
-                    {ev.name}
-                  </option>
-                ))}
-              </select>
+                options={[
+                  { value: "", label: "-- Không có --" },
+                  ...events.map((ev) => ({ value: String(ev.id), label: ev.name })),
+                ]}
+                maxMenuHeight={260}
+              />
             </div>
 
             {/* Dependencies — edit only */}
@@ -575,23 +562,19 @@ export default function TaskModal({
 
                 {availableDeps.length > 0 && (
                   <div className="space-y-1.5">
-                    <select
-                      aria-label="Thêm phụ thuộc"
-                      className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-indigo-300"
-                      value={addDepId ?? ""}
-                      onChange={(e) =>
+                    <FilterSelect
+                      value={addDepId ? String(addDepId) : ""}
+                      onChange={(value) =>
                         setAddDepId(
-                          e.target.value ? Number(e.target.value) : null,
+                          value ? Number(value) : null,
                         )
                       }
-                    >
-                      <option value="">-- Chọn công việc --</option>
-                      {availableDeps.map((t) => (
-                        <option key={t.id} value={t.id}>
-                          {t.title}
-                        </option>
-                      ))}
-                    </select>
+                      options={[
+                        { value: "", label: "-- Chọn công việc --" },
+                        ...availableDeps.map((t) => ({ value: String(t.id), label: t.title })),
+                      ]}
+                      maxMenuHeight={220}
+                    />
                     <button
                       type="button"
                       disabled={!addDepId || depLoading}

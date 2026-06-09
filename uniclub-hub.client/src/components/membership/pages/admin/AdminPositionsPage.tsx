@@ -49,8 +49,8 @@ export default function AdminPositionsPage() {
       <div style={{ padding: '28px 32px 0', fontFamily: "'Be Vietnam Pro', sans-serif" }}>
         <div style={{ borderRadius: D.radius, background: D.card, border: D.border, boxShadow: D.shadow(), padding: 14, display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{ flex: 1 }}>
-            <h1 style={{ margin: 0, fontSize: 22, fontWeight: 900, color: D.ink }}>Position & permission CLB</h1>
-            <p style={{ margin: '4px 0 0', color: D.inkMuted, fontSize: 13 }}>Chọn CLB để kiểm tra hoặc can thiệp cấu hình position.</p>
+            <h1 style={{ margin: 0, fontSize: 22, fontWeight: 900, color: D.ink }}>Vị trí & quyền CLB</h1>
+            <p style={{ margin: '4px 0 0', color: D.inkMuted, fontSize: 13 }}>Chọn CLB để kiểm tra hoặc can thiệp cấu hình vị trí.</p>
           </div>
           <FilterSelect
             value={selectedClubId}

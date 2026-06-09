@@ -108,8 +108,84 @@ function getMemberName(member: MemberItem) {
   return member.fullName || member.email
 }
 
+const MODULE_LABELS: Record<string, string> = {
+  Membership: 'Thành viên',
+  Operations: 'Vận hành',
+  Portal: 'Cổng thông tin',
+}
+
+const GROUP_LABELS: Record<string, string> = {
+  'Thanh vien': 'Thành viên',
+  'Danh gia': 'Đánh giá',
+  'Co cau to chuc': 'Cơ cấu tổ chức',
+  'Tuyen thanh vien': 'Tuyển thành viên',
+  'Nhan su': 'Nhân sự',
+  'Bao cao': 'Báo cáo',
+  'Cai dat': 'Cài đặt',
+  'Kiem soat': 'Kiểm soát',
+  'Tong quan': 'Tổng quan',
+  'Cong viec': 'Công việc',
+  'Su kien': 'Sự kiện',
+  'Noi dung': 'Nội dung',
+  'Truyen thong': 'Truyền thông',
+  'Goi y': 'Gợi ý',
+  'Thong bao': 'Thông báo',
+  'Landing page': 'Trang giới thiệu',
+}
+
+const PERMISSION_LABELS: Record<string, string> = {
+  'membership.members.view': 'Xem thành viên',
+  'membership.members.manage': 'Quản lý thành viên',
+  'membership.member_history.view': 'Xem lịch sử tham gia',
+  'membership.member_lifecycle.manage': 'Quản lý vòng đời thành viên',
+  'membership.member_kpi.view': 'Xem KPI thành viên',
+  'membership.member_kpi.manage': 'Quản lý KPI thành viên',
+  'membership.members.import_export': 'Nhập/xuất thành viên',
+  'membership.departments.manage': 'Quản lý ban bộ phận',
+  'membership.applications.view': 'Xem đơn đăng ký',
+  'membership.applications.review': 'Duyệt đơn đăng ký',
+  'membership.recruitment_pipeline.manage': 'Quản lý quy trình tuyển',
+  'membership.recruitment_form.manage': 'Quản lý form đăng ký',
+  'membership.resignations.view': 'Xem đơn từ chức',
+  'membership.resignations.review': 'Duyệt đơn từ chức',
+  'membership.org_chart.view': 'Xem sơ đồ tổ chức',
+  'membership.org_chart.manage': 'Quản lý sơ đồ tổ chức',
+  'membership.positions.manage': 'Quản lý vị trí',
+  'membership.position_assignments.manage': 'Gán vị trí',
+  'membership.reports.view': 'Xem báo cáo',
+  'membership.reports.export': 'Xuất báo cáo',
+  'membership.role_suggestions.use': 'Dùng gợi ý vai trò',
+  'club.settings.manage': 'Quản lý cài đặt CLB',
+  'club.audit_log.view': 'Xem lịch sử thay đổi',
+  'club.profile.manage': 'Quản lý thông tin CLB',
+  'operations.dashboard.view': 'Xem tổng quan vận hành',
+  'operations.tasks.view': 'Xem công việc',
+  'operations.tasks.manage': 'Quản lý công việc',
+  'operations.sprints.manage': 'Quản lý sprint',
+  'operations.events.view': 'Xem sự kiện',
+  'operations.events.manage': 'Quản lý sự kiện',
+  'operations.event_participants.manage': 'Quản lý người tham gia',
+  'operations.workload.view': 'Xem tải công việc',
+  'portal.landing_page.manage': 'Quản lý trang giới thiệu',
+  'portal.content.view': 'Xem nội dung công khai',
+  'portal.content.manage': 'Quản lý nội dung',
+  'portal.content.review': 'Duyệt nội dung',
+  'portal.media.manage': 'Quản lý hình ảnh',
+  'portal.seo.manage': 'Quản lý SEO',
+  'portal.template.manage': 'Quản lý mẫu giao diện',
+  'portal.analytics.view': 'Xem phân tích truy cập',
+  'portal.social.manage': 'Quản lý mạng xã hội',
+  'portal.recommendations.manage': 'Quản lý gợi ý CLB',
+  'notifications.view': 'Xem thông báo',
+  'notifications.settings.manage': 'Quản lý thông báo',
+}
+
 function permissionKey(permission: ClubPermissionItem) {
-  return `${permission.module} / ${permission.group}`
+  return `${MODULE_LABELS[permission.module] ?? permission.module} / ${GROUP_LABELS[permission.group] ?? permission.group}`
+}
+
+function permissionName(permission: ClubPermissionItem) {
+  return PERMISSION_LABELS[permission.code] ?? permission.name
 }
 
 export default function PositionManagementPanel({
@@ -207,7 +283,7 @@ export default function PositionManagementPanel({
         setDepartments(departmentScopeId ? departmentData.filter(d => d.id === departmentScopeId) : departmentData)
         setMembers(departmentScopeId ? memberData.filter(m => m.departmentId === departmentScopeId) : memberData)
       })
-      .catch(() => toast.error('Không thể tải dữ liệu position.'))
+      .catch(() => toast.error('Không thể tải dữ liệu vị trí.'))
       .finally(() => setLoading(false))
   }, [clubId, departmentScopeId, refreshKey])
 
@@ -231,7 +307,7 @@ export default function PositionManagementPanel({
               .map(position => position.id)
         setSelectedMemberPositionIds(positionIds)
       })
-      .catch(() => toast.error('Không thể tải position của thành viên.'))
+      .catch(() => toast.error('Không thể tải vị trí của thành viên.'))
       .finally(() => setLoadingMemberPositions(false))
   }, [canManageCatalog, clubId, departmentScopeId, selectedMemberId])
 
@@ -275,7 +351,7 @@ export default function PositionManagementPanel({
     e.preventDefault()
     if (!canManageCatalog) return
     if (!form.name.trim()) {
-      toast.error('Vui lòng nhập tên position.')
+      toast.error('Vui lòng nhập tên vị trí.')
       return
     }
 
@@ -292,16 +368,16 @@ export default function PositionManagementPanel({
       if (editing) {
         await updateClubPosition(clubId, editing.id, payload)
         await updateClubPositionPermissions(clubId, editing.id, form.permissionCodes)
-        toast.success('Đã cập nhật position.')
+        toast.success('Đã cập nhật vị trí.')
       } else {
         await createClubPosition(clubId, { ...payload, permissionCodes: form.permissionCodes })
-        toast.success('Đã tạo position.')
+        toast.success('Đã tạo vị trí.')
       }
 
       setDialogOpen(false)
       setRefreshKey(k => k + 1)
     } catch (err: any) {
-      toast.error(err.response?.data?.message ?? 'Lưu position thất bại.')
+      toast.error(err.response?.data?.message ?? 'Lưu vị trí thất bại.')
     } finally {
       setSavingPosition(false)
     }
@@ -311,11 +387,11 @@ export default function PositionManagementPanel({
     if (!deleteTarget) return
     try {
       await deleteClubPosition(clubId, deleteTarget.id)
-      toast.success('Đã xoá position.')
+      toast.success('Đã xoá vị trí.')
       setDeleteTarget(null)
       setRefreshKey(k => k + 1)
     } catch (err: any) {
-      toast.error(err.response?.data?.message ?? 'Xoá position thất bại.')
+      toast.error(err.response?.data?.message ?? 'Xoá vị trí thất bại.')
     }
   }
 
@@ -324,10 +400,10 @@ export default function PositionManagementPanel({
     setSavingMemberPositions(true)
     try {
       await assignMemberPositions(clubId, Number(selectedMemberId), selectedMemberPositionIds)
-      toast.success('Đã cập nhật position cho thành viên.')
+      toast.success('Đã cập nhật vị trí cho thành viên.')
       setRefreshKey(k => k + 1)
     } catch (err: any) {
-      toast.error(err.response?.data?.message ?? 'Gán position thất bại.')
+      toast.error(err.response?.data?.message ?? 'Gán vị trí thất bại.')
     } finally {
       setSavingMemberPositions(false)
     }
@@ -339,7 +415,7 @@ export default function PositionManagementPanel({
         <div>
           <h1 style={{ fontSize: 24, fontWeight: 900, color: D.ink, letterSpacing: '-.025em', margin: 0 }}>{title}</h1>
           <p style={{ fontSize: 13, color: D.inkMuted, marginTop: 4 }}>
-            {clubName ? `${clubName} · ` : ''}{filteredPositions.length}/{scopedPositions.length} position
+            {clubName ? `${clubName} · ` : ''}{filteredPositions.length}/{scopedPositions.length} vị trí
             {departmentScopeName ? ` · ${departmentScopeName}` : ''}
           </p>
         </div>
@@ -348,7 +424,7 @@ export default function PositionManagementPanel({
             onClick={openCreate}
             style={{ background: D.indigo, color: '#fff', border: D.border, boxShadow: D.shadow(2,2), padding: '8px 16px', borderRadius: D.pill, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: 6 }}
           >
-            <Plus size={15} /> Thêm position
+            <Plus size={15} /> Thêm vị trí
           </button>
         )}
       </div>
@@ -359,7 +435,7 @@ export default function PositionManagementPanel({
             <input
               value={search}
               onChange={e => setSearch(e.target.value)}
-              placeholder="⌕  Tìm position, ban..."
+              placeholder="⌕  Tìm vị trí, ban..."
               style={{ ...inputStyle, flex: 1, minWidth: 180 }}
             />
             {!departmentScopeId && (
@@ -388,9 +464,9 @@ export default function PositionManagementPanel({
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
                 <tr style={{ background: D.bg, borderBottom: D.borderLight }}>
-                  <th style={thStyle}>Position</th>
+                  <th style={thStyle}>Vị trí</th>
                   <th style={thStyle}>Phạm vi</th>
-                  <th style={thStyle}>Permission</th>
+                  <th style={thStyle}>Quyền</th>
                   <th style={{ ...thStyle, textAlign: 'center' }}>Thành viên</th>
                   <th style={{ ...thStyle, textAlign: 'right' }}>Hành động</th>
                 </tr>
@@ -399,7 +475,7 @@ export default function PositionManagementPanel({
                 {loading ? (
                   <tr><td colSpan={5} style={emptyCell}>Đang tải...</td></tr>
                 ) : filteredPositions.length === 0 ? (
-                  <tr><td colSpan={5} style={emptyCell}>Chưa có position nào.</td></tr>
+                  <tr><td colSpan={5} style={emptyCell}>Chưa có vị trí nào.</td></tr>
                 ) : filteredPositions.map(position => (
                   <tr key={position.id} style={{ borderBottom: D.borderLight }}>
                     <td style={{ padding: '13px 14px' }}>
@@ -422,7 +498,7 @@ export default function PositionManagementPanel({
                     <td style={{ padding: '13px 14px', textAlign: 'center', color: D.inkDim, fontWeight: 700 }}>{position.memberCount}</td>
                     <td style={{ padding: '13px 14px' }}>
                       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6 }}>
-                        <Tooltip label="Xem permission">
+                        <Tooltip label="Xem quyền">
                           <button
                             onClick={() => openEdit(position)}
                             style={iconButtonStyle(D.violetSoft, D.indigo)}
@@ -455,36 +531,36 @@ export default function PositionManagementPanel({
 
         {canShowAssignment && <aside style={{ borderRadius: D.radius, background: D.card, border: D.border, boxShadow: D.shadow(), overflow: 'hidden' }}>
           <div style={{ background: D.indigo, color: '#fff', padding: '14px 16px', fontSize: 13, fontWeight: 900, letterSpacing: '.06em', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Users size={16} /> Gán position
+            <Users size={16} /> Gán vị trí
           </div>
           <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div>
               <label style={labelStyle}>Thành viên</label>
-              <select
+              <FilterSelect
                 value={selectedMemberId}
-                onChange={e => setSelectedMemberId(e.target.value)}
-                style={{ ...inputStyle, cursor: 'pointer' }}
-              >
-                <option value="">— Chọn thành viên —</option>
-                {members.map(member => (
-                  <option key={member.id} value={member.id}>
-                    {getMemberName(member)}{member.departmentName ? ` · ${member.departmentName}` : ''}
-                  </option>
-                ))}
-              </select>
+                onChange={setSelectedMemberId}
+                options={[
+                  { value: '', label: '— Chọn thành viên —' },
+                  ...members.map(member => ({
+                    value: String(member.id),
+                    label: `${getMemberName(member)}${member.departmentName ? ` · ${member.departmentName}` : ''}`,
+                  })),
+                ]}
+                maxMenuHeight={320}
+              />
             </div>
 
             {!selectedMember ? (
               <div style={{ border: D.borderLight, borderRadius: 10, padding: '22px 14px', color: D.inkMuted, textAlign: 'center', fontSize: 13 }}>
-                Chọn thành viên để gán position.
+                Chọn thành viên để gán vị trí.
               </div>
             ) : loadingMemberPositions ? (
               <div style={{ border: D.borderLight, borderRadius: 10, padding: '22px 14px', color: D.inkMuted, textAlign: 'center', fontSize: 13 }}>
-                Đang tải position...
+                Đang tải vị trí...
               </div>
             ) : assignablePositions.length === 0 ? (
               <div style={{ border: D.borderLight, borderRadius: 10, padding: '22px 14px', color: D.inkMuted, textAlign: 'center', fontSize: 13 }}>
-                Không có position phù hợp.
+                Không có vị trí phù hợp.
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 360, overflow: 'auto', paddingRight: 2 }}>
@@ -562,13 +638,13 @@ export default function PositionManagementPanel({
         <DialogContent className="sm:max-w-3xl" style={{ fontFamily: "'Be Vietnam Pro', sans-serif" }}>
           <DialogHeader>
             <DialogTitle style={{ color: D.ink, fontWeight: 900 }}>
-              {canManageCatalog ? (editing ? 'Chỉnh sửa position' : 'Thêm position') : 'Chi tiết position'}
+              {canManageCatalog ? (editing ? 'Chỉnh sửa vị trí' : 'Thêm vị trí') : 'Chi tiết vị trí'}
             </DialogTitle>
           </DialogHeader>
           <form onSubmit={savePosition} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 220px', gap: 12 }}>
               <div>
-                <label style={labelStyle}>Tên position</label>
+                <label style={labelStyle}>Tên vị trí</label>
                 <input
                   value={form.name}
                   onChange={e => setForm(prev => ({ ...prev, name: e.target.value }))}
@@ -579,15 +655,15 @@ export default function PositionManagementPanel({
               </div>
               <div>
                 <label style={labelStyle}>Phạm vi</label>
-                <select
+                <FilterSelect
                   value={form.departmentId}
-                  onChange={e => setForm(prev => ({ ...prev, departmentId: e.target.value }))}
+                  onChange={value => setForm(prev => ({ ...prev, departmentId: value }))}
                   disabled={!canManageCatalog || !!departmentScopeId}
-                  style={{ ...inputStyle, cursor: canManageCatalog ? 'pointer' : 'default' }}
-                >
-                  <option value="">Cấp CLB</option>
-                  {departments.map(dept => <option key={dept.id} value={dept.id}>{dept.name}</option>)}
-                </select>
+                  options={[
+                    { value: '', label: 'Cấp CLB' },
+                    ...departments.map(dept => ({ value: String(dept.id), label: dept.name })),
+                  ]}
+                />
               </div>
             </div>
 
@@ -609,12 +685,12 @@ export default function PositionManagementPanel({
                 disabled={!canManageCatalog}
                 onChange={e => setForm(prev => ({ ...prev, canBeAssignedByDeptLead: e.target.checked }))}
               />
-              Trưởng ban được gán position này cho thành viên trong ban
+              Trưởng ban được gán vị trí này cho thành viên trong ban
             </label>
 
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                <label style={{ ...labelStyle, marginBottom: 0 }}>Permission</label>
+                <label style={{ ...labelStyle, marginBottom: 0 }}>Quyền</label>
                 <span style={{ color: D.inkMuted, fontSize: 12, fontWeight: 700 }}>{form.permissionCodes.length} quyền đã chọn</span>
               </div>
               <div style={{ maxHeight: 340, overflow: 'auto', border: D.borderLight, borderRadius: 10, padding: 10, background: D.bg }}>
@@ -654,7 +730,7 @@ export default function PositionManagementPanel({
                                 {checked && <Check size={12} />}
                               </span>
                               <span>
-                                <span style={{ display: 'block', color: D.ink, fontSize: 12, fontWeight: 800 }}>{permission.name}</span>
+                                <span style={{ display: 'block', color: D.ink, fontSize: 12, fontWeight: 800 }}>{permissionName(permission)}</span>
                                 <span style={{ display: 'block', color: D.inkMuted, fontSize: 10.5, marginTop: 2 }}>{permission.code}</span>
                               </span>
                             </span>
@@ -692,9 +768,9 @@ export default function PositionManagementPanel({
       <AlertDialog open={deleteTarget !== null} onOpenChange={open => { if (!open) setDeleteTarget(null) }}>
         <AlertDialogContent style={{ fontFamily: "'Be Vietnam Pro', sans-serif" }}>
           <AlertDialogHeader>
-            <AlertDialogTitle>Xoá position?</AlertDialogTitle>
+            <AlertDialogTitle>Xoá vị trí?</AlertDialogTitle>
             <AlertDialogDescription>
-              Position "{deleteTarget?.name}" sẽ không còn dùng được. Position đang được gán cho thành viên sẽ không thể xoá.
+              Vị trí "{deleteTarget?.name}" sẽ không còn dùng được. Vị trí đang được gán cho thành viên sẽ không thể xoá.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

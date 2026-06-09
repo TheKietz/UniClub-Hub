@@ -313,11 +313,14 @@ export default function ClubsPage() {
             </div>
             <div>
               <label style={labelStyle}>Lĩnh vực</label>
-              <select value={form.categoryId} onChange={setField('categoryId')}
-                style={{ ...inputStyle, height: 36 }}>
-                <option value="">— Chọn lĩnh vực —</option>
-                {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
+              <FilterSelect
+                value={form.categoryId}
+                onChange={value => setForm(prev => ({ ...prev, categoryId: value }))}
+                options={[
+                  { value: '', label: '— Chọn lĩnh vực —' },
+                  ...categories.map(c => ({ value: String(c.id), label: c.name })),
+                ]}
+              />
             </div>
             <div>
               <label style={labelStyle}>Mô tả</label>
@@ -336,10 +339,14 @@ export default function ClubsPage() {
             {editing && (
               <div>
                 <label style={labelStyle}>Trạng thái</label>
-                <select value={form.status} onChange={setField('status')} style={{ ...inputStyle, height: 36 }}>
-                  <option value="Active">Hoạt động</option>
-                  <option value="Inactive">Ngừng hoạt động</option>
-                </select>
+                <FilterSelect
+                  value={form.status}
+                  onChange={value => setForm(prev => ({ ...prev, status: value }))}
+                  options={[
+                    { value: 'Active', label: 'Hoạt động' },
+                    { value: 'Inactive', label: 'Ngừng hoạt động' },
+                  ]}
+                />
               </div>
             )}
             <DialogFooter style={{ borderTop: 'none', background: 'transparent', paddingTop: 4 }}>

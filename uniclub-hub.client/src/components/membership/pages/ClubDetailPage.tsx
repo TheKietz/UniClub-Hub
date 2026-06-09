@@ -12,6 +12,7 @@ import { ArrowLeft, Users, Building, Calendar, Phone, GraduationCap, CheckCircle
 import { Tree, TreeNode } from 'react-organizational-chart'
 import PublicHeader from '@/components/layouts/PublicHeader'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { FilterSelect } from '@/components/shared/FilterSelect'
 
 const AVATAR_COLORS = ['bg-indigo-500', 'bg-emerald-500', 'bg-violet-500', 'bg-rose-500', 'bg-amber-500', 'bg-cyan-500']
 
@@ -373,12 +374,14 @@ export default function ClubDetailPage() {
                               onChange={e => setAnswers(p => ({ ...p, [f.id]: e.target.value }))}
                               className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500" />
                           ) : f.type === 'select' ? (
-                            <select value={answers[f.id] ?? ''}
-                              onChange={e => setAnswers(p => ({ ...p, [f.id]: e.target.value }))}
-                              className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-white">
-                              <option value="">— Chọn —</option>
-                              {f.options?.map(o => <option key={o} value={o}>{o}</option>)}
-                            </select>
+                            <FilterSelect
+                              value={answers[f.id] ?? ''}
+                              onChange={value => setAnswers(p => ({ ...p, [f.id]: value }))}
+                              options={[
+                                { value: '', label: '— Chọn —' },
+                                ...(f.options ?? []).map(o => ({ value: o, label: o })),
+                              ]}
+                            />
                           ) : f.type === 'file' ? (
                             <div>
                               <label className={`flex items-center gap-2 w-full border rounded-lg px-3 py-2 text-sm cursor-pointer transition-colors ${
@@ -436,12 +439,14 @@ export default function ClubDetailPage() {
                                 onChange={e => setMemberFieldAnswers(p => ({ ...p, [f.id]: e.target.value }))}
                                 className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500" />
                             ) : f.type === 'select' ? (
-                              <select value={memberFieldAnswers[f.id] ?? ''}
-                                onChange={e => setMemberFieldAnswers(p => ({ ...p, [f.id]: e.target.value }))}
-                                className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-white">
-                                <option value="">— Chọn —</option>
-                                {f.options?.map(o => <option key={o} value={o}>{o}</option>)}
-                              </select>
+                              <FilterSelect
+                                value={memberFieldAnswers[f.id] ?? ''}
+                                onChange={value => setMemberFieldAnswers(p => ({ ...p, [f.id]: value }))}
+                                options={[
+                                  { value: '', label: '— Chọn —' },
+                                  ...(f.options ?? []).map(o => ({ value: o, label: o })),
+                                ]}
+                              />
                             ) : (
                               <Input value={memberFieldAnswers[f.id] ?? ''}
                                 onChange={e => setMemberFieldAnswers(p => ({ ...p, [f.id]: e.target.value }))} />

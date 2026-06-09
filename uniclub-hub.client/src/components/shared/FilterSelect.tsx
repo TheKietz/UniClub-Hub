@@ -8,6 +8,9 @@ interface Props {
   onChange: (v: string) => void
   options: SelectOption[]
   style?: React.CSSProperties
+  buttonStyle?: React.CSSProperties
+  disabled?: boolean
+  maxMenuHeight?: number
 }
 
 const D = {
@@ -17,10 +20,10 @@ const D = {
   bg: '#f7f6f1', card: '#ffffff', indigo: '#4f46e5',
 }
 
-export function FilterSelect({ value, onChange, options, style }: Props) {
+export function FilterSelect({ value, onChange, options, style, buttonStyle, disabled = false, maxMenuHeight = 280 }: Props) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
-  const current = options.find(o => o.value === value) ?? options[0]
+  const current = options.find(o => o.value === value) ?? options[0] ?? { value: '', label: '—' }
 
   useEffect(() => {
     function handler(e: MouseEvent) {
@@ -34,13 +37,17 @@ export function FilterSelect({ value, onChange, options, style }: Props) {
     <div ref={ref} style={{ position: 'relative', ...style }}>
       <button
         type="button"
-        onClick={() => setOpen(o => !o)}
+        onClick={() => { if (!disabled) setOpen(o => !o) }}
+        disabled={disabled}
         style={{
           width: '100%', height: 36, borderRadius: 8, border: D.borderLight,
           padding: '0 10px 0 12px', display: 'flex', alignItems: 'center',
           justifyContent: 'space-between', gap: 6, background: D.bg,
-          cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, color: D.inkDim,
+          cursor: disabled ? 'not-allowed' : 'pointer', fontFamily: 'inherit', fontSize: 13,
+          color: disabled ? D.inkMuted : D.inkDim,
+          opacity: disabled ? 0.7 : 1,
           whiteSpace: 'nowrap',
+          ...buttonStyle,
         }}
       >
         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', flex: 1, textAlign: 'left' }}>
@@ -52,11 +59,11 @@ export function FilterSelect({ value, onChange, options, style }: Props) {
         />
       </button>
 
-      {open && (
+      {open && !disabled && (
         <div style={{
           position: 'absolute', zIndex: 50, minWidth: '100%', top: 'calc(100% + 4px)', left: 0,
           background: D.card, border: D.border, borderRadius: 10,
-          boxShadow: D.shadow(3, 3), overflow: 'hidden',
+          boxShadow: D.shadow(3, 3), overflowY: 'auto', maxHeight: maxMenuHeight,
         }}>
           {options.map((o, idx) => (
             <button

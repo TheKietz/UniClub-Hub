@@ -4,6 +4,7 @@ import { getClubs, getPublicCategories } from '@/components/membership/services/
 import type { ClubListItem } from '@/components/membership/services/club.types'
 import { C, Rv, ClubCard, CatPill, Marquee, PublicFooter, type ClubCardData } from '@/components/public/publicComponents'
 import PublicHeader from '@/components/layouts/PublicHeader'
+import { FilterSelect } from '@/components/shared/FilterSelect'
 
 const CLUB_COLORS = [C.indigo, C.violet, C.coral, C.mint, C.sky, C.pink, C.lemon, C.coral]
 
@@ -138,22 +139,18 @@ export default function ClubListPage() {
                 Hiển thị <strong style={{ color: C.ink }}>{filtered.length}</strong> trong {clubs.length} câu lạc bộ
                 {activeCat !== 'Tất cả' && <> · <strong style={{ color: C.ink }}>{activeCat}</strong></>}
               </span>
-              <select
+              <FilterSelect
                 value={sortBy}
-                onChange={e => setSortBy(e.target.value as typeof sortBy)}
-                style={{
-                  marginLeft: 'auto', height: 34, borderRadius: 8,
-                  border: C.border, padding: '0 10px', fontSize: 12, fontWeight: 600,
-                  background: C.card, color: C.ink, cursor: 'pointer',
-                  fontFamily: "'Be Vietnam Pro', sans-serif", outline: 'none',
-                }}
-              >
-                <option value="default">Mặc định</option>
-                <option value="name-asc">Tên A → Z</option>
-                <option value="name-desc">Tên Z → A</option>
-                <option value="members-desc">Thành viên nhiều nhất</option>
-                <option value="members-asc">Thành viên ít nhất</option>
-              </select>
+                onChange={value => setSortBy(value as typeof sortBy)}
+                options={[
+                  { value: 'default', label: 'Mặc định' },
+                  { value: 'name-asc', label: 'Tên A → Z' },
+                  { value: 'name-desc', label: 'Tên Z → A' },
+                  { value: 'members-desc', label: 'Thành viên nhiều nhất' },
+                  { value: 'members-asc', label: 'Thành viên ít nhất' },
+                ]}
+                style={{ marginLeft: 'auto', width: 210 }}
+              />
             </div>
           </Rv>
         </div>

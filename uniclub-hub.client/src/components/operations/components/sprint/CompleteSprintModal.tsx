@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { SprintItem, TaskItem, KanbanColumnItem } from '../../services/operations.types'
+import { FilterSelect } from '@/components/shared/FilterSelect'
 
 interface CompleteSprintModalProps {
   open: boolean
@@ -37,21 +38,6 @@ export default function CompleteSprintModal({
     } finally {
       setSaving(false)
     }
-  }
-
-  const inputStyle: React.CSSProperties = {
-    width: '100%',
-    padding: '10px 14px',
-    fontSize: 14,
-    fontWeight: 600,
-    border: '2px solid #0A0A0A',
-    borderRadius: 0,
-    outline: 'none',
-    background: 'white',
-    color: '#0A0A0A',
-    cursor: 'pointer',
-    appearance: 'none',
-    boxSizing: 'border-box',
   }
 
   return (
@@ -121,22 +107,15 @@ export default function CompleteSprintModal({
               }}>
                 Move open work items to
               </label>
-              <div style={{ position: 'relative' }}>
-                <select
-                  value={destination}
-                  onChange={e => setDestination(e.target.value)}
-                  style={inputStyle}
-                >
-                  <option value="backlog">Backlog</option>
-                  {otherSprints.map(s => (
-                    <option key={s.id} value={String(s.id)}>{s.name}</option>
-                  ))}
-                </select>
-                <span style={{
-                  position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)',
-                  pointerEvents: 'none', fontSize: 12, color: '#555',
-                }}>▼</span>
-              </div>
+              <FilterSelect
+                value={destination}
+                onChange={setDestination}
+                options={[
+                  { value: 'backlog', label: 'Backlog' },
+                  ...otherSprints.map(s => ({ value: String(s.id), label: s.name })),
+                ]}
+                maxMenuHeight={260}
+              />
             </div>
           )}
         </div>

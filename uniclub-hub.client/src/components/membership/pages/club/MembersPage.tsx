@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { getClubMembers, addMember, updateMember, removeMember, getDepartments, getMemberFieldSchema, updateMemberCustomData, suggestMemberRole, getMyClubPermissions, promoteMember, importMembersPreview, importMembersConfirm, exportMembers } from '@/components/membership/services/clubApi'
-import type { MemberItem, DepartmentItem, MemberFieldDef, RoleSuggestion, RoleSuggestionItem, MemberImportRow, MemberImportPreview } from '@/components/membership/services/club.types'
+import type { MemberItem, DepartmentItem, MemberFieldDef, RoleSuggestion, RoleSuggestionItem, MemberImportPreview } from '@/components/membership/services/club.types'
 import { CLUB_ROLES, MEMBERSHIP_STATUS } from '@/types/auth'
 import { CLUB_PERMISSIONS } from '@/constants/clubPermissions'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -61,7 +61,6 @@ const inputStyle: React.CSSProperties = {
   background: '#f7f6f1', fontFamily: 'inherit', boxSizing: 'border-box',
 }
 const labelStyle: React.CSSProperties = { fontSize: 12, fontWeight: 700, color: '#4a4651', display: 'block', marginBottom: 4 }
-const selectStyle: React.CSSProperties = { ...inputStyle, height: 36, cursor: 'pointer' }
 
 type AddForm = { userId: string; clubRole: string; departmentId: string }
 type EditForm = { clubRole: string; departmentId: string; customData: Record<string, string> }
@@ -129,9 +128,6 @@ export default function MembersPage() {
 
   function setAddField(field: keyof AddForm) {
     return (e: { target: { value: string } }) => setAddForm(p => ({ ...p, [field]: e.target.value }))
-  }
-  function setEditField(field: keyof EditForm) {
-    return (e: { target: { value: string } }) => setEditForm(p => ({ ...p, [field]: e.target.value }))
   }
 
   async function handleAdd(e: { preventDefault(): void }) {
@@ -589,16 +585,22 @@ export default function MembersPage() {
             </div>
             <div>
               <label style={labelStyle}>Vai trò</label>
-              <select value={addForm.clubRole} onChange={setAddField('clubRole')} style={selectStyle}>
-                {Object.entries(ROLE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-              </select>
+              <FilterSelect
+                value={addForm.clubRole}
+                onChange={value => setAddForm(p => ({ ...p, clubRole: value }))}
+                options={Object.entries(ROLE_LABELS).map(([value, label]) => ({ value, label }))}
+              />
             </div>
             <div>
               <label style={labelStyle}>Ban</label>
-              <select value={addForm.departmentId} onChange={setAddField('departmentId')} style={selectStyle}>
-                <option value="">— Không thuộc ban nào —</option>
-                {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-              </select>
+              <FilterSelect
+                value={addForm.departmentId}
+                onChange={value => setAddForm(p => ({ ...p, departmentId: value }))}
+                options={[
+                  { value: '', label: '— Không thuộc ban nào —' },
+                  ...departments.map(d => ({ value: String(d.id), label: d.name })),
+                ]}
+              />
             </div>
             <DialogFooter style={{ borderTop: 'none', background: 'transparent', paddingTop: 4 }}>
               <button type="button" onClick={() => setAddOpen(false)}
@@ -635,16 +637,22 @@ export default function MembersPage() {
             )}
             <div>
               <label style={labelStyle}>Vai trò</label>
-              <select value={editForm.clubRole} onChange={setEditField('clubRole')} style={selectStyle}>
-                {Object.entries(ROLE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-              </select>
+              <FilterSelect
+                value={editForm.clubRole}
+                onChange={value => setEditForm(p => ({ ...p, clubRole: value }))}
+                options={Object.entries(ROLE_LABELS).map(([value, label]) => ({ value, label }))}
+              />
             </div>
             <div>
               <label style={labelStyle}>Ban</label>
-              <select value={editForm.departmentId} onChange={setEditField('departmentId')} style={selectStyle}>
-                <option value="">— Không thuộc ban nào —</option>
-                {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-              </select>
+              <FilterSelect
+                value={editForm.departmentId}
+                onChange={value => setEditForm(p => ({ ...p, departmentId: value }))}
+                options={[
+                  { value: '', label: '— Không thuộc ban nào —' },
+                  ...departments.map(d => ({ value: String(d.id), label: d.name })),
+                ]}
+              />
             </div>
 
             {fieldSchema.length > 0 && (
@@ -655,14 +663,14 @@ export default function MembersPage() {
                     <div key={f.id}>
                       <label style={labelStyle}>{f.label}{f.required && <span style={{ color: '#ef4444' }}> *</span>}</label>
                       {f.type === 'select' ? (
-                        <select
+                        <FilterSelect
                           value={editForm.customData[f.id] ?? ''}
-                          onChange={e => setEditForm(p => ({ ...p, customData: { ...p.customData, [f.id]: e.target.value } }))}
-                          style={selectStyle}
-                        >
-                          <option value="">— Chọn —</option>
-                          {(f.options ?? []).map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                        </select>
+                          onChange={value => setEditForm(p => ({ ...p, customData: { ...p.customData, [f.id]: value } }))}
+                          options={[
+                            { value: '', label: '— Chọn —' },
+                            ...(f.options ?? []).map(opt => ({ value: opt, label: opt })),
+                          ]}
+                        />
                       ) : f.type === 'textarea' ? (
                         <textarea
                           value={editForm.customData[f.id] ?? ''}
@@ -920,16 +928,20 @@ export default function MembersPage() {
             </p>
             <div>
               <label style={labelStyle}>Bổ nhiệm Trưởng CLB mới (khuyến nghị)</label>
-              <select value={replacementId} onChange={e => setReplacementId(e.target.value)} style={selectStyle}>
-                <option value="">— Bỏ qua, không bổ nhiệm ai —</option>
-                {members
-                  .filter(m => m.id !== lastAdminModal?.membershipId && m.status === MEMBERSHIP_STATUS.ACTIVE)
-                  .map(m => (
-                    <option key={m.id} value={m.id}>
-                      {m.fullName ?? m.email} ({ROLE_LABELS[m.clubRole] ?? m.clubRole})
-                    </option>
-                  ))}
-              </select>
+              <FilterSelect
+                value={replacementId}
+                onChange={setReplacementId}
+                options={[
+                  { value: '', label: '— Bỏ qua, không bổ nhiệm ai —' },
+                  ...members
+                    .filter(m => m.id !== lastAdminModal?.membershipId && m.status === MEMBERSHIP_STATUS.ACTIVE)
+                    .map(m => ({
+                      value: String(m.id),
+                      label: `${m.fullName ?? m.email} (${ROLE_LABELS[m.clubRole] ?? m.clubRole})`,
+                    })),
+                ]}
+                maxMenuHeight={320}
+              />
             </div>
             {!replacementId && (
               <p style={{ fontSize: 12, color: '#b45309', background: '#fef3c7', borderRadius: 8, padding: '8px 12px', margin: 0 }}>

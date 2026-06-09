@@ -312,15 +312,17 @@ export default function DepartmentsPage() {
             ) : (
               <div>
                 <label style={labelStyle}>Chọn trưởng ban</label>
-                <select value={selectedMembershipId} onChange={e => setSelectedMembershipId(e.target.value)}
-                  style={{ ...inputStyle, height: 36, cursor: 'pointer' }}>
-                  <option value="">— Không có trưởng ban —</option>
-                  {deptMembers.map(m => (
-                    <option key={m.id} value={m.id}>
-                      {m.fullName ?? m.email}{m.studentId ? ` (${m.studentId})` : ''}
-                    </option>
-                  ))}
-                </select>
+                <FilterSelect
+                  value={selectedMembershipId}
+                  onChange={setSelectedMembershipId}
+                  options={[
+                    { value: '', label: '— Không có trưởng ban —' },
+                    ...deptMembers.map(m => ({
+                      value: String(m.id),
+                      label: `${m.fullName ?? m.email}${m.studentId ? ` (${m.studentId})` : ''}`,
+                    })),
+                  ]}
+                />
               </div>
             )}
           </div>

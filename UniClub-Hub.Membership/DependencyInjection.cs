@@ -33,6 +33,7 @@ namespace UniClub_Hub.Membership
             services.AddScoped<IClubPermissionCatalogService, ClubPermissionCatalogService>();
             services.AddScoped<IClubPermissionService, ClubPermissionService>();
             services.AddScoped<IClubPositionService, ClubPositionService>();
+            services.AddScoped<IKpiService, KpiService>();
             return services;
         }
     }

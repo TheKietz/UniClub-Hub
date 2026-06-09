@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import api from '@/lib/axiosInstance'
 import { C } from '@/components/public/publicComponents'
 import MajorSelect from '@/components/shared/MajorSelect'
+import { FilterSelect } from '@/components/shared/FilterSelect'
 import { toast } from 'sonner'
 import AuthShell from './AuthShell'
 
@@ -173,15 +174,15 @@ export default function CompleteProfilePage() {
           </div>
           <div>
             <label style={labelStyle}>Giới tính</label>
-            <select
+            <FilterSelect
               value={form.gender}
-              aria-label="Giới tính"
-              onChange={e => setForm(p => ({ ...p, gender: e.target.value }))}
-              style={{ ...inputStyle }}
-            >
-              <option value="">-- Chọn --</option>
-              {GENDER_OPTIONS.map(g => <option key={g} value={g}>{g}</option>)}
-            </select>
+              onChange={value => setForm(p => ({ ...p, gender: value }))}
+              options={[
+                { value: '', label: '-- Chọn --' },
+                ...GENDER_OPTIONS.map(g => ({ value: g, label: g })),
+              ]}
+              style={{ width: '100%' }}
+            />
           </div>
         </div>
 
