@@ -55,6 +55,7 @@ namespace UniClub_Hub.Shared.Data
         public DbSet<ResignationRequest> ResignationRequests { get; set; }
         public DbSet<EventSession> EventSessions { get; set; }
         public DbSet<EventStaff> EventStaff { get; set; }
+        public DbSet<EventAttachment> EventAttachments { get; set; }
         public DbSet<SystemSetting> SystemSettings { get; set; }
         public DbSet<NotificationPreference> NotificationPreferences { get; set; }
         public DbSet<ClubPipelineStage> ClubPipelineStages { get; set; }
@@ -199,6 +200,25 @@ namespace UniClub_Hub.Shared.Data
             builder.Entity<ClubTask>().HasIndex(t => t.AssignedTo);
 
             builder.Entity<Sprint>().HasIndex(s => new { s.ClubId, s.Status });
+
+            // EventAttachment — cascade delete when event is deleted
+            builder
+                .Entity<EventAttachment>()
+                .HasOne(a => a.Event)
+                .WithMany()
+                .HasForeignKey(a => a.EventId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            builder
+                .Entity<EventAttachment>()
+                .HasOne(a => a.UploadedByUser)
+                .WithMany()
+                .HasForeignKey(a => a.UploadedBy)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            builder
+                .Entity<EventAttachment>()
+                .HasQueryFilter(a => !a.IsDeleted);
 
             // EventSession — cascade delete when event is deleted
             builder

@@ -297,6 +297,14 @@ export default function TaskModal({
               {STATUS_STYLE[task.status].label}
             </span>
           )}
+          {isEdit && task.eventId && (() => {
+            const evName = task.eventName ?? events.find(e => e.id === task.eventId)?.name
+            return evName ? (
+              <span className="text-xs font-semibold px-2.5 py-1 rounded-full shrink-0 bg-indigo-100 text-indigo-700 max-w-[180px] truncate" title={evName}>
+                {evName}
+              </span>
+            ) : null
+          })()}
           <span className="text-sm font-semibold text-gray-700 flex-1">
             {isEdit ? "Chi tiết công việc" : "Tạo công việc mới"}
           </span>

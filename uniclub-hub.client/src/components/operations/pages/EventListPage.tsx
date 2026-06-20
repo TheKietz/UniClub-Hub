@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { toast } from 'sonner'
 import { Plus, Calendar, MapPin, Users, Pencil, Trash2, Search } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
@@ -61,7 +61,9 @@ const labelStyle: React.CSSProperties = {
 export default function EventListPage() {
   const { clubId: clubIdParam } = useParams<{ clubId: string }>()
   const navigate = useNavigate()
+  const location = useLocation()
   const clubId = Number(clubIdParam ?? 1)
+  const isManageContext = location.pathname.includes('/manage/')
 
   const { isSuperAdmin, getClubRole } = useAuth()
   const canManage = isSuperAdmin || getClubRole(clubId) === CLUB_ROLES.CLUB_ADMIN
@@ -212,7 +214,7 @@ export default function EventListPage() {
                 ev={ev}
                 badge={badge}
                 canManage={canManage}
-                onOpen={() => navigate(`/clubs/${clubId}/events/${ev.id}`)}
+                onOpen={() => navigate(isManageContext ? `/clubs/${clubId}/manage/events/${ev.id}` : `/clubs/${clubId}/events/${ev.id}`)}
                 onEdit={e => { e.stopPropagation(); openEdit(ev) }}
                 onDelete={e => { e.stopPropagation(); setDeleteTarget(ev) }}
               />

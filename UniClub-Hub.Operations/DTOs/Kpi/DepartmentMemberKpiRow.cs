@@ -1,0 +1,18 @@
+namespace UniClub_Hub.Operations.DTOs.Kpi
+{
+    public class DepartmentMemberKpiRow
+    {
+        public string UserId { get; set; } = null!;
+        public string FullName { get; set; } = string.Empty;
+        public string? AvatarUrl { get; set; }
+        public int TotalTasks { get; set; }
+        public int CompletedTasks { get; set; }
+        public int ActiveTasks { get; set; }
+        public int OverdueTasks { get; set; }
+        public float? TotalEstimatedHours { get; set; }
+        public float? TotalActualHours { get; set; }
+        public double CompletionRate { get; set; }
+        public double OnTimeRate { get; set; }
+        public int ProductivityScore { get; set; }
+    }
+}

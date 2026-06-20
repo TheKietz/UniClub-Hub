@@ -57,6 +57,7 @@ namespace UniClub_Hub.Operations.Services.Implements
                     ParentId = t.ParentId,
                     SprintId = t.SprintId,
                     EventId = t.EventId,
+                    EventName = t.Event != null ? t.Event.Name : null,
                     DepartmentId = t.DepartmentId,
                     KanbanColumnId = t.KanbanColumnId,
                     Title = t.Title,
@@ -127,6 +128,7 @@ namespace UniClub_Hub.Operations.Services.Implements
                     .Tasks.AsNoTracking()
                     .Include(t => t.Assignee)
                     .Include(t => t.SubTasks)
+                    .Include(t => t.Event)
                     .FirstOrDefaultAsync(t => t.Id == id)
                 ?? throw new KeyNotFoundException($"Task {id} not found.");
 
@@ -321,6 +323,7 @@ namespace UniClub_Hub.Operations.Services.Implements
                 ParentId = t.ParentId,
                 SprintId = t.SprintId,
                 EventId = t.EventId,
+                EventName = t.Event?.Name,
                 DepartmentId = t.DepartmentId,
                 KanbanColumnId = t.KanbanColumnId,
                 Title = t.Title,

@@ -2,13 +2,13 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using UniClub_Hub.Operations.DTOs.Task;
 using UniClub_Hub.Operations.Services.Interfaces;
-using UniClub_Hub.Shared.Common.Helper;
+using UniClub_Hub.Shared.Common.Storage ;
 using UniClub_Hub.Shared.Data;
 using UniClub_Hub.Shared.Models;
 
 namespace UniClub_Hub.Operations.Services.Implements
 {
-    public class TaskAttachmentService(UniClubDbContext db, FileUploadHelper fileHelper) : ITaskAttachmentService
+    public class TaskAttachmentService(UniClubDbContext db, IFileStorageService fileStorageService) : ITaskAttachmentService
     {
         public async Task<List<TaskAttachmentDto>> GetByTaskAsync(int taskId)
         {
@@ -53,7 +53,7 @@ namespace UniClub_Hub.Operations.Services.Implements
 
         public async Task<TaskAttachmentDto> UploadFileAsync(int taskId, string userId, IFormFile file, string? note)
         {
-            var url = await fileHelper.UploadFile(file, "uploads/tasks");
+            var url = await fileStorageService.UploadAsync(file, "uploads/tasks");
             if (url == null) throw new InvalidOperationException("Không thể tải file lên.");
 
             var attachment = new TaskAttachment

@@ -111,6 +111,7 @@ function clubNav(id: string, role?: string, isSuperAdmin = false, perms: ClubPer
     { to: `/clubs/${id}/manage`, icon: '◇', label: 'Tổng quan', end: true },
     { to: `/clubs/${id}/manage/report`, icon: '↓', label: 'Báo cáo' },
     { to: `/clubs/${id}/manage/members`, icon: '◐', label: 'Thành viên' },
+    { to: `/clubs/${id}/manage/events`, icon: '◐', label: 'Sự kiện' },
     { to: `/clubs/${id}/manage/applications`, icon: '✦', label: 'Đơn ứng tuyển' },
     { to: `/clubs/${id}/manage/departments`, icon: '▦', label: 'Ban bộ phận', dividerAfter: true },
     ...positionItems,

@@ -1,7 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using UniClub_Hub.Membership.Services.Implements;
 using UniClub_Hub.Membership.Services.Interfaces;
-using UniClub_Hub.Shared.Common;
 
 namespace UniClub_Hub.Membership
 {
@@ -15,7 +14,6 @@ namespace UniClub_Hub.Membership
             services.AddScoped<IDepartmentService, DepartmentService>();
             services.AddScoped<IClubMembershipService, ClubMembershipService>();
             services.AddScoped<IApplicationService, ApplicationService>();
-            services.AddScoped<IFileStorageService, CloudinaryStorageService>();
             services.AddScoped<IUserService, UserService>();
             services.AddScoped<IStatsService, StatsService>();
             services.AddScoped<INotificationService, NotificationService>();
