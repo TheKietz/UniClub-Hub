@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ChevronDown } from 'lucide-react'
 import { UEF_MAJORS } from '@/lib/majors'
 
@@ -13,14 +13,20 @@ interface Props {
 export default function MajorSelect({ value, onChange, onBlur, error, id }: Props) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState(value)
+  const [searching, setSearching] = useState(false)
 
-  const filtered = query.trim()
+  useEffect(() => {
+    if (!searching) setQuery(value)
+  }, [value, searching])
+
+  const filtered = searching && query.trim()
     ? UEF_MAJORS.filter(m => m.toLowerCase().includes(query.toLowerCase()))
     : [...UEF_MAJORS]
 
   function handleInputChange(e: { target: { value: string } }) {
     const val = e.target.value
     setQuery(val)
+    setSearching(true)
     onChange('')
     setOpen(true)
   }
@@ -28,16 +34,20 @@ export default function MajorSelect({ value, onChange, onBlur, error, id }: Prop
   function handleSelect(major: string) {
     onChange(major)
     setQuery(major)
+    setSearching(false)
     setOpen(false)
   }
 
   function handleBlur() {
     setTimeout(() => {
       setOpen(false)
-      if (!(UEF_MAJORS as readonly string[]).includes(query)) {
+      if ((UEF_MAJORS as readonly string[]).includes(query)) {
+        onChange(query)
+      } else {
         setQuery('')
         onChange('')
       }
+      setSearching(false)
       onBlur?.()
     }, 150)
   }
@@ -51,7 +61,11 @@ export default function MajorSelect({ value, onChange, onBlur, error, id }: Prop
         type="text"
         value={query}
         onChange={handleInputChange}
-        onFocus={() => setOpen(true)}
+        onFocus={() => {
+          setQuery(value)
+          setSearching(false)
+          setOpen(true)
+        }}
         onBlur={handleBlur}
         placeholder="Nhập để tìm ngành..."
         autoComplete="off"

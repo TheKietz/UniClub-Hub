@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react'
-import { getAdminClubs } from '@/components/membership/services/adminApi'
+import { getAdminClubs, createAdminDepartment, updateAdminDepartment, deleteAdminDepartment } from '@/components/membership/services/adminApi'
 import { getDepartments } from '@/components/membership/services/clubApi'
 import type { ClubItem } from '@/components/membership/services/admin.types'
 import type { DepartmentItem } from '@/components/membership/services/club.types'
-import api from '@/lib/axiosInstance'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { toast } from 'sonner'
@@ -100,10 +99,10 @@ export default function AdminStructurePage() {
     try {
       const dto = { name: form.name, description: form.description || undefined }
       if (editingDept) {
-        await api.put(`/admin/clubs/${dialogClub.id}/departments/${editingDept.id}`, dto)
+        await updateAdminDepartment(dialogClub.id, editingDept.id, dto)
         toast.success('Đã cập nhật ban.')
       } else {
-        await api.post(`/admin/clubs/${dialogClub.id}/departments`, dto)
+        await createAdminDepartment(dialogClub.id, dto)
         toast.success('Đã thêm ban mới.')
       }
       setDialogOpen(false)
@@ -118,7 +117,7 @@ export default function AdminStructurePage() {
   async function handleDelete() {
     if (!deleteTarget) return
     try {
-      await api.delete(`/admin/clubs/${deleteTarget.clubId}/departments/${deleteTarget.dept.id}`)
+      await deleteAdminDepartment(deleteTarget.clubId, deleteTarget.dept.id)
       toast.success('Đã xoá ban.')
       setDeleteTarget(null)
       setRefreshKey(k => k + 1)

@@ -84,3 +84,20 @@ export interface CreateCategoryDto {
   name: string
   description?: string
 }
+
+export interface UserImportRow {
+  rowNumber: number
+  email: string
+  fullName?: string
+  studentId?: string
+  major?: string
+  isValid: boolean
+  error?: string
+}
+
+export interface UserImportPreview {
+  validRows: UserImportRow[]
+  invalidRows: UserImportRow[]
+  totalRows: number
+  defaultPassword: string
+}

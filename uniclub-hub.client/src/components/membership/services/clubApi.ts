@@ -4,7 +4,10 @@ import type {
   ApplicationItem, AddMemberDto, UpdateMemberDto, ReviewApplicationDto,
   FormSchema, SubmitApplicationDto,
   ResignationRequestItem, SubmitResignationDto, ReviewResignationDto,
-  ClubAuditLogPage, MemberFieldDef, PipelineStage,
+  ClubAuditLogPage, MemberFieldDef, PipelineStage, RoleSuggestion,
+  ClubPermissionItem, ClubPositionItem, CreateClubPositionDto, UpdateClubPositionDto, MemberPositionsItem,
+  ClubEffectivePermissions,
+  MemberImportPreview, CreateDepartmentDto, UpdateClubSettingsDto,
 } from '@/components/membership/services/club.types'
 
 const base = (clubId: number) => `/clubs/${clubId}`
@@ -49,6 +52,38 @@ export const addMember = (clubId: number, dto: AddMemberDto) =>
 
 export const updateMember = (clubId: number, membershipId: number, dto: UpdateMemberDto, force = false) =>
   api.put<{ data: MemberItem }>(`${base(clubId)}/members/${membershipId}${force ? '?force=true' : ''}`, dto).then(r => r.data.data)
+
+export const suggestMemberRole = (clubId: number, membershipId: number) =>
+  api.post<{ data: RoleSuggestion }>(`${base(clubId)}/members/${membershipId}/role-suggestions`).then(r => r.data.data)
+
+// ── Position & permission catalog ─────────────────────────────────────────
+
+export const getClubPermissions = () =>
+  api.get<{ data: ClubPermissionItem[] }>('/club-permissions').then(r => r.data.data)
+
+export const getMyClubPermissions = (clubId: number) =>
+  api.get<{ data: ClubEffectivePermissions }>(`${base(clubId)}/permissions/me`).then(r => r.data.data)
+
+export const getClubPositions = (clubId: number, params?: { departmentId?: number }) =>
+  api.get<{ data: ClubPositionItem[] }>(`${base(clubId)}/positions`, { params }).then(r => r.data.data)
+
+export const createClubPosition = (clubId: number, dto: CreateClubPositionDto) =>
+  api.post<{ data: ClubPositionItem }>(`${base(clubId)}/positions`, dto).then(r => r.data.data)
+
+export const updateClubPosition = (clubId: number, positionId: number, dto: UpdateClubPositionDto) =>
+  api.put<{ data: ClubPositionItem }>(`${base(clubId)}/positions/${positionId}`, dto).then(r => r.data.data)
+
+export const deleteClubPosition = (clubId: number, positionId: number) =>
+  api.delete(`${base(clubId)}/positions/${positionId}`)
+
+export const updateClubPositionPermissions = (clubId: number, positionId: number, permissionCodes: string[]) =>
+  api.put<{ data: ClubPositionItem }>(`${base(clubId)}/positions/${positionId}/permissions`, { permissionCodes }).then(r => r.data.data)
+
+export const getMemberPositions = (clubId: number, membershipId: number) =>
+  api.get<{ data: MemberPositionsItem }>(`${base(clubId)}/members/${membershipId}/positions`).then(r => r.data.data)
+
+export const assignMemberPositions = (clubId: number, membershipId: number, positionIds: number[]) =>
+  api.put<{ data: MemberPositionsItem }>(`${base(clubId)}/members/${membershipId}/positions`, { positionIds }).then(r => r.data.data)
 
 export const removeMember = (clubId: number, membershipId: number, force = false) =>
   api.delete(`${base(clubId)}/members/${membershipId}${force ? '?force=true' : ''}`)
@@ -136,3 +171,65 @@ export const updateMemberFieldSchema = (clubId: number, fields: MemberFieldDef[]
 
 export const updateMemberCustomData = (clubId: number, membershipId: number, data: Record<string, string | null>) =>
   api.patch<{ data: MemberItem }>(`${base(clubId)}/members/${membershipId}/custom-data`, data).then(r => r.data.data)
+
+// ── Members (mutations) ────────────────────────────────────────────────────
+
+export const promoteMember = (clubId: number, membershipId: number) =>
+  api.patch(`${base(clubId)}/members/${membershipId}/promote`)
+
+export const importMembersPreview = (clubId: number, file: File) => {
+  const fd = new FormData()
+  fd.append('file', file)
+  return api.post<{ data: MemberImportPreview }>(`${base(clubId)}/members/import/preview`, fd, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }).then(r => r.data.data)
+}
+
+export const importMembersConfirm = (clubId: number, rows: { email: string; clubRole: string; departmentName?: string }[]) =>
+  api.post<{ data: { imported: number; skipped: number } }>(`${base(clubId)}/members/import/confirm`, { rows })
+    .then(r => r.data.data)
+
+export const exportMembers = (clubId: number, format: 'xlsx' | 'csv') =>
+  api.get(`${base(clubId)}/members/export`, { params: { format }, responseType: 'blob' })
+
+// ── Departments (mutations) ────────────────────────────────────────────────
+
+export const createDepartment = (clubId: number, dto: CreateDepartmentDto) =>
+  api.post(`${base(clubId)}/departments`, dto)
+
+export const updateDepartment = (clubId: number, deptId: number, dto: CreateDepartmentDto) =>
+  api.put(`${base(clubId)}/departments/${deptId}`, dto)
+
+export const deleteDepartment = (clubId: number, deptId: number) =>
+  api.delete(`${base(clubId)}/departments/${deptId}`)
+
+export const setDepartmentLead = (clubId: number, deptId: number, membershipId: number | null) =>
+  api.patch(`${base(clubId)}/departments/${deptId}/lead`, { membershipId })
+
+// ── Applications (export) ──────────────────────────────────────────────────
+
+export const exportApplications = (clubId: number, params: { format: string; status?: string }) =>
+  api.get(`${base(clubId)}/applications/export`, { params, responseType: 'blob' })
+
+// ── Club settings ──────────────────────────────────────────────────────────
+
+export const uploadClubLogo = (clubId: number, file: File) => {
+  const fd = new FormData()
+  fd.append('file', file)
+  return api.post<{ data: { logoUrl: string } }>(`${base(clubId)}/logo`, fd, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }).then(r => r.data.data)
+}
+
+export const updateClubSettings = (clubId: number, dto: UpdateClubSettingsDto) =>
+  api.patch(`${base(clubId)}/settings`, dto)
+
+// ── File uploads ───────────────────────────────────────────────────────────
+
+export const uploadApplicationFile = (file: File) => {
+  const fd = new FormData()
+  fd.append('file', file)
+  return api.post<{ data: { url: string } }>('/uploads/application-file', fd, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }).then(r => r.data.data.url)
+}

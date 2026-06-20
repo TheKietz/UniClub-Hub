@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { getClubMembers, addMember, updateMember, removeMember, getDepartments, getMemberFieldSchema, updateMemberCustomData } from '@/components/membership/services/clubApi'
-import type { MemberItem, DepartmentItem, MemberFieldDef } from '@/components/membership/services/club.types'
+import { getClubMembers, addMember, updateMember, removeMember, getDepartments, getMemberFieldSchema, updateMemberCustomData, suggestMemberRole, getMyClubPermissions, promoteMember, importMembersPreview, importMembersConfirm, exportMembers } from '@/components/membership/services/clubApi'
+import type { MemberItem, DepartmentItem, MemberFieldDef, RoleSuggestion, RoleSuggestionItem, MemberImportPreview } from '@/components/membership/services/club.types'
 import { CLUB_ROLES, MEMBERSHIP_STATUS } from '@/types/auth'
+import { CLUB_PERMISSIONS } from '@/constants/clubPermissions'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { toast } from 'sonner'
-import api from '@/lib/axiosInstance'
-import { Pencil, X } from 'lucide-react'
+import { Pencil, Sparkles, X } from 'lucide-react'
 import { FilterSelect } from '@/components/shared/FilterSelect'
 import { Tooltip } from '@/components/shared/Tooltip'
 import { LoadMoreBar } from '@/components/shared/LoadMoreBar'
@@ -61,7 +61,6 @@ const inputStyle: React.CSSProperties = {
   background: '#f7f6f1', fontFamily: 'inherit', boxSizing: 'border-box',
 }
 const labelStyle: React.CSSProperties = { fontSize: 12, fontWeight: 700, color: '#4a4651', display: 'block', marginBottom: 4 }
-const selectStyle: React.CSSProperties = { ...inputStyle, height: 36, cursor: 'pointer' }
 
 type AddForm = { userId: string; clubRole: string; departmentId: string }
 type EditForm = { clubRole: string; departmentId: string; customData: Record<string, string> }
@@ -75,6 +74,7 @@ export default function MembersPage() {
   const [fieldSchema, setFieldSchema] = useState<MemberFieldDef[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshKey, setRefreshKey] = useState(0)
+  const [permCodes, setPermCodes] = useState<Set<string>>(new Set())
 
   const [addOpen, setAddOpen] = useState(false)
   const [addForm, setAddForm] = useState<AddForm>({ userId: '', clubRole: CLUB_ROLES.MEMBER, departmentId: '' })
@@ -82,6 +82,9 @@ export default function MembersPage() {
 
   const [editTarget, setEditTarget] = useState<MemberItem | null>(null)
   const [editForm, setEditForm] = useState<EditForm>({ clubRole: CLUB_ROLES.MEMBER, departmentId: '', customData: {} })
+  const [aiTarget, setAiTarget] = useState<MemberItem | null>(null)
+  const [roleSuggestion, setRoleSuggestion] = useState<RoleSuggestion | null>(null)
+  const [roleSuggestionLoading, setRoleSuggestionLoading] = useState(false)
 
   const [removeTarget, setRemoveTarget] = useState<MemberItem | null>(null)
   const [search, setSearch] = useState('')
@@ -95,10 +98,8 @@ export default function MembersPage() {
 
   // Import state
   const [importOpen, setImportOpen] = useState(false)
-  type ImportRow = { rowNumber: number; email: string; fullName?: string; clubRole: string; departmentName?: string; isValid: boolean; error?: string }
-  type ImportPreview = { validRows: ImportRow[]; invalidRows: ImportRow[]; totalRows: number }
   const [importStep, setImportStep] = useState<'upload' | 'preview' | 'done'>('upload')
-  const [importPreview, setImportPreview] = useState<ImportPreview | null>(null)
+  const [importPreview, setImportPreview] = useState<MemberImportPreview | null>(null)
   const [importResult, setImportResult] = useState<{ imported: number; skipped: number } | null>(null)
   const [importing, setImporting] = useState(false)
   const importFileRef = useRef<HTMLInputElement>(null)
@@ -110,17 +111,23 @@ export default function MembersPage() {
 
   useEffect(() => {
     setLoading(true)
-    Promise.all([getClubMembers(id), getDepartments(id), getMemberFieldSchema(id)])
-      .then(([m, d, fs]) => { setMembers(m); setDepartments(d); setFieldSchema(fs) })
+    Promise.all([getClubMembers(id), getDepartments(id), getMemberFieldSchema(id), getMyClubPermissions(id)])
+      .then(([m, d, fs, perms]) => {
+        setMembers(m)
+        setDepartments(d)
+        setFieldSchema(fs)
+        setPermCodes(new Set(perms.permissionCodes.map(c => c.toLowerCase())))
+      })
       .catch(() => toast.error('Không thể tải danh sách thành viên.'))
       .finally(() => setLoading(false))
   }, [id, refreshKey])
 
+  const canManage = permCodes.has(CLUB_PERMISSIONS.MEMBERS_MANAGE)
+  const canImportExport = permCodes.has(CLUB_PERMISSIONS.MEMBER_IMPORT_EXPORT)
+  const canSuggest = permCodes.has(CLUB_PERMISSIONS.ROLE_SUGGESTIONS_USE)
+
   function setAddField(field: keyof AddForm) {
     return (e: { target: { value: string } }) => setAddForm(p => ({ ...p, [field]: e.target.value }))
-  }
-  function setEditField(field: keyof EditForm) {
-    return (e: { target: { value: string } }) => setEditForm(p => ({ ...p, [field]: e.target.value }))
   }
 
   async function handleAdd(e: { preventDefault(): void }) {
@@ -148,6 +155,33 @@ export default function MembersPage() {
     const existingData: Record<string, string> = {}
     fieldSchema.forEach(f => { existingData[f.id] = member.customData?.[f.id] ?? '' })
     setEditForm({ clubRole: member.clubRole, departmentId: member.departmentId?.toString() ?? '', customData: existingData })
+  }
+
+  async function openRoleSuggestion(member: MemberItem) {
+    setAiTarget(member)
+    setRoleSuggestion(null)
+    setRoleSuggestionLoading(true)
+    try {
+      const result = await suggestMemberRole(id, member.id)
+      setRoleSuggestion(result)
+    } catch (err: any) {
+      toast.error(err.response?.data?.message ?? 'Không thể tạo gợi ý vai trò.')
+      setAiTarget(null)
+    } finally {
+      setRoleSuggestionLoading(false)
+    }
+  }
+
+  function applyRoleSuggestion(suggestion: RoleSuggestionItem) {
+    if (!aiTarget) return
+    openEdit(aiTarget)
+    setEditForm(p => ({
+      ...p,
+      clubRole: suggestion.role,
+      departmentId: suggestion.departmentId ? String(suggestion.departmentId) : '',
+    }))
+    setAiTarget(null)
+    setRoleSuggestion(null)
   }
 
   async function handleEdit(e: { preventDefault(): void }) {
@@ -182,7 +216,7 @@ export default function MembersPage() {
 
   async function handlePromote(membershipId: number) {
     try {
-      await api.patch(`/clubs/${id}/members/${membershipId}/promote`)
+      await promoteMember(id, membershipId)
       toast.success('Đã xác nhận thành viên chính thức.')
       setRefreshKey(k => k + 1)
     } catch (err: any) {
@@ -193,12 +227,8 @@ export default function MembersPage() {
   async function handleImportPreview(file: File) {
     setImporting(true)
     try {
-      const fd = new FormData()
-      fd.append('file', file)
-      const res = await api.post<{ data: ImportPreview }>(`/clubs/${id}/members/import/preview`, fd, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      })
-      setImportPreview(res.data.data)
+      const preview = await importMembersPreview(id, file)
+      setImportPreview(preview)
       setImportStep('preview')
     } catch (err: any) {
       toast.error(err.response?.data?.message ?? 'Không thể đọc file. Kiểm tra định dạng.')
@@ -214,11 +244,11 @@ export default function MembersPage() {
       const rows = importPreview.validRows.map(r => ({
         email: r.email, clubRole: r.clubRole, departmentName: r.departmentName,
       }))
-      const res = await api.post<{ data: { imported: number; skipped: number } }>(`/clubs/${id}/members/import/confirm`, { rows })
-      setImportResult(res.data.data)
+      const result = await importMembersConfirm(id, rows)
+      setImportResult(result)
       setImportStep('done')
       setRefreshKey(k => k + 1)
-      toast.success(`Đã thêm ${res.data.data.imported} thành viên.`)
+      toast.success(`Đã thêm ${result.imported} thành viên.`)
     } catch (err: any) {
       toast.error(err.response?.data?.message ?? 'Import thất bại.')
     } finally {
@@ -282,7 +312,7 @@ export default function MembersPage() {
 
   async function handleExport(format: 'xlsx' | 'csv') {
     try {
-      const res = await api.get(`/clubs/${id}/members/export?format=${format}`, { responseType: 'blob' })
+      const res = await exportMembers(id, format)
       const url = URL.createObjectURL(res.data)
       const a = document.createElement('a')
       a.href = url
@@ -331,22 +361,28 @@ export default function MembersPage() {
           <p style={{ fontSize: 13, color: D.inkMuted, marginTop: 4 }}>{members.length} thành viên trong CLB</p>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <button onClick={() => handleExport('xlsx')}
-            style={{ background: D.card, color: D.inkDim, border: D.border, boxShadow: D.shadow(2,2), padding: '8px 14px', borderRadius: D.pill, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
-            ↓ Excel
-          </button>
-          <button onClick={() => handleExport('csv')}
-            style={{ background: D.card, color: D.inkDim, border: D.border, boxShadow: D.shadow(2,2), padding: '8px 14px', borderRadius: D.pill, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
-            ↓ CSV
-          </button>
-          <button onClick={() => { setImportOpen(true); setImportStep('upload') }}
-            style={{ background: D.card, color: '#065f46', border: '1.5px solid #6ee7b7', boxShadow: D.shadow(2,2), padding: '8px 14px', borderRadius: D.pill, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
-            ↑ Import
-          </button>
-          <button onClick={() => setAddOpen(true)}
-            style={{ background: D.indigo, color: '#fff', border: D.border, boxShadow: D.shadow(2,2), padding: '8px 16px', borderRadius: D.pill, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
-            + Thêm thành viên
-          </button>
+          {canImportExport && (
+            <>
+              <button onClick={() => handleExport('xlsx')}
+                style={{ background: D.card, color: D.inkDim, border: D.border, boxShadow: D.shadow(2,2), padding: '8px 14px', borderRadius: D.pill, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                ↓ Excel
+              </button>
+              <button onClick={() => handleExport('csv')}
+                style={{ background: D.card, color: D.inkDim, border: D.border, boxShadow: D.shadow(2,2), padding: '8px 14px', borderRadius: D.pill, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                ↓ CSV
+              </button>
+              <button onClick={() => { setImportOpen(true); setImportStep('upload') }}
+                style={{ background: D.card, color: '#065f46', border: '1.5px solid #6ee7b7', boxShadow: D.shadow(2,2), padding: '8px 14px', borderRadius: D.pill, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                ↑ Import
+              </button>
+            </>
+          )}
+          {canManage && (
+            <button onClick={() => setAddOpen(true)}
+              style={{ background: D.indigo, color: '#fff', border: D.border, boxShadow: D.shadow(2,2), padding: '8px 16px', borderRadius: D.pill, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+              + Thêm thành viên
+            </button>
+          )}
         </div>
       </div>
 
@@ -492,7 +528,7 @@ export default function MembersPage() {
                 </td>
                 <td style={{ padding: '12px 14px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
-                    {m.status === MEMBERSHIP_STATUS.PROBATION && (
+                    {canManage && m.status === MEMBERSHIP_STATUS.PROBATION && (
                       <Tooltip label="Xác nhận chính thức">
                         <button onClick={() => handlePromote(m.id)}
                           style={{ width: 28, height: 28, borderRadius: 6, display: 'grid', placeItems: 'center', background: 'transparent', border: '1px solid #6ee7b7', cursor: 'pointer', color: '#065f46', fontSize: 13 }}>
@@ -500,18 +536,30 @@ export default function MembersPage() {
                         </button>
                       </Tooltip>
                     )}
-                    <Tooltip label="Chỉnh sửa vai trò">
-                      <button onClick={() => openEdit(m)}
-                        style={{ width: 28, height: 28, borderRadius: 6, display: 'grid', placeItems: 'center', background: 'transparent', border: D.borderLight, cursor: 'pointer', color: D.indigo }}>
-                        <Pencil size={13} />
-                      </button>
-                    </Tooltip>
-                    <Tooltip label="Xoá khỏi CLB">
-                      <button onClick={() => setRemoveTarget(m)}
-                        style={{ width: 28, height: 28, borderRadius: 6, display: 'grid', placeItems: 'center', background: 'transparent', border: D.borderLight, cursor: 'pointer', color: D.red }}>
-                        <X size={13} />
-                      </button>
-                    </Tooltip>
+                    {canManage && (
+                      <Tooltip label="Chỉnh sửa vai trò">
+                        <button onClick={() => openEdit(m)}
+                          style={{ width: 28, height: 28, borderRadius: 6, display: 'grid', placeItems: 'center', background: 'transparent', border: D.borderLight, cursor: 'pointer', color: D.indigo }}>
+                          <Pencil size={13} />
+                        </button>
+                      </Tooltip>
+                    )}
+                    {canSuggest && (
+                      <Tooltip label="Gợi ý vai trò bằng AI">
+                        <button onClick={() => openRoleSuggestion(m)}
+                          style={{ width: 28, height: 28, borderRadius: 6, display: 'grid', placeItems: 'center', background: 'transparent', border: D.borderLight, cursor: 'pointer', color: D.amber }}>
+                          <Sparkles size={13} />
+                        </button>
+                      </Tooltip>
+                    )}
+                    {canManage && (
+                      <Tooltip label="Xoá khỏi CLB">
+                        <button onClick={() => setRemoveTarget(m)}
+                          style={{ width: 28, height: 28, borderRadius: 6, display: 'grid', placeItems: 'center', background: 'transparent', border: D.borderLight, cursor: 'pointer', color: D.red }}>
+                          <X size={13} />
+                        </button>
+                      </Tooltip>
+                    )}
                   </div>
                 </td>
               </tr>
@@ -537,16 +585,22 @@ export default function MembersPage() {
             </div>
             <div>
               <label style={labelStyle}>Vai trò</label>
-              <select value={addForm.clubRole} onChange={setAddField('clubRole')} style={selectStyle}>
-                {Object.entries(ROLE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-              </select>
+              <FilterSelect
+                value={addForm.clubRole}
+                onChange={value => setAddForm(p => ({ ...p, clubRole: value }))}
+                options={Object.entries(ROLE_LABELS).map(([value, label]) => ({ value, label }))}
+              />
             </div>
             <div>
               <label style={labelStyle}>Ban</label>
-              <select value={addForm.departmentId} onChange={setAddField('departmentId')} style={selectStyle}>
-                <option value="">— Không thuộc ban nào —</option>
-                {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-              </select>
+              <FilterSelect
+                value={addForm.departmentId}
+                onChange={value => setAddForm(p => ({ ...p, departmentId: value }))}
+                options={[
+                  { value: '', label: '— Không thuộc ban nào —' },
+                  ...departments.map(d => ({ value: String(d.id), label: d.name })),
+                ]}
+              />
             </div>
             <DialogFooter style={{ borderTop: 'none', background: 'transparent', paddingTop: 4 }}>
               <button type="button" onClick={() => setAddOpen(false)}
@@ -583,16 +637,22 @@ export default function MembersPage() {
             )}
             <div>
               <label style={labelStyle}>Vai trò</label>
-              <select value={editForm.clubRole} onChange={setEditField('clubRole')} style={selectStyle}>
-                {Object.entries(ROLE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-              </select>
+              <FilterSelect
+                value={editForm.clubRole}
+                onChange={value => setEditForm(p => ({ ...p, clubRole: value }))}
+                options={Object.entries(ROLE_LABELS).map(([value, label]) => ({ value, label }))}
+              />
             </div>
             <div>
               <label style={labelStyle}>Ban</label>
-              <select value={editForm.departmentId} onChange={setEditField('departmentId')} style={selectStyle}>
-                <option value="">— Không thuộc ban nào —</option>
-                {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-              </select>
+              <FilterSelect
+                value={editForm.departmentId}
+                onChange={value => setEditForm(p => ({ ...p, departmentId: value }))}
+                options={[
+                  { value: '', label: '— Không thuộc ban nào —' },
+                  ...departments.map(d => ({ value: String(d.id), label: d.name })),
+                ]}
+              />
             </div>
 
             {fieldSchema.length > 0 && (
@@ -603,14 +663,14 @@ export default function MembersPage() {
                     <div key={f.id}>
                       <label style={labelStyle}>{f.label}{f.required && <span style={{ color: '#ef4444' }}> *</span>}</label>
                       {f.type === 'select' ? (
-                        <select
+                        <FilterSelect
                           value={editForm.customData[f.id] ?? ''}
-                          onChange={e => setEditForm(p => ({ ...p, customData: { ...p.customData, [f.id]: e.target.value } }))}
-                          style={selectStyle}
-                        >
-                          <option value="">— Chọn —</option>
-                          {(f.options ?? []).map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                        </select>
+                          onChange={value => setEditForm(p => ({ ...p, customData: { ...p.customData, [f.id]: value } }))}
+                          options={[
+                            { value: '', label: '— Chọn —' },
+                            ...(f.options ?? []).map(opt => ({ value: opt, label: opt })),
+                          ]}
+                        />
                       ) : f.type === 'textarea' ? (
                         <textarea
                           value={editForm.customData[f.id] ?? ''}
@@ -644,6 +704,85 @@ export default function MembersPage() {
               </button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* AI role suggestion dialog */}
+      <Dialog open={!!aiTarget} onOpenChange={open => { if (!open) { setAiTarget(null); setRoleSuggestion(null) } }}>
+        <DialogContent className="max-w-lg" style={{ fontFamily: "'Be Vietnam Pro', sans-serif" }}>
+          <DialogHeader>
+            <DialogTitle style={{ color: D.ink, fontWeight: 900, fontSize: 17, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Sparkles size={16} color={D.amber} /> Gợi ý vai trò — {aiTarget?.fullName ?? aiTarget?.email}
+            </DialogTitle>
+          </DialogHeader>
+
+          {roleSuggestionLoading ? (
+            <div style={{ padding: '28px 0', textAlign: 'center', color: D.inkMuted, fontSize: 13 }}>
+              Đang phân tích hồ sơ thành viên...
+            </div>
+          ) : roleSuggestion ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, paddingTop: 4 }}>
+              <div style={{ borderRadius: 10, border: D.borderLight, background: D.bg, padding: '10px 12px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center' }}>
+                  <p style={{ margin: 0, fontSize: 13, color: D.inkDim, lineHeight: 1.55 }}>{roleSuggestion.summary}</p>
+                  <span style={{ flexShrink: 0, fontSize: 10, fontWeight: 800, color: roleSuggestion.aiEnabled ? '#065f46' : '#92400e', background: roleSuggestion.aiEnabled ? '#d1fae5' : '#fef3c7', borderRadius: 4, padding: '2px 7px' }}>
+                    {roleSuggestion.aiEnabled ? 'AI' : 'RULES'}
+                  </span>
+                </div>
+                <p style={{ margin: '6px 0 0', fontSize: 11, color: D.inkMuted }}>
+                  Nguồn kết quả: {roleSuggestion.aiEnabled ? `Gemini AI (${roleSuggestion.source})` : 'fallback rule-based'}
+                </p>
+                {roleSuggestion.signals.length > 0 && (
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
+                    {roleSuggestion.signals.map(signal => (
+                      <span key={signal} style={{ fontSize: 11, color: D.inkDim, background: D.card, border: D.borderLight, borderRadius: 4, padding: '2px 7px' }}>
+                        {signal}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {roleSuggestion.suggestions.map((suggestion, index) => {
+                  const pct = Math.round((suggestion.confidence ?? 0) * 100)
+                  return (
+                    <div key={`${suggestion.role}-${suggestion.departmentId ?? 'none'}-${index}`} style={{ border: D.borderLight, borderRadius: 10, padding: '11px 12px', background: D.card }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+                        <div>
+                          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                            <span style={{ fontSize: 12, fontWeight: 900, color: D.ink }}>
+                              {ROLE_LABELS[suggestion.role] ?? suggestion.role}
+                            </span>
+                            {suggestion.departmentName && (
+                              <span style={{ fontSize: 11, color: D.indigo, fontWeight: 700 }}>
+                                {suggestion.departmentName}
+                              </span>
+                            )}
+                          </div>
+                          <p style={{ margin: '6px 0 0', fontSize: 12, color: D.inkDim, lineHeight: 1.55 }}>
+                            {suggestion.reason}
+                          </p>
+                        </div>
+                        <span style={{ fontSize: 11, fontWeight: 800, color: pct >= 75 ? '#065f46' : '#92400e', whiteSpace: 'nowrap' }}>
+                          {pct}%
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 10 }}>
+                        <button onClick={() => applyRoleSuggestion(suggestion)}
+                          style={{ background: D.indigo, color: '#fff', border: D.border, boxShadow: D.shadow(2,2), padding: '7px 12px', borderRadius: D.pill, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+                          Áp dụng vào form
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+              <p style={{ margin: 0, fontSize: 11, color: D.inkMuted }}>
+                Gợi ý chỉ hỗ trợ ra quyết định. Vai trò chỉ thay đổi sau khi bạn lưu ở form chỉnh sửa.
+              </p>
+            </div>
+          ) : null}
         </DialogContent>
       </Dialog>
 
@@ -789,16 +928,20 @@ export default function MembersPage() {
             </p>
             <div>
               <label style={labelStyle}>Bổ nhiệm Trưởng CLB mới (khuyến nghị)</label>
-              <select value={replacementId} onChange={e => setReplacementId(e.target.value)} style={selectStyle}>
-                <option value="">— Bỏ qua, không bổ nhiệm ai —</option>
-                {members
-                  .filter(m => m.id !== lastAdminModal?.membershipId && m.status === MEMBERSHIP_STATUS.ACTIVE)
-                  .map(m => (
-                    <option key={m.id} value={m.id}>
-                      {m.fullName ?? m.email} ({ROLE_LABELS[m.clubRole] ?? m.clubRole})
-                    </option>
-                  ))}
-              </select>
+              <FilterSelect
+                value={replacementId}
+                onChange={setReplacementId}
+                options={[
+                  { value: '', label: '— Bỏ qua, không bổ nhiệm ai —' },
+                  ...members
+                    .filter(m => m.id !== lastAdminModal?.membershipId && m.status === MEMBERSHIP_STATUS.ACTIVE)
+                    .map(m => ({
+                      value: String(m.id),
+                      label: `${m.fullName ?? m.email} (${ROLE_LABELS[m.clubRole] ?? m.clubRole})`,
+                    })),
+                ]}
+                maxMenuHeight={320}
+              />
             </div>
             {!replacementId && (
               <p style={{ fontSize: 12, color: '#b45309', background: '#fef3c7', borderRadius: 8, padding: '8px 12px', margin: 0 }}>

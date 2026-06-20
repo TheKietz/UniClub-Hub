@@ -7,9 +7,9 @@ description: Expert in building Modular Monoliths. Use this to develop features 
 
 ## 1. File Structure (File Locations)
 
-- **Entities**: Always located in `UniClubHub.Shared/Models/`.
-- **Services/DTOs**: Located in the respective `UniClubHub.[ModuleName]/` project.
-- **Controllers**: Located in `UniClubHub.API/Controllers/[ModuleName]/`.
+- **Entities**: Always located in `UniClub-Hub.Shared/Models/`.
+- **Services/DTOs**: Located in the respective `UniClub-Hub.[ModuleName]/` project.
+- **Controllers**: Located in `UniClub-Hub.Server/Controllers/[ModuleName]/`.
 
 ## 2. Backend Standards
 

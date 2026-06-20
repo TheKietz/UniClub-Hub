@@ -15,6 +15,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UniClub-Hub.Portal", "UniCl
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UniClub-Hub.Membership", "UniClub-Hub.Membership\UniClub-Hub.Membership.csproj", "{3BE6F71A-E674-4960-A03F-F5F7176AB329}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UniClub-Hub.Tests", "UniClub-Hub.Tests\UniClub-Hub.Tests.csproj", "{98B22D8E-D45D-4B14-BFAD-5AC8FF2097D4}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -47,6 +49,10 @@ Global
 		{3BE6F71A-E674-4960-A03F-F5F7176AB329}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{3BE6F71A-E674-4960-A03F-F5F7176AB329}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{3BE6F71A-E674-4960-A03F-F5F7176AB329}.Release|Any CPU.Build.0 = Release|Any CPU
+		{98B22D8E-D45D-4B14-BFAD-5AC8FF2097D4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{98B22D8E-D45D-4B14-BFAD-5AC8FF2097D4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{98B22D8E-D45D-4B14-BFAD-5AC8FF2097D4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{98B22D8E-D45D-4B14-BFAD-5AC8FF2097D4}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

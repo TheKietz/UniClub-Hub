@@ -117,13 +117,6 @@ const LS_KEY = (clubId: number) => `kanban_bg_${clubId}`;
 const SPRINT_STATUS_LABEL: Record<SprintStatus, string> = {
   Planning: "Lên kế hoạch", Active: "Đang chạy", Completed: "Hoàn thành", Cancelled: "Đã hủy",
 };
-const SPRINT_STATUS_COLOR: Record<SprintStatus, string> = {
-  Planning: "text-indigo-500", Active: "text-green-600", Completed: "text-gray-500", Cancelled: "text-red-500",
-};
-const SPRINT_STATUS_BG: Record<SprintStatus, string> = {
-  Planning: "bg-indigo-50 text-indigo-700", Active: "bg-green-50 text-green-700",
-  Completed: "bg-gray-100 text-gray-600", Cancelled: "bg-red-50 text-red-600",
-};
 
 const formatDate = (iso: string) =>
   new Date(iso).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" });

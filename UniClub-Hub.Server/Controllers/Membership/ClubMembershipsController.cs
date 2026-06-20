@@ -5,6 +5,7 @@ using System.Security.Claims;
 using UniClub_Hub.Membership.DTOs.Membership;
 using UniClub_Hub.Membership.Services.Interfaces;
 using UniClub_Hub.Shared.Common;
+using UniClub_Hub.Shared.Constants;
 using UniClub_Hub.Shared.Enums;
 using UniClub_Hub.Shared.Data;
 
@@ -15,15 +16,23 @@ namespace UniClub_Hub.Server.Controllers.Membership
     public class ClubMembershipsController : ControllerBase
     {
         private readonly IClubMembershipService _membershipService;
+        private readonly IRoleSuggestionService _roleSuggestionService;
+        private readonly IClubPermissionService _permissions;
         private readonly UniClubDbContext _db;
 
-        public ClubMembershipsController(IClubMembershipService membershipService, UniClubDbContext db)
+        public ClubMembershipsController(
+            IClubMembershipService membershipService,
+            IRoleSuggestionService roleSuggestionService,
+            IClubPermissionService permissions,
+            UniClubDbContext db
+        )
         {
             _membershipService = membershipService;
+            _roleSuggestionService = roleSuggestionService;
+            _permissions = permissions;
             _db = db;
         }
 
-        // CLUB_ADMIN/SUPER_ADMIN/DEPT_LEAD xem toàn bộ thành viên active để hỗ trợ gán task
         [HttpGet]
         [Authorize]
         public async Task<IActionResult> GetAll(int clubId, [FromQuery] string? status, [FromQuery] int? departmentId)
@@ -31,18 +40,8 @@ namespace UniClub_Hub.Server.Controllers.Membership
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
             var isSuperAdmin = User.IsInRole("SUPER_ADMIN");
 
-            if (!isSuperAdmin)
-            {
-                var membership = await _db.ClubMemberships.AsNoTracking()
-                    .FirstOrDefaultAsync(m =>
-                        m.ClubId == clubId && m.UserId == userId &&
-                        m.Status == MembershipStatus.Active);
-
-                if (membership == null) return Forbid();
-
-                if (membership.ClubRole != ClubRole.CLUB_ADMIN && membership.ClubRole != ClubRole.DEPT_LEAD)
-                    return Forbid();
-            }
+            if (!await _permissions.HasPermissionAsync(clubId, userId, isSuperAdmin, ClubPermissions.MembersView))
+                return Forbid();
 
             try
             {
@@ -78,18 +77,41 @@ namespace UniClub_Hub.Server.Controllers.Membership
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
             var isSuperAdmin = User.IsInRole("SUPER_ADMIN");
-            if (!isSuperAdmin)
-            {
-                var isClubAdmin = await _db.ClubMemberships.AnyAsync(m =>
-                    m.ClubId == clubId && m.UserId == userId &&
-                    m.ClubRole == ClubRole.CLUB_ADMIN && m.Status == MembershipStatus.Active);
-                if (!isClubAdmin) return Forbid();
-            }
+            if (!await _permissions.HasPermissionAsync(clubId, userId, isSuperAdmin, ClubPermissions.MembersView))
+                return Forbid();
 
             try
             {
                 var result = await _membershipService.GetByIdAsync(clubId, membershipId);
                 return Ok(ApiResponse<MemberDto>.Ok(result));
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(ApiResponse<object>.Fail(ex.Message));
+            }
+        }
+
+        [HttpPost("{membershipId}/role-suggestions")]
+        [Authorize]
+        public async Task<IActionResult> SuggestRoleForMember(int clubId, int membershipId)
+        {
+            var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+            var isSuperAdmin = User.IsInRole("SUPER_ADMIN");
+
+            try
+            {
+                var result = await _roleSuggestionService.SuggestRoleForMemberAsync(
+                    clubId,
+                    membershipId,
+                    currentUserId,
+                    isSuperAdmin,
+                    HttpContext.RequestAborted
+                );
+                return Ok(ApiResponse<object>.Ok(result, "Đã tạo gợi ý vai trò."));
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Forbid();
             }
             catch (KeyNotFoundException ex)
             {
@@ -241,13 +263,8 @@ namespace UniClub_Hub.Server.Controllers.Membership
             var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
             var isSuperAdmin = User.IsInRole("SUPER_ADMIN");
 
-            if (!isSuperAdmin)
-            {
-                var isClubAdmin = await _db.ClubMemberships.AnyAsync(m =>
-                    m.UserId == currentUserId && m.ClubId == clubId &&
-                    m.ClubRole == ClubRole.CLUB_ADMIN && m.Status == MembershipStatus.Active);
-                if (!isClubAdmin) return Forbid();
-            }
+            if (!await _permissions.HasPermissionAsync(clubId, currentUserId, isSuperAdmin, ClubPermissions.MembersManage))
+                return Forbid();
 
             try
             {

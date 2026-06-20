@@ -1,10 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { getDepartments, getClubMembers } from '@/components/membership/services/clubApi'
+import { getDepartments, getClubMembers, createDepartment, updateDepartment, deleteDepartment, setDepartmentLead } from '@/components/membership/services/clubApi'
 import type { DepartmentItem, MemberItem } from '@/components/membership/services/club.types'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { toast } from 'sonner'
-import api from '@/lib/axiosInstance'
 import { Crown, Pencil, Trash2 } from 'lucide-react'
 import { Tooltip } from '@/components/shared/Tooltip'
 import { FilterSelect } from '@/components/shared/FilterSelect'
@@ -102,11 +101,12 @@ export default function DepartmentsPage() {
     if (!form.name.trim()) { toast.error('Vui lòng nhập tên ban.'); return }
     setSaving(true)
     try {
+      const dto = { name: form.name.trim(), description: form.description || null }
       if (dialog === 'add') {
-        await api.post(`/clubs/${id}/departments`, { name: form.name.trim(), description: form.description || null })
+        await createDepartment(id, dto)
         toast.success('Đã thêm ban mới.')
       } else {
-        await api.put(`/clubs/${id}/departments/${editTarget!.id}`, { name: form.name.trim(), description: form.description || null })
+        await updateDepartment(id, editTarget!.id, dto)
         toast.success('Đã cập nhật ban.')
       }
       setDialog(null)
@@ -122,7 +122,7 @@ export default function DepartmentsPage() {
     if (!deleteTarget) return
     setDeleting(true)
     try {
-      await api.delete(`/clubs/${id}/departments/${deleteTarget.id}`)
+      await deleteDepartment(id, deleteTarget.id)
       toast.success(`Đã xóa ban "${deleteTarget.name}".`)
       setDeleteTarget(null)
       load()
@@ -137,9 +137,7 @@ export default function DepartmentsPage() {
     if (!leadDept) return
     setSettingLead(true)
     try {
-      await api.patch(`/clubs/${id}/departments/${leadDept.id}/lead`, {
-        membershipId: selectedMembershipId ? Number(selectedMembershipId) : null,
-      })
+      await setDepartmentLead(id, leadDept.id, selectedMembershipId ? Number(selectedMembershipId) : null)
       toast.success('Đã cập nhật trưởng ban.')
       setLeadDept(null)
       load()
@@ -314,15 +312,17 @@ export default function DepartmentsPage() {
             ) : (
               <div>
                 <label style={labelStyle}>Chọn trưởng ban</label>
-                <select value={selectedMembershipId} onChange={e => setSelectedMembershipId(e.target.value)}
-                  style={{ ...inputStyle, height: 36, cursor: 'pointer' }}>
-                  <option value="">— Không có trưởng ban —</option>
-                  {deptMembers.map(m => (
-                    <option key={m.id} value={m.id}>
-                      {m.fullName ?? m.email}{m.studentId ? ` (${m.studentId})` : ''}
-                    </option>
-                  ))}
-                </select>
+                <FilterSelect
+                  value={selectedMembershipId}
+                  onChange={setSelectedMembershipId}
+                  options={[
+                    { value: '', label: '— Không có trưởng ban —' },
+                    ...deptMembers.map(m => ({
+                      value: String(m.id),
+                      label: `${m.fullName ?? m.email}${m.studentId ? ` (${m.studentId})` : ''}`,
+                    })),
+                  ]}
+                />
               </div>
             )}
           </div>

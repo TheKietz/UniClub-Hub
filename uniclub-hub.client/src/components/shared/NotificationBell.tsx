@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
-import { Bell, CheckCheck } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Bell, Star } from 'lucide-react'
 import api from '@/lib/axiosInstance'
 
 interface Notif {
@@ -21,7 +22,19 @@ function timeAgo(dateStr: string) {
   return `${Math.floor(hours / 24)} ngày trước`
 }
 
+const TYPE_COLORS: Record<string, string> = {
+  Application: '#8b3ff2',
+  Task: '#4f46e5',
+  Event: '#f59e0b',
+  System: '#10b981',
+}
+
+function notificationColor(type: string) {
+  return TYPE_COLORS[type] ?? '#4f46e5'
+}
+
 export default function NotificationBell() {
+  const navigate = useNavigate()
   const [open, setOpen] = useState(false)
   const [items, setItems] = useState<Notif[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
@@ -70,9 +83,10 @@ export default function NotificationBell() {
   function handleToggle() {
     if (!open && btnRef.current) {
       const rect = btnRef.current.getBoundingClientRect()
+      const width = Math.min(320, window.innerWidth - 24)
       setDropPos({
         bottom: window.innerHeight - rect.top + 8,
-        left: Math.max(8, rect.right - 300),
+        left: Math.min(Math.max(12, rect.right - width + 40), window.innerWidth - width - 12),
       })
     }
     setOpen(v => !v)
@@ -92,6 +106,25 @@ export default function NotificationBell() {
 
   return (
     <>
+      <style>{`
+        .notification-popover-scroll {
+          scrollbar-width: thin;
+          scrollbar-color: rgba(21, 19, 26, .14) transparent;
+        }
+        .notification-popover-scroll::-webkit-scrollbar {
+          width: 4px;
+        }
+        .notification-popover-scroll::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .notification-popover-scroll::-webkit-scrollbar-thumb {
+          background: rgba(21, 19, 26, .14);
+          border-radius: 999px;
+        }
+        .notification-popover-scroll::-webkit-scrollbar-thumb:hover {
+          background: rgba(21, 19, 26, .24);
+        }
+      `}</style>
       <button
         ref={btnRef}
         onClick={handleToggle}
@@ -112,48 +145,96 @@ export default function NotificationBell() {
             position: 'fixed',
             bottom: dropPos.bottom,
             left: dropPos.left,
-            width: 300,
+            width: 'min(320px, calc(100vw - 24px))',
             background: '#fff',
-            borderRadius: 14,
-            boxShadow: '0 -4px 24px rgba(0,0,0,.18)',
-            border: '1.5px solid #15131a',
+            borderRadius: 16,
+            boxShadow: '10px 10px 26px rgba(0,0,0,.13)',
+            border: '2px solid #15131a',
             zIndex: 9999,
             overflow: 'hidden',
             fontFamily: "'Be Vietnam Pro', sans-serif",
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: '1px solid #e8e3d6' }}>
-            <span style={{ fontWeight: 800, fontSize: 13, color: '#15131a' }}>Thông báo</span>
-            {unreadCount > 0 && (
-              <button onClick={markAllRead} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 700, color: '#4f46e5', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
-                <CheckCheck size={12} /> Đọc tất cả
-              </button>
-            )}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px 13px', borderBottom: '1px solid #e8e3d6' }}>
+            <span style={{ fontWeight: 900, fontSize: 16, color: '#15131a', letterSpacing: '-.02em' }}>Thông báo</span>
+            <button
+              onClick={markAllRead}
+              disabled={items.length === 0}
+              style={{
+                fontSize: 12, fontWeight: 800, color: '#4f46e5',
+                background: 'none', border: 'none',
+                cursor: items.length === 0 ? 'default' : 'pointer',
+                opacity: items.length === 0 ? 0.45 : 1,
+                fontFamily: 'inherit',
+              }}
+            >
+              Đánh dấu đã đọc
+            </button>
           </div>
 
-          <div style={{ maxHeight: 320, overflowY: 'auto' }}>
+          <div className="notification-popover-scroll" style={{ maxHeight: 260, overflowY: 'auto', background: '#f7f7fb' }}>
             {loading ? (
               <div style={{ display: 'flex', justifyContent: 'center', padding: '32px 0' }}>
                 <div style={{ width: 18, height: 18, border: '2px solid #4f46e5', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
               </div>
             ) : items.length === 0 ? (
-              <p style={{ textAlign: 'center', fontSize: 12, color: '#918c99', padding: '32px 16px' }}>Không có thông báo nào</p>
+              <p style={{ textAlign: 'center', fontSize: 14, color: '#918c99', padding: '38px 16px', margin: 0 }}>Không có thông báo nào</p>
             ) : items.map(n => (
               <div key={n.id} onClick={() => !n.isRead && markRead(n.id)}
-                style={{ padding: '10px 16px', borderBottom: '1px solid #f3f4f6', cursor: 'pointer', background: !n.isRead ? '#f5f3ff' : 'transparent', transition: 'background .1s' }}
-                onMouseEnter={e => (e.currentTarget.style.background = '#f7f6f1')}
-                onMouseLeave={e => (e.currentTarget.style.background = !n.isRead ? '#f5f3ff' : 'transparent')}>
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ fontSize: 12.5, fontWeight: !n.isRead ? 700 : 500, color: '#15131a', margin: 0, lineHeight: 1.3 }}>{n.title}</p>
-                    <p style={{ fontSize: 11, color: '#6b7280', marginTop: 2, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any }}>{n.message}</p>
-                    <p style={{ fontSize: 10.5, color: '#9ca3af', marginTop: 3 }}>{timeAgo(n.createdAt)}</p>
+                style={{ padding: '12px 18px', borderBottom: '1px solid #e8e3d6', cursor: 'pointer', background: '#f7f7fb', transition: 'background .1s' }}
+                onMouseEnter={e => (e.currentTarget.style.background = '#f2f1f7')}
+                onMouseLeave={e => (e.currentTarget.style.background = '#f7f7fb')}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                  <div style={{
+                    width: 38, height: 38, borderRadius: 10,
+                    border: '2px solid #15131a',
+                    background: notificationColor(n.type),
+                    display: 'grid', placeItems: 'center',
+                    flexShrink: 0,
+                  }}>
+                    <Star size={18} fill="#fff" color="#fff" />
                   </div>
-                  {!n.isRead && <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#4f46e5', flexShrink: 0, marginTop: 4 }} />}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{
+                      fontSize: 14, fontWeight: 900, color: '#15131a',
+                      margin: 0, lineHeight: 1.28, letterSpacing: '-.02em',
+                      overflow: 'hidden', display: '-webkit-box',
+                      WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any,
+                    }}>
+                      {n.title}
+                    </p>
+                    {n.message && (
+                      <p style={{
+                        fontSize: 11, color: '#6b7280', marginTop: 3, lineHeight: 1.35,
+                        overflow: 'hidden', display: '-webkit-box',
+                        WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any,
+                      }}>
+                        {n.message}
+                      </p>
+                    )}
+                    <p style={{ fontSize: 11, color: '#918c99', marginTop: 4 }}>{timeAgo(n.createdAt)}</p>
+                  </div>
+                  {!n.isRead && <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#ff563f', flexShrink: 0, marginTop: 7 }} />}
                 </div>
               </div>
             ))}
           </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              setOpen(false)
+              navigate('/notifications')
+            }}
+            style={{
+              width: '100%', height: 42, border: 'none',
+              borderTop: '1px solid #e8e3d6', background: '#fff',
+              color: '#4f46e5', fontSize: 14, fontWeight: 900,
+              cursor: 'pointer', fontFamily: 'inherit',
+            }}
+          >
+            Xem tất cả thông báo →
+          </button>
         </div>
       )}
     </>

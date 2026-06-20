@@ -38,5 +38,6 @@ namespace UniClub_Hub.Shared.Models
         public ICollection<Contribution>? Contributions { get; set; }
         public ICollection<MediaGallery>? MediaGalleries { get; set; }
         public ICollection<ClubPipelineStage>? PipelineStages { get; set; }
+        public ICollection<ClubPosition>? Positions { get; set; }
     }
 }

@@ -1,15 +1,31 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import api from '@/lib/axiosInstance'
-import { C, PublicFooter } from '@/components/public/publicComponents'
-import PublicHeader from '@/components/layouts/PublicHeader'
+import { C } from '@/components/public/publicComponents'
+import { MailCheck } from 'lucide-react'
+import AuthShell from './AuthShell'
 
 const inputStyle: React.CSSProperties = {
-  width: '100%', height: 40, borderRadius: C.radiusPill,
-  border: C.border, background: C.bg,
-  padding: '0 14px', fontSize: 13.5, color: C.ink, outline: 'none',
-  fontWeight: 500, boxSizing: 'border-box',
+  width: '100%',
+  height: 48,
+  borderRadius: 14,
+  border: '1.5px solid #e4dfd4',
+  background: C.bg,
+  padding: '0 16px',
+  fontSize: 14,
+  color: C.ink,
+  outline: 'none',
+  fontWeight: 600,
+  boxSizing: 'border-box',
   fontFamily: "'Be Vietnam Pro', sans-serif",
+}
+
+const labelStyle: React.CSSProperties = {
+  display: 'block',
+  fontSize: 13,
+  fontWeight: 800,
+  color: C.inkDim,
+  marginBottom: 8,
 }
 
 export default function ForgotPasswordPage() {
@@ -34,91 +50,118 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <div className="v3-page v3-enter">
-      <PublicHeader />
-      <div style={{
-        flex: 1, background: C.bg,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        padding: '20px 28px', fontFamily: "'Be Vietnam Pro', sans-serif",
-      }}>
-        <div style={{ width: '100%', maxWidth: 420 }}>
-          {sent ? (
+    <AuthShell
+      eyebrow="Khôi phục tài khoản"
+      title="Quên mật"
+      accent="khẩu?"
+      description="Nhập email của bạn và chúng tôi sẽ gửi link đặt lại mật khẩu ngay lập tức."
+    >
+      {sent ? (
+        <div style={{ textAlign: 'center' }}>
+          <div style={{
+            width: 72,
+            height: 72,
+            borderRadius: 22,
+            background: '#dcfce7',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: '0 auto 18px',
+            color: '#16a34a',
+          }}>
+            <MailCheck size={34} />
+          </div>
+          <h2 style={{ fontSize: 24, fontWeight: 900, color: C.ink, margin: '0 0 8px', letterSpacing: '-.03em' }}>
+            Kiểm tra email
+          </h2>
+          <p style={{ fontSize: 14, color: C.inkDim, lineHeight: 1.6, margin: '0 0 6px', fontWeight: 600 }}>
+            Nếu <strong style={{ color: C.ink }}>{email}</strong> tồn tại trong hệ thống, chúng tôi đã gửi link đặt lại mật khẩu.
+          </p>
+          <p style={{ fontSize: 13, color: C.inkMuted, margin: '0 0 24px' }}>
+            Link có hiệu lực trong <strong>1 giờ</strong>. Không thấy email? Kiểm tra thư mục Spam.
+          </p>
+          <button
+            onClick={() => navigate('/login')}
+            style={{
+              width: '100%',
+              height: 50,
+              border: 'none',
+              borderRadius: 14,
+              background: `linear-gradient(90deg, ${C.coral}, #f43f5e)`,
+              color: C.bg,
+              fontSize: 15,
+              fontWeight: 900,
+              cursor: 'pointer',
+              fontFamily: 'inherit',
+            }}
+          >
+            Quay lại đăng nhập
+          </button>
+        </div>
+      ) : (
+        <>
+          <h1 style={{ margin: 0, fontSize: 32, fontWeight: 900, color: C.ink, letterSpacing: '-.04em' }}>
+            Đặt lại mật khẩu
+          </h1>
+          <p style={{ margin: '8px 0 28px', fontSize: 15, color: C.inkDim, fontWeight: 600 }}>
+            Nhập email tài khoản để nhận link đặt lại
+          </p>
+
+          {error && (
             <div style={{
-              background: C.card, border: C.border, borderRadius: 20,
-              boxShadow: C.shadow(6, 6), padding: '32px 28px', textAlign: 'center',
+              background: '#fef2f2',
+              border: '1.5px solid #fca5a5',
+              borderRadius: 14,
+              padding: '12px 14px',
+              marginBottom: 18,
+              fontSize: 13,
+              color: '#b91c1c',
+              fontWeight: 600,
             }}>
-              <div style={{ fontSize: 48, marginBottom: 16 }}>✉️</div>
-              <h2 style={{ fontSize: 22, fontWeight: 800, color: C.ink, margin: '0 0 10px' }}>
-                Kiểm tra email của bạn
-              </h2>
-              <p style={{ fontSize: 14, color: C.inkMuted, lineHeight: 1.6, margin: '0 0 8px' }}>
-                Nếu <strong style={{ color: C.ink }}>{email}</strong> tồn tại trong hệ thống, chúng tôi đã gửi link đặt lại mật khẩu. Link có hiệu lực trong <strong style={{ color: C.ink }}>1 giờ</strong>.
-              </p>
-              <p style={{ fontSize: 12, color: C.inkMuted, margin: '0 0 24px' }}>
-                Không thấy email? Kiểm tra thư mục Spam.
-              </p>
-              <button onClick={() => navigate('/login')} style={{
-                width: '100%', height: 44, borderRadius: C.radiusPill,
-                background: C.ink, color: C.lemon, border: C.border,
-                boxShadow: C.shadow(3, 3), fontSize: 14, fontWeight: 700,
-                cursor: 'pointer', fontFamily: 'inherit',
-              }}>Quay lại đăng nhập</button>
-            </div>
-          ) : (
-            <div style={{
-              background: C.card, border: C.border, borderRadius: 20,
-              boxShadow: C.shadow(6, 6), padding: '32px 28px',
-            }}>
-              <span style={{
-                display: 'inline-flex', alignItems: 'center', gap: 4,
-                fontSize: 10.5, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase',
-                padding: '3px 10px', borderRadius: 4, background: C.lemon, color: C.ink,
-                border: C.border, marginBottom: 16,
-              }}>★ Quên mật khẩu</span>
-
-              <h2 style={{ fontSize: 24, fontWeight: 900, color: C.ink, margin: '0 0 8px', letterSpacing: '-.03em' }}>
-                Đặt lại mật khẩu
-              </h2>
-              <p style={{ fontSize: 14, color: C.inkMuted, margin: '0 0 24px', lineHeight: 1.5 }}>
-                Nhập email tài khoản — chúng tôi sẽ gửi link đặt lại mật khẩu.
-              </p>
-
-              {error && (
-                <div style={{
-                  background: '#fef2f2', border: '1.5px solid #fca5a5',
-                  borderRadius: 10, padding: '10px 14px', marginBottom: 16,
-                  fontSize: 13, color: '#b91c1c', fontWeight: 500,
-                }}>⚠ {error}</div>
-              )}
-
-              <form onSubmit={handleSubmit}>
-                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: C.inkDim, marginBottom: 6, letterSpacing: '.04em', textTransform: 'uppercase' }}>
-                  Email
-                </label>
-                <input
-                  type="email" value={email} onChange={e => setEmail(e.target.value)}
-                  placeholder="example@student.edu.vn" required
-                  style={{ ...inputStyle, marginBottom: 20 }}
-                />
-                <button type="submit" disabled={loading} style={{
-                  width: '100%', height: 44, borderRadius: C.radiusPill,
-                  background: C.coral, color: C.bg, border: C.border,
-                  boxShadow: C.shadow(3, 3), fontSize: 14, fontWeight: 700,
-                  cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1,
-                  fontFamily: 'inherit',
-                }}>{loading ? 'Đang gửi...' : 'Gửi link đặt lại mật khẩu →'}</button>
-              </form>
-
-              <button onClick={() => navigate('/login')} style={{
-                display: 'block', width: '100%', marginTop: 16,
-                background: 'none', border: 'none', cursor: 'pointer',
-                fontSize: 13, color: C.inkMuted, fontFamily: 'inherit',
-              }}>← Quay lại đăng nhập</button>
+              ⚠ {error}
             </div>
           )}
-        </div>
-      </div>
-      <PublicFooter />
-    </div>
+
+          <form onSubmit={handleSubmit} noValidate>
+            <div style={{ marginBottom: 22 }}>
+              <label style={labelStyle}>Email</label>
+              <input
+                type="email"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                placeholder="example@student.edu.vn"
+                required
+                style={inputStyle}
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              style={{
+                width: '100%',
+                height: 50,
+                border: 'none',
+                borderRadius: 14,
+                background: loading ? '#9ca3af' : `linear-gradient(90deg, ${C.coral}, #f43f5e)`,
+                color: C.bg,
+                fontSize: 15,
+                fontWeight: 900,
+                cursor: loading ? 'not-allowed' : 'pointer',
+                fontFamily: 'inherit',
+              }}
+            >
+              {loading ? 'Đang gửi...' : 'Gửi link đặt lại mật khẩu →'}
+            </button>
+          </form>
+
+          <p style={{ margin: '22px 0 0', textAlign: 'center', color: C.inkDim, fontSize: 14, fontWeight: 700 }}>
+            <Link to="/login" style={{ color: C.coral, fontWeight: 900, textDecoration: 'none' }}>
+              ← Quay lại đăng nhập
+            </Link>
+          </p>
+        </>
+      )}
+    </AuthShell>
   )
 }

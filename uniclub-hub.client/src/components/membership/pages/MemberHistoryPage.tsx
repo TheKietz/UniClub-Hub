@@ -1,20 +1,9 @@
 import { MEMBERSHIP_STATUS } from '@/types/auth'
 import { useEffect, useState } from 'react'
-import api from '@/lib/axiosInstance'
+import { getMemberHistory } from '@/components/membership/services/userApi'
+import type { MembershipHistory } from '@/components/membership/services/userApi'
 import { toast } from 'sonner'
 import { CalendarDays, LogOut } from 'lucide-react'
-
-interface MembershipHistory {
-  membershipId: number
-  clubId: number
-  clubName: string
-  clubLogoUrl?: string
-  clubRole: string
-  departmentName?: string
-  status: string
-  joinedDate: string
-  resignedDate?: string
-}
 
 const ROLE_LABELS: Record<string, string> = {
   CLUB_ADMIN: 'Ban chủ nhiệm', DEPT_LEAD: 'Trưởng ban', MEMBER: 'Thành viên',
@@ -44,8 +33,8 @@ export default function MemberHistoryPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    api.get<{ data: MembershipHistory[] }>('/users/me/history')
-      .then(r => setHistory(r.data.data))
+    getMemberHistory()
+      .then(setHistory)
       .catch(() => toast.error('Không thể tải lịch sử tham gia.'))
       .finally(() => setLoading(false))
   }, [])

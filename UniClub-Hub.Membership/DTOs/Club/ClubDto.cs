@@ -16,6 +16,7 @@ namespace UniClub_Hub.Membership.DTOs.Club
         public int? CategoryId { get; set; }
         public string? CategoryName { get; set; }
         public int MemberCount { get; set; }
+        public bool IsRecruiting { get; set; }
         public DateTime CreatedAt { get; set; }
     }
 }

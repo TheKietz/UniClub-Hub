@@ -1,18 +1,18 @@
 import { MEMBERSHIP_STATUS, CLUB_ROLES } from '@/types/auth'
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { getClubDetail, getDepartments, getFormSchema, getMemberFieldSchema, getMyApplications, submitApplication, resignFromClub, submitResignation, getUserResignations } from '@/components/membership/services/clubApi'
+import { getClubDetail, getDepartments, getFormSchema, getMemberFieldSchema, getMyApplications, submitApplication, resignFromClub, submitResignation, getUserResignations, uploadApplicationFile } from '@/components/membership/services/clubApi'
 import type { ClubDetail, DepartmentItem, FormSchema, MemberFieldDef, ApplicationItem, ResignationRequestItem, ResignationPreference } from '@/components/membership/services/club.types'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
-import api from '@/lib/axiosInstance'
 import { ArrowLeft, Users, Building, Calendar, Phone, GraduationCap, CheckCircle2, Clock, XCircle, MessageCircle, LogOut, AlertCircle, Paperclip, X, GitBranch } from 'lucide-react'
 import { Tree, TreeNode } from 'react-organizational-chart'
 import PublicHeader from '@/components/layouts/PublicHeader'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { FilterSelect } from '@/components/shared/FilterSelect'
 
 const AVATAR_COLORS = ['bg-indigo-500', 'bg-emerald-500', 'bg-violet-500', 'bg-rose-500', 'bg-amber-500', 'bg-cyan-500']
 
@@ -143,12 +143,7 @@ export default function ClubDetailPage() {
       if (fileFields.length > 0) {
         setSubmitStatus('uploading')
         await Promise.all(fileFields.map(async f => {
-          const fd = new FormData()
-          fd.append('file', fileAnswers[f.id]!)
-          const res = await api.post<{ data: { url: string } }>('/uploads/application-file', fd, {
-            headers: { 'Content-Type': 'multipart/form-data' },
-          })
-          finalAnswers[f.id] = res.data.data.url
+          finalAnswers[f.id] = await uploadApplicationFile(fileAnswers[f.id]!)
         }))
       }
 
@@ -186,7 +181,7 @@ export default function ClubDetailPage() {
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <PublicHeader />
 
-      <div className="flex-1 max-w-5xl mx-auto w-full px-6 py-8 space-y-6">
+      <div className="flex-1 max-w-5xl mx-auto w-full px-6 pt-[132px] pb-8 space-y-6">
 
         {/* Back link — nằm trong nội dung, không có nền riêng */}
         <div className="flex items-center gap-1.5 text-sm">
@@ -379,12 +374,14 @@ export default function ClubDetailPage() {
                               onChange={e => setAnswers(p => ({ ...p, [f.id]: e.target.value }))}
                               className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500" />
                           ) : f.type === 'select' ? (
-                            <select value={answers[f.id] ?? ''}
-                              onChange={e => setAnswers(p => ({ ...p, [f.id]: e.target.value }))}
-                              className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-white">
-                              <option value="">— Chọn —</option>
-                              {f.options?.map(o => <option key={o} value={o}>{o}</option>)}
-                            </select>
+                            <FilterSelect
+                              value={answers[f.id] ?? ''}
+                              onChange={value => setAnswers(p => ({ ...p, [f.id]: value }))}
+                              options={[
+                                { value: '', label: '— Chọn —' },
+                                ...(f.options ?? []).map(o => ({ value: o, label: o })),
+                              ]}
+                            />
                           ) : f.type === 'file' ? (
                             <div>
                               <label className={`flex items-center gap-2 w-full border rounded-lg px-3 py-2 text-sm cursor-pointer transition-colors ${
@@ -442,12 +439,14 @@ export default function ClubDetailPage() {
                                 onChange={e => setMemberFieldAnswers(p => ({ ...p, [f.id]: e.target.value }))}
                                 className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500" />
                             ) : f.type === 'select' ? (
-                              <select value={memberFieldAnswers[f.id] ?? ''}
-                                onChange={e => setMemberFieldAnswers(p => ({ ...p, [f.id]: e.target.value }))}
-                                className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-white">
-                                <option value="">— Chọn —</option>
-                                {f.options?.map(o => <option key={o} value={o}>{o}</option>)}
-                              </select>
+                              <FilterSelect
+                                value={memberFieldAnswers[f.id] ?? ''}
+                                onChange={value => setMemberFieldAnswers(p => ({ ...p, [f.id]: value }))}
+                                options={[
+                                  { value: '', label: '— Chọn —' },
+                                  ...(f.options ?? []).map(o => ({ value: o, label: o })),
+                                ]}
+                              />
                             ) : (
                               <Input value={memberFieldAnswers[f.id] ?? ''}
                                 onChange={e => setMemberFieldAnswers(p => ({ ...p, [f.id]: e.target.value }))} />

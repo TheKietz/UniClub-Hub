@@ -6,7 +6,7 @@ trigger: always_on
 
 The AI Agent must strictly adhere to the following data-tier protocols:
 
-1. **Authority Limitation**: The AI is STRICTLY PROHIBITED from directly modifying any files within the `UniClubHub.Shared/Models/` directory.
+1. **Authority Limitation**: The AI is STRICTLY PROHIBITED from directly modifying any files within the `UniClub-Hub.Shared/Models/` directory.
 2. **Approval Workflow**:
    - **Step 1**: Propose the schema (table/column structure) within the chat interface.
    - **Step 2**: Await explicit confirmation ("Approve" or "Agree") before proceeding.

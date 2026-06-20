@@ -19,5 +19,6 @@ namespace UniClub_Hub.Shared.Models
         public ApplicationUser User { get; set; } = null!;
         public Club Club { get; set; } = null!;
         public Department? Department { get; set; }
+        public ICollection<ClubMemberPosition>? Positions { get; set; }
     }
 }

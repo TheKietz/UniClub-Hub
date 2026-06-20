@@ -1,15 +1,16 @@
 import { useState, useEffect } from 'react'
 import { X } from 'lucide-react'
 import type { UpdateSprintDto } from '../../services/operations.types'
+import { FilterSelect } from '@/components/shared/FilterSelect'
 
 type Duration = '1week' | '2weeks' | '3weeks' | '4weeks' | 'custom'
 
 const DURATION_OPTIONS: { value: Duration; label: string; days: number }[] = [
-  { value: '1week',  label: '1 week',  days: 7  },
-  { value: '2weeks', label: '2 weeks', days: 14 },
-  { value: '3weeks', label: '3 weeks', days: 21 },
-  { value: '4weeks', label: '4 weeks', days: 28 },
-  { value: 'custom', label: 'custom',  days: 0  },
+  { value: '1week',  label: '1 tuần',  days: 7  },
+  { value: '2weeks', label: '2 tuần', days: 14 },
+  { value: '3weeks', label: '3 tuần', days: 21 },
+  { value: '4weeks', label: '4 tuần', days: 28 },
+  { value: 'custom', label: 'Tùy chỉnh',  days: 0  },
 ]
 
 function addDays(date: Date, days: number): Date {
@@ -222,26 +223,11 @@ export default function StartSprintModal({
             <label style={labelStyle}>
               Duration <span style={{ color: '#FF3B3B' }}>*</span>
             </label>
-            <div style={{ position: 'relative' }}>
-              <select
-                value={duration}
-                onChange={e => handleDurationChange(e.target.value as Duration)}
-                style={{
-                  ...inputStyle(),
-                  appearance: 'none',
-                  paddingRight: 36,
-                  cursor: 'pointer',
-                }}
-              >
-                {DURATION_OPTIONS.map(o => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
-                ))}
-              </select>
-              <span style={{
-                position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
-                pointerEvents: 'none', fontSize: 12, color: '#555',
-              }}>▼</span>
-            </div>
+            <FilterSelect
+              value={duration}
+              onChange={value => handleDurationChange(value as Duration)}
+              options={DURATION_OPTIONS.map(o => ({ value: o.value, label: o.label }))}
+            />
           </div>
 
           {/* Start date */}

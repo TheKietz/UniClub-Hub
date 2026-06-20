@@ -1,13 +1,13 @@
 import { APPLICATION_STATUS } from '@/types/auth'
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { getApplications, reviewApplication, getMemberFieldSchema, advanceApplicationStage, getPipelineStages } from '@/components/membership/services/clubApi'
+import { getApplications, reviewApplication, getMemberFieldSchema, advanceApplicationStage, getPipelineStages, getMyClubPermissions, exportApplications } from '@/components/membership/services/clubApi'
 import type { ApplicationItem, MemberFieldDef, PipelineStage } from '@/components/membership/services/club.types'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { toast } from 'sonner'
 import { Clock, MessageCircle, CheckCircle2, XCircle, GitBranch } from 'lucide-react'
-import api from '@/lib/axiosInstance'
 import { LoadMoreBar } from '@/components/shared/LoadMoreBar'
+import { CLUB_PERMISSIONS } from '@/constants/clubPermissions'
 
 const PAGE_SIZE = 20
 
@@ -35,6 +35,7 @@ export default function ApplicationsPage() {
   const [applications, setApplications] = useState<ApplicationItem[]>([])
   const [fieldSchema, setFieldSchema] = useState<MemberFieldDef[]>([])
   const [pipelineStages, setPipelineStages] = useState<PipelineStage[]>([])
+  const [permCodes, setPermCodes] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState('')
   const [search, setSearch] = useState('')
@@ -45,15 +46,20 @@ export default function ApplicationsPage() {
   useEffect(() => {
     getMemberFieldSchema(id).then(setFieldSchema).catch(() => {})
     getPipelineStages(id).then(setPipelineStages).catch(() => {})
+    getMyClubPermissions(id)
+      .then(r => setPermCodes(new Set(r.permissionCodes.map(c => c.toLowerCase()))))
+      .catch(() => {})
   }, [id])
 
   useEffect(() => {
     setLoading(true)
-    getApplications(id, { status: statusFilter || undefined })
+    getApplications(id)
       .then(setApplications)
       .catch(() => toast.error('Không thể tải danh sách đơn.'))
       .finally(() => setLoading(false))
-  }, [id, statusFilter, refreshKey])
+  }, [id, refreshKey])
+
+  const canReview = permCodes.has(CLUB_PERMISSIONS.APPLICATIONS_REVIEW)
 
   const [selected, setSelected] = useState<ApplicationItem | null>(null)
   const [reviewNote, setReviewNote] = useState('')
@@ -105,6 +111,7 @@ export default function ApplicationsPage() {
   useEffect(() => setVisibleCount(PAGE_SIZE), [search, statusFilter, sortDir])
 
   const filtered = applications
+    .filter(app => !statusFilter || app.status === statusFilter)
     .filter(app => {
       const q = search.toLowerCase()
       return !q
@@ -124,9 +131,7 @@ export default function ApplicationsPage() {
 
   async function handleExport(format: 'xlsx' | 'csv') {
     try {
-      const params = new URLSearchParams({ format })
-      if (statusFilter) params.set('status', statusFilter)
-      const res = await api.get(`/clubs/${id}/applications/export?${params}`, { responseType: 'blob' })
+      const res = await exportApplications(id, { format, ...(statusFilter ? { status: statusFilter } : {}) })
       const url = URL.createObjectURL(res.data)
       const a = document.createElement('a')
       a.href = url
@@ -147,6 +152,23 @@ export default function ApplicationsPage() {
   }
   const thS: React.CSSProperties = { padding: '10px 14px', textAlign: 'left', fontSize: 12, fontWeight: 700, color: D.inkMuted, letterSpacing: '.02em', whiteSpace: 'nowrap' }
   const tdS: React.CSSProperties = { padding: '12px 14px', fontSize: 13 }
+  const labelStyle: React.CSSProperties = { fontSize: 12, fontWeight: 700, color: D.inkDim, display: 'block', marginBottom: 6 }
+  const fieldBoxStyle: React.CSSProperties = {
+    width: '100%', borderRadius: 8, border: D.borderLight,
+    padding: '10px 12px', fontSize: 13, color: D.ink,
+    background: D.bg, fontFamily: 'inherit', boxSizing: 'border-box',
+  }
+  const ghostButtonStyle: React.CSSProperties = {
+    background: D.card, color: D.inkDim, border: D.border, boxShadow: D.shadow(2, 2),
+    padding: '8px 14px', borderRadius: D.pill, fontSize: 12, fontWeight: 600,
+    cursor: 'pointer', fontFamily: 'inherit',
+  }
+  const primaryButtonStyle: React.CSSProperties = {
+    background: D.indigo, color: '#fff', border: D.border, boxShadow: D.shadow(2, 2),
+    padding: '8px 16px', borderRadius: D.pill, fontSize: 12, fontWeight: 700,
+    cursor: reviewing ? 'not-allowed' : 'pointer', opacity: reviewing ? 0.7 : 1,
+    fontFamily: 'inherit',
+  }
 
   return (
     <div style={{ padding: '28px 32px', minHeight: '100%', background: D.bg, fontFamily: "'Be Vietnam Pro', sans-serif" }}>
@@ -272,7 +294,7 @@ export default function ApplicationsPage() {
                     }}
                       onMouseEnter={e => (e.currentTarget.style.background = '#eef2ff')}
                       onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                      {isPending ? 'Xem & duyệt' : 'Chi tiết'}
+                      {isPending && canReview ? 'Xem & duyệt' : 'Chi tiết'}
                     </button>
                   </td>
                 </tr>
@@ -290,36 +312,40 @@ export default function ApplicationsPage() {
 
       {/* Dialog xem chi tiết & duyệt */}
       <Dialog open={!!selected} onOpenChange={open => !open && setSelected(null)}>
-        <DialogContent className="sm:max-w-lg" style={{ fontFamily: "'Be Vietnam Pro', sans-serif" }}>
+        <DialogContent className="sm:max-w-md" style={{ fontFamily: "'Be Vietnam Pro', sans-serif" }}>
           <DialogHeader>
-            <DialogTitle style={{ color: D.ink, fontWeight: 900, fontSize: 17 }}>Đơn đăng ký</DialogTitle>
-            <p style={{ fontSize: 13, color: D.inkMuted, marginTop: 2 }}>{selected?.fullName ?? selected?.email}</p>
+            <DialogTitle style={{ color: D.ink, fontWeight: 900, fontSize: 20 }}>Đơn đăng ký</DialogTitle>
           </DialogHeader>
 
           {selected && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14, paddingTop: 4 }}>
-              {/* Info box */}
-              <div style={{ background: D.bg, borderRadius: 10, padding: '12px 16px', border: D.borderLight, fontSize: 13, lineHeight: 1.8 }}>
-                <div style={{ color: D.inkMuted }}>Email: <strong style={{ color: D.ink }}>{selected.email}</strong></div>
-                {selected.studentId && <div style={{ color: D.inkMuted }}>MSSV: <strong style={{ color: D.ink }}>{selected.studentId}</strong></div>}
-                <div style={{ color: D.inkMuted }}>Ngày nộp: <strong style={{ color: D.ink }}>{new Date(selected.appliedAt).toLocaleDateString('vi-VN')}</strong></div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14, paddingTop: 8 }}>
+              <div>
+                <label style={labelStyle}>Ứng viên</label>
+                <div style={{ ...fieldBoxStyle, lineHeight: 1.75 }}>
+                  <div style={{ fontWeight: 800 }}>{selected.fullName ?? selected.email}</div>
+                  <div style={{ color: D.inkMuted }}>Email: <strong style={{ color: D.ink }}>{selected.email}</strong></div>
+                  {selected.studentId && <div style={{ color: D.inkMuted }}>MSSV: <strong style={{ color: D.ink }}>{selected.studentId}</strong></div>}
+                  <div style={{ color: D.inkMuted }}>Ngày nộp: <strong style={{ color: D.ink }}>{new Date(selected.appliedAt).toLocaleDateString('vi-VN')}</strong></div>
+                </div>
+              </div>
+
+              <div>
+                <label style={labelStyle}>Trạng thái</label>
                 <div style={{ color: D.inkMuted, display: 'flex', alignItems: 'center', gap: 6 }}>
-                  Trạng thái:{' '}
                   {(() => { const cfg = STATUS_CONFIG[selected.status]; const Icon = cfg?.icon ?? Clock; return cfg ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 10px', borderRadius: D.pill, background: cfg.bg, color: cfg.text, fontSize: 11.5, fontWeight: 700 }}><Icon size={10} />{cfg.label}</span> : null })()}
                 </div>
               </div>
 
-              {/* Câu trả lời */}
               {selected.answers && (() => {
                 try {
                   const parsed = JSON.parse(selected.answers)
                   const entries = Object.entries(parsed)
                   if (entries.length > 0) return (
                     <div>
-                      <p style={{ fontSize: 11, fontWeight: 700, color: D.inkMuted, letterSpacing: '.08em', textTransform: 'uppercase', marginBottom: 8 }}>Câu trả lời</p>
+                      <label style={labelStyle}>Câu trả lời</label>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                         {entries.map(([k, v]) => (
-                          <div key={k} style={{ background: D.bg, borderRadius: 8, padding: '10px 14px' }}>
+                          <div key={k} style={fieldBoxStyle}>
                             <p style={{ fontSize: 11.5, color: D.inkMuted, marginBottom: 3 }}>{k}</p>
                             <p style={{ fontSize: 13, color: D.ink }}>{String(v)}</p>
                           </div>
@@ -330,7 +356,6 @@ export default function ApplicationsPage() {
                 } catch { return null }
               })()}
 
-              {/* Thông tin hồ sơ thành viên */}
               {selected.memberFieldData && (() => {
                 try {
                   const parsed = JSON.parse(selected.memberFieldData) as Record<string, string>
@@ -338,12 +363,12 @@ export default function ApplicationsPage() {
                   if (entries.length === 0) return null
                   return (
                     <div>
-                      <p style={{ fontSize: 11, fontWeight: 700, color: D.inkMuted, letterSpacing: '.08em', textTransform: 'uppercase', marginBottom: 8 }}>Thông tin hồ sơ thành viên</p>
+                      <label style={labelStyle}>Thông tin hồ sơ thành viên</label>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                         {entries.map(([k, v]) => {
                           const field = fieldSchema.find(f => f.id === k)
                           return (
-                            <div key={k} style={{ background: '#eef2ff', borderRadius: 8, padding: '10px 14px' }}>
+                            <div key={k} style={fieldBoxStyle}>
                               <p style={{ fontSize: 11.5, color: '#6366f1', marginBottom: 3, fontWeight: 600 }}>{field?.label ?? k}</p>
                               <p style={{ fontSize: 13, color: D.ink }}>{String(v)}</p>
                             </div>
@@ -355,81 +380,82 @@ export default function ApplicationsPage() {
                 } catch { return null }
               })()}
 
-              {/* Vòng pipeline hiện tại */}
               {selected.status === 'Reviewing' && selected.currentStageName && (
-                <div style={{ borderRadius: 10, padding: '12px 14px', border: '1px solid #c4b5fd', background: '#f5f3ff', fontSize: 13 }}>
-                  <p style={{ fontWeight: 700, color: '#5b21b6', marginBottom: 4 }}>Đang ở vòng: {selected.currentStageName}</p>
-                  {hasPipeline && (
-                    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 6 }}>
-                      {pipelineStages.map((s, i) => (
-                        <span key={s.id} style={{
-                          fontSize: 11, padding: '2px 8px', borderRadius: 4,
-                          background: s.id === selected.currentStageId ? '#5b21b6' : '#ede9fe',
-                          color: s.id === selected.currentStageId ? '#fff' : '#7c3aed',
-                          fontWeight: s.id === selected.currentStageId ? 700 : 400,
-                        }}>
-                          {i + 1}. {s.name}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Kết quả duyệt */}
-              {(selected.status === 'Accepted' || selected.status === 'Rejected') && (
-                <div style={{ borderRadius: 10, padding: '12px 14px', fontSize: 13, border: `1px solid ${selected.status === 'Accepted' ? '#bbf7d0' : '#fecaca'}`, background: selected.status === 'Accepted' ? '#f0fdf4' : '#fff1f2' }}>
-                  <p style={{ fontWeight: 700, color: selected.status === 'Accepted' ? '#15803d' : '#b91c1c', marginBottom: 4 }}>
-                    {selected.status === 'Accepted' ? '✓ Đã chấp nhận' : '✕ Đã từ chối'}
-                  </p>
-                  {selected.reviewerName && <p style={{ color: D.inkMuted, fontSize: 12 }}>Bởi: {selected.reviewerName}</p>}
-                  {selected.reviewedAt && <p style={{ color: D.inkMuted, fontSize: 11 }}>{new Date(selected.reviewedAt).toLocaleString('vi-VN')}</p>}
-                  {selected.reviewNote && <p style={{ color: D.inkDim, marginTop: 4, whiteSpace: 'pre-wrap' }}>{selected.reviewNote}</p>}
-                </div>
-              )}
-
-              {/* Ghi chú (chỉ khi đang xét) */}
-              {(selected.status === 'Pending' || selected.status === 'Interview' || selected.status === 'Reviewing') && (
                 <div>
-                  <label style={{ fontSize: 12, fontWeight: 700, color: D.inkDim, display: 'block', marginBottom: 6 }}>
+                  <label style={labelStyle}>Vòng hiện tại</label>
+                  <div style={{ ...fieldBoxStyle, borderColor: '#c4b5fd', background: '#f5f3ff' }}>
+                    <p style={{ fontWeight: 700, color: '#5b21b6', marginBottom: 4 }}>Đang ở vòng: {selected.currentStageName}</p>
+                    {hasPipeline && (
+                      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 6 }}>
+                        {pipelineStages.map((s, i) => (
+                          <span key={s.id} style={{
+                            fontSize: 11, padding: '2px 8px', borderRadius: 4,
+                            background: s.id === selected.currentStageId ? '#5b21b6' : '#ede9fe',
+                            color: s.id === selected.currentStageId ? '#fff' : '#7c3aed',
+                            fontWeight: s.id === selected.currentStageId ? 700 : 400,
+                          }}>
+                            {i + 1}. {s.name}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {(selected.status === 'Accepted' || selected.status === 'Rejected') && (
+                <div>
+                  <label style={labelStyle}>Kết quả duyệt</label>
+                  <div style={{ ...fieldBoxStyle, borderColor: selected.status === 'Accepted' ? '#bbf7d0' : '#fecaca', background: selected.status === 'Accepted' ? '#f0fdf4' : '#fff1f2' }}>
+                    <p style={{ fontWeight: 700, color: selected.status === 'Accepted' ? '#15803d' : '#b91c1c', marginBottom: 4 }}>
+                      {selected.status === 'Accepted' ? '✓ Đã chấp nhận' : '✕ Đã từ chối'}
+                    </p>
+                    {selected.reviewerName && <p style={{ color: D.inkMuted, fontSize: 12 }}>Bởi: {selected.reviewerName}</p>}
+                    {selected.reviewedAt && <p style={{ color: D.inkMuted, fontSize: 11 }}>{new Date(selected.reviewedAt).toLocaleString('vi-VN')}</p>}
+                    {selected.reviewNote && <p style={{ color: D.inkDim, marginTop: 4, whiteSpace: 'pre-wrap' }}>{selected.reviewNote}</p>}
+                  </div>
+                </div>
+              )}
+
+              {canReview && (selected.status === 'Pending' || selected.status === 'Interview' || selected.status === 'Reviewing') && (
+                <div>
+                  <label style={labelStyle}>
                     Ghi chú phản hồi <span style={{ fontWeight: 400, color: D.inkMuted }}>(tuỳ chọn)</span>
                   </label>
                   <textarea rows={3} value={reviewNote} onChange={e => setReviewNote(e.target.value)}
                     placeholder="Lý do từ chối, hướng dẫn phỏng vấn..."
-                    style={{ width: '100%', borderRadius: 8, border: D.borderLight, padding: '10px 12px', fontSize: 13, color: D.ink, outline: 'none', background: D.bg, resize: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }} />
+                    style={{ ...fieldBoxStyle, resize: 'none', outline: 'none' }} />
                 </div>
               )}
             </div>
           )}
 
-          <DialogFooter style={{ flexWrap: 'wrap', gap: 8 }}>
-            {selected && (selected.status === 'Pending' || selected.status === 'Interview' || selected.status === 'Reviewing') && (
+          <DialogFooter style={{ borderTop: 'none', background: 'transparent', paddingTop: 8, flexWrap: 'wrap', gap: 8 }}>
+            {canReview && selected && (selected.status === 'Pending' || selected.status === 'Interview' || selected.status === 'Reviewing') && (
               <>
-                {/* Pipeline advance button */}
                 {canAdvance && (
                   <button disabled={reviewing} onClick={handleAdvance}
-                    style={{ padding: '9px 16px', borderRadius: D.pill, background: '#ede9fe', color: '#5b21b6', border: '1.5px solid #c4b5fd', fontSize: 13, fontWeight: 700, cursor: reviewing ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
+                    style={{ ...ghostButtonStyle, color: '#5b21b6', border: '1.5px solid #c4b5fd', opacity: reviewing ? 0.7 : 1 }}>
                     → Vòng tiếp theo
                   </button>
                 )}
-                {/* Legacy interview (only when no pipeline and status is Pending) */}
                 {!hasPipeline && selected.status === 'Pending' && (
                   <button disabled={reviewing} onClick={() => handleReview('Interview')}
-                    style={{ padding: '9px 16px', borderRadius: D.pill, background: D.card, color: '#0284c7', border: '1.5px solid #38bdf8', fontSize: 13, fontWeight: 700, cursor: reviewing ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
+                    style={{ ...ghostButtonStyle, color: '#0284c7', border: '1.5px solid #38bdf8', opacity: reviewing ? 0.7 : 1 }}>
                     Mời phỏng vấn
                   </button>
                 )}
                 <button disabled={reviewing} onClick={() => handleReview('Accepted')}
-                  style={{ padding: '9px 16px', borderRadius: D.pill, background: '#10b981', color: '#fff', border: '1.5px solid #15131a', boxShadow: D.shadow(2, 2), fontSize: 13, fontWeight: 700, cursor: reviewing ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
+                  style={{ ...primaryButtonStyle, background: '#10b981' }}>
                   {reviewing ? 'Đang xử lý...' : 'Chấp nhận'}
                 </button>
                 <button disabled={reviewing} onClick={() => handleReview('Rejected')}
-                  style={{ padding: '9px 16px', borderRadius: D.pill, background: D.card, color: '#ef4444', border: '1.5px solid #ef4444', fontSize: 13, fontWeight: 700, cursor: reviewing ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
+                  style={{ ...ghostButtonStyle, color: '#ef4444', border: '1.5px solid #ef4444', opacity: reviewing ? 0.7 : 1 }}>
                   Từ chối
                 </button>
               </>
             )}
-            <button onClick={() => setSelected(null)} style={{ padding: '9px 16px', borderRadius: D.pill, background: D.card, color: D.inkDim, border: D.borderLight, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', marginLeft: 'auto' }}>
+            <button onClick={() => setSelected(null)} style={{ ...ghostButtonStyle, marginLeft: 'auto' }}>
               Đóng
             </button>
           </DialogFooter>
