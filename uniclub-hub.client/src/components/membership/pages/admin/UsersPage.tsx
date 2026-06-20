@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { getUsers, lockUser, unlockUser, deleteUser, createUser, changeUserRole, importUsersPreview, importUsersConfirm, exportUsers } from '@/components/membership/services/adminApi'
+import type { UserListQuery } from '@/components/membership/services/adminApi'
 import type { UserItem, UserImportPreview } from '@/components/membership/services/admin.types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -10,6 +11,7 @@ import { toast } from 'sonner'
 import { Trash2, LockKeyhole, LockKeyholeOpen, ShieldCheck, ShieldOff, Upload, Download, FileSpreadsheet, CheckCircle2, XCircle, AlertCircle } from 'lucide-react'
 import { FilterSelect } from '@/components/shared/FilterSelect'
 import { LoadMoreBar } from '@/components/shared/LoadMoreBar'
+import { D } from '@/components/shared/managementTheme'
 
 const PAGE_SIZE = 20
 
@@ -34,10 +36,12 @@ export default function UsersPage() {
   const [totalUsers, setTotalUsers] = useState(0)
   const [page, setPage] = useState(1)
   const [loadingMore, setLoadingMore] = useState(false)
-  const [searchName, setSearchName] = useState('')
-  const [searchEmail, setSearchEmail] = useState('')
-  const [searchStudentId, setSearchStudentId] = useState('')
+  const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+  const [roleFilter, setRoleFilter] = useState('')
+  const [sortBy, setSortBy] = useState<'name' | 'email' | 'role'>('name')
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
   const [loading, setLoading] = useState(true)
   const [refreshKey, setRefreshKey] = useState(0)
 
@@ -54,6 +58,7 @@ export default function UsersPage() {
   const [importResult, setImportResult] = useState<{ imported: number; skipped: number } | null>(null)
   const [importing, setImporting] = useState(false)
   const importFileRef = useRef<HTMLInputElement>(null)
+  const latestQueryKey = useRef('')
 
   function resetImport() {
     setImportStep('upload'); setImportPreview(null); setImportResult(null); setImportOpen(false)
@@ -92,22 +97,77 @@ export default function UsersPage() {
   }
 
   useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedSearch(search.trim()), 300)
+    return () => window.clearTimeout(timer)
+  }, [search])
+
+  function buildQuery(pageNumber: number): UserListQuery {
+    return {
+      page: pageNumber,
+      pageSize: PAGE_SIZE,
+      search: debouncedSearch || undefined,
+      status: statusFilter || undefined,
+      role: roleFilter || undefined,
+      sortBy,
+      sortDir,
+    }
+  }
+
+  function querySignature() {
+    return JSON.stringify({
+      search: debouncedSearch || '',
+      status: statusFilter || '',
+      role: roleFilter || '',
+      sortBy,
+      sortDir,
+    })
+  }
+
+  useEffect(() => {
+    const signature = querySignature()
+    latestQueryKey.current = signature
+    let cancelled = false
+
     setLoading(true)
+    setLoadingMore(false)
     setUsers([])
     setPage(1)
-    getUsers({ page: 1, pageSize: PAGE_SIZE })
-      .then(r => { setUsers(r.items); setTotalUsers(r.totalCount) })
-      .catch(() => toast.error('Không thể tải danh sách người dùng.'))
-      .finally(() => setLoading(false))
-  }, [refreshKey])
+    getUsers(buildQuery(1))
+      .then(r => {
+        if (cancelled || latestQueryKey.current !== signature) return
+        setUsers(r.items)
+        setTotalUsers(r.totalCount)
+      })
+      .catch(() => {
+        if (!cancelled && latestQueryKey.current === signature)
+          toast.error('Không thể tải danh sách người dùng.')
+      })
+      .finally(() => {
+        if (!cancelled && latestQueryKey.current === signature)
+          setLoading(false)
+      })
+
+    return () => { cancelled = true }
+  }, [refreshKey, debouncedSearch, statusFilter, roleFilter, sortBy, sortDir])
 
   function loadMore() {
     const nextPage = page + 1
+    const signature = querySignature()
     setLoadingMore(true)
-    getUsers({ page: nextPage, pageSize: PAGE_SIZE })
-      .then(r => { setUsers(prev => [...prev, ...r.items]); setPage(nextPage) })
-      .catch(() => toast.error('Tải thêm thất bại.'))
-      .finally(() => setLoadingMore(false))
+    getUsers(buildQuery(nextPage))
+      .then(r => {
+        if (latestQueryKey.current !== signature) return
+        setUsers(prev => [...prev, ...r.items])
+        setPage(nextPage)
+      })
+      .catch(() => {
+        if (latestQueryKey.current === signature)
+          toast.error('Tải thêm thất bại.')
+      })
+      .finally(() => {
+        if (latestQueryKey.current === signature)
+          setLoadingMore(false)
+      })
   }
 
   async function handleCreate(e: React.FormEvent) {
@@ -162,22 +222,14 @@ export default function UsersPage() {
     } catch { toast.error('Xoá thất bại.') }
   }
 
-  const [sortBy, setSortBy] = useState<'name' | 'email' | 'role'>('name')
-  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
-
-  const hasFilter = searchName || searchEmail || searchStudentId || statusFilter
-  const filtered = users
-    .filter(u => !searchName || (u.fullName ?? '').toLowerCase().includes(searchName.toLowerCase()))
-    .filter(u => !searchEmail || u.email.toLowerCase().includes(searchEmail.toLowerCase()))
-    .filter(u => !searchStudentId || (u.studentId ?? '').toLowerCase().includes(searchStudentId.toLowerCase()))
-    .filter(u => statusFilter === 'locked' ? u.isLocked : statusFilter === 'active' ? !u.isLocked : true)
-    .sort((a, b) => {
-      let cmp = 0
-      if (sortBy === 'name') cmp = (a.fullName ?? a.email).localeCompare(b.fullName ?? b.email)
-      else if (sortBy === 'email') cmp = a.email.localeCompare(b.email)
-      else if (sortBy === 'role') cmp = (a.roles?.[0] ?? '').localeCompare(b.roles?.[0] ?? '')
-      return sortDir === 'asc' ? cmp : -cmp
-    })
+  const hasFilter = search || statusFilter || roleFilter
+  const exportQuery = {
+    search: debouncedSearch || undefined,
+    status: statusFilter || undefined,
+    role: roleFilter || undefined,
+    sortBy,
+    sortDir,
+  }
 
   function toggleSort(col: typeof sortBy) {
     if (sortBy === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
@@ -187,15 +239,7 @@ export default function UsersPage() {
   const field = (key: keyof CreateForm) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm(p => ({ ...p, [key]: e.target.value }))
 
-  const D = {
-    border: '1.5px solid #15131a', borderLight: '1px solid #e8e3d6',
-    shadow: (x = 3, y = 3) => `${x}px ${y}px 0 #15131a`,
-    radius: 14, pill: 999,
-    ink: '#15131a', inkDim: '#4a4651', inkMuted: '#918c99',
-    bg: '#f7f6f1', card: '#ffffff',
-    indigo: '#4f46e5', violet: '#7c3aed', emerald: '#10b981', amber: '#f59e0b', red: '#ef4444',
-  }
-  const thS: React.CSSProperties = { padding: '10px 14px', textAlign: 'left', fontSize: 12, fontWeight: 700, color: D.inkMuted, letterSpacing: '.02em', whiteSpace: 'nowrap' }
+    const thS: React.CSSProperties = { padding: '10px 14px', textAlign: 'left', fontSize: 12, fontWeight: 700, color: D.inkMuted, letterSpacing: '.02em', whiteSpace: 'nowrap' }
   const tdS: React.CSSProperties = { padding: '12px 14px', fontSize: 13 }
 
   return (
@@ -208,8 +252,8 @@ export default function UsersPage() {
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           {[
-            { label: '↓ Excel', action: async () => { const res = await exportUsers('xlsx'); const url = URL.createObjectURL(res.data); const a = document.createElement('a'); a.href = url; a.download = 'users.xlsx'; a.click(); URL.revokeObjectURL(url) }, color: D.inkDim },
-            { label: '↓ CSV', action: async () => { const res = await exportUsers('csv'); const url = URL.createObjectURL(res.data); const a = document.createElement('a'); a.href = url; a.download = 'users.csv'; a.click(); URL.revokeObjectURL(url) }, color: D.inkDim },
+            { label: '↓ Excel', action: async () => { const res = await exportUsers('xlsx', exportQuery); const url = URL.createObjectURL(res.data); const a = document.createElement('a'); a.href = url; a.download = 'users.xlsx'; a.click(); URL.revokeObjectURL(url) }, color: D.inkDim },
+            { label: '↓ CSV', action: async () => { const res = await exportUsers('csv', exportQuery); const url = URL.createObjectURL(res.data); const a = document.createElement('a'); a.href = url; a.download = 'users.csv'; a.click(); URL.revokeObjectURL(url) }, color: D.inkDim },
           ].map(btn => (
             <button key={btn.label} onClick={btn.action} style={{
               padding: '8px 14px', borderRadius: D.pill, background: D.card, border: D.border,
@@ -236,17 +280,11 @@ export default function UsersPage() {
         border: D.border, boxShadow: D.shadow(), display: 'flex', gap: 10,
         alignItems: 'center', marginBottom: 16, flexWrap: 'wrap',
       }}>
-        {[
-          { ph: '⌕  Họ tên...', val: searchName, set: setSearchName },
-          { ph: '⌕  Email...', val: searchEmail, set: setSearchEmail },
-          { ph: '⌕  MSSV...', val: searchStudentId, set: setSearchStudentId },
-        ].map(f => (
-          <input key={f.ph} value={f.val} onChange={e => f.set(e.target.value)} placeholder={f.ph} style={{
-            flex: 1, minWidth: 120, height: 36, borderRadius: 8, border: D.borderLight,
-            padding: '0 12px', fontSize: 13, color: D.ink, outline: 'none', background: D.bg,
-            fontFamily: 'inherit',
-          }} />
-        ))}
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="⌕  Tên, email hoặc MSSV..." style={{
+          flex: 1, minWidth: 220, height: 36, borderRadius: 8, border: D.borderLight,
+          padding: '0 12px', fontSize: 13, color: D.ink, outline: 'none', background: D.bg,
+          fontFamily: 'inherit',
+        }} />
         <FilterSelect
           value={statusFilter}
           onChange={setStatusFilter}
@@ -257,13 +295,23 @@ export default function UsersPage() {
           ]}
           style={{ width: 160 }}
         />
+        <FilterSelect
+          value={roleFilter}
+          onChange={setRoleFilter}
+          options={[
+            { value: '', label: 'Tất cả quyền' },
+            { value: 'USER', label: 'Người dùng' },
+            { value: 'SUPER_ADMIN', label: 'Super Admin' },
+          ]}
+          style={{ width: 160 }}
+        />
         {hasFilter && (
-          <button onClick={() => { setSearchName(''); setSearchEmail(''); setSearchStudentId(''); setStatusFilter('') }}
+          <button onClick={() => { setSearch(''); setStatusFilter(''); setRoleFilter('') }}
             style={{ fontSize: 12, color: D.indigo, fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
             Xoá lọc
           </button>
         )}
-        <span style={{ fontSize: 12, color: D.inkMuted, whiteSpace: 'nowrap', marginLeft: 'auto' }}>{filtered.length}/{users.length}</span>
+        <span style={{ fontSize: 12, color: D.inkMuted, whiteSpace: 'nowrap', marginLeft: 'auto' }}>{users.length}/{totalUsers}</span>
       </div>
 
       {/* Table */}
@@ -282,9 +330,9 @@ export default function UsersPage() {
           <tbody>
             {loading ? (
               <tr><td colSpan={6} style={{ padding: '48px 20px', textAlign: 'center', color: D.inkMuted }}>Đang tải...</td></tr>
-            ) : filtered.length === 0 ? (
+            ) : users.length === 0 ? (
               <tr><td colSpan={6} style={{ padding: '48px 20px', textAlign: 'center', color: D.inkMuted }}>Không tìm thấy người dùng nào.</td></tr>
-            ) : filtered.map(user => {
+            ) : users.map(user => {
               const isSuperAdmin = user.roles?.includes('SUPER_ADMIN')
               return (
                 <tr key={user.id} style={{ borderBottom: D.borderLight, transition: 'background .1s' }}

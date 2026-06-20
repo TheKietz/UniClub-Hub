@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { getClubMembers, addMember, updateMember, removeMember, getDepartments, getMemberFieldSchema, updateMemberCustomData, suggestMemberRole, getMyClubPermissions, promoteMember, importMembersPreview, importMembersConfirm, exportMembers } from '@/components/membership/services/clubApi'
+import { getClubMembers, getClubMembersPage, addMember, updateMember, removeMember, getDepartments, getMemberFieldSchema, updateMemberCustomData, suggestMemberRole, getMyClubPermissions, promoteMember, importMembersPreview, importMembersConfirm, exportMembers } from '@/components/membership/services/clubApi'
+import type { MemberListQuery } from '@/components/membership/services/clubApi'
 import type { MemberItem, DepartmentItem, MemberFieldDef, RoleSuggestion, RoleSuggestionItem, MemberImportPreview } from '@/components/membership/services/club.types'
 import { CLUB_ROLES, MEMBERSHIP_STATUS } from '@/types/auth'
 import { CLUB_PERMISSIONS } from '@/constants/clubPermissions'
@@ -11,25 +12,9 @@ import { Pencil, Sparkles, X } from 'lucide-react'
 import { FilterSelect } from '@/components/shared/FilterSelect'
 import { Tooltip } from '@/components/shared/Tooltip'
 import { LoadMoreBar } from '@/components/shared/LoadMoreBar'
+import { D } from '@/components/shared/managementTheme'
 
 const PAGE_SIZE = 20
-
-const D = {
-  border: '1.5px solid #15131a',
-  borderLight: '1px solid #e8e3d6',
-  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 #15131a`,
-  radius: 14,
-  pill: 999,
-  ink: '#15131a',
-  inkDim: '#4a4651',
-  inkMuted: '#918c99',
-  bg: '#f7f6f1',
-  card: '#ffffff',
-  indigo: '#4f46e5',
-  emerald: '#10b981',
-  amber: '#f59e0b',
-  red: '#ef4444',
-}
 
 const ROLE_LABELS: Record<string, string> = {
   CLUB_ADMIN: 'Ban chủ nhiệm',
@@ -43,7 +28,7 @@ const ROLE_STYLE: Record<string, { bg: string; color: string }> = {
   MEMBER:     { bg: '#d1fae5', color: '#065f46' },
 }
 
-const AVATAR_COLORS = ['#4f46e5', '#7c3aed', '#ec4899', '#f59e0b', '#10b981', '#3b82f6']
+const AVATAR_COLORS = ['#1d4ed8', '#7c3aed', '#ec4899', '#f59e0b', '#10b981', '#3b82f6']
 
 function Avatar({ name }: { name: string }) {
   const initials = name.split(' ').slice(-2).map(w => w[0]).join('').toUpperCase()
@@ -56,9 +41,9 @@ function Avatar({ name }: { name: string }) {
 }
 
 const inputStyle: React.CSSProperties = {
-  width: '100%', height: 36, borderRadius: 8, border: '1px solid #e8e3d6',
-  padding: '0 12px', fontSize: 13, color: '#15131a', outline: 'none',
-  background: '#f7f6f1', fontFamily: 'inherit', boxSizing: 'border-box',
+  width: '100%', height: 36, borderRadius: 8, border: '1px solid #dce6f4',
+  padding: '0 12px', fontSize: 13, color: '#0a2f6e', outline: 'none',
+  background: '#f4f7fc', fontFamily: 'inherit', boxSizing: 'border-box',
 }
 const labelStyle: React.CSSProperties = { fontSize: 12, fontWeight: 700, color: '#4a4651', display: 'block', marginBottom: 4 }
 
@@ -70,6 +55,10 @@ export default function MembersPage() {
   const id = Number(clubId)
 
   const [members, setMembers] = useState<MemberItem[]>([])
+  const [allMembers, setAllMembers] = useState<MemberItem[]>([])
+  const [totalMembers, setTotalMembers] = useState(0)
+  const [page, setPage] = useState(1)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [departments, setDepartments] = useState<DepartmentItem[]>([])
   const [fieldSchema, setFieldSchema] = useState<MemberFieldDef[]>([])
   const [loading, setLoading] = useState(true)
@@ -88,13 +77,13 @@ export default function MembersPage() {
 
   const [removeTarget, setRemoveTarget] = useState<MemberItem | null>(null)
   const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [roleFilter, setRoleFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [deptFilter, setDeptFilter] = useState('')
   const [sortBy, setSortBy] = useState<'name' | 'joinedDate' | 'role'>('name')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
   const [hoverRow, setHoverRow] = useState<number | null>(null)
-  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
 
   // Import state
   const [importOpen, setImportOpen] = useState(false)
@@ -103,6 +92,7 @@ export default function MembersPage() {
   const [importResult, setImportResult] = useState<{ imported: number; skipped: number } | null>(null)
   const [importing, setImporting] = useState(false)
   const importFileRef = useRef<HTMLInputElement>(null)
+  const latestQueryKey = useRef('')
 
   type LastAdminModal = { action: 'remove' | 'update'; membershipId: number; memberName: string; updateDto?: EditForm }
   const [lastAdminModal, setLastAdminModal] = useState<LastAdminModal | null>(null)
@@ -110,17 +100,105 @@ export default function MembersPage() {
   const [forceLoading, setForceLoading] = useState(false)
 
   useEffect(() => {
-    setLoading(true)
+    const timer = window.setTimeout(() => setDebouncedSearch(search.trim()), 300)
+    return () => window.clearTimeout(timer)
+  }, [search])
+
+  function departmentQueryValue() {
+    if (!deptFilter) return undefined
+    return deptFilter === '__none__' ? -1 : Number(deptFilter)
+  }
+
+  function buildQuery(pageNumber: number): MemberListQuery {
+    return {
+      page: pageNumber,
+      pageSize: PAGE_SIZE,
+      search: debouncedSearch || undefined,
+      role: roleFilter || undefined,
+      status: statusFilter || undefined,
+      departmentId: departmentQueryValue(),
+      sortBy,
+      sortDir,
+    }
+  }
+
+  function querySignature() {
+    return JSON.stringify({
+      search: debouncedSearch || '',
+      role: roleFilter || '',
+      status: statusFilter || '',
+      departmentId: departmentQueryValue() ?? '',
+      sortBy,
+      sortDir,
+    })
+  }
+
+  useEffect(() => {
+    let cancelled = false
+
     Promise.all([getClubMembers(id), getDepartments(id), getMemberFieldSchema(id), getMyClubPermissions(id)])
       .then(([m, d, fs, perms]) => {
-        setMembers(m)
+        if (cancelled) return
+        setAllMembers(m)
         setDepartments(d)
         setFieldSchema(fs)
         setPermCodes(new Set(perms.permissionCodes.map(c => c.toLowerCase())))
       })
-      .catch(() => toast.error('Không thể tải danh sách thành viên.'))
-      .finally(() => setLoading(false))
+      .catch(() => {
+        if (!cancelled)
+          toast.error('Không thể tải danh sách thành viên.')
+      })
+
+    return () => { cancelled = true }
   }, [id, refreshKey])
+
+  useEffect(() => {
+    const signature = querySignature()
+    latestQueryKey.current = signature
+    let cancelled = false
+
+    setLoading(true)
+    setLoadingMore(false)
+    setMembers([])
+    setPage(1)
+    getClubMembersPage(id, buildQuery(1))
+      .then(r => {
+        if (cancelled || latestQueryKey.current !== signature) return
+        setMembers(r.items)
+        setTotalMembers(r.totalCount)
+      })
+      .catch(() => {
+        if (!cancelled && latestQueryKey.current === signature)
+          toast.error('Không thể tải danh sách thành viên.')
+      })
+      .finally(() => {
+        if (!cancelled && latestQueryKey.current === signature)
+          setLoading(false)
+      })
+
+    return () => { cancelled = true }
+  }, [id, refreshKey, debouncedSearch, roleFilter, statusFilter, deptFilter, sortBy, sortDir])
+
+  function loadMore() {
+    const nextPage = page + 1
+    const signature = querySignature()
+    setLoadingMore(true)
+    getClubMembersPage(id, buildQuery(nextPage))
+      .then(r => {
+        if (latestQueryKey.current !== signature) return
+        setMembers(prev => [...prev, ...r.items])
+        setTotalMembers(r.totalCount)
+        setPage(nextPage)
+      })
+      .catch(() => {
+        if (latestQueryKey.current === signature)
+          toast.error('Tải thêm thất bại.')
+      })
+      .finally(() => {
+        if (latestQueryKey.current === signature)
+          setLoadingMore(false)
+      })
+  }
 
   const canManage = permCodes.has(CLUB_PERMISSIONS.MEMBERS_MANAGE)
   const canImportExport = permCodes.has(CLUB_PERMISSIONS.MEMBER_IMPORT_EXPORT)
@@ -312,7 +390,14 @@ export default function MembersPage() {
 
   async function handleExport(format: 'xlsx' | 'csv') {
     try {
-      const res = await exportMembers(id, format)
+      const res = await exportMembers(id, format, {
+        search: debouncedSearch || undefined,
+        role: roleFilter || undefined,
+        status: statusFilter || undefined,
+        departmentId: departmentQueryValue(),
+        sortBy,
+        sortDir,
+      })
       const url = URL.createObjectURL(res.data)
       const a = document.createElement('a')
       a.href = url
@@ -324,31 +409,7 @@ export default function MembersPage() {
     }
   }
 
-  // reset khi filter thay đổi
-  useEffect(() => setVisibleCount(PAGE_SIZE), [search, roleFilter, statusFilter, deptFilter, sortBy, sortDir])
-
   const hasFilter = !!(search || roleFilter || statusFilter || deptFilter)
-
-  const filtered = members
-    .filter(m => {
-      const q = search.toLowerCase()
-      const matchSearch = !q
-        || (m.fullName ?? '').toLowerCase().includes(q)
-        || m.email.toLowerCase().includes(q)
-        || (m.studentId ?? '').toLowerCase().includes(q)
-      const matchRole = !roleFilter || m.clubRole === roleFilter
-      const matchStatus = !statusFilter || m.status === statusFilter
-      const matchDept = !deptFilter
-        || (deptFilter === '__none__' ? !m.departmentId && m.clubRole !== CLUB_ROLES.CLUB_ADMIN : String(m.departmentId ?? '') === deptFilter)
-      return matchSearch && matchRole && matchStatus && matchDept
-    })
-    .sort((a, b) => {
-      let cmp = 0
-      if (sortBy === 'name') cmp = (a.fullName ?? a.email).localeCompare(b.fullName ?? b.email)
-      else if (sortBy === 'joinedDate') cmp = (a.joinedDate ?? '').localeCompare(b.joinedDate ?? '')
-      else if (sortBy === 'role') cmp = a.clubRole.localeCompare(b.clubRole)
-      return sortDir === 'asc' ? cmp : -cmp
-    })
 
   function clearFilters() { setSearch(''); setRoleFilter(''); setStatusFilter(''); setDeptFilter('') }
 
@@ -358,7 +419,7 @@ export default function MembersPage() {
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20, gap: 16 }}>
         <div>
           <h1 style={{ fontSize: 24, fontWeight: 900, color: D.ink, letterSpacing: '-.025em', margin: 0 }}>Quản lý thành viên</h1>
-          <p style={{ fontSize: 13, color: D.inkMuted, marginTop: 4 }}>{members.length} thành viên trong CLB</p>
+          <p style={{ fontSize: 13, color: D.inkMuted, marginTop: 4 }}>{totalMembers} thành viên trong CLB</p>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {canImportExport && (
@@ -438,7 +499,7 @@ export default function MembersPage() {
               Xoá lọc
             </button>
           )}
-          <span style={{ fontSize: 12, color: D.inkMuted, whiteSpace: 'nowrap' }}>{filtered.length}/{members.length}</span>
+          <span style={{ fontSize: 12, color: D.inkMuted, whiteSpace: 'nowrap' }}>{members.length}/{totalMembers}</span>
         </div>
       </div>
 
@@ -459,7 +520,7 @@ export default function MembersPage() {
           <tbody>
             {loading ? (
               <tr><td colSpan={7} style={{ textAlign: 'center', color: D.inkMuted, padding: '64px 0' }}>Đang tải...</td></tr>
-            ) : filtered.length === 0 ? (
+            ) : members.length === 0 ? (
               <tr>
                 <td colSpan={7} style={{ textAlign: 'center', color: D.inkMuted, padding: '64px 0' }}>
                   <p style={{ fontSize: 28, margin: '0 0 8px' }}>🔍</p>
@@ -467,7 +528,7 @@ export default function MembersPage() {
                   {hasFilter && <button onClick={clearFilters} style={{ fontSize: 12, color: D.indigo, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', marginTop: 6 }}>Xoá bộ lọc</button>}
                 </td>
               </tr>
-            ) : filtered.slice(0, visibleCount).map(m => (
+            ) : members.map(m => (
               <tr key={m.id}
                 onMouseEnter={() => setHoverRow(m.id)}
                 onMouseLeave={() => setHoverRow(null)}
@@ -568,9 +629,10 @@ export default function MembersPage() {
         </table>
       </div>
       <LoadMoreBar
-        shown={Math.min(visibleCount, filtered.length)}
-        total={filtered.length}
-        onLoadMore={() => setVisibleCount(v => v + PAGE_SIZE)}
+        shown={members.length}
+        total={totalMembers}
+        loading={loadingMore}
+        onLoadMore={loadMore}
         label="thành viên"
       />
 
@@ -656,7 +718,7 @@ export default function MembersPage() {
             </div>
 
             {fieldSchema.length > 0 && (
-              <div style={{ borderTop: '1px solid #e8e3d6', paddingTop: 14 }}>
+              <div style={{ borderTop: '1px solid #dce6f4', paddingTop: 14 }}>
                 <p style={{ fontSize: 11, fontWeight: 700, color: D.inkMuted, letterSpacing: '.06em', textTransform: 'uppercase', margin: '0 0 12px' }}>Thông tin đặc thù CLB</p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                   {fieldSchema.map(f => (
@@ -699,7 +761,7 @@ export default function MembersPage() {
                 Huỷ
               </button>
               <button type="submit" disabled={saving}
-                style={{ background: D.ink, color: '#facc15', border: D.border, boxShadow: D.shadow(2,2), padding: '8px 18px', borderRadius: D.pill, fontSize: 13, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1, fontFamily: 'inherit' }}>
+                style={{ background: D.ink, color: '#ffffff', border: D.border, boxShadow: D.shadow(2,2), padding: '8px 18px', borderRadius: D.pill, fontSize: 13, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1, fontFamily: 'inherit' }}>
                 {saving ? 'Đang lưu...' : 'Lưu thay đổi'}
               </button>
             </DialogFooter>
@@ -933,7 +995,7 @@ export default function MembersPage() {
                 onChange={setReplacementId}
                 options={[
                   { value: '', label: '— Bỏ qua, không bổ nhiệm ai —' },
-                  ...members
+                  ...allMembers
                     .filter(m => m.id !== lastAdminModal?.membershipId && m.status === MEMBERSHIP_STATUS.ACTIVE)
                     .map(m => ({
                       value: String(m.id),

@@ -1,6 +1,7 @@
 using UniClub_Hub.Shared.Common;
 using Microsoft.EntityFrameworkCore;
 using UniClub_Hub.Membership.DTOs.Club;
+using UniClub_Hub.Membership.DTOs.Common;
 using UniClub_Hub.Membership.Services.Interfaces;
 using UniClub_Hub.Shared.Data;
 using UniClub_Hub.Shared.Enums;
@@ -44,6 +45,54 @@ namespace UniClub_Hub.Membership.Services.Implements
         {
             var query = BuildBaseQuery(categoryId, status);
             return await query.Select(c => ToAdminDto(c)).ToListAsync();
+        }
+
+        public async Task<PagedResult<AdminClubDto>> GetAllAdminPageAsync(AdminClubListQuery request)
+        {
+            var page = Math.Max(1, request.Page);
+            var pageSize = Math.Clamp(request.PageSize, 1, 100);
+            var query = BuildBaseQuery(request.CategoryId, request.Status);
+
+            if (!string.IsNullOrWhiteSpace(request.Search))
+            {
+                var s = request.Search.Trim().ToLower();
+                query = query.Where(c =>
+                    c.Name.ToLower().Contains(s) ||
+                    c.Code.ToLower().Contains(s) ||
+                    (c.Description != null && c.Description.ToLower().Contains(s)) ||
+                    (c.AdvisorName != null && c.AdvisorName.ToLower().Contains(s)) ||
+                    (c.ContactInfo != null && c.ContactInfo.ToLower().Contains(s)));
+            }
+
+            var sortBy = request.SortBy.Trim().ToLower();
+            var desc = request.SortDir.Equals("desc", StringComparison.OrdinalIgnoreCase);
+            var orderedQuery = sortBy switch
+            {
+                "name" => desc ? query.OrderByDescending(c => c.Name) : query.OrderBy(c => c.Name),
+                "code" => desc ? query.OrderByDescending(c => c.Code) : query.OrderBy(c => c.Code),
+                "members" => desc
+                    ? query.OrderByDescending(c => c.ClubMemberships!.Count(m => m.Status == MembershipStatus.Active))
+                    : query.OrderBy(c => c.ClubMemberships!.Count(m => m.Status == MembershipStatus.Active)),
+                "status" => desc ? query.OrderByDescending(c => c.Status) : query.OrderBy(c => c.Status),
+                "createdat" => desc ? query.OrderByDescending(c => c.CreatedAt) : query.OrderBy(c => c.CreatedAt),
+                _ => desc ? query.OrderByDescending(c => c.Id) : query.OrderBy(c => c.Id),
+            };
+            query = orderedQuery.ThenBy(c => c.Id);
+
+            var totalCount = await query.CountAsync();
+            var items = await query
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .Select(c => ToAdminDto(c))
+                .ToListAsync();
+
+            return new PagedResult<AdminClubDto>
+            {
+                Items = items,
+                TotalCount = totalCount,
+                Page = page,
+                PageSize = pageSize
+            };
         }
 
         public async Task<AdminClubDto> GetByIdAdminAsync(int id)

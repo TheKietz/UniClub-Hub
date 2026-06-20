@@ -1,7 +1,9 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using UniClub_Hub.Membership.DTOs.Common;
 using UniClub_Hub.Membership.DTOs.Membership;
 using UniClub_Hub.Membership.Services.Interfaces;
+using UniClub_Hub.Shared.Common;
 using UniClub_Hub.Shared.Constants;
 using UniClub_Hub.Shared.Data;
 using UniClub_Hub.Shared.Enums;
@@ -46,6 +48,73 @@ namespace UniClub_Hub.Membership.Services.Implements
                 query = query.Where(m => m.DepartmentId == departmentId);
 
             return await query.Select(m => ToDto(m)).ToListAsync();
+        }
+
+        public async Task<PagedResult<MemberDto>> GetPageAsync(int clubId, MemberListQuery request)
+        {
+            await EnsureClubExistsAsync(clubId);
+
+            var page = Math.Max(1, request.Page);
+            var pageSize = Math.Clamp(request.PageSize, 1, 100);
+            var query = _db
+                .ClubMemberships.AsNoTracking()
+                .Include(m => m.User)
+                .Include(m => m.Department)
+                .Where(m => m.ClubId == clubId);
+
+            if (!string.IsNullOrWhiteSpace(request.Search))
+            {
+                var s = request.Search.Trim().ToLower();
+                query = query.Where(m =>
+                    (m.User.FullName != null && m.User.FullName.ToLower().Contains(s)) ||
+                    (m.User.Email != null && m.User.Email.ToLower().Contains(s)) ||
+                    (m.User.StudentId != null && m.User.StudentId.ToLower().Contains(s)));
+            }
+
+            if (!string.IsNullOrWhiteSpace(request.Role) &&
+                Enum.TryParse<ClubRole>(request.Role, true, out var parsedRole))
+                query = query.Where(m => m.ClubRole == parsedRole);
+
+            if (!string.IsNullOrWhiteSpace(request.Status) &&
+                Enum.TryParse<MembershipStatus>(request.Status, true, out var parsedStatus))
+                query = query.Where(m => m.Status == parsedStatus);
+
+            if (request.DepartmentId.HasValue)
+            {
+                if (request.DepartmentId.Value == -1)
+                    query = query.Where(m => m.DepartmentId == null && m.ClubRole != ClubRole.CLUB_ADMIN);
+                else
+                    query = query.Where(m => m.DepartmentId == request.DepartmentId);
+            }
+
+            var sortBy = request.SortBy.Trim().ToLower();
+            var desc = request.SortDir.Equals("desc", StringComparison.OrdinalIgnoreCase);
+            var orderedQuery = sortBy switch
+            {
+                "email" => desc ? query.OrderByDescending(m => m.User.Email) : query.OrderBy(m => m.User.Email),
+                "studentid" => desc ? query.OrderByDescending(m => m.User.StudentId) : query.OrderBy(m => m.User.StudentId),
+                "role" => desc ? query.OrderByDescending(m => m.ClubRole) : query.OrderBy(m => m.ClubRole),
+                "department" => desc ? query.OrderByDescending(m => m.Department != null ? m.Department.Name : "") : query.OrderBy(m => m.Department != null ? m.Department.Name : ""),
+                "status" => desc ? query.OrderByDescending(m => m.Status) : query.OrderBy(m => m.Status),
+                "joineddate" => desc ? query.OrderByDescending(m => m.JoinedDate) : query.OrderBy(m => m.JoinedDate),
+                _ => desc ? query.OrderByDescending(m => m.User.FullName ?? m.User.Email) : query.OrderBy(m => m.User.FullName ?? m.User.Email),
+            };
+            query = orderedQuery.ThenBy(m => m.Id);
+
+            var totalCount = await query.CountAsync();
+            var items = await query
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .Select(m => ToDto(m))
+                .ToListAsync();
+
+            return new PagedResult<MemberDto>
+            {
+                Items = items,
+                TotalCount = totalCount,
+                Page = page,
+                PageSize = pageSize
+            };
         }
 
         public async Task<MemberDto> GetByIdAsync(int clubId, int membershipId)

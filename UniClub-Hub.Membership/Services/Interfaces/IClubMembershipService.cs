@@ -1,5 +1,6 @@
 using UniClub_Hub.Shared.Common;
 using UniClub_Hub.Membership.DTOs.Membership;
+using UniClub_Hub.Membership.DTOs.Common;
 
 namespace UniClub_Hub.Membership.Services.Interfaces
 {
@@ -7,6 +8,7 @@ namespace UniClub_Hub.Membership.Services.Interfaces
     {
         // Public
         Task<IEnumerable<MemberDto>> GetAllAsync(int clubId, string? status = null, int? departmentId = null);
+        Task<PagedResult<MemberDto>> GetPageAsync(int clubId, MemberListQuery query);
         Task<MemberDto> GetByIdAsync(int clubId, int membershipId);
 
         // CLUB_ADMIN (kiểm tra quyền theo CLB)

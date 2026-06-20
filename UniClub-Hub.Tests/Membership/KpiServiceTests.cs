@@ -6,16 +6,20 @@ using UniClub_Hub.Membership.Services.Interfaces;
 using UniClub_Hub.Shared.Data;
 using UniClub_Hub.Shared.Enums;
 using UniClub_Hub.Shared.Models;
-using UniClub_Hub.Tests.Helpers;
+using UniClub_Hub.Tests.Infrastructure;
 
 namespace UniClub_Hub.Tests.Membership;
 
-public class KpiServiceTests
+public class KpiServiceTests : DbTestBase
 {
-    private static async Task<(KpiService service, UniClubDbContext db)> SetupAsync(
+    public KpiServiceTests(PostgresFixture fx) : base(fx)
+    {
+    }
+
+    private async Task<(KpiService service, UniClubDbContext db)> SetupAsync(
         Action<UniClubDbContext>? seed = null)
     {
-        var db = TestDbContextFactory.Create();
+        var db = Fx.CreateDbContext();
         var perm = new Mock<IClubPermissionService>();
 
         db.Clubs.Add(new Club { Id = 1, Name = "CLB Test", Code = "TEST" });
@@ -119,7 +123,7 @@ public class KpiServiceTests
     [Fact]
     public async Task GetMyResultAsync_WithSuperAdminAndNoMembership_ThrowsKeyNotFound()
     {
-        var db = TestDbContextFactory.Create();
+        var db = Fx.CreateDbContext();
         var perm = new Mock<IClubPermissionService>();
         db.Clubs.Add(new Club { Id = 1, Name = "CLB Test", Code = "TEST" });
         db.Users.Add(new ApplicationUser
@@ -138,7 +142,7 @@ public class KpiServiceTests
     [Fact]
     public async Task GetResultsAsync_RankOrdering_HigherScoreRanksFirst()
     {
-        var db = TestDbContextFactory.Create();
+        var db = Fx.CreateDbContext();
         var perm = new Mock<IClubPermissionService>();
         db.Clubs.Add(new Club { Id = 1, Name = "CLB Test", Code = "TEST" });
         db.Users.Add(new ApplicationUser { Id = "u1", UserName = "u1", Email = "u1@test.com", NormalizedEmail = "U1@TEST.COM", NormalizedUserName = "U1", SecurityStamp = "x1" });

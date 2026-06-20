@@ -5,16 +5,20 @@ using UniClub_Hub.Membership.Services.Implements;
 using UniClub_Hub.Membership.Services.Interfaces;
 using UniClub_Hub.Shared.Enums;
 using UniClub_Hub.Shared.Models;
-using UniClub_Hub.Tests.Helpers;
+using UniClub_Hub.Tests.Infrastructure;
 
 namespace UniClub_Hub.Tests.Membership;
 
-public class ClubMembershipServiceTests
+public class ClubMembershipServiceTests : DbTestBase
 {
-    private static (ClubMembershipService service, Shared.Data.UniClubDbContext db) Setup(
+    public ClubMembershipServiceTests(PostgresFixture fx) : base(fx)
+    {
+    }
+
+    private (ClubMembershipService service, Shared.Data.UniClubDbContext db) Setup(
         Action<Shared.Data.UniClubDbContext> seed)
     {
-        var db = TestDbContextFactory.Create();
+        var db = Fx.CreateDbContext();
 
         var dispatch = new Mock<INotificationDispatchService>();
         dispatch.Setup(d => d.FireAsync(

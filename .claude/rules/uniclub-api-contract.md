@@ -22,7 +22,9 @@ Errors use ASP.NET Core ProblemDetails (already in integration-standards).
 ## Pagination
 
 List endpoints must support: `?page=1&pageSize=20`
-Response must include: `{ data, totalCount, page, pageSize }`
+Response envelope stays `{ data, message, success }`.
+For paged responses, `data` must be a `PagedResult<T>` object:
+`{ items, totalCount, page, pageSize, totalPages }`
 
 ## DTO Naming
 

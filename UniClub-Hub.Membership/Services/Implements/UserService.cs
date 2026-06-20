@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using UniClub_Hub.Membership.DTOs.Common;
 using UniClub_Hub.Membership.DTOs.User;
 using UniClub_Hub.Membership.Services.Interfaces;
 using UniClub_Hub.Shared.Common;
@@ -21,30 +22,82 @@ namespace UniClub_Hub.Membership.Services.Implements
         }
 
         public async Task<PagedResult<UserListItemDto>> GetUsersAsync(string? search, int page, int pageSize)
+            => await GetUsersAsync(new UserListQuery { Search = search, Page = page, PageSize = pageSize });
+
+        public async Task<PagedResult<UserListItemDto>> GetUsersAsync(UserListQuery request)
         {
+            var page = Math.Max(1, request.Page);
+            var pageSize = Math.Clamp(request.PageSize, 1, 100);
+            var now = DateTimeOffset.UtcNow;
             var query = _db.Users.AsQueryable();
 
-            if (!string.IsNullOrWhiteSpace(search))
+            if (!string.IsNullOrWhiteSpace(request.Search))
             {
-                var s = search.Trim().ToLower();
+                var s = request.Search.Trim().ToLower();
                 query = query.Where(u =>
                     (u.FullName != null && u.FullName.ToLower().Contains(s)) ||
                     (u.Email != null && u.Email.ToLower().Contains(s)) ||
                     (u.StudentId != null && u.StudentId.ToLower().Contains(s)));
             }
 
+            if (!string.IsNullOrWhiteSpace(request.Status))
+            {
+                var status = request.Status.Trim().ToLower();
+                if (status == "locked")
+                    query = query.Where(u => u.LockoutEnabled && u.LockoutEnd.HasValue && u.LockoutEnd > now);
+                else if (status == "active")
+                    query = query.Where(u => !(u.LockoutEnabled && u.LockoutEnd.HasValue && u.LockoutEnd > now));
+            }
+
+            if (!string.IsNullOrWhiteSpace(request.Role))
+            {
+                var role = request.Role.Trim().ToUpper();
+                query = query.Where(u =>
+                    _db.UserRoles.Any(ur => ur.UserId == u.Id &&
+                        _db.Roles.Any(r => r.Id == ur.RoleId && r.NormalizedName == role)));
+            }
+
+            var sortBy = request.SortBy.Trim().ToLower();
+            var desc = request.SortDir.Equals("desc", StringComparison.OrdinalIgnoreCase);
+            var orderedQuery = sortBy switch
+            {
+                "email" => desc ? query.OrderByDescending(u => u.Email) : query.OrderBy(u => u.Email),
+                "role" => desc
+                    ? query.OrderByDescending(u => _db.UserRoles
+                        .Where(ur => ur.UserId == u.Id)
+                        .Join(_db.Roles, ur => ur.RoleId, r => r.Id, (_, r) => r.Name)
+                        .OrderBy(name => name)
+                        .FirstOrDefault())
+                    : query.OrderBy(u => _db.UserRoles
+                        .Where(ur => ur.UserId == u.Id)
+                        .Join(_db.Roles, ur => ur.RoleId, r => r.Id, (_, r) => r.Name)
+                        .OrderBy(name => name)
+                        .FirstOrDefault()),
+                "status" => desc
+                    ? query.OrderByDescending(u => u.LockoutEnabled && u.LockoutEnd.HasValue && u.LockoutEnd > now)
+                    : query.OrderBy(u => u.LockoutEnabled && u.LockoutEnd.HasValue && u.LockoutEnd > now),
+                _ => desc
+                    ? query.OrderByDescending(u => u.FullName ?? u.Email)
+                    : query.OrderBy(u => u.FullName ?? u.Email)
+            };
+            query = orderedQuery.ThenBy(u => u.Id);
+
             var totalCount = await query.CountAsync();
             var users = await query
-                .OrderBy(u => u.FullName)
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
                 .ToListAsync();
 
-            var now = DateTimeOffset.UtcNow;
+            var userIds = users.Select(u => u.Id).ToList();
+            var rolesByUser = await _db.UserRoles
+                .Where(ur => userIds.Contains(ur.UserId))
+                .Join(_db.Roles, ur => ur.RoleId, r => r.Id, (ur, r) => new { ur.UserId, RoleName = r.Name ?? "" })
+                .GroupBy(x => x.UserId)
+                .ToDictionaryAsync(g => g.Key, g => g.Select(x => x.RoleName).Where(r => r != "").ToList());
+
             var items = new List<UserListItemDto>();
             foreach (var u in users)
             {
-                var roles = await _userManager.GetRolesAsync(u);
                 items.Add(new UserListItemDto
                 {
                     Id = u.Id,
@@ -54,7 +107,7 @@ namespace UniClub_Hub.Membership.Services.Implements
                     Major = u.Major,
                     AvatarUrl = u.AvatarUrl,
                     IsLocked = u.LockoutEnabled && u.LockoutEnd.HasValue && u.LockoutEnd > now,
-                    Roles = roles.ToList()
+                    Roles = rolesByUser.GetValueOrDefault(u.Id) ?? []
                 });
             }
 

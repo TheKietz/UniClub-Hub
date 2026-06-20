@@ -1,4 +1,5 @@
 using UniClub_Hub.Membership.DTOs.User;
+using UniClub_Hub.Membership.DTOs.Common;
 using UniClub_Hub.Shared.Common;
 
 namespace UniClub_Hub.Membership.Services.Interfaces
@@ -6,6 +7,7 @@ namespace UniClub_Hub.Membership.Services.Interfaces
     public interface IUserService
     {
         Task<PagedResult<UserListItemDto>> GetUsersAsync(string? search, int page, int pageSize);
+        Task<PagedResult<UserListItemDto>> GetUsersAsync(UserListQuery query);
         Task<UserDetailDto?> GetUserByIdAsync(string userId);
         Task LockUserAsync(string userId);
         Task UnlockUserAsync(string userId);

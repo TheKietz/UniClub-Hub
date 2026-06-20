@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 using UniClub_Hub.Membership.DTOs.Membership;
+using UniClub_Hub.Membership.DTOs.Common;
 using UniClub_Hub.Membership.Services.Interfaces;
 using UniClub_Hub.Shared.Common;
 using UniClub_Hub.Shared.Constants;
@@ -35,7 +36,16 @@ namespace UniClub_Hub.Server.Controllers.Membership
 
         [HttpGet]
         [Authorize]
-        public async Task<IActionResult> GetAll(int clubId, [FromQuery] string? status, [FromQuery] int? departmentId)
+        public async Task<IActionResult> GetAll(
+            int clubId,
+            [FromQuery] string? status,
+            [FromQuery] int? departmentId,
+            [FromQuery] string? search,
+            [FromQuery] string? role,
+            [FromQuery] string sortBy = "name",
+            [FromQuery] string sortDir = "asc",
+            [FromQuery] int? page = null,
+            [FromQuery] int? pageSize = null)
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
             var isSuperAdmin = User.IsInRole("SUPER_ADMIN");
@@ -45,6 +55,22 @@ namespace UniClub_Hub.Server.Controllers.Membership
 
             try
             {
+                if (page.HasValue || pageSize.HasValue)
+                {
+                    var paged = await _membershipService.GetPageAsync(clubId, new MemberListQuery
+                    {
+                        Search = search,
+                        Role = role,
+                        Status = status,
+                        DepartmentId = departmentId,
+                        SortBy = sortBy,
+                        SortDir = sortDir,
+                        Page = page ?? 1,
+                        PageSize = pageSize ?? 20
+                    });
+                    return Ok(ApiResponse<PagedResult<MemberDto>>.Ok(paged));
+                }
+
                 var result = await _membershipService.GetAllAsync(clubId, status, departmentId);
                 return Ok(ApiResponse<IEnumerable<MemberDto>>.Ok(result));
             }

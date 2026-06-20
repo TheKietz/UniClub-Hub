@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using UniClub_Hub.Membership.DTOs.Common;
 using UniClub_Hub.Membership.Services.Interfaces;
 using UniClub_Hub.Shared.Common;
 using UniClub_Hub.Shared.Constants;
@@ -27,7 +28,13 @@ namespace UniClub_Hub.Server.Controllers.Membership
         [HttpGet("members/export")]
         public async Task<IActionResult> ExportMembers(
             int clubId,
-            [FromQuery] string format = "xlsx"
+            [FromQuery] string format = "xlsx",
+            [FromQuery] string? search = null,
+            [FromQuery] string? role = null,
+            [FromQuery] string? status = null,
+            [FromQuery] int? departmentId = null,
+            [FromQuery] string sortBy = "name",
+            [FromQuery] string sortDir = "asc"
         )
         {
             var authResult = await AuthorizeClubAsync(clubId, ClubPermissions.MemberImportExport);
@@ -38,7 +45,16 @@ namespace UniClub_Hub.Server.Controllers.Membership
             {
                 var (content, contentType, fileName) = await _exportService.ExportMembersAsync(
                     clubId,
-                    format.ToLower()
+                    format.ToLower(),
+                    new MemberListQuery
+                    {
+                        Search = search,
+                        Role = role,
+                        Status = status,
+                        DepartmentId = departmentId,
+                        SortBy = sortBy,
+                        SortDir = sortDir
+                    }
                 );
                 return File(content, contentType, fileName);
             }
@@ -55,7 +71,13 @@ namespace UniClub_Hub.Server.Controllers.Membership
         public async Task<IActionResult> ExportApplications(
             int clubId,
             [FromQuery] string format = "xlsx",
-            [FromQuery] string? status = null
+            [FromQuery] string? status = null,
+            [FromQuery] string? search = null,
+            [FromQuery] int? stageId = null,
+            [FromQuery] DateTime? dateFrom = null,
+            [FromQuery] DateTime? dateTo = null,
+            [FromQuery] string sortBy = "appliedAt",
+            [FromQuery] string sortDir = "desc"
         )
         {
             var authResult = await AuthorizeClubAsync(clubId, ClubPermissions.ApplicationsView);
@@ -67,7 +89,17 @@ namespace UniClub_Hub.Server.Controllers.Membership
                 var (content, contentType, fileName) = await _exportService.ExportApplicationsAsync(
                     clubId,
                     status,
-                    format.ToLower()
+                    format.ToLower(),
+                    new ApplicationListQuery
+                    {
+                        Search = search,
+                        Status = status,
+                        StageId = stageId,
+                        DateFrom = dateFrom,
+                        DateTo = dateTo,
+                        SortBy = sortBy,
+                        SortDir = sortDir
+                    }
                 );
                 return File(content, contentType, fileName);
             }
@@ -79,17 +111,47 @@ namespace UniClub_Hub.Server.Controllers.Membership
 
         [HttpGet("/api/admin/export/users")]
         [Authorize(Roles = "SUPER_ADMIN")]
-        public async Task<IActionResult> ExportAllUsers([FromQuery] string format = "xlsx")
+        public async Task<IActionResult> ExportAllUsers(
+            [FromQuery] string format = "xlsx",
+            [FromQuery] string? search = null,
+            [FromQuery] string? status = null,
+            [FromQuery] string? role = null,
+            [FromQuery] string sortBy = "name",
+            [FromQuery] string sortDir = "asc")
         {
-            var (content, contentType, fileName) = await _exportService.ExportAllUsersAsync(format.ToLower());
+            var (content, contentType, fileName) = await _exportService.ExportAllUsersAsync(
+                format.ToLower(),
+                new UserListQuery
+                {
+                    Search = search,
+                    Status = status,
+                    Role = role,
+                    SortBy = sortBy,
+                    SortDir = sortDir
+                });
             return File(content, contentType, fileName);
         }
 
         [HttpGet("/api/admin/export/clubs")]
         [Authorize(Roles = "SUPER_ADMIN")]
-        public async Task<IActionResult> ExportAllClubs([FromQuery] string format = "xlsx")
+        public async Task<IActionResult> ExportAllClubs(
+            [FromQuery] string format = "xlsx",
+            [FromQuery] string? search = null,
+            [FromQuery] int? categoryId = null,
+            [FromQuery] string? status = null,
+            [FromQuery] string sortBy = "id",
+            [FromQuery] string sortDir = "asc")
         {
-            var (content, contentType, fileName) = await _exportService.ExportAllClubsAsync(format.ToLower());
+            var (content, contentType, fileName) = await _exportService.ExportAllClubsAsync(
+                format.ToLower(),
+                new AdminClubListQuery
+                {
+                    Search = search,
+                    CategoryId = categoryId,
+                    Status = status,
+                    SortBy = sortBy,
+                    SortDir = sortDir
+                });
             return File(content, contentType, fileName);
         }
 
