@@ -248,6 +248,7 @@ export interface ClubListItem {
   logoUrl?: string
   categoryName?: string
   memberCount: number
+  isRecruiting?: boolean
 }
 
 export interface ClubAuditLogItem {

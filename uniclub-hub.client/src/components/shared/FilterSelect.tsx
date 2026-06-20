@@ -9,6 +9,7 @@ interface Props {
   options: SelectOption[]
   style?: React.CSSProperties
   buttonStyle?: React.CSSProperties
+  menuStyle?: React.CSSProperties
   disabled?: boolean
   maxMenuHeight?: number
 }
@@ -20,7 +21,7 @@ const D = {
   bg: '#f7f6f1', card: '#ffffff', indigo: '#4f46e5',
 }
 
-export function FilterSelect({ value, onChange, options, style, buttonStyle, disabled = false, maxMenuHeight = 280 }: Props) {
+export function FilterSelect({ value, onChange, options, style, buttonStyle, menuStyle, disabled = false, maxMenuHeight = 280 }: Props) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   const current = options.find(o => o.value === value) ?? options[0] ?? { value: '', label: '—' }
@@ -64,6 +65,7 @@ export function FilterSelect({ value, onChange, options, style, buttonStyle, dis
           position: 'absolute', zIndex: 50, minWidth: '100%', top: 'calc(100% + 4px)', left: 0,
           background: D.card, border: D.border, borderRadius: 10,
           boxShadow: D.shadow(3, 3), overflowY: 'auto', maxHeight: maxMenuHeight,
+          ...menuStyle,
         }}>
           {options.map((o, idx) => (
             <button

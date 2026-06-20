@@ -22,8 +22,8 @@ description: Implement SignalR Hubs in ASP.NET Core and connect from React clien
 
 ## Project-Specific Context
 
-- **Hub location**: `UniClubHub.API/Hubs/`
-- **Constants file**: `UniClubHub.Shared/Constants/SignalREvents.cs`
+- **Hub location**: `UniClub-Hub.Server/Hubs/`
+- **Constants file**: `UniClub-Hub.Shared/Constants/SignalREvents.cs`
 - **Scope**: Operations module only — do NOT add Hub methods for Membership or Portal
 - **Auth**: Hubs use the same JWT bearer token as REST endpoints
 
@@ -37,9 +37,9 @@ All Hub method names and client event names must be constants.
 Never use raw string literals anywhere in Hub or frontend code.
 
 ```csharp
-// UniClubHub.Shared/Constants/SignalREvents.cs
+// UniClub-Hub.Shared/Constants/SignalREvents.cs
 
-namespace UniClubHub.Shared.Constants;
+namespace UniClub_Hub.Shared.Constants;
 
 public static class SignalREvents
 {
@@ -71,13 +71,13 @@ npm install @microsoft/signalr
 ### Step 3: Create the Hub class
 
 ```csharp
-// UniClubHub.API/Hubs/OperationsHub.cs
+// UniClub-Hub.Server/Hubs/OperationsHub.cs
 
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
-using UniClubHub.Shared.Constants;
+using UniClub_Hub.Shared.Constants;
 
-namespace UniClubHub.API.Hubs;
+namespace UniClub_Hub.Server.Hubs;
 
 // Require JWT auth on the Hub — same policy as REST endpoints
 [Authorize]
@@ -111,7 +111,7 @@ public class OperationsHub : Hub
 ### Step 4: Register SignalR and map the Hub in Program.cs
 
 ```csharp
-// UniClubHub.API/Program.cs
+// UniClub-Hub.Server/Program.cs
 
 // Add SignalR to DI
 builder.Services.AddSignalR(options =>
@@ -159,11 +159,11 @@ Inject `IHubContext<OperationsHub>` into the Service that owns the business logi
 Never inject HubContext into a Controller — keep broadcast logic with the data change.
 
 ```csharp
-// UniClubHub.Operations/Services/TaskService.cs
+// UniClub-Hub.Operations/Services/TaskService.cs
 
 using Microsoft.AspNetCore.SignalR;
-using UniClubHub.API.Hubs;
-using UniClubHub.Shared.Constants;
+using UniClub_Hub.Server.Hubs;
+using UniClub_Hub.Shared.Constants;
 
 public class TaskService
 {
@@ -252,7 +252,7 @@ export async function stopHub(hub: signalR.HubConnection): Promise<void> {
 
 ```typescript
 // src/constants/signalREvents.ts
-// Mirror of UniClubHub.Shared/Constants/SignalREvents.cs
+// Mirror of UniClub-Hub.Shared/Constants/SignalREvents.cs
 // Must be kept in sync manually — never hardcode these strings in components
 
 export const SignalREvents = {

@@ -4,11 +4,15 @@
 |----------|---------------------------------------------------------------------------|
 | [x] Done | Trang báo cáo CLB (`/clubs/:id/manage/report`) — 7 sections, print-to-PDF |
 | [x] Done | Trang báo cáo hệ thống admin (`/admin/report`) — 6 sections, print-to-PDF |
-| [ ] Todo | Role suggestion (AI phân công role) — Gemini đã wired, cần data KPI |
-| [ ] Todo | KPI nội bộ thành viên — chờ Đề tài 2 (Operations) có task tracking |
-| [ ] Todo | Tự cấu hình tiêu chí KPI |
-| [ ] Todo | Nâng cấp Org chart (basic page đã có) |
+| [x] Done | Nâng cấp Org chart |
+| [x] Done | Tự cấu hình tiêu chí KPI (KpiConfigPage) + dashboard KPI + trang KPI cá nhân |
+| [~] Doing | Role suggestion (AI phân công role) — Gemini đã wired, cần data KPI thật để gợi ý có ý nghĩa |
+| [ ] Todo | KPI tích hợp dữ liệu Đề tài 2 (Operations task tracking) để tự tính điểm hoạt động |
 | [ ] Todo | Kiểm thử (Unit Test các service chính) |
+| [ ] Todo | Nâng cấp Search & Sort trên các trang quản lý (Members, Users, Clubs, Applications) |
+| [ ] Todo | Feature Permission System — CLUB_ADMIN/SUPER_ADMIN giới hạn chức năng cấp dưới |
+| [ ] Todo | Email Domain Restriction — Super Admin cấu hình domain email được phép đăng ký |
+| [ ] Todo | Dọn việc sau merge Đề tài 2 — link ClubAdminLayout, filter DEPT_LEAD, Department-Scope cho query |
 
 ---
 

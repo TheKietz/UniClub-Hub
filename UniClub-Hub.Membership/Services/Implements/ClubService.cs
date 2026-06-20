@@ -197,6 +197,7 @@ namespace UniClub_Hub.Membership.Services.Implements
             CategoryId = c.CategoryId,
             CategoryName = c.Category != null ? c.Category.Name : null,
             MemberCount = c.ClubMemberships!.Count(m => m.Status == MembershipStatus.Active),
+            IsRecruiting = c.Status == ClubStatus.Active && !string.IsNullOrWhiteSpace(c.FormSchema),
             CreatedAt = c.CreatedAt
         };
 

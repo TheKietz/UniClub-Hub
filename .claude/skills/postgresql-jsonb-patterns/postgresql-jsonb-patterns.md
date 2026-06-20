@@ -36,7 +36,7 @@ Good candidates in UniClub Hub:
 ### Step 1: Define the JSONB column on the Entity
 
 ```csharp
-// UniClubHub.Shared/Models/Activity.cs
+// UniClub-Hub.Shared/Models/Activity.cs
 
 public class Activity
 {
@@ -71,7 +71,7 @@ Use when you know the shape but don't want a separate table.
 This is the preferred approach when the schema is stable.
 
 ```csharp
-// UniClubHub.Shared/Models/ValueObjects/ActivityMetadata.cs
+// UniClub-Hub.Shared/Models/ValueObjects/ActivityMetadata.cs
 public class ActivityMetadata
 {
     public string? VenueMapUrl    { get; set; }
@@ -89,7 +89,7 @@ public ActivityMetadata? Metadata { get; set; }
 ### Step 3: Configure JSONB in IEntityTypeConfiguration
 
 ```csharp
-// UniClubHub.Shared/Configurations/ActivityConfiguration.cs
+// UniClub-Hub.Shared/Configurations/ActivityConfiguration.cs
 
 public class ActivityConfiguration : IEntityTypeConfiguration<Activity>
 {
@@ -207,7 +207,7 @@ Never expose the raw `Dictionary<string, object>` directly from an API endpoint.
 Map to a typed response DTO:
 
 ```csharp
-// UniClubHub.Operations/DTOs/ActivityResponse.cs
+// UniClub-Hub.Operations/DTOs/ActivityResponse.cs
 public record ActivityResponse(
     Guid   Id,
     string Title,

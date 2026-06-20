@@ -36,7 +36,7 @@ dotnet add package Hangfire.PostgreSql  # PostgreSQL storage — matches project
 ### Step 1: Install and configure Hangfire in Program.cs
 
 ```csharp
-// UniClubHub.API/Program.cs
+// UniClub-Hub.Server/Program.cs
 
 using Hangfire;
 using Hangfire.PostgreSql;
@@ -70,7 +70,7 @@ app.MapHangfireDashboard("/admin/jobs", new DashboardOptions
 ```
 
 ```csharp
-// UniClubHub.API/Infrastructure/HangfireAdminAuthFilter.cs
+// UniClub-Hub.Server/Infrastructure/HangfireAdminAuthFilter.cs
 using Hangfire.Dashboard;
 
 public class HangfireAdminAuthFilter : IDashboardAuthorizationFilter
@@ -93,13 +93,13 @@ Job classes are Services — register them in the module's `DependencyInjection.
 Do NOT put job logic in Controllers.
 
 ```csharp
-// UniClubHub.Operations/Jobs/DeadlineReminderJob.cs
+// UniClub-Hub.Operations/Jobs/DeadlineReminderJob.cs
 
 using Hangfire;
-using UniClubHub.Shared;
+using UniClub_Hub.Shared;
 using Microsoft.EntityFrameworkCore;
 
-namespace UniClubHub.Operations.Jobs;
+namespace UniClub_Hub.Operations.Jobs;
 
 public class DeadlineReminderJob
 {
@@ -159,7 +159,7 @@ public class DeadlineReminderJob
 ### Step 3: Register job classes in module DependencyInjection
 
 ```csharp
-// UniClubHub.Operations/DependencyInjection.cs
+// UniClub-Hub.Operations/DependencyInjection.cs
 
 public static class DependencyInjection
 {

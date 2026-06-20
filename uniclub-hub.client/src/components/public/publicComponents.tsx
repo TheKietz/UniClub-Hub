@@ -75,23 +75,29 @@ function SocialLink({ href, children }: { href: string; children: React.ReactNod
 }
 
 // ─── Design tokens ───────────────────────────────────────────────
+// Bảng màu trường: XANH · TRẮNG · ĐỎ (UEF).
+//  - `ink`  = xanh navy: dùng cho chữ, viền, đổ bóng, nền section tối.
+//  - `bg`/`card` = trắng.
+//  - `coral` = đỏ: màu nhấn (pop) chính.
+//  - `lemon` = trắng (giữ tên token cho tương thích): chữ/element nổi trên nền navy.
+//  Các màu phụ (violet/mint/pink…) quy về tông xanh/đỏ để giữ nhận diện trường.
 export const C = {
-  bg: '#fbf9f3',
+  bg: '#ffffff',
   card: '#ffffff',
-  ink: '#15131a',
-  inkDim: '#4a4651',
-  inkMuted: '#918c99',
-  rule: '#e8e3d6',
-  indigo: '#4f46e5',
-  violet: '#7c3aed',
-  coral: '#ff5a3c',
-  lemon: '#facc15',
-  mint: '#14b8a6',
+  ink: '#0a2f6e',
+  inkDim: '#3a5a8c',
+  inkMuted: '#8aa0c4',
+  rule: '#dce6f4',
+  indigo: '#1d4ed8',
+  violet: '#2563eb',
+  coral: '#e11d2a',
+  lemon: '#ffffff',
+  mint: '#0ea5e9',
   sky: '#38bdf8',
-  pink: '#ec4899',
-  navy: '#1e1b4b',
-  border: '1.5px solid #15131a',
-  shadow: (x = 4, y = 4) => `${x}px ${y}px 0 #15131a`,
+  pink: '#ef4444',
+  navy: '#0a2f6e',
+  border: '1.5px solid #0a2f6e',
+  shadow: (x = 4, y = 4) => `${x}px ${y}px 0 #0a2f6e`,
   radius: 16,
   radiusSm: 10,
   radiusPill: 999,
@@ -309,26 +315,172 @@ export function PublicFooter() {
   const address   = s['footer.address']?.trim()
 
   return (
-    <footer style={{
-      padding: '24px 28px', borderTop: C.border, background: C.ink,
-      display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12,
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 12.5 }}>
-        <span style={{ fontWeight: 800, color: C.lemon }}>UniClub Hub</span>
-        <span style={{ opacity: 0.5, color: C.bg }}>
-          © 2026 · {address || 'Đại học Kinh tế Tài chính TP.HCM'}
-        </span>
-      </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-        {facebook  && <SocialLink href={facebook}><IconFacebook /></SocialLink>}
-        {instagram && <SocialLink href={instagram}><IconInstagram /></SocialLink>}
-        {tiktok    && <SocialLink href={tiktok}><IconTikTok /></SocialLink>}
-        {youtube   && <SocialLink href={youtube}><IconYouTube /></SocialLink>}
-        {x         && <SocialLink href={x}><IconX /></SocialLink>}
-        {linkedin  && <SocialLink href={linkedin}><IconLinkedIn /></SocialLink>}
-        <div style={{ display: 'flex', gap: 16, opacity: 0.6, fontSize: 12.5, color: C.bg }}>
-          <span>Hỗ trợ</span>
-          <span>Điều khoản</span>
+    <footer className="public-footer-glass">
+      <style>{`
+        .public-footer-glass {
+          padding: 34px 28px 26px;
+          background: transparent;
+        }
+        .public-footer-panel {
+          max-width: 1280px;
+          margin: 0 auto;
+          border: ${C.border};
+          border-radius: 28px;
+          background:
+            linear-gradient(135deg, rgba(255,255,255,.86), rgba(255,255,255,.64));
+          box-shadow: 0 22px 60px rgba(10, 47, 110, .18);
+          backdrop-filter: blur(20px) saturate(145%);
+          -webkit-backdrop-filter: blur(20px) saturate(145%);
+          padding: 34px 42px 28px;
+        }
+        .public-footer-grid {
+          display: grid;
+          grid-template-columns: minmax(240px, 1.35fr) repeat(3, minmax(130px, .6fr));
+          gap: 38px;
+          align-items: start;
+        }
+        .public-footer-brand {
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+        }
+        .public-footer-logo {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+        }
+        .public-footer-mark {
+          width: 42px;
+          height: 42px;
+          border-radius: 13px;
+          background: ${C.ink};
+          color: ${C.bg};
+          display: grid;
+          place-items: center;
+          font-size: 17px;
+          font-weight: 900;
+          box-shadow: 2px 2px 0 ${C.coral};
+          transform: rotate(-3deg);
+        }
+        .public-footer-heading {
+          color: ${C.ink};
+          font-size: 12px;
+          font-weight: 800;
+          letter-spacing: .08em;
+          text-transform: uppercase;
+          margin-bottom: 12px;
+        }
+        .public-footer-link {
+          display: block;
+          color: ${C.inkDim};
+          font-size: 13.5px;
+          font-weight: 650;
+          line-height: 1.9;
+          text-decoration: none;
+        }
+        .public-footer-link:hover {
+          color: ${C.coral};
+        }
+        .public-footer-socials {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          flex-wrap: wrap;
+        }
+        .public-footer-socials a {
+          width: 34px;
+          height: 34px;
+          border-radius: 999px;
+          border: 1px solid rgba(10, 47, 110, .16);
+          background: rgba(255,255,255,.56);
+          display: grid !important;
+          place-items: center;
+        }
+        .public-footer-bottom {
+          border-top: 1px solid rgba(10, 47, 110, .15);
+          margin-top: 28px;
+          padding-top: 18px;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          gap: 14px;
+          flex-wrap: wrap;
+          color: ${C.inkMuted};
+          font-size: 12.5px;
+          font-weight: 600;
+        }
+        @media (max-width: 820px) {
+          .public-footer-glass {
+            padding: 28px 16px 20px;
+          }
+          .public-footer-panel {
+            border-radius: 22px;
+            padding: 26px 22px 22px;
+          }
+          .public-footer-grid {
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+          }
+          .public-footer-brand {
+            grid-column: 1 / -1;
+          }
+          .public-footer-bottom {
+            align-items: flex-start;
+            flex-direction: column;
+          }
+        }
+      `}</style>
+      <div className="public-footer-panel">
+        <div className="public-footer-grid">
+          <div className="public-footer-brand">
+            <div className="public-footer-logo">
+              <div className="public-footer-mark">U!</div>
+              <div>
+                <div style={{ color: C.ink, fontSize: 18, fontWeight: 900, lineHeight: 1 }}>UniClub Hub</div>
+                <div style={{ color: C.coral, fontSize: 10.5, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase', marginTop: 3 }}>
+                  UEF Campus
+                </div>
+              </div>
+            </div>
+            <p style={{ color: C.inkDim, fontSize: 14, lineHeight: 1.7, maxWidth: 360, fontWeight: 500 }}>
+              Cổng thông tin câu lạc bộ sinh viên UEF, nơi bạn khám phá hoạt động,
+              tìm cộng đồng phù hợp và bắt đầu hành trình mới.
+            </p>
+            <div className="public-footer-socials">
+              {facebook  && <SocialLink href={facebook}><IconFacebook /></SocialLink>}
+              {instagram && <SocialLink href={instagram}><IconInstagram /></SocialLink>}
+              {tiktok    && <SocialLink href={tiktok}><IconTikTok /></SocialLink>}
+              {youtube   && <SocialLink href={youtube}><IconYouTube /></SocialLink>}
+              {x         && <SocialLink href={x}><IconX /></SocialLink>}
+              {linkedin  && <SocialLink href={linkedin}><IconLinkedIn /></SocialLink>}
+            </div>
+          </div>
+
+          <div>
+            <div className="public-footer-heading">Khám phá</div>
+            <a className="public-footer-link" href="/">Trang chủ</a>
+            <a className="public-footer-link" href="/clubs">Câu lạc bộ</a>
+            <a className="public-footer-link" href="/contact">Liên hệ</a>
+          </div>
+
+          <div>
+            <div className="public-footer-heading">Tài khoản</div>
+            <a className="public-footer-link" href="/login">Đăng nhập</a>
+            <a className="public-footer-link" href="/register">Đăng ký</a>
+            <a className="public-footer-link" href="/forgot-password">Quên mật khẩu</a>
+          </div>
+
+          <div>
+            <div className="public-footer-heading">Hỗ trợ</div>
+            <a className="public-footer-link" href="/contact">Gửi yêu cầu</a>
+            <a className="public-footer-link" href="/contact">Câu hỏi thường gặp</a>
+            <a className="public-footer-link" href="/contact">Điều khoản</a>
+          </div>
+        </div>
+
+        <div className="public-footer-bottom">
+          <span>© 2026 · {address || 'Đại học Kinh tế Tài chính TP.HCM'}</span>
+          <span>UniClub Hub · Sinh viên UEF</span>
         </div>
       </div>
     </footer>

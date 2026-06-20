@@ -1168,11 +1168,33 @@ namespace UniClub_Hub.Server.Data
             await db.SaveChangesAsync();
 
             // ── Landing page & Footer settings (idempotent) ───────────────────
+            var landingSliderDefault = """
+            [
+              {
+                "eyebrow": "Spotlight tuần này",
+                "title": "Workshop, tuyển thành viên và sân chơi mới trong một nơi.",
+                "description": "Dùng khu vực này để admin ghim banner quan trọng, ảnh sự kiện hoặc thông báo nổi bật trên trang chủ.",
+                "ctaLabel": "Xem hoạt động",
+                "ctaHref": "/clubs",
+                "accent": "#1b4fd8"
+              },
+              {
+                "eyebrow": "Dành cho tân sinh viên",
+                "title": "Tìm CLB hợp gu trước khi bỏ lỡ mùa tuyển quân.",
+                "description": "Slider có thể đổi nội dung theo từng đợt tuyển thành viên, tuần lễ định hướng hoặc sự kiện cấp trường.",
+                "ctaLabel": "Khám phá CLB",
+                "ctaHref": "/clubs",
+                "accent": "#ed1b2f"
+              }
+            ]
+            """;
             (string Key, string Cat, string Type, string Label, string Desc, string Val)[] publicSettings =
             [
                 ("landing.banner_enabled", "landing", "toggle", "Hiển thị banner thông báo",   "Bật để hiện banner ở đầu trang chủ.",                                  "false"),
                 ("landing.banner_text",    "landing", "text",   "Nội dung banner",              "Ví dụ: Đang mở đơn tuyển thành viên học kỳ 2/2026!",                   ""),
                 ("landing.banner_color",   "landing", "text",   "Màu nền banner (hex)",         "Ví dụ: #f59e0b (vàng), #4f46e5 (tím), #10b981 (xanh), #ef4444 (đỏ).", "#f59e0b"),
+                ("landing.slider_enabled", "landing", "toggle", "Hiển thị slider nổi bật",      "Bật để hiện section slider giữa hoạt động mới và danh sách CLB.",      "true"),
+                ("landing.slider_items",   "landing", "textarea","Nội dung slider nổi bật",      "JSON array: eyebrow, title, description, imageUrl, ctaLabel, ctaHref, accent.", landingSliderDefault),
                 ("footer.facebook_url",    "footer",  "text",   "Link Facebook",                "URL trang Facebook của trường/phòng CTSV. Để trống = ẩn icon.",         ""),
                 ("footer.instagram_url",   "footer",  "text",   "Link Instagram",               "URL trang Instagram. Để trống = ẩn icon.",                             ""),
                 ("footer.tiktok_url",      "footer",  "text",   "Link TikTok",                  "URL trang TikTok. Để trống = ẩn icon.",                                ""),

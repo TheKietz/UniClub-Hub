@@ -11,6 +11,11 @@ metadata:
 
 Comprehensive performance optimization guide for React and Next.js applications, maintained by Vercel. Contains 70 rules across 8 categories, prioritized by impact to guide automated refactoring and code generation.
 
+## Project Note
+
+This project uses React (Vite/CRA) with ASP.NET Core API backend — NOT Next.js.
+Skip all rules in the `server-` category.
+
 ## When to Apply
 
 Reference these guidelines when:

@@ -10,7 +10,7 @@ description: EF Core migration workflow with PostgreSQL for UniClub Hub. Use whe
 
 ## When to Use
 
-- Adding a new Entity to `UniClubHub.Shared/Models/`
+- Adding a new Entity to `UniClub-Hub.Shared/Models/`
 - Modifying columns on an existing table (add, rename, change type, add constraint)
 - Seeding reference/lookup data (status enums, categories)
 - Rolling back a bad migration in development
@@ -23,11 +23,11 @@ description: EF Core migration workflow with PostgreSQL for UniClub Hub. Use whe
 
 ## Project-Specific Context
 
-- **DbContext**: `UniClubDbContext` in `UniClubHub.Shared/`
-- **Migrations folder**: `UniClubHub.Shared/Migrations/`
-- **Entities folder**: `UniClubHub.Shared/Models/`
+- **DbContext**: `UniClubDbContext` in `UniClub-Hub.Shared/`
+- **Migrations folder**: `UniClub-Hub.Shared/Migrations/`
+- **Entities folder**: `UniClub-Hub.Shared/Models/`
 - **Database**: PostgreSQL via Npgsql provider
-- **Safety rule**: Never modify files in `UniClubHub.Shared/Models/` without user approval. Never suggest running `dotnet ef database update` — suggest the command only.
+- **Safety rule**: Never modify files in `UniClub-Hub.Shared/Models/` without user approval. Never suggest running `dotnet ef database update` — suggest the command only.
 
 ---
 
@@ -35,16 +35,16 @@ description: EF Core migration workflow with PostgreSQL for UniClub Hub. Use whe
 
 ### Step 1: Define or modify the Entity (requires approval first)
 
-Present the proposed Entity class to the user and wait for explicit confirmation before creating/modifying any file in `UniClubHub.Shared/Models/`.
+Present the proposed Entity class to the user and wait for explicit confirmation before creating/modifying any file in `UniClub-Hub.Shared/Models/`.
 
 ```csharp
-// UniClubHub.Shared/Models/Task.cs
+// UniClub-Hub.Shared/Models/Task.cs
 // PROPOSED — awaiting approval before file creation
 
 using System;
 using System.Collections.Generic;
 
-namespace UniClubHub.Shared.Models;
+namespace UniClub_Hub.Shared.Models;
 
 public class Task
 {
@@ -84,7 +84,7 @@ public enum TaskStatus { Todo, Doing, Done, Cancelled }
 ### Step 2: Register the Entity in DbContext
 
 ```csharp
-// UniClubHub.Shared/UniClubDbContext.cs
+// UniClub-Hub.Shared/UniClubDbContext.cs
 
 public class UniClubDbContext : DbContext
 {
@@ -109,12 +109,12 @@ public class UniClubDbContext : DbContext
 Create a separate configuration file — never inline configuration in `OnModelCreating`.
 
 ```csharp
-// UniClubHub.Shared/Configurations/TaskConfiguration.cs
+// UniClub-Hub.Shared/Configurations/TaskConfiguration.cs
 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
-namespace UniClubHub.Shared.Configurations;
+namespace UniClub_Hub.Shared.Configurations;
 
 public class TaskConfiguration : IEntityTypeConfiguration<Task>
 {
@@ -181,8 +181,8 @@ Examples:
 ```bash
 # Run from solution root
 dotnet ef migrations add Add_Tasks_InitialSchema \
-  --project UniClubHub.Shared \
-  --startup-project UniClubHub.API
+  --project UniClub-Hub.Shared \
+  --startup-project UniClub-Hub.Server
 ```
 
 ---
@@ -193,7 +193,7 @@ Always review the generated migration before suggesting the user apply it.
 Check for these common PostgreSQL-specific issues:
 
 ```csharp
-// UniClubHub.Shared/Migrations/20260426_Add_Tasks_InitialSchema.cs
+// UniClub-Hub.Shared/Migrations/20260426_Add_Tasks_InitialSchema.cs
 
 public partial class Add_Tasks_InitialSchema : Migration
 {
@@ -251,8 +251,8 @@ Suggest this command — do not run it:
 
 ```bash
 dotnet ef database update \
-  --project UniClubHub.Shared \
-  --startup-project UniClubHub.API
+  --project UniClub-Hub.Shared \
+  --startup-project UniClub-Hub.Server
 ```
 
 ---
@@ -283,13 +283,13 @@ builder.HasData(
 ```bash
 # Roll back to a specific migration by name
 dotnet ef database update Add_Tasks_InitialSchema \
-  --project UniClubHub.Shared \
-  --startup-project UniClubHub.API
+  --project UniClub-Hub.Shared \
+  --startup-project UniClub-Hub.Server
 
 # Remove the last migration file (only if NOT yet applied to DB)
 dotnet ef migrations remove \
-  --project UniClubHub.Shared \
-  --startup-project UniClubHub.API
+  --project UniClub-Hub.Shared \
+  --startup-project UniClub-Hub.Server
 ```
 
 **NEVER run rollback on a migration that has already been applied to a shared/staging database.**

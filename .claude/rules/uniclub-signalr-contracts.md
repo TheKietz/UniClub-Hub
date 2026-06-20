@@ -6,8 +6,8 @@ trigger: always_on
 
 ## Hub Location
 
-- Hub classes: `UniClubHub.API/Hubs/`
-- Constants file: `UniClubHub.Shared/Constants/SignalREvents.cs`
+- Hub classes: `UniClub-Hub.Server/Hubs/`
+- Constants file: `UniClub-Hub.Shared/Constants/SignalREvents.cs`
 
 ## Naming Rules
 
@@ -26,5 +26,10 @@ public const string MemberJoined = "MemberJoined";
 
 // Frontend must import event names from a mirrored constants file,
 // not hardcode strings.
+
+## Scope
+
+SignalR is used only in the Operations module.
+Do NOT add Hub methods for Membership or Portal features.
 
 

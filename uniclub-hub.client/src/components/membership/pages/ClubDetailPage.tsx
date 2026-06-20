@@ -181,7 +181,7 @@ export default function ClubDetailPage() {
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <PublicHeader />
 
-      <div className="flex-1 max-w-5xl mx-auto w-full px-6 py-8 space-y-6">
+      <div className="flex-1 max-w-5xl mx-auto w-full px-6 pt-[132px] pb-8 space-y-6">
 
         {/* Back link — nằm trong nội dung, không có nền riêng */}
         <div className="flex items-center gap-1.5 text-sm">

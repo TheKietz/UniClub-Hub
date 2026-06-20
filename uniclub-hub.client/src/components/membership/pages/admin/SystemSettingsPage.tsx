@@ -3,6 +3,7 @@ import { getSettings, updateSetting, toggleSettingEnabled } from '@/components/m
 import type { SystemSetting } from '@/components/membership/services/adminApi'
 import { toast } from 'sonner'
 import { Save, X, Power, ChevronDown } from 'lucide-react'
+import { SliderItemsEditor } from './SliderItemsEditor'
 
 const D = {
   border: '1.5px solid #15131a', borderLight: '1px solid #e8e3d6',
@@ -171,6 +172,10 @@ function SettingRow({ setting }: { setting: SystemSetting }) {
         </div>
 
         <div style={{ flex: 1, pointerEvents: (isNotification && !enabled) ? 'none' : 'auto' }}>
+          {setting.key === 'landing.slider_items' ? (
+            <SliderItemsEditor value={value} onChange={handleChange} />
+          ) : (
+          <>
           {setting.inputType === 'toggle' && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, height: 40 }}>
               <Toggle checked={value === 'true'} onChange={v => handleChange(v ? 'true' : 'false')} />
@@ -192,6 +197,8 @@ function SettingRow({ setting }: { setting: SystemSetting }) {
               style={{ ...inputS, height: 'auto', padding: '8px 12px', resize: 'vertical' }} />
           )}
           {setting.inputType === 'faq' && <FaqEditor value={value} onChange={handleChange} />}
+          </>
+          )}
         </div>
 
         {isNotification && (
