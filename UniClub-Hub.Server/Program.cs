@@ -110,6 +110,19 @@ builder.Services.AddHttpClient<IAiModelClient, GeminiAiModelClient>();
 
 builder.Services.AddRateLimiter(options =>
 {
+    if (builder.Environment.IsEnvironment("Testing"))
+    {
+        static System.Threading.RateLimiting.RateLimitPartition<string> NoLimit(
+            Microsoft.AspNetCore.Http.HttpContext _) =>
+            System.Threading.RateLimiting.RateLimitPartition.GetNoLimiter(string.Empty);
+
+        options.AddPolicy("auth:login", NoLimit);
+        options.AddPolicy("auth:register", NoLimit);
+        options.AddPolicy("auth:forgot", NoLimit);
+        options.AddPolicy("auth:resend", NoLimit);
+        return;
+    }
+
     options.RejectionStatusCode = 429;
 
     static System.Threading.RateLimiting.RateLimitPartition<string> ByIp(
@@ -128,6 +141,12 @@ builder.Services.AddRateLimiter(options =>
     options.AddPolicy("auth:forgot",     ctx => ByIp(ctx, 5,  60));
     options.AddPolicy("auth:resend",     ctx => ByIp(ctx, 5,  60));
 });
+if (builder.Environment.IsEnvironment("Testing"))
+{
+    builder.Services.AddScoped<IFileStorageService, UniClub_Hub.Server.Testing.TestingFileStorageService>();
+}
+else
+{
 var cloudinaryAccount = new Account(
     builder.Configuration["Cloudinary:CloudName"],
     builder.Configuration["Cloudinary:ApiKey"],
@@ -135,6 +154,7 @@ var cloudinaryAccount = new Account(
 );
 builder.Services.AddSingleton(new Cloudinary(cloudinaryAccount));
 builder.Services.AddScoped<IFileStorageService, CloudinaryStorageService>();
+}
 builder.Services.AddScoped<IEmailService, SendGridEmailService>();
 builder.Services.AddMembershipServices();
 builder.Services.AddOperationsServices();
@@ -177,3 +197,5 @@ app.MapHub<KanbanHub>("/hubs/kanban");
 app.MapFallbackToFile("/index.html");
 
 app.Run();
+
+public partial class Program { }
