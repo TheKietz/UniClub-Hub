@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
 import { getDepartments, getClubMembers, createDepartment, updateDepartment, deleteDepartment, setDepartmentLead } from '@/components/membership/services/clubApi'
 import type { DepartmentItem, MemberItem } from '@/components/membership/services/club.types'
@@ -11,6 +11,7 @@ import { D } from '@/components/shared/managementTheme'
 import { PermissionDenied } from '@/components/shared/Can'
 import { useClubPermissions } from '@/hooks/useClubPermissions'
 import { CLUB_PERMISSIONS } from '@/constants/clubPermissions'
+import { getApiErrorMessage } from '@/lib/apiError'
 
 const inputStyle: React.CSSProperties = {
   width: '100%', height: 36, borderRadius: 8, border: '1px solid #dce6f4',
@@ -58,14 +59,23 @@ export default function DepartmentsPage() {
       return sortDir === 'asc' ? cmp : -cmp
     })
 
-  function load() {
+  const load = useCallback(() => {
     getDepartments(id)
       .then(setDepartments)
       .catch(() => toast.error('Không thể tải danh sách ban.'))
       .finally(() => setLoading(false))
-  }
+  }, [id])
 
-  useEffect(() => { if (clubId) load() }, [clubId])
+  useEffect(() => {
+    if (!clubId) return
+    let cancelled = false
+    void (async () => {
+      await Promise.resolve()
+      if (cancelled) return
+      load()
+    })()
+    return () => { cancelled = true }
+  }, [clubId, load])
 
   function openAdd() { setForm({ name: '', description: '' }); setEditTarget(null); setDialog('add') }
 
@@ -100,8 +110,8 @@ export default function DepartmentsPage() {
       }
       setDialog(null)
       load()
-    } catch (err: any) {
-      toast.error(err.response?.data?.message ?? 'Thao tác thất bại.')
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'Thao tác thất bại.'))
     } finally {
       setSaving(false)
     }
@@ -115,8 +125,8 @@ export default function DepartmentsPage() {
       toast.success(`Đã xóa ban "${deleteTarget.name}".`)
       setDeleteTarget(null)
       load()
-    } catch (err: any) {
-      toast.error(err.response?.data?.message ?? 'Xóa thất bại.')
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'Xóa thất bại.'))
     } finally {
       setDeleting(false)
     }
@@ -130,8 +140,8 @@ export default function DepartmentsPage() {
       toast.success('Đã cập nhật trưởng ban.')
       setLeadDept(null)
       load()
-    } catch (err: any) {
-      toast.error(err.response?.data?.message ?? 'Cập nhật thất bại.')
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'Cập nhật thất bại.'))
     } finally {
       setSettingLead(false)
     }

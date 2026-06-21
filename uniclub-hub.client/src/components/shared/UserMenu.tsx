@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { LogOut, ChevronDown, LayoutDashboard, ShieldCheck, Settings } from 'lucide-react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { useAuth } from '@/contexts/AuthContext'
+import { useAuth } from '@/hooks/useAuth'
 import { CLUB_ROLES, MEMBERSHIP_STATUS } from '@/types/auth'
 import { D } from '@/components/shared/managementTheme'
 

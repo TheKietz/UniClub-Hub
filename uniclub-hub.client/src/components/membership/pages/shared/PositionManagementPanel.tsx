@@ -35,6 +35,7 @@ import { Check, Pencil, Plus, Save, ShieldCheck, Trash2, Users } from 'lucide-re
 import { Tooltip } from '@/components/shared/Tooltip'
 import { FilterSelect } from '@/components/shared/FilterSelect'
 import { D } from '@/components/shared/managementTheme'
+import { getApiErrorMessage } from '@/lib/apiError'
 
 const inputStyle: CSSProperties = {
   width: '100%',
@@ -187,7 +188,8 @@ export default function PositionManagementPanel({
   const [refreshKey, setRefreshKey] = useState(0)
 
   const [search, setSearch] = useState('')
-  const [departmentFilter, setDepartmentFilter] = useState(departmentScopeId ? String(departmentScopeId) : '')
+  const [localDepartmentFilter, setLocalDepartmentFilter] = useState('')
+  const departmentFilter = departmentScopeId ? String(departmentScopeId) : localDepartmentFilter
   const [selectedMemberId, setSelectedMemberId] = useState('')
   const [selectedMemberPositionIds, setSelectedMemberPositionIds] = useState<number[]>([])
   const [loadingMemberPositions, setLoadingMemberPositions] = useState(false)
@@ -249,48 +251,54 @@ export default function PositionManagementPanel({
 
   useEffect(() => {
     if (!clubId) return
-    setLoading(true)
-    Promise.all([
-      getClubPositions(clubId, departmentScopeId ? { departmentId: departmentScopeId } : undefined),
-      getClubPermissions(),
-      getDepartments(clubId),
-      getClubMembers(clubId, {
-        status: MEMBERSHIP_STATUS.ACTIVE,
-        departmentId: departmentScopeId,
-      }),
-    ])
-      .then(([positionData, permissionData, departmentData, memberData]) => {
-        setPositions(positionData)
-        setPermissions(permissionData)
-        setDepartments(departmentScopeId ? departmentData.filter(d => d.id === departmentScopeId) : departmentData)
-        setMembers(departmentScopeId ? memberData.filter(m => m.departmentId === departmentScopeId) : memberData)
-      })
-      .catch(() => toast.error('Không thể tải dữ liệu vị trí.'))
-      .finally(() => setLoading(false))
+    let cancelled = false
+    void (async () => {
+      await Promise.resolve()
+      if (cancelled) return
+      setLoading(true)
+      Promise.all([
+        getClubPositions(clubId, departmentScopeId ? { departmentId: departmentScopeId } : undefined),
+        getClubPermissions(),
+        getDepartments(clubId),
+        getClubMembers(clubId, {
+          status: MEMBERSHIP_STATUS.ACTIVE,
+          departmentId: departmentScopeId,
+        }),
+      ])
+        .then(([positionData, permissionData, departmentData, memberData]) => {
+          if (cancelled) return
+          setPositions(positionData)
+          setPermissions(permissionData)
+          setDepartments(departmentScopeId ? departmentData.filter(d => d.id === departmentScopeId) : departmentData)
+          setMembers(departmentScopeId ? memberData.filter(m => m.departmentId === departmentScopeId) : memberData)
+        })
+        .catch(() => { if (!cancelled) toast.error('Không thể tải dữ liệu vị trí.') })
+        .finally(() => { if (!cancelled) setLoading(false) })
+    })()
+    return () => { cancelled = true }
   }, [clubId, departmentScopeId, refreshKey])
 
   useEffect(() => {
-    setDepartmentFilter(departmentScopeId ? String(departmentScopeId) : '')
-  }, [departmentScopeId])
-
-  useEffect(() => {
-    if (!selectedMemberId) {
-      setSelectedMemberPositionIds([])
-      return
-    }
-
-    setLoadingMemberPositions(true)
-    getMemberPositions(clubId, Number(selectedMemberId))
-      .then(result => {
-        const positionIds = canManageCatalog
-          ? result.positions.map(position => position.id)
-          : result.positions
-              .filter(position => position.departmentId === departmentScopeId && position.canBeAssignedByDeptLead)
-              .map(position => position.id)
-        setSelectedMemberPositionIds(positionIds)
-      })
-      .catch(() => toast.error('Không thể tải vị trí của thành viên.'))
-      .finally(() => setLoadingMemberPositions(false))
+    if (!selectedMemberId) return
+    let cancelled = false
+    void (async () => {
+      await Promise.resolve()
+      if (cancelled) return
+      setLoadingMemberPositions(true)
+      getMemberPositions(clubId, Number(selectedMemberId))
+        .then(result => {
+          if (cancelled) return
+          const positionIds = canManageCatalog
+            ? result.positions.map(position => position.id)
+            : result.positions
+                .filter(position => position.departmentId === departmentScopeId && position.canBeAssignedByDeptLead)
+                .map(position => position.id)
+          setSelectedMemberPositionIds(positionIds)
+        })
+        .catch(() => { if (!cancelled) toast.error('Không thể tải vị trí của thành viên.') })
+        .finally(() => { if (!cancelled) setLoadingMemberPositions(false) })
+    })()
+    return () => { cancelled = true }
   }, [canManageCatalog, clubId, departmentScopeId, selectedMemberId])
 
   function openCreate() {
@@ -358,8 +366,8 @@ export default function PositionManagementPanel({
 
       setDialogOpen(false)
       setRefreshKey(k => k + 1)
-    } catch (err: any) {
-      toast.error(err.response?.data?.message ?? 'Lưu vị trí thất bại.')
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'Lưu vị trí thất bại.'))
     } finally {
       setSavingPosition(false)
     }
@@ -372,8 +380,8 @@ export default function PositionManagementPanel({
       toast.success('Đã xoá vị trí.')
       setDeleteTarget(null)
       setRefreshKey(k => k + 1)
-    } catch (err: any) {
-      toast.error(err.response?.data?.message ?? 'Xoá vị trí thất bại.')
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'Xoá vị trí thất bại.'))
     }
   }
 
@@ -384,8 +392,8 @@ export default function PositionManagementPanel({
       await assignMemberPositions(clubId, Number(selectedMemberId), selectedMemberPositionIds)
       toast.success('Đã cập nhật vị trí cho thành viên.')
       setRefreshKey(k => k + 1)
-    } catch (err: any) {
-      toast.error(err.response?.data?.message ?? 'Gán vị trí thất bại.')
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'Gán vị trí thất bại.'))
     } finally {
       setSavingMemberPositions(false)
     }
@@ -423,7 +431,7 @@ export default function PositionManagementPanel({
             {!departmentScopeId && (
               <FilterSelect
                 value={departmentFilter}
-                onChange={setDepartmentFilter}
+                onChange={setLocalDepartmentFilter}
                 options={[
                   { value: '', label: 'Tất cả phạm vi' },
                   { value: '__club__', label: 'Cấp CLB' },
@@ -434,7 +442,7 @@ export default function PositionManagementPanel({
             )}
             {(search || (!departmentScopeId && departmentFilter)) && (
               <button
-                onClick={() => { setSearch(''); if (!departmentScopeId) setDepartmentFilter('') }}
+                onClick={() => { setSearch(''); if (!departmentScopeId) setLocalDepartmentFilter('') }}
                 style={{ fontSize: 12, color: D.indigo, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
               >
                 Xoá lọc
@@ -520,7 +528,10 @@ export default function PositionManagementPanel({
               <label style={labelStyle}>Thành viên</label>
               <FilterSelect
                 value={selectedMemberId}
-                onChange={setSelectedMemberId}
+                onChange={value => {
+                  setSelectedMemberId(value)
+                  if (!value) setSelectedMemberPositionIds([])
+                }}
                 options={[
                   { value: '', label: '— Chọn thành viên —' },
                   ...members.map(member => ({

@@ -1,5 +1,5 @@
 import { MEMBERSHIP_STATUS } from '@/types/auth'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { getAdminClubsPage, createClub, updateClub, deleteClub, getCategories, exportClubs } from '@/components/membership/services/adminApi'
 import type { AdminClubListQuery } from '@/components/membership/services/adminApi'
 import type { ClubItem, CategoryItem, CreateClubDto, UpdateClubDto } from '@/components/membership/services/admin.types'
@@ -11,6 +11,7 @@ import { Tooltip } from '@/components/shared/Tooltip'
 import { FilterSelect } from '@/components/shared/FilterSelect'
 import { LoadMoreBar } from '@/components/shared/LoadMoreBar'
 import { D } from '@/components/shared/managementTheme'
+import { getApiErrorMessage } from '@/lib/apiError'
 
 const PAGE_SIZE = 20
 
@@ -57,7 +58,7 @@ export default function ClubsPage() {
     return () => window.clearTimeout(timer)
   }, [search])
 
-  function buildQuery(pageNumber: number): AdminClubListQuery {
+  const buildQuery = useCallback((pageNumber: number): AdminClubListQuery => {
     return {
       page: pageNumber,
       pageSize: PAGE_SIZE,
@@ -67,63 +68,61 @@ export default function ClubsPage() {
       sortBy,
       sortDir,
     }
-  }
+  }, [debouncedSearch, statusFilter, categoryFilter, sortBy, sortDir])
 
-  function querySignature() {
-    return JSON.stringify({
-      search: debouncedSearch || '',
-      status: statusFilter || '',
-      categoryId: categoryFilter || '',
-      sortBy,
-      sortDir,
-    })
-  }
+  const querySignature = useMemo(() => JSON.stringify({
+    search: debouncedSearch || '',
+    status: statusFilter || '',
+    categoryId: categoryFilter || '',
+    sortBy,
+    sortDir,
+  }), [debouncedSearch, statusFilter, categoryFilter, sortBy, sortDir])
 
   useEffect(() => {
-    const signature = querySignature()
-    latestQueryKey.current = signature
+    latestQueryKey.current = querySignature
     let cancelled = false
-
-    setLoading(true)
-    setLoadingMore(false)
-    setClubs([])
-    setPage(1)
-    Promise.all([getAdminClubsPage(buildQuery(1)), getCategories()])
-      .then(([c, cats]) => {
-        if (cancelled || latestQueryKey.current !== signature) return
-        setClubs(c.items)
-        setTotalClubs(c.totalCount)
-        setCategories(cats)
-      })
-      .catch(() => {
-        if (!cancelled && latestQueryKey.current === signature)
-          toast.error('Không thể tải dữ liệu.')
-      })
-      .finally(() => {
-        if (!cancelled && latestQueryKey.current === signature)
-          setLoading(false)
-      })
-
+    void (async () => {
+      await Promise.resolve()
+      if (cancelled) return
+      setLoading(true)
+      setLoadingMore(false)
+      setClubs([])
+      setPage(1)
+      Promise.all([getAdminClubsPage(buildQuery(1)), getCategories()])
+        .then(([c, cats]) => {
+          if (cancelled || latestQueryKey.current !== querySignature) return
+          setClubs(c.items)
+          setTotalClubs(c.totalCount)
+          setCategories(cats)
+        })
+        .catch(() => {
+          if (!cancelled && latestQueryKey.current === querySignature)
+            toast.error('Không thể tải dữ liệu.')
+        })
+        .finally(() => {
+          if (!cancelled && latestQueryKey.current === querySignature)
+            setLoading(false)
+        })
+    })()
     return () => { cancelled = true }
-  }, [refreshKey, debouncedSearch, statusFilter, categoryFilter, sortBy, sortDir])
+  }, [refreshKey, querySignature, buildQuery])
 
   function loadMore() {
     const nextPage = page + 1
-    const signature = querySignature()
     setLoadingMore(true)
     getAdminClubsPage(buildQuery(nextPage))
       .then(r => {
-        if (latestQueryKey.current !== signature) return
+        if (latestQueryKey.current !== querySignature) return
         setClubs(prev => [...prev, ...r.items])
         setTotalClubs(r.totalCount)
         setPage(nextPage)
       })
       .catch(() => {
-        if (latestQueryKey.current === signature)
+        if (latestQueryKey.current === querySignature)
           toast.error('Tải thêm thất bại.')
       })
       .finally(() => {
-        if (latestQueryKey.current === signature)
+        if (latestQueryKey.current === querySignature)
           setLoadingMore(false)
       })
   }
@@ -164,8 +163,8 @@ export default function ClubsPage() {
       }
       setDialogOpen(false)
       setRefreshKey(k => k + 1)
-    } catch (err: any) {
-      toast.error(err.response?.data?.message ?? 'Thao tác thất bại.')
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'Thao tác thất bại.'))
     } finally {
       setSaving(false)
     }

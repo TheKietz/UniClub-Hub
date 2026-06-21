@@ -1,11 +1,12 @@
 import { MEMBERSHIP_STATUS } from '@/types/auth'
 import { useRef, useState, useEffect } from 'react'
-import { useAuth } from '@/contexts/AuthContext'
+import { useAuth } from '@/hooks/useAuth'
 import { updateUserAvatar, updateUserProfile } from '@/components/membership/services/userApi'
 import { toast } from 'sonner'
 import { Camera, ChevronDown } from 'lucide-react'
 import MajorSelect from '@/components/shared/MajorSelect'
 import { D } from '@/components/shared/managementTheme'
+import { getApiErrorMessage } from '@/lib/apiError'
 
 const GENDER_OPTIONS = [
   { value: '', label: '— Chưa chọn —' },
@@ -96,8 +97,8 @@ export default function ProfilePage() {
       await updateUserAvatar(file)
       await refreshUser()
       toast.success('Đã cập nhật ảnh đại diện.')
-    } catch (err: any) {
-      toast.error(err.response?.data?.message ?? 'Upload thất bại.')
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'Upload thất bại.'))
     } finally {
       setUploadingAvatar(false)
       e.target.value = ''
@@ -118,8 +119,8 @@ export default function ProfilePage() {
       })
       await refreshUser()
       toast.success('Đã cập nhật hồ sơ.')
-    } catch (err: any) {
-      toast.error(err.response?.data?.message ?? 'Cập nhật thất bại.')
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'Cập nhật thất bại.'))
     } finally {
       setSaving(false)
     }

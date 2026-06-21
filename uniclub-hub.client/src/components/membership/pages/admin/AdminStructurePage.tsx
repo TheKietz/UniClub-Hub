@@ -8,6 +8,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { toast } from 'sonner'
 import { Link } from 'react-router-dom'
 import { D } from '@/components/shared/managementTheme'
+import { getApiErrorMessage } from '@/lib/apiError'
 
 const CLUB_PALETTES = [
   { accent: '#1d4ed8', light: '#ede9fe' },
@@ -44,7 +45,11 @@ export default function AdminStructurePage() {
   const [searchCode, setSearchCode] = useState('')
 
   useEffect(() => {
-    setLoading(true)
+    let cancelled = false
+    void (async () => {
+      await Promise.resolve()
+      if (cancelled) return
+      setLoading(true)
     getAdminClubs()
       .then(async (clubList) => {
         setClubs(clubList)
@@ -61,6 +66,8 @@ export default function AdminStructurePage() {
       })
       .catch(() => toast.error('Không thể tải dữ liệu.'))
       .finally(() => setLoading(false))
+    })()
+    return () => { cancelled = true }
   }, [refreshKey])
 
   function openCreate(club: ClubItem) {
@@ -92,8 +99,8 @@ export default function AdminStructurePage() {
       }
       setDialogOpen(false)
       setRefreshKey(k => k + 1)
-    } catch (err: any) {
-      toast.error(err.response?.data?.message ?? 'Thao tác thất bại.')
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'Thao tác thất bại.'))
     } finally {
       setSaving(false)
     }
@@ -106,8 +113,8 @@ export default function AdminStructurePage() {
       toast.success('Đã xoá ban.')
       setDeleteTarget(null)
       setRefreshKey(k => k + 1)
-    } catch (err: any) {
-      toast.error(err.response?.data?.message ?? 'Xoá thất bại.')
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'Xoá thất bại.'))
     }
   }
 

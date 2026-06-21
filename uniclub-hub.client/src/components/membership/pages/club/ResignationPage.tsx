@@ -8,6 +8,7 @@ import { D } from '@/components/shared/managementTheme'
 import { PermissionDenied } from '@/components/shared/Can'
 import { useClubPermissions } from '@/hooks/useClubPermissions'
 import { CLUB_PERMISSIONS } from '@/constants/clubPermissions'
+import { getApiErrorMessage } from '@/lib/apiError'
 
 const STATUS_CONFIG: Record<string, { label: string; bg: string; color: string }> = {
   Pending:  { label: 'Chờ duyệt', bg: '#fef3c7', color: '#b45309' },
@@ -39,11 +40,17 @@ export default function ResignationPage() {
   const [hoverRow, setHoverRow] = useState<number | null>(null)
 
   useEffect(() => {
-    setLoading(true)
+    let cancelled = false
+    void (async () => {
+      await Promise.resolve()
+      if (cancelled) return
+      setLoading(true)
     getClubResignations(id)
       .then(setRequests)
       .catch(() => toast.error('Không thể tải danh sách đơn từ chức.'))
       .finally(() => setLoading(false))
+    })()
+    return () => { cancelled = true }
   }, [id, refreshKey])
 
   async function handleReview(status: 'Approved' | 'Rejected') {
@@ -55,8 +62,8 @@ export default function ResignationPage() {
       toast.success(status === 'Approved' ? 'Đã chấp thuận đơn từ chức.' : 'Đã từ chối đơn.')
       setSelected(null)
       setRefreshKey(k => k + 1)
-    } catch (err: any) {
-      toast.error(err.response?.data?.message ?? 'Thao tác thất bại.')
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'Thao tác thất bại.'))
     } finally {
       setReviewing(false)
     }

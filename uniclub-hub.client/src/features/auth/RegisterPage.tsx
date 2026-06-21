@@ -2,13 +2,14 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useGoogleLogin } from '@react-oauth/google'
 import { Eye, EyeOff, MailCheck, RefreshCw } from 'lucide-react'
-import { useAuth } from '@/contexts/AuthContext'
+import { useAuth } from '@/hooks/useAuth'
 import { C } from '@/components/public/publicComponents'
 import MajorSelect from '@/components/shared/MajorSelect'
 import { toast } from 'sonner'
 import api from '@/lib/axiosInstance'
 import type { UserInfo } from '@/types/auth'
 import AuthShell from './AuthShell'
+import { getApiErrorMessage } from '@/lib/apiError'
 
 function redirectAfterLogin(me: UserInfo): string {
   if (me.roles.includes('SUPER_ADMIN')) return '/admin'
@@ -137,8 +138,8 @@ export default function RegisterPage() {
       })
       setRegisteredEmail(form.email)
       setStep(3)
-    } catch (err: any) {
-      toast.error(err.response?.data?.message ?? 'Đăng ký thất bại. Vui lòng thử lại.')
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'Đăng ký thất bại. Vui lòng thử lại.'))
     } finally {
       setLoading(false)
     }
@@ -163,8 +164,8 @@ export default function RegisterPage() {
       try {
         const me = await googleLogin(tokenResponse.access_token)
         navigate(redirectAfterLogin(me), { replace: true })
-      } catch (err: any) {
-        toast.error(err.response?.data?.message ?? 'Đăng ký Google thất bại.')
+      } catch (err: unknown) {
+        toast.error(getApiErrorMessage(err, 'Đăng ký Google thất bại.'))
       } finally {
         setLoading(false)
       }

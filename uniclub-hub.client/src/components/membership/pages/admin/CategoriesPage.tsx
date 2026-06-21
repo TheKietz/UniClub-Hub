@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { toast } from 'sonner'
 import { D } from '@/components/shared/managementTheme'
+import { getApiErrorMessage } from '@/lib/apiError'
 
 const CAT_PALETTES = [
   { bg: '#ede9fe', color: '#5b21b6' },
@@ -40,11 +41,17 @@ export default function CategoriesPage() {
   const [hoverRow, setHoverRow] = useState<number | null>(null)
 
   useEffect(() => {
-    setLoading(true)
+    let cancelled = false
+    void (async () => {
+      await Promise.resolve()
+      if (cancelled) return
+      setLoading(true)
     getCategories()
       .then(setCategories)
       .catch(() => toast.error('Không thể tải danh sách lĩnh vực.'))
       .finally(() => setLoading(false))
+    })()
+    return () => { cancelled = true }
   }, [refreshKey])
 
   function openCreate() { setEditing(null); setForm(emptyForm); setDialogOpen(true) }
@@ -73,8 +80,8 @@ export default function CategoriesPage() {
       }
       setDialogOpen(false)
       setRefreshKey(k => k + 1)
-    } catch (err: any) {
-      toast.error(err.response?.data?.message ?? 'Thao tác thất bại.')
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'Thao tác thất bại.'))
     } finally {
       setSaving(false)
     }
@@ -87,8 +94,8 @@ export default function CategoriesPage() {
       toast.success('Đã xoá lĩnh vực.')
       setDeleteTarget(null)
       setRefreshKey(k => k + 1)
-    } catch (err: any) {
-      toast.error(err.response?.data?.message ?? 'Xoá thất bại.')
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'Xoá thất bại.'))
     }
   }
 

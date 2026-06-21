@@ -4,6 +4,7 @@ import type { ResignationRequestItem, ReviewResignationDto } from '@/components/
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { toast } from 'sonner'
 import { D } from '@/components/shared/managementTheme'
+import { getApiErrorMessage } from '@/lib/apiError'
 
 const STATUS_CONFIG: Record<string, { label: string; bg: string; color: string }> = {
   Pending:  { label: 'Chờ duyệt', bg: '#fef3c7', color: '#b45309' },
@@ -29,11 +30,17 @@ export default function AdminResignationPage() {
   const [hoverRow, setHoverRow] = useState<number | null>(null)
 
   useEffect(() => {
-    setLoading(true)
+    let cancelled = false
+    void (async () => {
+      await Promise.resolve()
+      if (cancelled) return
+      setLoading(true)
     getAdminResignations()
       .then(setRequests)
       .catch(() => toast.error('Không thể tải danh sách đơn từ chức.'))
       .finally(() => setLoading(false))
+    })()
+    return () => { cancelled = true }
   }, [refreshKey])
 
   async function handleReview(status: 'Approved' | 'Rejected') {
@@ -45,8 +52,8 @@ export default function AdminResignationPage() {
       toast.success(status === 'Approved' ? 'Đã chấp thuận đơn từ chức.' : 'Đã từ chối đơn.')
       setSelected(null)
       setRefreshKey(k => k + 1)
-    } catch (err: any) {
-      toast.error(err.response?.data?.message ?? 'Thao tác thất bại.')
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'Thao tác thất bại.'))
     } finally {
       setReviewing(false)
     }

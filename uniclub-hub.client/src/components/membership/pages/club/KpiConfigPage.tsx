@@ -45,13 +45,7 @@ const tdS: React.CSSProperties = {
   verticalAlign: 'middle',
 }
 
-function errorMessage(err: unknown, fallback: string) {
-  if (typeof err === 'object' && err && 'response' in err) {
-    const response = (err as { response?: { data?: { message?: string } } }).response
-    return response?.data?.message ?? fallback
-  }
-  return fallback
-}
+import { getApiErrorMessage } from '@/lib/apiError'
 
 function Toggle({ checked, onChange }: { checked: boolean; onChange: (value: boolean) => void }) {
   return (
@@ -98,7 +92,11 @@ export default function KpiConfigPage() {
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
-    setLoading(true)
+    let cancelled = false
+    void (async () => {
+      await Promise.resolve()
+      if (cancelled) return
+      setLoading(true)
     getKpiConfig(id)
       .then(config => {
         setCriteria(config.criteria)
@@ -106,8 +104,10 @@ export default function KpiConfigPage() {
         setGrades(config.grades)
         setInitialGrades(config.grades)
       })
-      .catch(err => toast.error(errorMessage(err, 'Không thể tải cấu hình KPI.')))
+      .catch(err => toast.error(getApiErrorMessage(err, 'Không thể tải cấu hình KPI.')))
       .finally(() => setLoading(false))
+    })()
+    return () => { cancelled = true }
   }, [id])
 
   const totalWeight = useMemo(
@@ -178,7 +178,7 @@ export default function KpiConfigPage() {
       setInitialGrades(savedGrades.grades)
       toast.success('Đã lưu cấu hình KPI.')
     } catch (err) {
-      toast.error(errorMessage(err, 'Lưu cấu hình KPI thất bại.'))
+      toast.error(getApiErrorMessage(err, 'Lưu cấu hình KPI thất bại.'))
     } finally {
       setSaving(false)
     }

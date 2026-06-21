@@ -51,7 +51,15 @@ export default function ClubListPage() {
       .finally(() => setLoading(false))
   }
 
-  useEffect(() => { loadClubsPage() }, [])
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      await Promise.resolve()
+      if (cancelled) return
+      loadClubsPage()
+    })()
+    return () => { cancelled = true }
+  }, [])
 
   const catLabels = ['Tất cả', ...categories.map(c => c.name)]
 

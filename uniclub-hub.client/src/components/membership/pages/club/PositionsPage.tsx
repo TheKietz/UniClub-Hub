@@ -1,5 +1,5 @@
 import { useParams } from 'react-router-dom'
-import { useAuth } from '@/contexts/AuthContext'
+import { useAuth } from '@/hooks/useAuth'
 import { CLUB_ROLES, MEMBERSHIP_STATUS } from '@/types/auth'
 import PositionManagementPanel from '@/components/membership/pages/shared/PositionManagementPanel'
 import { CLUB_PERMISSIONS } from '@/constants/clubPermissions'

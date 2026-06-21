@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useAuth } from '@/contexts/AuthContext'
+import { useAuth } from '@/hooks/useAuth'
 import { getUserApplications, getUserResignations } from '@/components/membership/services/clubApi'
 import type { ApplicationItem, ResignationRequestItem } from '@/components/membership/services/club.types'
 import { MEMBERSHIP_STATUS } from '@/types/auth'
@@ -47,15 +47,27 @@ export default function MyActivityPage() {
 
   useEffect(() => {
     if (!user) return
-    if (tab === 'Đơn ứng tuyển' && applications.length === 0) {
-      setLoading(true)
-      getUserApplications(user.id).then(setApplications).catch(() => toast.error('Không thể tải đơn ứng tuyển.')).finally(() => setLoading(false))
-    }
-    if (tab === 'Đơn từ chức' && resignations.length === 0) {
-      setLoading(true)
-      getUserResignations(user.id).then(setResignations).catch(() => toast.error('Không thể tải đơn từ chức.')).finally(() => setLoading(false))
-    }
-  }, [tab, user])
+    let cancelled = false
+    void (async () => {
+      await Promise.resolve()
+      if (cancelled) return
+      if (tab === 'Đơn ứng tuyển' && applications.length === 0) {
+        setLoading(true)
+        getUserApplications(user.id)
+          .then(data => { if (!cancelled) setApplications(data) })
+          .catch(() => toast.error('Không thể tải đơn ứng tuyển.'))
+          .finally(() => { if (!cancelled) setLoading(false) })
+      }
+      if (tab === 'Đơn từ chức' && resignations.length === 0) {
+        setLoading(true)
+        getUserResignations(user.id)
+          .then(data => { if (!cancelled) setResignations(data) })
+          .catch(() => toast.error('Không thể tải đơn từ chức.'))
+          .finally(() => { if (!cancelled) setLoading(false) })
+      }
+    })()
+    return () => { cancelled = true }
+  }, [tab, user, applications.length, resignations.length])
 
   const memberships = user?.memberships ?? []
   const activeMemberships = memberships.filter(m => m.status === MEMBERSHIP_STATUS.ACTIVE || m.status === MEMBERSHIP_STATUS.PROBATION)

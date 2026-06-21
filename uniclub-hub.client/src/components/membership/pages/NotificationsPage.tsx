@@ -57,16 +57,23 @@ export default function NotificationsPage() {
   const [filter, setFilter] = useState<FilterKey>('all')
 
   useEffect(() => {
-    setLoading(true)
-    Promise.all([getNotifications(1), getNotificationUnreadCount()])
-      .then(([list, count]) => {
-        setItems(list.items ?? [])
-        setTotal(list.totalCount ?? 0)
-        setUnreadCount(count)
-        setPage(1)
-      })
-      .catch(() => { setItems([]); setTotal(0) })
-      .finally(() => setLoading(false))
+    let cancelled = false
+    void (async () => {
+      await Promise.resolve()
+      if (cancelled) return
+      setLoading(true)
+      Promise.all([getNotifications(1), getNotificationUnreadCount()])
+        .then(([list, count]) => {
+          if (cancelled) return
+          setItems(list.items ?? [])
+          setTotal(list.totalCount ?? 0)
+          setUnreadCount(count)
+          setPage(1)
+        })
+        .catch(() => { if (!cancelled) { setItems([]); setTotal(0) } })
+        .finally(() => { if (!cancelled) setLoading(false) })
+    })()
+    return () => { cancelled = true }
   }, [])
 
   const filtered = useMemo(

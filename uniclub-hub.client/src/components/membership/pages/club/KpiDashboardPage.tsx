@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
 import { CalendarDays, RefreshCw } from 'lucide-react'
 import { toast } from 'sonner'
@@ -76,7 +76,7 @@ export default function KpiDashboardPage() {
   const id = Number(clubId)
   const clubPermissions = useClubPermissions(id)
   const canView = clubPermissions.canAny(CLUB_PERMISSIONS.MEMBER_KPI_VIEW, CLUB_PERMISSIONS.MEMBER_KPI_MANAGE)
-  const defaultRange = useMemo(currentMonthRange, [])
+  const defaultRange = useMemo(() => currentMonthRange(), [])
   const [departments, setDepartments] = useState<DepartmentItem[]>([])
   const [departmentId, setDepartmentId] = useState('')
   const [fromDate, setFromDate] = useState(defaultRange.fromDate)
@@ -86,7 +86,7 @@ export default function KpiDashboardPage() {
   const [loading, setLoading] = useState(true)
   const [hoverRow, setHoverRow] = useState<number | null>(null)
 
-  function load() {
+  const load = useCallback(() => {
     setLoading(true)
     const params = {
       ...(departmentId ? { departmentId: Number(departmentId) } : {}),
@@ -100,11 +100,30 @@ export default function KpiDashboardPage() {
       })
       .catch(() => toast.error('Không thể tải bảng KPI.'))
       .finally(() => setLoading(false))
-  }
+  }, [departmentId, fromDate, id, toDate])
 
   useEffect(() => {
-    load()
-  }, [id])
+    let cancelled = false
+    void (async () => {
+      await Promise.resolve()
+      if (cancelled) return
+      setLoading(true)
+      const params = {
+        ...(departmentId ? { departmentId: Number(departmentId) } : {}),
+        fromDate,
+        toDate,
+      }
+      Promise.all([getKpiResults(id, params), getDepartments(id)])
+        .then(([kpi, deps]) => {
+          if (cancelled) return
+          setResults(kpi)
+          setDepartments(deps)
+        })
+        .catch(() => { if (!cancelled) toast.error('Không thể tải bảng KPI.') })
+        .finally(() => { if (!cancelled) setLoading(false) })
+    })()
+    return () => { cancelled = true }
+  }, [departmentId, fromDate, id, toDate])
 
   const filteredMembers = useMemo(() => {
     const q = search.trim().toLowerCase()

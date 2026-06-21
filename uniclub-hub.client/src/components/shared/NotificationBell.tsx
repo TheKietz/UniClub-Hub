@@ -69,15 +69,24 @@ export default function NotificationBell() {
 
   useEffect(() => {
     if (!open) return
-    setLoading(true)
-    api.get('/notifications?pageSize=15')
-      .then(res => {
-        const fetched: Notif[] = res.data.data.items ?? []
-        setItems(fetched)
-        setUnreadCount(fetched.filter(n => !n.isRead).length)
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false))
+    let cancelled = false
+    void (async () => {
+      await Promise.resolve()
+      if (cancelled) return
+      setLoading(true)
+      api.get('/notifications?pageSize=15')
+        .then(res => {
+          if (cancelled) return
+          const fetched: Notif[] = res.data.data.items ?? []
+          setItems(fetched)
+          setUnreadCount(fetched.filter(n => !n.isRead).length)
+        })
+        .catch(() => {})
+        .finally(() => {
+          if (!cancelled) setLoading(false)
+        })
+    })()
+    return () => { cancelled = true }
   }, [open])
 
   function handleToggle() {
@@ -199,7 +208,7 @@ export default function NotificationBell() {
                       fontSize: 14, fontWeight: 900, color: '#0a2f6e',
                       margin: 0, lineHeight: 1.28, letterSpacing: '-.02em',
                       overflow: 'hidden', display: '-webkit-box',
-                      WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any,
+                      WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as const,
                     }}>
                       {n.title}
                     </p>
@@ -207,7 +216,7 @@ export default function NotificationBell() {
                       <p style={{
                         fontSize: 11, color: '#6b7280', marginTop: 3, lineHeight: 1.35,
                         overflow: 'hidden', display: '-webkit-box',
-                        WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any,
+                        WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as const,
                       }}>
                         {n.message}
                       </p>

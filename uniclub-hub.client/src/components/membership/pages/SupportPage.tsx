@@ -4,6 +4,7 @@ import type { SupportTicket } from '@/components/membership/services/userApi'
 import { toast } from 'sonner'
 import { Clock, CheckCircle2, Loader2 } from 'lucide-react'
 import { D } from '@/components/shared/managementTheme'
+import { getApiErrorMessage } from '@/lib/apiError'
 
 const STATUS_CONFIG: Record<string, { label: string; bg: string; text: string; icon: React.ElementType }> = {
   Open:       { label: 'Đang chờ',      bg: '#fef3c7', text: '#b45309', icon: Clock },
@@ -48,8 +49,8 @@ export default function SupportPage() {
       toast.success('Đã gửi yêu cầu hỗ trợ.')
       setSubject(''); setMessage('')
       load()
-    } catch (err: any) {
-      toast.error(err.response?.data?.message ?? 'Gửi thất bại.')
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'Gửi thất bại.'))
     } finally {
       setSending(false)
     }

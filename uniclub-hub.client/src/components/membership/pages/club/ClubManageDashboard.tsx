@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { getClubStats, getClubGrowth, getDepartments, getClubResignations } from '@/components/membership/services/clubApi'
 import type { ClubStats, MonthlyGrowth, DepartmentItem } from '@/components/membership/services/club.types'
-import { useAuth } from '@/contexts/AuthContext'
+import { useAuth } from '@/hooks/useAuth'
 import {
   StatCard, ChartCard, MiniAreaChart, MiniBarChart, MiniDonut,
   PageShell, DTag,

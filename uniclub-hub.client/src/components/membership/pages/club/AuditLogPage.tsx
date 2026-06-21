@@ -115,7 +115,11 @@ export default function AuditLogPage() {
   const dateRange = getDateRange(datePreset)
 
   useEffect(() => {
-    setLoading(true)
+    let cancelled = false
+    void (async () => {
+      await Promise.resolve()
+      if (cancelled) return
+      setLoading(true)
     setLogs([])
     setPage(1)
     getClubAuditLogs(id, {
@@ -128,7 +132,9 @@ export default function AuditLogPage() {
       .then(res => { setLogs(res.items); setTotal(res.totalCount) })
       .catch(() => toast.error('Không thể tải lịch sử thay đổi.'))
       .finally(() => setLoading(false))
-  }, [id, module, action, datePreset, search])
+    })()
+    return () => { cancelled = true }
+  }, [id, module, action, datePreset, search, dateRange])
 
   function loadMore() {
     const nextPage = page + 1

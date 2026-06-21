@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useCallback, useState } from 'react'
 import { CalendarDays, RefreshCw, Trophy, Award, Hash, Users } from 'lucide-react'
 import { toast } from 'sonner'
-import { useAuth } from '@/contexts/AuthContext'
+import { useAuth } from '@/hooks/useAuth'
 import { MEMBERSHIP_STATUS } from '@/types/auth'
 import { getMyKpiResult, type MemberKpiResult } from '@/components/membership/services/kpiApi'
 import { FilterSelect } from '@/components/shared/FilterSelect'
@@ -88,29 +88,36 @@ export default function MyKpiPage() {
     return Array.from(map.values())
   }, [user?.memberships])
 
-  const defaultRange = useMemo(currentMonthRange, [])
-  const [clubId, setClubId] = useState<number | undefined>(clubs[0]?.clubId)
+  const defaultRange = useMemo(() => currentMonthRange(), [])
+  const [selectedClubId, setSelectedClubId] = useState<number | undefined>(undefined)
+  const clubId = selectedClubId ?? clubs[0]?.clubId
   const [fromDate, setFromDate] = useState(defaultRange.fromDate)
   const [toDate, setToDate] = useState(defaultRange.toDate)
   const [result, setResult] = useState<MemberKpiResult | null>(null)
   const [loading, setLoading] = useState(false)
 
-  useEffect(() => {
-    if (!clubId && clubs[0]?.clubId) setClubId(clubs[0].clubId)
-  }, [clubId, clubs])
-
-  function load() {
+  const load = useCallback(() => {
     if (!clubId) return
     setLoading(true)
     getMyKpiResult(clubId, { fromDate, toDate })
       .then(setResult)
       .catch(() => toast.error('Không thể tải KPI cá nhân.'))
       .finally(() => setLoading(false))
-  }
+  }, [clubId, fromDate, toDate])
 
   useEffect(() => {
-    load()
-  }, [clubId])
+    let cancelled = false
+    void (async () => {
+      await Promise.resolve()
+      if (cancelled || !clubId) return
+      setLoading(true)
+      getMyKpiResult(clubId, { fromDate, toDate })
+        .then(data => { if (!cancelled) setResult(data) })
+        .catch(() => { if (!cancelled) toast.error('Không thể tải KPI cá nhân.') })
+        .finally(() => { if (!cancelled) setLoading(false) })
+    })()
+    return () => { cancelled = true }
+  }, [clubId, fromDate, toDate])
 
   const accent = gradeAccent(result?.grade ?? '')
 
@@ -167,7 +174,7 @@ export default function MyKpiPage() {
       }}>
         <FilterSelect
           value={clubId?.toString() ?? ''}
-          onChange={value => setClubId(Number(value))}
+          onChange={value => setSelectedClubId(Number(value))}
           options={clubs.map(club => ({ value: String(club.clubId), label: club.clubName }))}
           style={{ width: 240 }}
           disabled={clubs.length === 0}

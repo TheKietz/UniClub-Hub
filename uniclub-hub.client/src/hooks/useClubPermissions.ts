@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { getMyClubPermissions } from '@/components/membership/services/clubApi'
-import { useAuth } from '@/contexts/AuthContext'
+import { useAuth } from '@/hooks/useAuth'
 import { CLUB_ROLES, MEMBERSHIP_STATUS } from '@/types/auth'
 
 type PermissionResult = {
@@ -26,31 +26,30 @@ export function useClubPermissions(clubId?: number | string | null): PermissionR
     [parsedClubId, user?.memberships]
   )
   const isClubAdmin = isSuperAdmin || activeMembership?.clubRole === CLUB_ROLES.CLUB_ADMIN
+  const shouldFetch = Boolean(parsedClubId && !Number.isNaN(parsedClubId) && !isClubAdmin)
 
   useEffect(() => {
-    if (!parsedClubId || Number.isNaN(parsedClubId) || isClubAdmin) {
-      setPermissionCodes([])
-      setLoading(false)
-      return
-    }
+    if (!shouldFetch) return
 
     let cancelled = false
-    setLoading(true)
-    getMyClubPermissions(parsedClubId)
-      .then(result => {
-        if (cancelled) return
-        setPermissionCodes(result.permissionCodes)
-      })
-      .catch(() => {
-        if (cancelled) return
-        setPermissionCodes([])
-      })
-      .finally(() => {
+
+    void (async () => {
+      await Promise.resolve()
+      if (cancelled) return
+
+      setLoading(true)
+      try {
+        const result = await getMyClubPermissions(parsedClubId)
+        if (!cancelled) setPermissionCodes(result.permissionCodes)
+      } catch {
+        if (!cancelled) setPermissionCodes([])
+      } finally {
         if (!cancelled) setLoading(false)
-      })
+      }
+    })()
 
     return () => { cancelled = true }
-  }, [isClubAdmin, parsedClubId])
+  }, [parsedClubId, shouldFetch])
 
   const permissionSet = useMemo(
     () => new Set(permissionCodes.map(code => code.toLowerCase())),

@@ -4,6 +4,7 @@ import { updateSupportRequest } from '@/components/membership/services/adminApi'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { toast } from 'sonner'
 import { D } from '@/components/shared/managementTheme'
+import { getApiErrorMessage } from '@/lib/apiError'
 
 interface Ticket {
   id: number
@@ -49,7 +50,15 @@ export default function SupportAdminPage() {
       .finally(() => setLoading(false))
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      await Promise.resolve()
+      if (cancelled) return
+      load()
+    })()
+    return () => { cancelled = true }
+  }, [])
 
   async function handleUpdate(newStatus: string) {
     if (!selected) return
@@ -59,8 +68,8 @@ export default function SupportAdminPage() {
       toast.success('Đã cập nhật trạng thái.')
       setSelected(null)
       load()
-    } catch (err: any) {
-      toast.error(err.response?.data?.message ?? 'Cập nhật thất bại.')
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'Cập nhật thất bại.'))
     } finally {
       setSaving(false)
     }

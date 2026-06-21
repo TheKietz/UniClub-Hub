@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useGoogleLogin } from '@react-oauth/google'
 import { Eye, EyeOff } from 'lucide-react'
-import { useAuth } from '@/contexts/AuthContext'
+import { useAuth } from '@/hooks/useAuth'
+import { getApiErrorMessage } from '@/lib/apiError'
 import { C } from '@/components/public/publicComponents'
 import { toast } from 'sonner'
 import api from '@/lib/axiosInstance'
@@ -83,8 +84,8 @@ export default function LoginPage() {
     try {
       const me = await login(email, password, rememberMe)
       navigate(redirectAfterLogin(me), { replace: true })
-    } catch (err: any) {
-      const msg = err.response?.data?.message ?? ''
+    } catch (err: unknown) {
+      const msg = getApiErrorMessage(err, '')
       if (msg === 'EMAIL_NOT_CONFIRMED') {
         setUnconfirmedEmail(email)
       } else {
@@ -114,8 +115,8 @@ export default function LoginPage() {
       try {
         const me = await googleLogin(tokenResponse.access_token)
         navigate(redirectAfterLogin(me), { replace: true })
-      } catch (err: any) {
-        toast.error(err.response?.data?.message ?? 'Đăng nhập Google thất bại.')
+      } catch (err: unknown) {
+        toast.error(getApiErrorMessage(err, 'Đăng nhập Google thất bại.'))
       } finally {
         setLoading(false)
       }

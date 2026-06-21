@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams, Link } from 'react-router-dom'
 import api from '@/lib/axiosInstance'
+import { getApiErrorMessage } from '@/lib/apiError'
 import { C } from '@/components/public/publicComponents'
 import AuthShell from './AuthShell'
 
@@ -17,22 +18,31 @@ export default function ConfirmEmailPage() {
   const [params] = useSearchParams()
   const email = params.get('email') ?? ''
   const token = params.get('token') ?? ''
-  const [status, setStatus] = useState<Status>('loading')
-  const [message, setMessage] = useState('')
+  const missingParams = !email || !token
+  const [status, setStatus] = useState<Status>(() => (missingParams ? 'error' : 'loading'))
+  const [message, setMessage] = useState(() => (missingParams ? 'Liên kết không hợp lệ hoặc đã hết hạn.' : ''))
 
   useEffect(() => {
-    if (!email || !token) { setStatus('error'); return }
-    api.get(`/auth/confirm-email?email=${encodeURIComponent(email)}&token=${encodeURIComponent(token)}`)
-      .then(res => {
-        const msg: string = res.data.message ?? ''
-        setStatus(msg.includes('trước đó') ? 'already' : 'success')
-        setMessage(msg)
-      })
-      .catch(err => {
-        setStatus('error')
-        setMessage(err.response?.data?.message ?? 'Liên kết xác thực không hợp lệ hoặc đã hết hạn.')
-      })
-  }, [email, token])
+    if (missingParams) return
+    let cancelled = false
+    void (async () => {
+      await Promise.resolve()
+      if (cancelled) return
+      api.get(`/auth/confirm-email?email=${encodeURIComponent(email)}&token=${encodeURIComponent(token)}`)
+        .then(res => {
+          if (cancelled) return
+          const msg: string = res.data.message ?? ''
+          setStatus(msg.includes('trước đó') ? 'already' : 'success')
+          setMessage(msg)
+        })
+        .catch(err => {
+          if (cancelled) return
+          setStatus('error')
+          setMessage(getApiErrorMessage(err, 'Liên kết xác thực không hợp lệ hoặc đã hết hạn.'))
+        })
+    })()
+    return () => { cancelled = true }
+  }, [email, token, missingParams])
 
   const s = STATE[status]
 

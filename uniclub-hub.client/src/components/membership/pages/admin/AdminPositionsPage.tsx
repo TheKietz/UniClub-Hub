@@ -12,7 +12,11 @@ export default function AdminPositionsPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    setLoading(true)
+    let cancelled = false
+    void (async () => {
+      await Promise.resolve()
+      if (cancelled) return
+      setLoading(true)
     getAdminClubs()
       .then(data => {
         setClubs(data)
@@ -20,6 +24,8 @@ export default function AdminPositionsPage() {
       })
       .catch(() => toast.error('Không thể tải danh sách CLB.'))
       .finally(() => setLoading(false))
+    })()
+    return () => { cancelled = true }
   }, [])
 
   const selectedClub = useMemo(

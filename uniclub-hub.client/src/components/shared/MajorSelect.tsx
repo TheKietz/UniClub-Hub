@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { ChevronDown } from 'lucide-react'
 import { UEF_MAJORS } from '@/lib/majors'
 
@@ -14,13 +14,10 @@ export default function MajorSelect({ value, onChange, onBlur, error, id }: Prop
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState(value)
   const [searching, setSearching] = useState(false)
+  const displayQuery = searching ? query : value
 
-  useEffect(() => {
-    if (!searching) setQuery(value)
-  }, [value, searching])
-
-  const filtered = searching && query.trim()
-    ? UEF_MAJORS.filter(m => m.toLowerCase().includes(query.toLowerCase()))
+  const filtered = searching && displayQuery.trim()
+    ? UEF_MAJORS.filter(m => m.toLowerCase().includes(displayQuery.toLowerCase()))
     : [...UEF_MAJORS]
 
   function handleInputChange(e: { target: { value: string } }) {
@@ -59,7 +56,7 @@ export default function MajorSelect({ value, onChange, onBlur, error, id }: Prop
       <input
         id={id}
         type="text"
-        value={query}
+        value={displayQuery}
         onChange={handleInputChange}
         onFocus={() => {
           setQuery(value)

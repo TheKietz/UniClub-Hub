@@ -10,6 +10,7 @@ import { D } from '@/components/shared/managementTheme'
 import { PermissionDenied } from '@/components/shared/Can'
 import { useClubPermissions } from '@/hooks/useClubPermissions'
 import { CLUB_PERMISSIONS } from '@/constants/clubPermissions'
+import { getApiErrorMessage } from '@/lib/apiError'
 
 const inputStyle: React.CSSProperties = {
   width: '100%', height: 36, borderRadius: 8, border: '1px solid #dce6f4',
@@ -81,11 +82,10 @@ export default function ClubSettingsPage() {
     return () => { if (previewUrl) URL.revokeObjectURL(previewUrl) }
   }, [previewUrl])
 
-  useEffect(() => {
-    if (clubPermissions.loading || allowedTabs.length === 0) return
-    if (!allowedTabs.some(tab => tab.key === activeTab)) {
-      setActiveTab(allowedTabs[0].key)
-    }
+  const resolvedTab = useMemo(() => {
+    if (clubPermissions.loading || allowedTabs.length === 0) return activeTab
+    if (allowedTabs.some(tab => tab.key === activeTab)) return activeTab
+    return allowedTabs[0].key
   }, [activeTab, allowedTabs, clubPermissions.loading])
 
   const field = (key: keyof typeof form) =>
@@ -143,8 +143,8 @@ export default function ClubSettingsPage() {
         logoUrl: logoUrl || null,
       })
       toast.success('Đã cập nhật thông tin CLB.')
-    } catch (err: any) {
-      toast.error(err.response?.data?.message ?? 'Cập nhật thất bại.')
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'Cập nhật thất bại.'))
     } finally {
       setSaving(false)
     }
@@ -152,7 +152,7 @@ export default function ClubSettingsPage() {
 
   if (!clubPermissions.loading && allowedTabs.length === 0)
     return <PermissionDenied />
-  if (!clubPermissions.loading && !allowedTabs.some(tab => tab.key === activeTab))
+  if (!clubPermissions.loading && !allowedTabs.some(tab => tab.key === resolvedTab))
     return <PermissionDenied />
 
   return (
@@ -167,10 +167,10 @@ export default function ClubSettingsPage() {
           {allowedTabs.map(tab => (
             <button key={tab.key} onClick={() => setActiveTab(tab.key)} style={{
               padding: '9px 18px', fontSize: 13,
-              fontWeight: activeTab === tab.key ? 700 : 500,
-              color: activeTab === tab.key ? D.ink : D.inkMuted,
+              fontWeight: resolvedTab === tab.key ? 700 : 500,
+              color: resolvedTab === tab.key ? D.ink : D.inkMuted,
               background: 'transparent', border: 'none',
-              borderBottom: `2.5px solid ${activeTab === tab.key ? D.indigo : 'transparent'}`,
+              borderBottom: `2.5px solid ${resolvedTab === tab.key ? D.indigo : 'transparent'}`,
               marginBottom: -2, cursor: 'pointer', fontFamily: 'inherit', transition: 'color .12s',
             }}>{tab.label}</button>
           ))}
@@ -178,7 +178,7 @@ export default function ClubSettingsPage() {
       </div>
 
       {/* Tab: Thông tin CLB */}
-      {activeTab === 'info' && (
+      {resolvedTab === 'info' && (
         loading ? (
           <div style={{ padding: '28px 32px', fontSize: 13, color: D.inkMuted }}>Đang tải...</div>
         ) : (
@@ -296,9 +296,9 @@ export default function ClubSettingsPage() {
         )
       )}
 
-      {activeTab === 'pipeline' && <PipelineSettingsPage />}
-      {activeTab === 'form' && <FormSchemaPage />}
-      {activeTab === 'fields' && <MemberFieldsPage />}
+      {resolvedTab === 'pipeline' && <PipelineSettingsPage />}
+      {resolvedTab === 'form' && <FormSchemaPage />}
+      {resolvedTab === 'fields' && <MemberFieldsPage />}
     </div>
   )
 }

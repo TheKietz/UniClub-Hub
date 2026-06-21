@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { getClubDetail, getDepartments, getFormSchema, getMemberFieldSchema, getMyApplications, submitApplication, resignFromClub, submitResignation, getUserResignations, uploadApplicationFile } from '@/components/membership/services/clubApi'
 import type { ClubDetail, DepartmentItem, FormSchema, MemberFieldDef, ApplicationItem, ResignationRequestItem, ResignationPreference } from '@/components/membership/services/club.types'
-import { useAuth } from '@/contexts/AuthContext'
+import { useAuth } from '@/hooks/useAuth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -13,6 +13,7 @@ import { Tree, TreeNode } from 'react-organizational-chart'
 import PublicHeader from '@/components/layouts/PublicHeader'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { FilterSelect } from '@/components/shared/FilterSelect'
+import { getApiErrorMessage } from '@/lib/apiError'
 
 const AVATAR_COLORS = ['bg-indigo-500', 'bg-emerald-500', 'bg-violet-500', 'bg-rose-500', 'bg-amber-500', 'bg-cyan-500']
 
@@ -69,8 +70,8 @@ export default function ClubDetailPage() {
       await resignFromClub(id)
       toast.success('Đã rời khỏi CLB.')
       navigate('/clubs')
-    } catch (err: any) {
-      toast.error(err.response?.data?.message ?? 'Thao tác thất bại.')
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'Thao tác thất bại.'))
       setResignOpen(false)
     } finally {
       setResigning(false)
@@ -84,35 +85,42 @@ export default function ClubDetailPage() {
       setResignRequest(result)
       setResignOpen(false)
       toast.success('Đã gửi đơn từ chức. Vui lòng chờ phê duyệt.')
-    } catch (err: any) {
-      toast.error(err.response?.data?.message ?? 'Gửi đơn thất bại.')
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'Gửi đơn thất bại.'))
     } finally {
       setResigning(false)
     }
   }
 
   useEffect(() => {
-    const tasks: Promise<any>[] = [
-      getClubDetail(id).then(setClub),
-      getDepartments(id).then(setDepartments),
-      getFormSchema(id).then(s => setSchema(s)),
-      getMemberFieldSchema(id).then(setFieldSchema).catch(() => {}),
-    ]
-    if (isAuthenticated) {
-      tasks.push(
-        getMyApplications(id)
-          .then(apps => {
-            const latest = apps.sort((a, b) =>
-              new Date(b.appliedAt).getTime() - new Date(a.appliedAt).getTime()
-            )[0]
-            if (latest) setApplication(latest)
-          })
-          .catch(() => { })
-      )
-    }
-    Promise.all(tasks)
-      .catch(() => toast.error('Không thể tải thông tin CLB.'))
-      .finally(() => setLoading(false))
+    let cancelled = false
+    void (async () => {
+      await Promise.resolve()
+      if (cancelled) return
+      setLoading(true)
+      const tasks: Promise<void>[] = [
+        getClubDetail(id).then(setClub),
+        getDepartments(id).then(setDepartments),
+        getFormSchema(id).then(s => setSchema(s)),
+        getMemberFieldSchema(id).then(setFieldSchema).catch(() => {}),
+      ]
+      if (isAuthenticated) {
+        tasks.push(
+          getMyApplications(id)
+            .then(apps => {
+              const latest = apps.sort((a, b) =>
+                new Date(b.appliedAt).getTime() - new Date(a.appliedAt).getTime()
+              )[0]
+              if (latest) setApplication(latest)
+            })
+            .catch(() => { })
+        )
+      }
+      Promise.all(tasks)
+        .catch(() => { if (!cancelled) toast.error('Không thể tải thông tin CLB.') })
+        .finally(() => { if (!cancelled) setLoading(false) })
+    })()
+    return () => { cancelled = true }
   }, [id, isAuthenticated])
 
   async function handleSubmit(e: React.FormEvent) {
@@ -154,8 +162,8 @@ export default function ClubDetailPage() {
       })
       setSubmitted(true)
       toast.success('Đã gửi đơn đăng ký thành công!')
-    } catch (err: any) {
-      toast.error(err.response?.data?.message ?? 'Gửi đơn thất bại.')
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'Gửi đơn thất bại.'))
     } finally {
       setSubmitting(false)
       setSubmitStatus('idle')

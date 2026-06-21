@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { useParams } from 'react-router-dom'
 import { getClubMembers, getClubMembersPage, addMember, updateMember, removeMember, getDepartments, getMemberFieldSchema, updateMemberCustomData, suggestMemberRole, promoteMember, importMembersPreview, importMembersConfirm, exportMembers } from '@/components/membership/services/clubApi'
 import type { MemberListQuery } from '@/components/membership/services/clubApi'
@@ -15,6 +15,7 @@ import { LoadMoreBar } from '@/components/shared/LoadMoreBar'
 import { D } from '@/components/shared/managementTheme'
 import { PermissionDenied } from '@/components/shared/Can'
 import { useClubPermissions } from '@/hooks/useClubPermissions'
+import { getApiErrorMessage } from '@/lib/apiError'
 
 const PAGE_SIZE = 20
 
@@ -106,12 +107,12 @@ export default function MembersPage() {
     return () => window.clearTimeout(timer)
   }, [search])
 
-  function departmentQueryValue() {
+  const departmentQueryValue = useCallback(() => {
     if (!deptFilter) return undefined
     return deptFilter === '__none__' ? -1 : Number(deptFilter)
-  }
+  }, [deptFilter])
 
-  function buildQuery(pageNumber: number): MemberListQuery {
+  const buildQuery = useCallback((pageNumber: number): MemberListQuery => {
     return {
       page: pageNumber,
       pageSize: PAGE_SIZE,
@@ -122,18 +123,16 @@ export default function MembersPage() {
       sortBy,
       sortDir,
     }
-  }
+  }, [debouncedSearch, roleFilter, statusFilter, departmentQueryValue, sortBy, sortDir])
 
-  function querySignature() {
-    return JSON.stringify({
-      search: debouncedSearch || '',
-      role: roleFilter || '',
-      status: statusFilter || '',
-      departmentId: departmentQueryValue() ?? '',
-      sortBy,
-      sortDir,
-    })
-  }
+  const querySignature = useMemo(() => JSON.stringify({
+    search: debouncedSearch || '',
+    role: roleFilter || '',
+    status: statusFilter || '',
+    departmentId: departmentQueryValue() ?? '',
+    sortBy,
+    sortDir,
+  }), [debouncedSearch, roleFilter, statusFilter, departmentQueryValue, sortBy, sortDir])
 
   useEffect(() => {
     let cancelled = false
@@ -154,49 +153,49 @@ export default function MembersPage() {
   }, [id, refreshKey])
 
   useEffect(() => {
-    const signature = querySignature()
-    latestQueryKey.current = signature
+    latestQueryKey.current = querySignature
     let cancelled = false
-
-    setLoading(true)
-    setLoadingMore(false)
-    setMembers([])
-    setPage(1)
-    getClubMembersPage(id, buildQuery(1))
-      .then(r => {
-        if (cancelled || latestQueryKey.current !== signature) return
-        setMembers(r.items)
-        setTotalMembers(r.totalCount)
-      })
-      .catch(() => {
-        if (!cancelled && latestQueryKey.current === signature)
-          toast.error('Không thể tải danh sách thành viên.')
-      })
-      .finally(() => {
-        if (!cancelled && latestQueryKey.current === signature)
-          setLoading(false)
-      })
-
+    void (async () => {
+      await Promise.resolve()
+      if (cancelled) return
+      setLoading(true)
+      setLoadingMore(false)
+      setMembers([])
+      setPage(1)
+      getClubMembersPage(id, buildQuery(1))
+        .then(r => {
+          if (cancelled || latestQueryKey.current !== querySignature) return
+          setMembers(r.items)
+          setTotalMembers(r.totalCount)
+        })
+        .catch(() => {
+          if (!cancelled && latestQueryKey.current === querySignature)
+            toast.error('Không thể tải danh sách thành viên.')
+        })
+        .finally(() => {
+          if (!cancelled && latestQueryKey.current === querySignature)
+            setLoading(false)
+        })
+    })()
     return () => { cancelled = true }
-  }, [id, refreshKey, debouncedSearch, roleFilter, statusFilter, deptFilter, sortBy, sortDir])
+  }, [id, refreshKey, querySignature, buildQuery])
 
   function loadMore() {
     const nextPage = page + 1
-    const signature = querySignature()
     setLoadingMore(true)
     getClubMembersPage(id, buildQuery(nextPage))
       .then(r => {
-        if (latestQueryKey.current !== signature) return
+        if (latestQueryKey.current !== querySignature) return
         setMembers(prev => [...prev, ...r.items])
         setTotalMembers(r.totalCount)
         setPage(nextPage)
       })
       .catch(() => {
-        if (latestQueryKey.current === signature)
+        if (latestQueryKey.current === querySignature)
           toast.error('Tải thêm thất bại.')
       })
       .finally(() => {
-        if (latestQueryKey.current === signature)
+        if (latestQueryKey.current === querySignature)
           setLoadingMore(false)
       })
   }
@@ -223,8 +222,8 @@ export default function MembersPage() {
       setAddOpen(false)
       setAddForm({ userId: '', clubRole: CLUB_ROLES.MEMBER, departmentId: '' })
       setRefreshKey(k => k + 1)
-    } catch (err: any) {
-      toast.error(err.response?.data?.message ?? 'Thêm thất bại.')
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'Thêm thất bại.'))
     } finally {
       setSaving(false)
     }
@@ -244,8 +243,8 @@ export default function MembersPage() {
     try {
       const result = await suggestMemberRole(id, member.id)
       setRoleSuggestion(result)
-    } catch (err: any) {
-      toast.error(err.response?.data?.message ?? 'Không thể tạo gợi ý vai trò.')
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'Không thể tạo gợi ý vai trò.'))
       setAiTarget(null)
     } finally {
       setRoleSuggestionLoading(false)
@@ -281,8 +280,8 @@ export default function MembersPage() {
       toast.success('Đã cập nhật thông tin thành viên.')
       setEditTarget(null)
       setRefreshKey(k => k + 1)
-    } catch (err: any) {
-      const msg: string = err.response?.data?.message ?? ''
+    } catch (err: unknown) {
+      const msg = getApiErrorMessage(err, '')
       if (msg.startsWith('LAST_CLUB_ADMIN')) {
         setLastAdminModal({ action: 'update', membershipId: editTarget.id, memberName: editTarget.fullName ?? editTarget.email, updateDto: editForm })
         setEditTarget(null)
@@ -299,8 +298,8 @@ export default function MembersPage() {
       await promoteMember(id, membershipId)
       toast.success('Đã xác nhận thành viên chính thức.')
       setRefreshKey(k => k + 1)
-    } catch (err: any) {
-      toast.error(err.response?.data?.message ?? 'Xác nhận thất bại.')
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'Xác nhận thất bại.'))
     }
   }
 
@@ -310,8 +309,8 @@ export default function MembersPage() {
       const preview = await importMembersPreview(id, file)
       setImportPreview(preview)
       setImportStep('preview')
-    } catch (err: any) {
-      toast.error(err.response?.data?.message ?? 'Không thể đọc file. Kiểm tra định dạng.')
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'Không thể đọc file. Kiểm tra định dạng.'))
     } finally {
       setImporting(false)
     }
@@ -329,8 +328,8 @@ export default function MembersPage() {
       setImportStep('done')
       setRefreshKey(k => k + 1)
       toast.success(`Đã thêm ${result.imported} thành viên.`)
-    } catch (err: any) {
-      toast.error(err.response?.data?.message ?? 'Import thất bại.')
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'Import thất bại.'))
     } finally {
       setImporting(false)
     }
@@ -351,8 +350,8 @@ export default function MembersPage() {
       toast.success('Đã xoá thành viên khỏi CLB.')
       setRemoveTarget(null)
       setRefreshKey(k => k + 1)
-    } catch (err: any) {
-      const msg: string = err.response?.data?.message ?? ''
+    } catch (err: unknown) {
+      const msg = getApiErrorMessage(err, '')
       if (msg.startsWith('LAST_CLUB_ADMIN')) {
         setLastAdminModal({ action: 'remove', membershipId: removeTarget.id, memberName: removeTarget.fullName ?? removeTarget.email })
         setRemoveTarget(null)
@@ -383,8 +382,8 @@ export default function MembersPage() {
       setLastAdminModal(null)
       setReplacementId('')
       setRefreshKey(k => k + 1)
-    } catch (err: any) {
-      toast.error(err.response?.data?.message ?? 'Thao tác thất bại.')
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'Thao tác thất bại.'))
     } finally {
       setForceLoading(false)
     }

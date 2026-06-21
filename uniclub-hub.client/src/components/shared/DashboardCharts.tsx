@@ -84,21 +84,24 @@ export function MiniDonut({ segments, size = 120, thickness = 22 }: {
   if (total === 0) return null
   const r = (size - thickness) / 2
   const circ = 2 * Math.PI * r
-  let offset = 0
+  const segmentOffsets = segments.reduce<{ dash: number; offset: number }[]>((acc, seg) => {
+    const dash = (seg.val / total) * circ
+    const offset = acc.length > 0 ? acc[acc.length - 1].offset + acc[acc.length - 1].dash : 0
+    acc.push({ dash, offset })
+    return acc
+  }, [])
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}
       style={{ transform: 'rotate(-90deg)', flexShrink: 0 }}>
       {segments.map((seg, i) => {
-        const dash = (seg.val / total) * circ
-        const el = (
+        const { dash, offset } = segmentOffsets[i]
+        return (
           <circle key={i} cx={size / 2} cy={size / 2} r={r}
             fill="none" stroke={seg.color} strokeWidth={thickness}
             strokeDasharray={`${dash} ${circ - dash}`} strokeDashoffset={-offset}
             strokeLinecap="round"
           />
         )
-        offset += dash
-        return el
       })}
     </svg>
   )

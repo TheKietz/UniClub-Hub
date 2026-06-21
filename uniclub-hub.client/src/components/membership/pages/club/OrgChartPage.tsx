@@ -147,22 +147,27 @@ export default function OrgChartPage() {
   const chartRef     = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const dragRef      = useRef<{ x: number; y: number; sl: number; st: number } | null>(null)
+  const [isDragging, setIsDragging] = useState(false)
 
   useEffect(() => {
     if (clubPermissions.loading || !canView) return
     let ignore = false
-    setLoading(true)
-    Promise.all([getClubDetail(id), getDepartments(id), getClubMembers(id)])
-      .then(([c, d, m]) => {
-        if (ignore) return
-        setClub(c); setDepartments(d); setMembers(m)
-      })
-      .catch(() => {
-        if (!ignore) toast.error('Không thể tải dữ liệu sơ đồ.')
-      })
-      .finally(() => {
-        if (!ignore) setLoading(false)
-      })
+    void (async () => {
+      await Promise.resolve()
+      if (ignore) return
+      setLoading(true)
+      Promise.all([getClubDetail(id), getDepartments(id), getClubMembers(id)])
+        .then(([c, d, m]) => {
+          if (ignore) return
+          setClub(c); setDepartments(d); setMembers(m)
+        })
+        .catch(() => {
+          if (!ignore) toast.error('Không thể tải dữ liệu sơ đồ.')
+        })
+        .finally(() => {
+          if (!ignore) setLoading(false)
+        })
+    })()
     return () => { ignore = true }
   }, [id, clubPermissions.loading, canView])
 
@@ -189,7 +194,12 @@ export default function OrgChartPage() {
     )
 
   const toggleCollapse = (deptId: number) =>
-    setCollapsed(prev => { const n = new Set(prev); n.has(deptId) ? n.delete(deptId) : n.add(deptId); return n })
+    setCollapsed(prev => {
+      const n = new Set(prev)
+      if (n.has(deptId)) n.delete(deptId)
+      else n.add(deptId)
+      return n
+    })
 
   /* Fit chart to container */
   function fitToScreen() {
@@ -231,6 +241,7 @@ export default function OrgChartPage() {
   function onPointerDown(e: React.PointerEvent) {
     if (!containerRef.current) return
     dragRef.current = { x: e.clientX, y: e.clientY, sl: containerRef.current.scrollLeft, st: containerRef.current.scrollTop }
+    setIsDragging(true)
     containerRef.current.setPointerCapture(e.pointerId)
   }
   function onPointerMove(e: React.PointerEvent) {
@@ -238,7 +249,7 @@ export default function OrgChartPage() {
     containerRef.current.scrollLeft = dragRef.current.sl - (e.clientX - dragRef.current.x)
     containerRef.current.scrollTop  = dragRef.current.st - (e.clientY - dragRef.current.y)
   }
-  function onPointerUp() { dragRef.current = null }
+  function onPointerUp() { dragRef.current = null; setIsDragging(false) }
 
   const DeptSubtree = ({ dept, index }: { dept: DepartmentItem; index: number }) => {
     const lead    = deptLead(dept.id)
@@ -356,7 +367,7 @@ export default function OrgChartPage() {
         style={{
           background: D.card, border: D.border, borderRadius: D.radius, boxShadow: D.shadow(),
           overflow: 'auto', flex: 1, minHeight: 400,
-          cursor: dragRef.current ? 'grabbing' : 'grab',
+          cursor: isDragging ? 'grabbing' : 'grab',
         }}
       >
         <div

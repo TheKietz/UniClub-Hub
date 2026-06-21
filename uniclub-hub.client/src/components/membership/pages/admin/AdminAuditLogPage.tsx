@@ -106,7 +106,11 @@ export default function AdminAuditLogPage() {
   const dateRange = getDateRange(datePreset)
 
   useEffect(() => {
-    setLoading(true)
+    let cancelled = false
+    void (async () => {
+      await Promise.resolve()
+      if (cancelled) return
+      setLoading(true)
     setLogs([])
     setPage(1)
     getAdminAuditLogs({
@@ -119,7 +123,9 @@ export default function AdminAuditLogPage() {
       .then(res => { setLogs(res.items); setTotal(res.totalCount) })
       .catch(() => toast.error('Không thể tải lịch sử thay đổi.'))
       .finally(() => setLoading(false))
-  }, [module, action, datePreset, search])
+    })()
+    return () => { cancelled = true }
+  }, [module, action, datePreset, search, dateRange])
 
   function loadMore() {
     const nextPage = page + 1

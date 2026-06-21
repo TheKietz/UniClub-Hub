@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { getUsers, lockUser, unlockUser, deleteUser, createUser, changeUserRole, importUsersPreview, importUsersConfirm, exportUsers } from '@/components/membership/services/adminApi'
 import type { UserListQuery } from '@/components/membership/services/adminApi'
 import type { UserItem, UserImportPreview } from '@/components/membership/services/admin.types'
@@ -12,6 +12,7 @@ import { Trash2, LockKeyhole, LockKeyholeOpen, ShieldCheck, ShieldOff, Upload, D
 import { FilterSelect } from '@/components/shared/FilterSelect'
 import { LoadMoreBar } from '@/components/shared/LoadMoreBar'
 import { D } from '@/components/shared/managementTheme'
+import { getApiErrorMessage } from '@/lib/apiError'
 
 const PAGE_SIZE = 20
 
@@ -71,8 +72,8 @@ export default function UsersPage() {
       const preview = await importUsersPreview(file)
       setImportPreview(preview)
       setImportStep('preview')
-    } catch (err: any) {
-      toast.error(err.response?.data?.message ?? 'Không thể đọc file. Kiểm tra định dạng.')
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'Không thể đọc file. Kiểm tra định dạng.'))
     } finally {
       setImporting(false)
     }
@@ -89,8 +90,8 @@ export default function UsersPage() {
       setImportResult(result)
       setImportStep('done')
       setRefreshKey(k => k + 1)
-    } catch (err: any) {
-      toast.error(err.response?.data?.message ?? 'Import thất bại.')
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'Import thất bại.'))
     } finally {
       setImporting(false)
     }
@@ -101,7 +102,7 @@ export default function UsersPage() {
     return () => window.clearTimeout(timer)
   }, [search])
 
-  function buildQuery(pageNumber: number): UserListQuery {
+  const buildQuery = useCallback((pageNumber: number): UserListQuery => {
     return {
       page: pageNumber,
       pageSize: PAGE_SIZE,
@@ -111,61 +112,59 @@ export default function UsersPage() {
       sortBy,
       sortDir,
     }
-  }
+  }, [debouncedSearch, statusFilter, roleFilter, sortBy, sortDir])
 
-  function querySignature() {
-    return JSON.stringify({
-      search: debouncedSearch || '',
-      status: statusFilter || '',
-      role: roleFilter || '',
-      sortBy,
-      sortDir,
-    })
-  }
+  const querySignature = useMemo(() => JSON.stringify({
+    search: debouncedSearch || '',
+    status: statusFilter || '',
+    role: roleFilter || '',
+    sortBy,
+    sortDir,
+  }), [debouncedSearch, statusFilter, roleFilter, sortBy, sortDir])
 
   useEffect(() => {
-    const signature = querySignature()
-    latestQueryKey.current = signature
+    latestQueryKey.current = querySignature
     let cancelled = false
-
-    setLoading(true)
-    setLoadingMore(false)
-    setUsers([])
-    setPage(1)
-    getUsers(buildQuery(1))
-      .then(r => {
-        if (cancelled || latestQueryKey.current !== signature) return
-        setUsers(r.items)
-        setTotalUsers(r.totalCount)
-      })
-      .catch(() => {
-        if (!cancelled && latestQueryKey.current === signature)
-          toast.error('Không thể tải danh sách người dùng.')
-      })
-      .finally(() => {
-        if (!cancelled && latestQueryKey.current === signature)
-          setLoading(false)
-      })
-
+    void (async () => {
+      await Promise.resolve()
+      if (cancelled) return
+      setLoading(true)
+      setLoadingMore(false)
+      setUsers([])
+      setPage(1)
+      getUsers(buildQuery(1))
+        .then(r => {
+          if (cancelled || latestQueryKey.current !== querySignature) return
+          setUsers(r.items)
+          setTotalUsers(r.totalCount)
+        })
+        .catch(() => {
+          if (!cancelled && latestQueryKey.current === querySignature)
+            toast.error('Không thể tải danh sách người dùng.')
+        })
+        .finally(() => {
+          if (!cancelled && latestQueryKey.current === querySignature)
+            setLoading(false)
+        })
+    })()
     return () => { cancelled = true }
-  }, [refreshKey, debouncedSearch, statusFilter, roleFilter, sortBy, sortDir])
+  }, [refreshKey, querySignature, buildQuery])
 
   function loadMore() {
     const nextPage = page + 1
-    const signature = querySignature()
     setLoadingMore(true)
     getUsers(buildQuery(nextPage))
       .then(r => {
-        if (latestQueryKey.current !== signature) return
+        if (latestQueryKey.current !== querySignature) return
         setUsers(prev => [...prev, ...r.items])
         setPage(nextPage)
       })
       .catch(() => {
-        if (latestQueryKey.current === signature)
+        if (latestQueryKey.current === querySignature)
           toast.error('Tải thêm thất bại.')
       })
       .finally(() => {
-        if (latestQueryKey.current === signature)
+        if (latestQueryKey.current === querySignature)
           setLoadingMore(false)
       })
   }
@@ -183,8 +182,8 @@ export default function UsersPage() {
       setAddOpen(false)
       setForm(EMPTY_FORM)
       setRefreshKey(k => k + 1)
-    } catch (err: any) {
-      toast.error(err.response?.data?.message ?? 'Tạo tài khoản thất bại.')
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'Tạo tài khoản thất bại.'))
     } finally {
       setSaving(false)
     }
@@ -199,8 +198,8 @@ export default function UsersPage() {
       await changeUserRole(user.id, newRole)
       toast.success(`Đã ${label}.`)
       setRefreshKey(k => k + 1)
-    } catch (err: any) {
-      toast.error(err.response?.data?.message ?? 'Thao tác thất bại.')
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'Thao tác thất bại.'))
     }
   }
 

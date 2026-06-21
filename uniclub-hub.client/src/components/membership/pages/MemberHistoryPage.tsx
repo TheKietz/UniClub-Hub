@@ -86,7 +86,8 @@ function HistoryCard({ h }: { h: MembershipHistory }) {
   const color = CLUB_COLORS[(h.clubName?.charCodeAt(0) ?? 0) % CLUB_COLORS.length]
   const statusStyle = STATUS_STYLE[h.status] ?? STATUS_STYLE.Resigned
   const isResigned = h.status === MEMBERSHIP_STATUS.RESIGNED
-  const daysIn = Math.floor((Date.now() - new Date(h.joinedDate).getTime()) / (1000 * 60 * 60 * 24))
+  const [now] = useState(() => Date.now())
+  const daysIn = Math.floor((now - new Date(h.joinedDate).getTime()) / (1000 * 60 * 60 * 24))
 
   return (
     <div style={{

@@ -1,5 +1,5 @@
 import { APPLICATION_STATUS } from '@/types/auth'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { useParams } from 'react-router-dom'
 import { getApplications, getApplicationsPage, reviewApplication, getMemberFieldSchema, advanceApplicationStage, getPipelineStages, exportApplications } from '@/components/membership/services/clubApi'
 import type { ApplicationListQuery } from '@/components/membership/services/clubApi'
@@ -13,6 +13,7 @@ import { CLUB_PERMISSIONS } from '@/constants/clubPermissions'
 import { D } from '@/components/shared/managementTheme'
 import { PermissionDenied } from '@/components/shared/Can'
 import { useClubPermissions } from '@/hooks/useClubPermissions'
+import { getApiErrorMessage } from '@/lib/apiError'
 
 const PAGE_SIZE = 20
 
@@ -80,7 +81,7 @@ export default function ApplicationsPage() {
     return () => window.clearTimeout(timer)
   }, [search])
 
-  function buildQuery(pageNumber: number): ApplicationListQuery {
+  const buildQuery = useCallback((pageNumber: number): ApplicationListQuery => {
     return {
       page: pageNumber,
       pageSize: PAGE_SIZE,
@@ -92,63 +93,61 @@ export default function ApplicationsPage() {
       sortBy: 'appliedAt',
       sortDir,
     }
-  }
+  }, [debouncedSearch, statusFilter, stageFilter, dateFrom, dateTo, sortDir])
 
-  function querySignature() {
-    return JSON.stringify({
-      search: debouncedSearch || '',
-      status: statusFilter || '',
-      stageId: stageFilter || '',
-      dateFrom: dateFrom || '',
-      dateTo: dateTo || '',
-      sortDir,
-    })
-  }
+  const querySignature = useMemo(() => JSON.stringify({
+    search: debouncedSearch || '',
+    status: statusFilter || '',
+    stageId: stageFilter || '',
+    dateFrom: dateFrom || '',
+    dateTo: dateTo || '',
+    sortDir,
+  }), [debouncedSearch, statusFilter, stageFilter, dateFrom, dateTo, sortDir])
 
   useEffect(() => {
-    const signature = querySignature()
-    latestQueryKey.current = signature
+    latestQueryKey.current = querySignature
     let cancelled = false
-
-    setLoading(true)
-    setLoadingMore(false)
-    setApplications([])
-    setPage(1)
-    getApplicationsPage(id, buildQuery(1))
-      .then(r => {
-        if (cancelled || latestQueryKey.current !== signature) return
-        setApplications(r.items)
-        setTotalApplications(r.totalCount)
-      })
-      .catch(() => {
-        if (!cancelled && latestQueryKey.current === signature)
-          toast.error('Không thể tải danh sách đơn.')
-      })
-      .finally(() => {
-        if (!cancelled && latestQueryKey.current === signature)
-          setLoading(false)
-      })
-
+    void (async () => {
+      await Promise.resolve()
+      if (cancelled) return
+      setLoading(true)
+      setLoadingMore(false)
+      setApplications([])
+      setPage(1)
+      getApplicationsPage(id, buildQuery(1))
+        .then(r => {
+          if (cancelled || latestQueryKey.current !== querySignature) return
+          setApplications(r.items)
+          setTotalApplications(r.totalCount)
+        })
+        .catch(() => {
+          if (!cancelled && latestQueryKey.current === querySignature)
+            toast.error('Không thể tải danh sách đơn.')
+        })
+        .finally(() => {
+          if (!cancelled && latestQueryKey.current === querySignature)
+            setLoading(false)
+        })
+    })()
     return () => { cancelled = true }
-  }, [id, refreshKey, debouncedSearch, statusFilter, stageFilter, dateFrom, dateTo, sortDir])
+  }, [id, refreshKey, querySignature, buildQuery])
 
   function loadMore() {
     const nextPage = page + 1
-    const signature = querySignature()
     setLoadingMore(true)
     getApplicationsPage(id, buildQuery(nextPage))
       .then(r => {
-        if (latestQueryKey.current !== signature) return
+        if (latestQueryKey.current !== querySignature) return
         setApplications(prev => [...prev, ...r.items])
         setTotalApplications(r.totalCount)
         setPage(nextPage)
       })
       .catch(() => {
-        if (latestQueryKey.current === signature)
+        if (latestQueryKey.current === querySignature)
           toast.error('Tải thêm thất bại.')
       })
       .finally(() => {
-        if (latestQueryKey.current === signature)
+        if (latestQueryKey.current === querySignature)
           setLoadingMore(false)
       })
   }
@@ -174,8 +173,8 @@ export default function ApplicationsPage() {
       toast.success(`Đã cập nhật: ${STATUS_CONFIG[status]?.label ?? status}`)
       setSelected(null)
       setRefreshKey(k => k + 1)
-    } catch (err: any) {
-      toast.error(err.response?.data?.message ?? 'Thao tác thất bại.')
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'Thao tác thất bại.'))
     } finally {
       setReviewing(false)
     }
@@ -189,8 +188,8 @@ export default function ApplicationsPage() {
       toast.success(`Đã chuyển sang vòng: ${updated.currentStageName}`)
       setSelected(null)
       setRefreshKey(k => k + 1)
-    } catch (err: any) {
-      toast.error(err.response?.data?.message ?? 'Chuyển vòng thất bại.')
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'Chuyển vòng thất bại.'))
     } finally {
       setReviewing(false)
     }
