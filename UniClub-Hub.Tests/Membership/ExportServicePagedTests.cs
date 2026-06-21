@@ -1,6 +1,8 @@
 using System.Text;
+using Moq;
 using UniClub_Hub.Membership.DTOs.Common;
 using UniClub_Hub.Membership.Services.Implements;
+using UniClub_Hub.Membership.Services.Interfaces;
 using UniClub_Hub.Shared.Enums;
 using UniClub_Hub.Tests.Infrastructure;
 using Xunit;
@@ -28,11 +30,20 @@ public class ExportServicePagedTests : DbTestBase
         }
         await db.SaveChangesAsync();
 
-        var service = new ExportService(db);
+        var permissions = new Mock<IClubPermissionService>();
+        permissions.Setup(p => p.EnsureHasPermissionAsync(
+            It.IsAny<int>(),
+            It.IsAny<string>(),
+            It.IsAny<bool>(),
+            It.IsAny<string>()))
+            .Returns(Task.CompletedTask);
+        var service = new ExportService(db, permissions.Object);
 
         var (content, contentType, fileName) = await service.ExportMembersAsync(
             1,
             "csv",
+            "admin",
+            isSuperAdmin: true,
             new MemberListQuery { Status = "Active", Page = 1, PageSize = 1 });
         var csv = Encoding.UTF8.GetString(content);
 

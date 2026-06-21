@@ -4,7 +4,6 @@ using Microsoft.AspNetCore.Mvc;
 using UniClub_Hub.Membership.DTOs.Common;
 using UniClub_Hub.Membership.Services.Interfaces;
 using UniClub_Hub.Shared.Common;
-using UniClub_Hub.Shared.Constants;
 
 namespace UniClub_Hub.Server.Controllers.Membership
 {
@@ -14,12 +13,10 @@ namespace UniClub_Hub.Server.Controllers.Membership
     public class ExportController : ControllerBase
     {
         private readonly IExportService _exportService;
-        private readonly IClubPermissionService _permissions;
 
-        public ExportController(IExportService exportService, IClubPermissionService permissions)
+        public ExportController(IExportService exportService)
         {
             _exportService = exportService;
-            _permissions = permissions;
         }
 
         /// <summary>
@@ -37,15 +34,14 @@ namespace UniClub_Hub.Server.Controllers.Membership
             [FromQuery] string sortDir = "asc"
         )
         {
-            var authResult = await AuthorizeClubAsync(clubId, ClubPermissions.MemberImportExport);
-            if (authResult != null)
-                return authResult;
-
             try
             {
+                var (userId, isSuperAdmin) = GetRequester();
                 var (content, contentType, fileName) = await _exportService.ExportMembersAsync(
                     clubId,
                     format.ToLower(),
+                    userId,
+                    isSuperAdmin,
                     new MemberListQuery
                     {
                         Search = search,
@@ -58,6 +54,7 @@ namespace UniClub_Hub.Server.Controllers.Membership
                 );
                 return File(content, contentType, fileName);
             }
+            catch (UnauthorizedAccessException) { return Forbid(); }
             catch (KeyNotFoundException ex)
             {
                 return NotFound(ApiResponse<object>.Fail(ex.Message));
@@ -80,16 +77,15 @@ namespace UniClub_Hub.Server.Controllers.Membership
             [FromQuery] string sortDir = "desc"
         )
         {
-            var authResult = await AuthorizeClubAsync(clubId, ClubPermissions.ApplicationsView);
-            if (authResult != null)
-                return authResult;
-
             try
             {
+                var (userId, isSuperAdmin) = GetRequester();
                 var (content, contentType, fileName) = await _exportService.ExportApplicationsAsync(
                     clubId,
                     status,
                     format.ToLower(),
+                    userId,
+                    isSuperAdmin,
                     new ApplicationListQuery
                     {
                         Search = search,
@@ -103,6 +99,7 @@ namespace UniClub_Hub.Server.Controllers.Membership
                 );
                 return File(content, contentType, fileName);
             }
+            catch (UnauthorizedAccessException) { return Forbid(); }
             catch (KeyNotFoundException ex)
             {
                 return NotFound(ApiResponse<object>.Fail(ex.Message));
@@ -155,13 +152,7 @@ namespace UniClub_Hub.Server.Controllers.Membership
             return File(content, contentType, fileName);
         }
 
-        private async Task<IActionResult?> AuthorizeClubAsync(int clubId, string permissionCode)
-        {
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
-            var isSuperAdmin = User.IsInRole("SUPER_ADMIN");
-            return await _permissions.HasPermissionAsync(clubId, userId, isSuperAdmin, permissionCode)
-                ? null
-                : Forbid();
-        }
+        private (string UserId, bool IsSuperAdmin) GetRequester() =>
+            (User.FindFirstValue(ClaimTypes.NameIdentifier)!, User.IsInRole("SUPER_ADMIN"));
     }
 }

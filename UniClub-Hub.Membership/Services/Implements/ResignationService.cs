@@ -12,11 +12,16 @@ namespace UniClub_Hub.Membership.Services.Implements
     {
         private readonly UniClubDbContext _db;
         private readonly INotificationDispatchService _dispatch;
+        private readonly IClubPermissionService _permissions;
 
-        public ResignationService(UniClubDbContext db, INotificationDispatchService dispatch)
+        public ResignationService(
+            UniClubDbContext db,
+            INotificationDispatchService dispatch,
+            IClubPermissionService permissions)
         {
             _db = db;
             _dispatch = dispatch;
+            _permissions = permissions;
         }
 
         public async Task<ResignationRequestDto> SubmitAsync(int clubId, string userId, SubmitResignationDto dto)
@@ -94,8 +99,17 @@ namespace UniClub_Hub.Membership.Services.Implements
             return requests.Select(r => ToDto(r, r.ReviewerId != null ? reviewers.GetValueOrDefault(r.ReviewerId) : null));
         }
 
-        public async Task<IEnumerable<ResignationRequestDto>> GetByClubAsync(int clubId)
+        public async Task<IEnumerable<ResignationRequestDto>> GetByClubAsync(
+            int clubId,
+            string requesterUserId,
+            bool isSuperAdmin)
         {
+            await _permissions.EnsureHasPermissionAsync(
+                clubId,
+                requesterUserId,
+                isSuperAdmin,
+                ClubPermissions.ResignationsView);
+
             // Trả về đơn của DEPT_LEAD trong CLB
             var requests = await _db.ResignationRequests
                 .Include(r => r.Club)
@@ -119,7 +133,12 @@ namespace UniClub_Hub.Membership.Services.Implements
             return requests.Select(r => ToDtoWithUser(r));
         }
 
-        public async Task<ResignationRequestDto> ReviewAsync(int requestId, ReviewResignationDto dto, string reviewerId)
+        public async Task<ResignationRequestDto> ReviewAsync(
+            int requestId,
+            ReviewResignationDto dto,
+            string reviewerId,
+            bool isSuperAdmin,
+            int? expectedClubId = null)
         {
             if (dto.Status == ResignationStatus.Pending)
                 throw new ArgumentException("Trạng thái duyệt không hợp lệ.");
@@ -129,6 +148,15 @@ namespace UniClub_Hub.Membership.Services.Implements
                 .Include(r => r.Membership)
                 .FirstOrDefaultAsync(r => r.Id == requestId)
                 ?? throw new KeyNotFoundException("Không tìm thấy đơn từ chức.");
+
+            if (expectedClubId.HasValue && request.ClubId != expectedClubId.Value)
+                throw new KeyNotFoundException("Không tìm thấy đơn từ chức.");
+
+            await _permissions.EnsureHasPermissionAsync(
+                request.ClubId,
+                reviewerId,
+                isSuperAdmin,
+                ClubPermissions.ResignationsReview);
 
             if (request.Status != ResignationStatus.Pending)
                 throw new InvalidOperationException("Đơn này đã được xử lý.");

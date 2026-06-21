@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { getClubDetail, uploadClubLogo, updateClubSettings } from '@/components/membership/services/clubApi'
 import { toast } from 'sonner'
@@ -6,26 +6,15 @@ import { QRCodeCanvas } from 'qrcode.react'
 import FormSchemaPage from './FormSchemaPage'
 import MemberFieldsPage from './MemberFieldsPage'
 import PipelineSettingsPage from './PipelineSettingsPage'
-
-const D = {
-  border: '1.5px solid #15131a',
-  borderLight: '1px solid #e8e3d6',
-  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 #15131a`,
-  radius: 14,
-  pill: 999,
-  ink: '#15131a',
-  inkDim: '#4a4651',
-  inkMuted: '#918c99',
-  bg: '#f7f6f1',
-  card: '#ffffff',
-  indigo: '#4f46e5',
-  red: '#ef4444',
-}
+import { D } from '@/components/shared/managementTheme'
+import { PermissionDenied } from '@/components/shared/Can'
+import { useClubPermissions } from '@/hooks/useClubPermissions'
+import { CLUB_PERMISSIONS } from '@/constants/clubPermissions'
 
 const inputStyle: React.CSSProperties = {
-  width: '100%', height: 36, borderRadius: 8, border: '1px solid #e8e3d6',
-  padding: '0 12px', fontSize: 13, color: '#15131a', outline: 'none',
-  background: '#f7f6f1', fontFamily: 'inherit', boxSizing: 'border-box',
+  width: '100%', height: 36, borderRadius: 8, border: '1px solid #dce6f4',
+  padding: '0 12px', fontSize: 13, color: '#0a2f6e', outline: 'none',
+  background: '#f4f7fc', fontFamily: 'inherit', boxSizing: 'border-box',
 }
 const labelStyle: React.CSSProperties = { fontSize: 12, fontWeight: 700, color: '#4a4651', display: 'block', marginBottom: 4 }
 
@@ -40,6 +29,15 @@ const TABS: { key: Tab; label: string }[] = [
 export default function ClubSettingsPage() {
   const { clubId } = useParams<{ clubId: string }>()
   const id = Number(clubId)
+  const clubPermissions = useClubPermissions(id)
+  const canManageInfo = clubPermissions.canAny(CLUB_PERMISSIONS.CLUB_SETTINGS_MANAGE, CLUB_PERMISSIONS.CLUB_PROFILE_MANAGE)
+  const canManagePipeline = clubPermissions.can(CLUB_PERMISSIONS.RECRUITMENT_PIPELINE_MANAGE)
+  const canManageForm = clubPermissions.can(CLUB_PERMISSIONS.RECRUITMENT_FORM_MANAGE)
+  const allowedTabs = useMemo(() => TABS.filter(tab => {
+    if (tab.key === 'info') return canManageInfo
+    if (tab.key === 'pipeline') return canManagePipeline
+    return canManageForm
+  }), [canManageForm, canManageInfo, canManagePipeline])
   const [activeTab, setActiveTab] = useState<Tab>('info')
 
   const [loading, setLoading] = useState(true)
@@ -82,6 +80,13 @@ export default function ClubSettingsPage() {
   useEffect(() => {
     return () => { if (previewUrl) URL.revokeObjectURL(previewUrl) }
   }, [previewUrl])
+
+  useEffect(() => {
+    if (clubPermissions.loading || allowedTabs.length === 0) return
+    if (!allowedTabs.some(tab => tab.key === activeTab)) {
+      setActiveTab(allowedTabs[0].key)
+    }
+  }, [activeTab, allowedTabs, clubPermissions.loading])
 
   const field = (key: keyof typeof form) =>
     (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
@@ -145,6 +150,11 @@ export default function ClubSettingsPage() {
     }
   }
 
+  if (!clubPermissions.loading && allowedTabs.length === 0)
+    return <PermissionDenied />
+  if (!clubPermissions.loading && !allowedTabs.some(tab => tab.key === activeTab))
+    return <PermissionDenied />
+
   return (
     <div style={{ minHeight: '100%', background: D.bg, fontFamily: "'Be Vietnam Pro', sans-serif" }}>
       {/* Header + tab bar */}
@@ -153,8 +163,8 @@ export default function ClubSettingsPage() {
           <h1 style={{ fontSize: 24, fontWeight: 900, color: D.ink, letterSpacing: '-.025em', margin: 0 }}>Cài đặt CLB</h1>
           <p style={{ fontSize: 13, color: D.inkMuted, marginTop: 4 }}>Tuỳ chỉnh thông tin, quy trình và cấu hình câu lạc bộ</p>
         </div>
-        <div style={{ display: 'flex', borderBottom: '2px solid #e8e3d6' }}>
-          {TABS.map(tab => (
+        <div style={{ display: 'flex', borderBottom: '2px solid #dce6f4' }}>
+          {allowedTabs.map(tab => (
             <button key={tab.key} onClick={() => setActiveTab(tab.key)} style={{
               padding: '9px 18px', fontSize: 13,
               fontWeight: activeTab === tab.key ? 700 : 500,

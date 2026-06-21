@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { getClubMembers, getClubMembersPage, addMember, updateMember, removeMember, getDepartments, getMemberFieldSchema, updateMemberCustomData, suggestMemberRole, getMyClubPermissions, promoteMember, importMembersPreview, importMembersConfirm, exportMembers } from '@/components/membership/services/clubApi'
+import { getClubMembers, getClubMembersPage, addMember, updateMember, removeMember, getDepartments, getMemberFieldSchema, updateMemberCustomData, suggestMemberRole, promoteMember, importMembersPreview, importMembersConfirm, exportMembers } from '@/components/membership/services/clubApi'
 import type { MemberListQuery } from '@/components/membership/services/clubApi'
 import type { MemberItem, DepartmentItem, MemberFieldDef, RoleSuggestion, RoleSuggestionItem, MemberImportPreview } from '@/components/membership/services/club.types'
 import { CLUB_ROLES, MEMBERSHIP_STATUS } from '@/types/auth'
@@ -13,6 +13,8 @@ import { FilterSelect } from '@/components/shared/FilterSelect'
 import { Tooltip } from '@/components/shared/Tooltip'
 import { LoadMoreBar } from '@/components/shared/LoadMoreBar'
 import { D } from '@/components/shared/managementTheme'
+import { PermissionDenied } from '@/components/shared/Can'
+import { useClubPermissions } from '@/hooks/useClubPermissions'
 
 const PAGE_SIZE = 20
 
@@ -63,7 +65,7 @@ export default function MembersPage() {
   const [fieldSchema, setFieldSchema] = useState<MemberFieldDef[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshKey, setRefreshKey] = useState(0)
-  const [permCodes, setPermCodes] = useState<Set<string>>(new Set())
+  const clubPermissions = useClubPermissions(id)
 
   const [addOpen, setAddOpen] = useState(false)
   const [addForm, setAddForm] = useState<AddForm>({ userId: '', clubRole: CLUB_ROLES.MEMBER, departmentId: '' })
@@ -136,13 +138,12 @@ export default function MembersPage() {
   useEffect(() => {
     let cancelled = false
 
-    Promise.all([getClubMembers(id), getDepartments(id), getMemberFieldSchema(id), getMyClubPermissions(id)])
-      .then(([m, d, fs, perms]) => {
+    Promise.all([getClubMembers(id), getDepartments(id), getMemberFieldSchema(id)])
+      .then(([m, d, fs]) => {
         if (cancelled) return
         setAllMembers(m)
         setDepartments(d)
         setFieldSchema(fs)
-        setPermCodes(new Set(perms.permissionCodes.map(c => c.toLowerCase())))
       })
       .catch(() => {
         if (!cancelled)
@@ -200,9 +201,10 @@ export default function MembersPage() {
       })
   }
 
-  const canManage = permCodes.has(CLUB_PERMISSIONS.MEMBERS_MANAGE)
-  const canImportExport = permCodes.has(CLUB_PERMISSIONS.MEMBER_IMPORT_EXPORT)
-  const canSuggest = permCodes.has(CLUB_PERMISSIONS.ROLE_SUGGESTIONS_USE)
+  const canView = clubPermissions.canAny(CLUB_PERMISSIONS.MEMBERS_VIEW, CLUB_PERMISSIONS.MEMBERS_MANAGE)
+  const canManage = clubPermissions.can(CLUB_PERMISSIONS.MEMBERS_MANAGE)
+  const canImportExport = clubPermissions.can(CLUB_PERMISSIONS.MEMBER_IMPORT_EXPORT)
+  const canSuggest = clubPermissions.can(CLUB_PERMISSIONS.ROLE_SUGGESTIONS_USE)
 
   function setAddField(field: keyof AddForm) {
     return (e: { target: { value: string } }) => setAddForm(p => ({ ...p, [field]: e.target.value }))
@@ -412,6 +414,9 @@ export default function MembersPage() {
   const hasFilter = !!(search || roleFilter || statusFilter || deptFilter)
 
   function clearFilters() { setSearch(''); setRoleFilter(''); setStatusFilter(''); setDeptFilter('') }
+
+  if (!clubPermissions.loading && !canView)
+    return <PermissionDenied />
 
   return (
     <div style={{ padding: '28px 32px', minHeight: '100%', background: D.bg, fontFamily: "'Be Vietnam Pro', sans-serif" }}>

@@ -29,6 +29,12 @@ public class ClubMembershipServiceTests : DbTestBase
         settings.Setup(s => s.GetValueAsync("club.max_members")).ReturnsAsync((string?)null);
 
         var perm = new Mock<IClubPermissionService>();
+        perm.Setup(p => p.EnsureHasPermissionAsync(
+            It.IsAny<int>(),
+            It.IsAny<string>(),
+            It.IsAny<bool>(),
+            It.IsAny<string>()))
+            .Returns(Task.CompletedTask);
 
         seed(db);
         db.SaveChanges();
@@ -65,7 +71,7 @@ public class ClubMembershipServiceTests : DbTestBase
     {
         var (svc, db) = Setup(d => SeedClubAndUser(d, status: MembershipStatus.Probation));
 
-        await svc.PromoteMemberAsync(clubId: 1, membershipId: 1);
+        await svc.PromoteMemberAsync(clubId: 1, membershipId: 1, requesterUserId: "admin", isSuperAdmin: true);
 
         Assert.Equal(MembershipStatus.Active, db.ClubMemberships.Find(1)!.Status);
     }
@@ -76,7 +82,7 @@ public class ClubMembershipServiceTests : DbTestBase
         var (svc, _) = Setup(d => SeedClubAndUser(d, status: MembershipStatus.Active));
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            svc.PromoteMemberAsync(clubId: 1, membershipId: 1));
+            svc.PromoteMemberAsync(clubId: 1, membershipId: 1, requesterUserId: "admin", isSuperAdmin: true));
     }
 
     // ─── ResignAsync ────────────────────────────────────────────────────────

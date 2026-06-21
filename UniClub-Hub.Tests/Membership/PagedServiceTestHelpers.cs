@@ -95,7 +95,7 @@ internal static class PagedServiceTestHelpers
     }
 
     public static ClubService CreateClubService(UniClubDbContext db) =>
-        new(db, Mock.Of<IClubMembershipService>(), Mock.Of<ISystemSettingService>());
+        new(db, Mock.Of<IClubMembershipService>(), Mock.Of<ISystemSettingService>(), Mock.Of<IClubPermissionService>());
 
     public static ClubMembershipService CreateClubMembershipService(UniClubDbContext db)
     {

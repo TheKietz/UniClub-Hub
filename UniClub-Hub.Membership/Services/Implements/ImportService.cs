@@ -3,6 +3,8 @@ using ClosedXML.Excel;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using UniClub_Hub.Membership.DTOs.Membership;
+using UniClub_Hub.Membership.Services.Interfaces;
+using UniClub_Hub.Shared.Constants;
 using UniClub_Hub.Shared.Data;
 using UniClub_Hub.Shared.Models;
 
@@ -11,16 +13,23 @@ namespace UniClub_Hub.Membership.Services.Implements
     public class ImportService
     {
         private readonly UniClubDbContext _db;
+        private readonly IClubPermissionService _permissions;
 
         private static readonly string[] ValidRoles = ["MEMBER", "DEPT_LEAD", "CLUB_ADMIN"];
 
-        public ImportService(UniClubDbContext db)
+        public ImportService(UniClubDbContext db, IClubPermissionService permissions)
         {
             _db = db;
+            _permissions = permissions;
         }
 
-        public async Task<ImportPreviewDto> PreviewAsync(int clubId, IFormFile file)
+        public async Task<ImportPreviewDto> PreviewAsync(
+            int clubId,
+            IFormFile file,
+            string requesterUserId,
+            bool isSuperAdmin)
         {
+            await EnsureCanImportExportAsync(clubId, requesterUserId, isSuperAdmin);
             var rows = ParseFile(file);
             var preview = new ImportPreviewDto { TotalRows = rows.Count };
 
@@ -73,8 +82,13 @@ namespace UniClub_Hub.Membership.Services.Implements
             return preview;
         }
 
-        public async Task<ImportResultDto> ConfirmAsync(int clubId, ImportConfirmRequest request)
+        public async Task<ImportResultDto> ConfirmAsync(
+            int clubId,
+            ImportConfirmRequest request,
+            string requesterUserId,
+            bool isSuperAdmin)
         {
+            await EnsureCanImportExportAsync(clubId, requesterUserId, isSuperAdmin);
             var result = new ImportResultDto();
 
             var departments = await _db.Departments
@@ -135,6 +149,13 @@ namespace UniClub_Hub.Membership.Services.Implements
                 return ParseCsv(file);
             throw new InvalidOperationException("Chỉ hỗ trợ file .xlsx hoặc .csv.");
         }
+
+        private Task EnsureCanImportExportAsync(int clubId, string requesterUserId, bool isSuperAdmin) =>
+            _permissions.EnsureHasPermissionAsync(
+                clubId,
+                requesterUserId,
+                isSuperAdmin,
+                ClubPermissions.MemberImportExport);
 
         private static List<ImportRowResult> ParseExcel(IFormFile file)
         {

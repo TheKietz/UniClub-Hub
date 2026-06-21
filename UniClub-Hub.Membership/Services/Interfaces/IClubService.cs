@@ -1,4 +1,5 @@
 using UniClub_Hub.Shared.Common;
+using System.Text.Json;
 using UniClub_Hub.Membership.DTOs.Club;
 using UniClub_Hub.Membership.DTOs.Common;
 
@@ -9,6 +10,9 @@ namespace UniClub_Hub.Membership.Services.Interfaces
         // Public
         Task<IEnumerable<ClubDto>> GetAllAsync(int? categoryId = null, string? status = null);
         Task<ClubDto> GetByIdAsync(int id);
+        Task<JsonElement?> GetFormSchemaAsync(int id);
+        Task UpdateFormSchemaAsync(int id, JsonElement schema, string requesterUserId, bool isSuperAdmin);
+        Task<ClubDto> UpdateSettingsAsync(int id, UpdateClubSettingsDto dto, string requesterUserId, bool isSuperAdmin);
 
         // Admin
         Task<IEnumerable<AdminClubDto>> GetAllAdminAsync(int? categoryId = null, string? status = null);

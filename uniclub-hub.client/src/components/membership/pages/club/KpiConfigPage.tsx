@@ -10,22 +10,10 @@ import {
   type KpiGrade,
 } from '@/components/membership/services/kpiApi'
 import { Tooltip } from '@/components/shared/Tooltip'
-
-const D = {
-  border: '1.5px solid #15131a',
-  borderLight: '1px solid #e8e3d6',
-  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 #15131a`,
-  radius: 14,
-  pill: 999,
-  ink: '#15131a',
-  inkDim: '#4a4651',
-  inkMuted: '#918c99',
-  bg: '#f7f6f1',
-  card: '#ffffff',
-  indigo: '#4f46e5',
-  emerald: '#10b981',
-  red: '#ef4444',
-}
+import { D } from '@/components/shared/managementTheme'
+import { PermissionDenied } from '@/components/shared/Can'
+import { useClubPermissions } from '@/hooks/useClubPermissions'
+import { CLUB_PERMISSIONS } from '@/constants/clubPermissions'
 
 const inputStyle: React.CSSProperties = {
   width: '100%',
@@ -100,6 +88,8 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (value: boo
 export default function KpiConfigPage() {
   const { clubId } = useParams<{ clubId: string }>()
   const id = Number(clubId)
+  const clubPermissions = useClubPermissions(id)
+  const canManage = clubPermissions.can(CLUB_PERMISSIONS.MEMBER_KPI_MANAGE)
   const [criteria, setCriteria] = useState<KpiCriteria[]>([])
   const [initialCriteria, setInitialCriteria] = useState<KpiCriteria[]>([])
   const [grades, setGrades] = useState<KpiGrade[]>([])
@@ -193,6 +183,9 @@ export default function KpiConfigPage() {
       setSaving(false)
     }
   }
+
+  if (!clubPermissions.loading && !canManage)
+    return <PermissionDenied />
 
   function handleReset() {
     setCriteria(initialCriteria)

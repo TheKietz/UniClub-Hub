@@ -6,17 +6,13 @@ import {
 } from '@/components/membership/services/clubApi'
 import type { PipelineStage } from '@/components/membership/services/club.types'
 import { toast } from 'sonner'
-
-const D = {
-  border: '1.5px solid #15131a', borderLight: '1px solid #e8e3d6',
-  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 #15131a`,
-  radius: 14, pill: 999,
-  ink: '#15131a', inkDim: '#4a4651', inkMuted: '#918c99',
-  bg: '#f7f6f1', card: '#ffffff', indigo: '#4f46e5', red: '#ef4444',
-}
+import { D } from '@/components/shared/managementTheme'
+import { PermissionDenied } from '@/components/shared/Can'
+import { useClubPermissions } from '@/hooks/useClubPermissions'
+import { CLUB_PERMISSIONS } from '@/constants/clubPermissions'
 
 const inputStyle: React.CSSProperties = {
-  height: 36, borderRadius: 8, border: '1px solid #e8e3d6',
+  height: 36, borderRadius: 8, border: '1px solid #dce6f4',
   padding: '0 12px', fontSize: 13, color: D.ink, outline: 'none',
   background: D.bg, fontFamily: 'inherit', boxSizing: 'border-box',
 }
@@ -29,6 +25,8 @@ const DEFAULT_STAGES = ['Xét CV', 'Phỏng vấn', 'Thử việc']
 export default function PipelineSettingsPage() {
   const { clubId } = useParams<{ clubId: string }>()
   const id = Number(clubId)
+  const clubPermissions = useClubPermissions(id)
+  const canManage = clubPermissions.can(CLUB_PERMISSIONS.RECRUITMENT_PIPELINE_MANAGE)
 
   const [stages, setStages] = useState<PipelineStage[]>([])
   const [loading, setLoading] = useState(true)
@@ -121,6 +119,9 @@ export default function PipelineSettingsPage() {
       toast.error('Cập nhật thứ tự thất bại.')
     }
   }
+
+  if (!clubPermissions.loading && !canManage)
+    return <PermissionDenied />
 
   return (
     <div style={{ padding: '28px 32px', minHeight: '100%', background: D.bg, fontFamily: "'Be Vietnam Pro', sans-serif" }}>

@@ -173,8 +173,14 @@ namespace UniClub_Hub.Membership.Services.Implements
         public Task RemoveMemberAsAdminAsync(int clubId, int membershipId, bool force = false) =>
             RemoveMemberCoreAsync(clubId, membershipId, force);
 
-        public async Task<MemberDto> PromoteMemberAsync(int clubId, int membershipId)
+        public async Task<MemberDto> PromoteMemberAsync(
+            int clubId,
+            int membershipId,
+            string requesterUserId,
+            bool isSuperAdmin)
         {
+            await EnsureHasPermissionAsync(clubId, requesterUserId, isSuperAdmin, ClubPermissions.MembersManage);
+
             var membership = await _db.ClubMemberships.FirstOrDefaultAsync(m =>
                 m.ClubId == clubId && m.Id == membershipId
             ) ?? throw new KeyNotFoundException("Không tìm thấy thành viên này trong CLB.");
@@ -476,9 +482,13 @@ namespace UniClub_Hub.Membership.Services.Implements
             return JsonSerializer.Deserialize<List<MemberFieldDef>>(json, JsonOptions) ?? [];
         }
 
-        public async Task<List<MemberFieldDef>> UpdateMemberFieldSchemaAsync(int clubId, List<MemberFieldDef> fields, string requestUserId)
+        public async Task<List<MemberFieldDef>> UpdateMemberFieldSchemaAsync(
+            int clubId,
+            List<MemberFieldDef> fields,
+            string requestUserId,
+            bool isSuperAdmin)
         {
-            await EnsureCanManageAsync(clubId, requestUserId);
+            await EnsureHasPermissionAsync(clubId, requestUserId, isSuperAdmin, ClubPermissions.RecruitmentFormManage);
             var club = await _db.Clubs.FindAsync(clubId)
                 ?? throw new KeyNotFoundException($"Không tìm thấy CLB với ID {clubId}.");
             club.MemberFieldSchema = JsonSerializer.Serialize(fields, JsonOptions);
@@ -486,9 +496,14 @@ namespace UniClub_Hub.Membership.Services.Implements
             return fields;
         }
 
-        public async Task<MemberDto> UpdateMemberCustomDataAsync(int clubId, int membershipId, Dictionary<string, string?> data, string requestUserId)
+        public async Task<MemberDto> UpdateMemberCustomDataAsync(
+            int clubId,
+            int membershipId,
+            Dictionary<string, string?> data,
+            string requestUserId,
+            bool isSuperAdmin)
         {
-            await EnsureCanManageAsync(clubId, requestUserId);
+            await EnsureHasPermissionAsync(clubId, requestUserId, isSuperAdmin, ClubPermissions.MembersManage);
             var membership = await _db.ClubMemberships
                 .FirstOrDefaultAsync(m => m.ClubId == clubId && m.Id == membershipId)
                 ?? throw new KeyNotFoundException("Không tìm thấy thành viên này trong CLB.");
@@ -514,6 +529,13 @@ namespace UniClub_Hub.Membership.Services.Implements
             await _permissions.EnsureHasPermissionAsync(
                 clubId, userId, false, ClubPermissions.MembersManage);
         }
+
+        private Task EnsureHasPermissionAsync(
+            int clubId,
+            string userId,
+            bool isSuperAdmin,
+            string permissionCode) =>
+            _permissions.EnsureHasPermissionAsync(clubId, userId, isSuperAdmin, permissionCode);
 
         private async Task EnsureDepartmentBelongsToClubAsync(int clubId, int departmentId)
         {

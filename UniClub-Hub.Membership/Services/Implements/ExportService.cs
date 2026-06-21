@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using System.Text;
 using UniClub_Hub.Membership.DTOs.Common;
 using UniClub_Hub.Membership.Services.Interfaces;
+using UniClub_Hub.Shared.Constants;
 using UniClub_Hub.Shared.Data;
 using UniClub_Hub.Shared.Enums;
 using UniClub_Hub.Shared.Models;
@@ -13,14 +14,27 @@ namespace UniClub_Hub.Membership.Services.Implements
     public class ExportService : IExportService
     {
         private readonly UniClubDbContext _db;
+        private readonly IClubPermissionService _permissions;
 
-        public ExportService(UniClubDbContext db)
+        public ExportService(UniClubDbContext db, IClubPermissionService permissions)
         {
             _db = db;
+            _permissions = permissions;
         }
 
-        public async Task<(byte[] Content, string ContentType, string FileName)> ExportMembersAsync(int clubId, string format, MemberListQuery? request = null)
+        public async Task<(byte[] Content, string ContentType, string FileName)> ExportMembersAsync(
+            int clubId,
+            string format,
+            string requesterUserId,
+            bool isSuperAdmin,
+            MemberListQuery? request = null)
         {
+            await _permissions.EnsureHasPermissionAsync(
+                clubId,
+                requesterUserId,
+                isSuperAdmin,
+                ClubPermissions.MemberImportExport);
+
             var club = await _db.Clubs.FindAsync(clubId)
                 ?? throw new KeyNotFoundException("Không tìm thấy CLB.");
 
@@ -79,8 +93,20 @@ namespace UniClub_Hub.Membership.Services.Implements
             return (ToBytes(wb), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"members_{club.Code}.xlsx");
         }
 
-        public async Task<(byte[] Content, string ContentType, string FileName)> ExportApplicationsAsync(int clubId, string? status, string format, ApplicationListQuery? request = null)
+        public async Task<(byte[] Content, string ContentType, string FileName)> ExportApplicationsAsync(
+            int clubId,
+            string? status,
+            string format,
+            string requesterUserId,
+            bool isSuperAdmin,
+            ApplicationListQuery? request = null)
         {
+            await _permissions.EnsureHasPermissionAsync(
+                clubId,
+                requesterUserId,
+                isSuperAdmin,
+                ClubPermissions.ReportsExport);
+
             var club = await _db.Clubs.FindAsync(clubId)
                 ?? throw new KeyNotFoundException("Không tìm thấy CLB.");
 

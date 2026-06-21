@@ -10,8 +10,7 @@ namespace UniClub_Hub.Server.Controllers.Membership
     [ApiController]
     [Authorize]
     public class ClubAuditLogsController(
-        IClubAuditLogService auditLogService,
-        IClubPermissionService permissions) : ControllerBase
+        IClubAuditLogService auditLogService) : ControllerBase
     {
         [HttpGet("api/clubs/{clubId}/audit-logs")]
         public async Task<IActionResult> GetByClub(
@@ -26,11 +25,12 @@ namespace UniClub_Hub.Server.Controllers.Membership
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
             var isSuperAdmin = User.IsInRole("SUPER_ADMIN");
-            if (!await permissions.HasPermissionAsync(clubId, userId, isSuperAdmin, ClubPermissions.ClubAuditLogView))
-                return Forbid();
-
-            var result = await auditLogService.GetByClubAsync(clubId, module, search, action, dateFrom, dateTo, page, pageSize);
-            return Ok(ApiResponse<object>.Ok(result));
+            try
+            {
+                var result = await auditLogService.GetByClubAsync(clubId, userId, isSuperAdmin, module, search, action, dateFrom, dateTo, page, pageSize);
+                return Ok(ApiResponse<object>.Ok(result));
+            }
+            catch (UnauthorizedAccessException) { return Forbid(); }
         }
 
         [HttpGet("api/admin/audit-logs")]

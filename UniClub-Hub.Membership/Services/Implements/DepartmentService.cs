@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using UniClub_Hub.Membership.DTOs.Department;
 using UniClub_Hub.Membership.Services.Interfaces;
+using UniClub_Hub.Shared.Constants;
 using UniClub_Hub.Shared.Data;
 using UniClub_Hub.Shared.Enums;
 using UniClub_Hub.Shared.Models;
@@ -12,12 +13,18 @@ namespace UniClub_Hub.Membership.Services.Implements
         private readonly UniClubDbContext _db;
         private readonly INotificationService _notifications;
         private readonly ISystemSettingService _settings;
+        private readonly IClubPermissionService _permissions;
 
-        public DepartmentService(UniClubDbContext db, INotificationService notifications, ISystemSettingService settings)
+        public DepartmentService(
+            UniClubDbContext db,
+            INotificationService notifications,
+            ISystemSettingService settings,
+            IClubPermissionService permissions)
         {
             _db = db;
             _notifications = notifications;
             _settings = settings;
+            _permissions = permissions;
         }
 
         public async Task<IEnumerable<DepartmentDto>> GetAllAsync(int clubId)
@@ -43,8 +50,13 @@ namespace UniClub_Hub.Membership.Services.Implements
                 ?? throw new KeyNotFoundException($"Không tìm thấy ban với ID {id} trong CLB này.");
         }
 
-        public async Task<AdminDepartmentDto> CreateAsync(int clubId, CreateDepartmentDto dto)
+        public async Task<AdminDepartmentDto> CreateAsync(
+            int clubId,
+            CreateDepartmentDto dto,
+            string requesterUserId,
+            bool isSuperAdmin)
         {
+            await EnsureCanManageAsync(clubId, requesterUserId, isSuperAdmin);
             await EnsureClubExistsAsync(clubId);
 
             // Kiểm tra giới hạn số ban
@@ -74,8 +86,14 @@ namespace UniClub_Hub.Membership.Services.Implements
             return await GetAdminByIdAsync(clubId, department.Id);
         }
 
-        public async Task<AdminDepartmentDto> UpdateAsync(int clubId, int id, UpdateDepartmentDto dto)
+        public async Task<AdminDepartmentDto> UpdateAsync(
+            int clubId,
+            int id,
+            UpdateDepartmentDto dto,
+            string requesterUserId,
+            bool isSuperAdmin)
         {
+            await EnsureCanManageAsync(clubId, requesterUserId, isSuperAdmin);
             var department = await _db.Departments
                 .FirstOrDefaultAsync(d => d.ClubId == clubId && d.Id == id)
                 ?? throw new KeyNotFoundException($"Không tìm thấy ban với ID {id} trong CLB này.");
@@ -92,8 +110,9 @@ namespace UniClub_Hub.Membership.Services.Implements
             return await GetAdminByIdAsync(clubId, department.Id);
         }
 
-        public async Task DeleteAsync(int clubId, int id)
+        public async Task DeleteAsync(int clubId, int id, string requesterUserId, bool isSuperAdmin)
         {
+            await EnsureCanManageAsync(clubId, requesterUserId, isSuperAdmin);
             var department = await _db.Departments
                 .FirstOrDefaultAsync(d => d.ClubId == clubId && d.Id == id)
                 ?? throw new KeyNotFoundException($"Không tìm thấy ban với ID {id} trong CLB này.");
@@ -122,8 +141,14 @@ namespace UniClub_Hub.Membership.Services.Implements
                     await _notifications.SendAsync(m.UserId, "Ban bộ phận đã bị giải thể", deptDeletedMsg, NotificationType.System);
         }
 
-        public async Task SetLeadAsync(int clubId, int deptId, int? membershipId)
+        public async Task SetLeadAsync(
+            int clubId,
+            int deptId,
+            int? membershipId,
+            string requesterUserId,
+            bool isSuperAdmin)
         {
+            await EnsureCanManageAsync(clubId, requesterUserId, isSuperAdmin);
             var department = await _db.Departments.FirstOrDefaultAsync(d => d.ClubId == clubId && d.Id == deptId)
                 ?? throw new KeyNotFoundException($"Không tìm thấy ban với ID {deptId} trong CLB này.");
 
@@ -152,6 +177,13 @@ namespace UniClub_Hub.Membership.Services.Implements
             if (!await _db.Clubs.AnyAsync(c => c.Id == clubId))
                 throw new KeyNotFoundException($"Không tìm thấy CLB với ID {clubId}.");
         }
+
+        private Task EnsureCanManageAsync(int clubId, string requesterUserId, bool isSuperAdmin) =>
+            _permissions.EnsureHasPermissionAsync(
+                clubId,
+                requesterUserId,
+                isSuperAdmin,
+                ClubPermissions.DepartmentsManage);
 
         private async Task<AdminDepartmentDto> GetAdminByIdAsync(int clubId, int id)
         {

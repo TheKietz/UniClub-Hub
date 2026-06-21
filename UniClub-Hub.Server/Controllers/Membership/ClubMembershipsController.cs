@@ -258,9 +258,10 @@ namespace UniClub_Hub.Server.Controllers.Membership
             int clubId, [FromBody] List<UniClub_Hub.Membership.DTOs.Membership.MemberFieldDef> fields)
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+            var isSuperAdmin = User.IsInRole("SUPER_ADMIN");
             try
             {
-                var result = await _membershipService.UpdateMemberFieldSchemaAsync(clubId, fields, userId);
+                var result = await _membershipService.UpdateMemberFieldSchemaAsync(clubId, fields, userId, isSuperAdmin);
                 return Ok(ApiResponse<object>.Ok(result, "Đã lưu cấu hình trường thông tin."));
             }
             catch (UnauthorizedAccessException) { return Forbid(); }
@@ -273,9 +274,10 @@ namespace UniClub_Hub.Server.Controllers.Membership
             int clubId, int membershipId, [FromBody] Dictionary<string, string?> data)
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+            var isSuperAdmin = User.IsInRole("SUPER_ADMIN");
             try
             {
-                var result = await _membershipService.UpdateMemberCustomDataAsync(clubId, membershipId, data, userId);
+                var result = await _membershipService.UpdateMemberCustomDataAsync(clubId, membershipId, data, userId, isSuperAdmin);
                 return Ok(ApiResponse<MemberDto>.Ok(result, "Đã cập nhật thông tin thành viên."));
             }
             catch (UnauthorizedAccessException) { return Forbid(); }
@@ -289,14 +291,12 @@ namespace UniClub_Hub.Server.Controllers.Membership
             var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
             var isSuperAdmin = User.IsInRole("SUPER_ADMIN");
 
-            if (!await _permissions.HasPermissionAsync(clubId, currentUserId, isSuperAdmin, ClubPermissions.MembersManage))
-                return Forbid();
-
             try
             {
-                var result = await _membershipService.PromoteMemberAsync(clubId, membershipId);
+                var result = await _membershipService.PromoteMemberAsync(clubId, membershipId, currentUserId, isSuperAdmin);
                 return Ok(ApiResponse<MemberDto>.Ok(result, "Đã xác nhận thành viên chính thức."));
             }
+            catch (UnauthorizedAccessException) { return Forbid(); }
             catch (KeyNotFoundException ex) { return NotFound(ApiResponse<object>.Fail(ex.Message)); }
             catch (InvalidOperationException ex) { return Conflict(ApiResponse<object>.Fail(ex.Message)); }
         }

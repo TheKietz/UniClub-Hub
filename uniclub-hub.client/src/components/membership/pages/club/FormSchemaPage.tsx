@@ -4,6 +4,10 @@ import { getFormSchema, updateFormSchema } from '@/components/membership/service
 import type { FormField, FormFieldType } from '@/components/membership/services/club.types'
 import { toast } from 'sonner'
 import { ChevronDown } from 'lucide-react'
+import { D } from '@/components/shared/managementTheme'
+import { PermissionDenied } from '@/components/shared/Can'
+import { useClubPermissions } from '@/hooks/useClubPermissions'
+import { CLUB_PERMISSIONS } from '@/constants/clubPermissions'
 
 const FIELD_TYPES: { value: FormFieldType; label: string }[] = [
   { value: 'text',     label: 'Văn bản ngắn' },
@@ -13,7 +17,7 @@ const FIELD_TYPES: { value: FormFieldType; label: string }[] = [
 ]
 
 const TYPE_STYLE: Record<string, { bg: string; label: string }> = {
-  text:     { bg: '#4f46e5', label: 'VĂN BẢN NGẮN' },
+  text:     { bg: '#1d4ed8', label: 'VĂN BẢN NGẮN' },
   textarea: { bg: '#7c3aed', label: 'VĂN BẢN DÀI' },
   select:   { bg: '#f59e0b', label: 'CHỌN MỘT' },
   file:     { bg: '#ff5a3c', label: 'TẢI FILE' },
@@ -31,14 +35,6 @@ const FILE_TYPE_OPTIONS = [
   { value: '.png',  label: 'PNG' },
   { value: '.zip',  label: 'ZIP' },
 ]
-
-const D = {
-  border: '1.5px solid #15131a', borderLight: '1px solid #e8e3d6',
-  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 #15131a`,
-  radius: 14, pill: 999,
-  ink: '#15131a', inkDim: '#4a4651', inkMuted: '#918c99',
-  bg: '#f7f6f1', card: '#ffffff', indigo: '#4f46e5',
-}
 
 const inputS: React.CSSProperties = {
   width: '100%', height: 44, borderRadius: 10, border: D.borderLight,
@@ -128,6 +124,8 @@ function newField(): FormField {
 export default function FormSchemaPage() {
   const { clubId } = useParams<{ clubId: string }>()
   const id = Number(clubId)
+  const clubPermissions = useClubPermissions(id)
+  const canManage = clubPermissions.can(CLUB_PERMISSIONS.RECRUITMENT_FORM_MANAGE)
 
   const [fields, setFields] = useState<FormField[]>([])
   const [loading, setLoading] = useState(true)
@@ -179,6 +177,9 @@ export default function FormSchemaPage() {
     }
   }
 
+  if (!clubPermissions.loading && !canManage)
+    return <PermissionDenied />
+
   if (loading) return (
     <div style={{ padding: '28px 32px', color: D.inkMuted, fontSize: 13, fontFamily: "'Be Vietnam Pro', sans-serif" }}>Đang tải...</div>
   )
@@ -192,7 +193,7 @@ export default function FormSchemaPage() {
           <p style={{ fontSize: 13, color: D.inkMuted, marginTop: 4 }}>Tuỳ chỉnh câu hỏi cho đơn ứng tuyển CLB</p>
         </div>
         <button onClick={handleSave} disabled={saving} style={{
-          background: D.ink, color: '#facc15', border: D.border, boxShadow: D.shadow(2, 2),
+          background: D.ink, color: '#ffffff', border: D.border, boxShadow: D.shadow(2, 2),
           padding: '10px 22px', borderRadius: D.pill, fontSize: 13, fontWeight: 800,
           cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1, fontFamily: 'inherit', flexShrink: 0,
         }}>

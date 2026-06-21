@@ -239,13 +239,14 @@ export default function App() {
               >
                 <Route element={<ClubManageLayout />}>
                   <Route path="manage/form" element={<FormSchemaPage />} />
+                  <Route path="manage/member-fields" element={<MemberFieldsPage />} />
                 </Route>
               </Route>
 
               {/* Org chart manage — permission-based */}
               <Route
                 element={
-                  <PermissionProtectedRoute anyOf={[CLUB_PERMISSIONS.ORG_CHART_MANAGE]} />
+                  <PermissionProtectedRoute anyOf={[CLUB_PERMISSIONS.ORG_CHART_VIEW, CLUB_PERMISSIONS.ORG_CHART_MANAGE]} />
                 }
               >
                 <Route element={<ClubManageLayout />}>
@@ -280,7 +281,7 @@ export default function App() {
               {/* Club settings — permission-based */}
               <Route
                 element={
-                  <PermissionProtectedRoute anyOf={[CLUB_PERMISSIONS.CLUB_SETTINGS_MANAGE]} />
+                  <PermissionProtectedRoute anyOf={[CLUB_PERMISSIONS.CLUB_SETTINGS_MANAGE, CLUB_PERMISSIONS.CLUB_PROFILE_MANAGE]} />
                 }
               >
                 <Route element={<ClubManageLayout />}>
@@ -302,7 +303,7 @@ export default function App() {
               {/* KPI results — permission-based */}
               <Route
                 element={
-                  <PermissionProtectedRoute anyOf={[CLUB_PERMISSIONS.MEMBER_KPI_VIEW]} />
+                  <PermissionProtectedRoute anyOf={[CLUB_PERMISSIONS.MEMBER_KPI_VIEW, CLUB_PERMISSIONS.MEMBER_KPI_MANAGE]} />
                 }
               >
                 <Route element={<ClubManageLayout />}>
@@ -321,7 +322,18 @@ export default function App() {
                 </Route>
               </Route>
 
-              {/* Dashboard, member-fields & report — chỉ CLUB_ADMIN */}
+              {/* Club reports — permission-based */}
+              <Route
+                element={
+                  <PermissionProtectedRoute anyOf={[CLUB_PERMISSIONS.REPORTS_VIEW, CLUB_PERMISSIONS.REPORTS_EXPORT]} />
+                }
+              >
+                <Route element={<ClubManageLayout />}>
+                  <Route path="manage/report" element={<ClubReportPage />} />
+                </Route>
+              </Route>
+
+              {/* Dashboard & operations — chỉ CLUB_ADMIN */}
               <Route
                 element={
                   <ClubProtectedRoute requiredRoles={[CLUB_ROLES.CLUB_ADMIN]} />
@@ -329,8 +341,6 @@ export default function App() {
               >
                 <Route element={<ClubManageLayout />}>
                   <Route path="manage" element={<ClubManageDashboard />} />
-                  <Route path="manage/member-fields" element={<MemberFieldsPage />} />
-                  <Route path="manage/report" element={<ClubReportPage />} />
                   <Route path="manage/orgchart" element={<OrgChartPage />} />
                   <Route path="manage/pipeline" element={<PipelineSettingsPage />} />
                   <Route path="manage/events" element={<EventListPage />} />

@@ -5,6 +5,10 @@ import {
 } from '@/components/membership/services/clubApi'
 import type { ClubDetail, ClubStats, MonthlyGrowth, MemberItem } from '@/components/membership/services/club.types'
 import { toast } from 'sonner'
+import { D } from '@/components/shared/managementTheme'
+import { PermissionDenied } from '@/components/shared/Can'
+import { useClubPermissions } from '@/hooks/useClubPermissions'
+import { CLUB_PERMISSIONS } from '@/constants/clubPermissions'
 
 const ROLE_LABELS: Record<string, string> = {
   CLUB_ADMIN: 'Ban chủ nhiệm',
@@ -16,13 +20,6 @@ const STATUS_LABELS: Record<string, string> = {
   Active: 'Chính thức',
   Probation: 'Thử việc',
   Resigned: 'Đã rời',
-}
-
-const D = {
-  ink: '#15131a',
-  inkMuted: '#918c99',
-  border: '1.5px solid #15131a',
-  borderLight: '1px solid #e8e3d6',
 }
 
 function fmtDate(s: string) {
@@ -42,7 +39,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   return (
     <section style={{ marginBottom: 28 }}>
       <div style={{
-        borderBottom: '2px solid #15131a', marginBottom: 14, paddingBottom: 6,
+        borderBottom: '2px solid #0a2f6e', marginBottom: 14, paddingBottom: 6,
       }}>
         <span style={{ fontSize: 15, fontWeight: 900, color: D.ink, letterSpacing: '-.02em' }}>{title}</span>
       </div>
@@ -55,7 +52,7 @@ function ReportTable({ headers, rows }: { headers: string[]; rows: (string | num
   return (
     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
       <thead>
-        <tr style={{ background: '#f7f6f1' }}>
+        <tr style={{ background: '#f4f7fc' }}>
           {headers.map((h, i) => (
             <th key={i} style={{
               padding: '7px 10px', textAlign: 'left',
@@ -70,7 +67,7 @@ function ReportTable({ headers, rows }: { headers: string[]; rows: (string | num
           <tr key={i} style={{ background: i % 2 === 0 ? '#fff' : '#fafaf8' }}>
             {row.map((cell, j) => (
               <td key={j} style={{
-                padding: '6px 10px', border: '1px solid #e8e3d6',
+                padding: '6px 10px', border: '1px solid #dce6f4',
                 color: D.ink, verticalAlign: 'top', fontSize: 12,
               }}>{cell}</td>
             ))}
@@ -84,6 +81,8 @@ function ReportTable({ headers, rows }: { headers: string[]; rows: (string | num
 export default function ClubReportPage() {
   const { clubId } = useParams<{ clubId: string }>()
   const id = Number(clubId)
+  const clubPermissions = useClubPermissions(id)
+  const canView = clubPermissions.canAny(CLUB_PERMISSIONS.REPORTS_VIEW, CLUB_PERMISSIONS.REPORTS_EXPORT)
 
   const [detail, setDetail] = useState<ClubDetail | null>(null)
   const [stats, setStats] = useState<ClubStats | null>(null)
@@ -101,6 +100,9 @@ export default function ClubReportPage() {
   const generatedAt = new Date().toLocaleString('vi-VN', {
     day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
   })
+
+  if (!clubPermissions.loading && !canView)
+    return <PermissionDenied />
 
   if (loading) return (
     <div style={{ padding: '60px 32px', textAlign: 'center', color: D.inkMuted, fontFamily: "'Be Vietnam Pro', sans-serif" }}>
@@ -126,7 +128,7 @@ export default function ClubReportPage() {
   ])
 
   return (
-    <div style={{ padding: '28px 32px', minHeight: '100%', background: '#f7f6f1', fontFamily: "'Be Vietnam Pro', sans-serif" }}>
+    <div style={{ padding: '28px 32px', minHeight: '100%', background: '#f4f7fc', fontFamily: "'Be Vietnam Pro', sans-serif" }}>
       <style>{`
         @media print {
           body * { visibility: hidden; }
@@ -156,8 +158,8 @@ export default function ClubReportPage() {
           onClick={() => window.print()}
           style={{
             flexShrink: 0, padding: '10px 22px', borderRadius: 999,
-            background: D.ink, color: '#facc15',
-            border: D.border, boxShadow: '3px 3px 0 #15131a',
+            background: D.ink, color: '#ffffff',
+            border: D.border, boxShadow: '3px 3px 0 #0a2f6e',
             fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
           }}
         >
@@ -168,19 +170,19 @@ export default function ClubReportPage() {
       {/* Report body */}
       <div id="club-report-printable" style={{
         background: '#fff', border: D.border, borderRadius: 16,
-        boxShadow: '4px 4px 0 #15131a', padding: '36px 44px',
+        boxShadow: '4px 4px 0 #0a2f6e', padding: '36px 44px',
         maxWidth: 880, margin: '0 auto',
       }}>
         {/* Document header */}
         <div style={{
           display: 'flex', alignItems: 'flex-start', gap: 20,
-          marginBottom: 30, paddingBottom: 24, borderBottom: '2px solid #15131a',
+          marginBottom: 30, paddingBottom: 24, borderBottom: '2px solid #0a2f6e',
         }}>
           {detail.logoUrl ? (
             <img src={detail.logoUrl} alt="" style={{ width: 60, height: 60, borderRadius: 12, objectFit: 'cover', border: D.border, flexShrink: 0 }} />
           ) : (
             <div style={{
-              width: 60, height: 60, borderRadius: 12, background: '#4f46e5',
+              width: 60, height: 60, borderRadius: 12, background: '#1d4ed8',
               border: D.border, display: 'grid', placeItems: 'center',
               color: '#fff', fontWeight: 900, fontSize: 22, flexShrink: 0,
             }}>
@@ -193,7 +195,7 @@ export default function ClubReportPage() {
             </div>
             <div style={{ fontSize: 22, fontWeight: 900, color: D.ink, letterSpacing: '-.02em', lineHeight: 1.15 }}>{detail.name}</div>
             {detail.categoryName && (
-              <div style={{ fontSize: 12, color: '#4f46e5', fontWeight: 600, marginTop: 3 }}>{detail.categoryName}</div>
+              <div style={{ fontSize: 12, color: '#1d4ed8', fontWeight: 600, marginTop: 3 }}>{detail.categoryName}</div>
             )}
           </div>
           <div style={{ textAlign: 'right', flexShrink: 0 }}>
@@ -216,7 +218,7 @@ export default function ClubReportPage() {
           {detail.description && (
             <div style={{
               marginTop: 12, fontSize: 12, color: '#4a4651', lineHeight: 1.7,
-              padding: '10px 14px', background: '#f7f6f1', borderRadius: 8,
+              padding: '10px 14px', background: '#f4f7fc', borderRadius: 8,
             }}>
               {detail.description}
             </div>
@@ -227,14 +229,14 @@ export default function ClubReportPage() {
         <Section title="2. Tổng quan thành viên">
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
             {[
-              { label: 'Thành viên chính thức', value: stats.totalActiveMembers, color: '#4f46e5' },
+              { label: 'Thành viên chính thức', value: stats.totalActiveMembers, color: '#1d4ed8' },
               { label: 'Thành viên thử việc', value: stats.totalProbationMembers, color: '#f59e0b' },
               { label: 'Ban bộ phận', value: stats.totalDepartments, color: '#10b981' },
               { label: 'TV mới (12 tháng)', value: totalGrowth, color: '#7c3aed' },
             ].map(item => (
               <div key={item.label} style={{
                 padding: '12px 14px', borderRadius: 10, textAlign: 'center',
-                border: '1px solid #e8e3d6', background: '#f7f6f1',
+                border: '1px solid #dce6f4', background: '#f4f7fc',
               }}>
                 <div style={{ fontSize: 26, fontWeight: 900, color: item.color, letterSpacing: '-.04em' }}>{item.value}</div>
                 <div style={{ fontSize: 10, color: D.inkMuted, marginTop: 4, lineHeight: 1.3 }}>{item.label}</div>

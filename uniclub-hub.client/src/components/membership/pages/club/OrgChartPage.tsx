@@ -6,16 +6,13 @@ import { getClubMembers, getDepartments, getClubDetail } from '@/components/memb
 import type { MemberItem, DepartmentItem, ClubDetail } from '@/components/membership/services/club.types'
 import { CLUB_ROLES, MEMBERSHIP_STATUS } from '@/types/auth'
 import { toast } from 'sonner'
+import { D } from '@/components/shared/managementTheme'
+import { PermissionDenied } from '@/components/shared/Can'
+import { useClubPermissions } from '@/hooks/useClubPermissions'
+import { CLUB_PERMISSIONS } from '@/constants/clubPermissions'
 
-const AVATAR_COLORS = ['#4f46e5', '#7c3aed', '#ec4899', '#f59e0b', '#10b981', '#38bdf8']
-const DEPT_COLORS  = ['#4f46e5', '#7c3aed', '#ec4899', '#14b8a6', '#38bdf8', '#f59e0b']
-
-const D = {
-  border: '1.5px solid #15131a', borderLight: '1px solid #e8e3d6',
-  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 #15131a`,
-  radius: 14, ink: '#15131a', inkDim: '#4a4651', inkMuted: '#918c99',
-  bg: '#f7f6f1', card: '#ffffff',
-}
+const AVATAR_COLORS = ['#1d4ed8', '#7c3aed', '#ec4899', '#f59e0b', '#10b981', '#38bdf8']
+const DEPT_COLORS  = ['#1d4ed8', '#7c3aed', '#ec4899', '#14b8a6', '#38bdf8', '#f59e0b']
 
 /* ── Node components ──────────────────────────────────────────────── */
 
@@ -25,13 +22,13 @@ function ClubNode({ club }: { club: ClubDetail }) {
     <div style={{
       display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: 6,
       background: '#fff', borderRadius: 16, padding: '12px 20px', minWidth: 150,
-      boxShadow: '4px 4px 0 #15131a', border: '1.5px solid #15131a',
+      boxShadow: '4px 4px 0 #0a2f6e', border: '1.5px solid #0a2f6e',
     }}>
       {club.logoUrl
-        ? <img src={club.logoUrl} style={{ width: 44, height: 44, borderRadius: '50%', objectFit: 'cover', border: '1.5px solid #15131a' }} alt="" />
-        : <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#4f46e5', display: 'grid', placeItems: 'center', fontWeight: 900, fontSize: 20, color: '#fff', border: '1.5px solid #15131a' }}>{letter}</div>
+        ? <img src={club.logoUrl} style={{ width: 44, height: 44, borderRadius: '50%', objectFit: 'cover', border: '1.5px solid #0a2f6e' }} alt="" />
+        : <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#1d4ed8', display: 'grid', placeItems: 'center', fontWeight: 900, fontSize: 20, color: '#fff', border: '1.5px solid #0a2f6e' }}>{letter}</div>
       }
-      <p style={{ fontWeight: 900, fontSize: 13, color: '#15131a', margin: 0, textAlign: 'center' }}>{club.name}</p>
+      <p style={{ fontWeight: 900, fontSize: 13, color: '#0a2f6e', margin: 0, textAlign: 'center' }}>{club.name}</p>
       <p style={{ fontSize: 11, color: '#918c99', margin: 0 }}>{club.memberCount} thành viên</p>
     </div>
   )
@@ -70,7 +67,7 @@ function MemberNode({ member, highlighted }: { member: MemberItem; highlighted: 
   const color = AVATAR_COLORS[name.charCodeAt(0) % AVATAR_COLORS.length]
   const isAdmin = member.clubRole === CLUB_ROLES.CLUB_ADMIN
   const isLead  = member.clubRole === CLUB_ROLES.DEPT_LEAD
-  const roleBg  = isAdmin ? '#4f46e5' : isLead ? '#7c3aed' : '#e8e3d6'
+  const roleBg  = isAdmin ? '#1d4ed8' : isLead ? '#7c3aed' : '#dce6f4'
   const roleCol = isAdmin || isLead ? '#fff' : D.inkMuted
   const roleLabel = isAdmin ? 'Trưởng CLB' : isLead ? 'Trưởng ban' : 'Thành viên'
   return (
@@ -79,11 +76,11 @@ function MemberNode({ member, highlighted }: { member: MemberItem; highlighted: 
       background: isAdmin ? '#ede9fe' : isLead ? '#f5f3ff' : D.card,
       border: highlighted
         ? '2px solid #facc15'
-        : isAdmin ? '1.5px solid #4f46e5' : isLead ? '1.5px solid #7c3aed' : D.borderLight,
+        : isAdmin ? '1.5px solid #1d4ed8' : isLead ? '1.5px solid #7c3aed' : D.borderLight,
       borderRadius: 12, padding: '8px 12px', minWidth: 104,
       boxShadow: highlighted
-        ? '0 0 0 3px #fde68a, 2px 2px 0 #15131a'
-        : isAdmin ? '2px 2px 0 #4f46e5' : isLead ? '2px 2px 0 #7c3aed' : '2px 2px 0 #e8e3d6',
+        ? '0 0 0 3px #fde68a, 2px 2px 0 #0a2f6e'
+        : isAdmin ? '2px 2px 0 #1d4ed8' : isLead ? '2px 2px 0 #7c3aed' : '2px 2px 0 #dce6f4',
       transition: 'box-shadow .15s',
     }}>
       {member.avatarUrl
@@ -102,7 +99,7 @@ function MemberNode({ member, highlighted }: { member: MemberItem; highlighted: 
 
 function EmptyNode() {
   return (
-    <div style={{ fontSize: 11, color: D.inkMuted, border: '1.5px dashed #e8e3d6', borderRadius: 10, padding: '8px 14px' }}>
+    <div style={{ fontSize: 11, color: D.inkMuted, border: '1.5px dashed #dce6f4', borderRadius: 10, padding: '8px 14px' }}>
       Chưa có thành viên
     </div>
   )
@@ -122,7 +119,7 @@ function PillBtn({ children, onClick, active = false, disabled = false }: {
         padding: '7px 14px', borderRadius: 999, fontSize: 12, fontWeight: 700, cursor: disabled ? 'not-allowed' : 'pointer',
         fontFamily: 'inherit', border: D.border, whiteSpace: 'nowrap',
         background: active ? D.ink : D.card,
-        color: active ? '#facc15' : D.ink,
+        color: active ? '#ffffff' : D.ink,
         boxShadow: active ? 'none' : D.shadow(2, 2),
         opacity: disabled ? 0.5 : 1,
       }}
@@ -135,6 +132,8 @@ function PillBtn({ children, onClick, active = false, disabled = false }: {
 export default function OrgChartPage() {
   const { clubId } = useParams<{ clubId: string }>()
   const id = Number(clubId)
+  const clubPermissions = useClubPermissions(id)
+  const canView = clubPermissions.canAny(CLUB_PERMISSIONS.ORG_CHART_VIEW, CLUB_PERMISSIONS.ORG_CHART_MANAGE)
 
   const [club, setClub] = useState<ClubDetail | null>(null)
   const [departments, setDepartments] = useState<DepartmentItem[]>([])
@@ -150,12 +149,24 @@ export default function OrgChartPage() {
   const dragRef      = useRef<{ x: number; y: number; sl: number; st: number } | null>(null)
 
   useEffect(() => {
+    if (clubPermissions.loading || !canView) return
+    let ignore = false
+    setLoading(true)
     Promise.all([getClubDetail(id), getDepartments(id), getClubMembers(id)])
-      .then(([c, d, m]) => { setClub(c); setDepartments(d); setMembers(m) })
-      .catch(() => toast.error('Không thể tải dữ liệu sơ đồ.'))
-      .finally(() => setLoading(false))
-  }, [id])
+      .then(([c, d, m]) => {
+        if (ignore) return
+        setClub(c); setDepartments(d); setMembers(m)
+      })
+      .catch(() => {
+        if (!ignore) toast.error('Không thể tải dữ liệu sơ đồ.')
+      })
+      .finally(() => {
+        if (!ignore) setLoading(false)
+      })
+    return () => { ignore = true }
+  }, [id, clubPermissions.loading, canView])
 
+  if (!clubPermissions.loading && !canView) return <PermissionDenied />
   if (loading) return (
     <div style={{ padding: '28px 32px', color: '#918c99', fontSize: 13, fontFamily: "'Be Vietnam Pro', sans-serif" }}>Đang tải...</div>
   )
@@ -273,7 +284,7 @@ export default function OrgChartPage() {
         </div>
         <button
           onClick={handlePrint}
-          style={{ padding: '8px 18px', borderRadius: 999, background: D.ink, color: '#facc15', border: D.border, boxShadow: D.shadow(), fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}
+          style={{ padding: '8px 18px', borderRadius: 999, background: D.ink, color: '#ffffff', border: D.border, boxShadow: D.shadow(), fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}
         >
           ↓ In / PDF
         </button>
@@ -282,7 +293,7 @@ export default function OrgChartPage() {
       {/* Stats strip */}
       <div className="orgchart-no-print" style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
         {[
-          { icon: '◐', label: 'Thành viên', value: activeMembers.length, color: '#4f46e5', bg: '#eef2ff' },
+          { icon: '◐', label: 'Thành viên', value: activeMembers.length, color: '#1d4ed8', bg: '#eef2ff' },
           { icon: '▦', label: 'Ban', value: departments.length, color: '#7c3aed', bg: '#f5f3ff' },
           { icon: '⚠', label: 'Ban chưa có TB', value: missingLeads, color: missingLeads > 0 ? '#b45309' : '#16a34a', bg: missingLeads > 0 ? '#fef3c7' : '#dcfce7' },
           { icon: '◌', label: 'Thành viên tự do', value: freeMembers.length, color: '#64748b', bg: '#f1f5f9' },
@@ -315,7 +326,7 @@ export default function OrgChartPage() {
           }}
         />
         {searchQ && (
-          <button type="button" onClick={() => setSearchQ('')} style={{ fontSize: 12, color: '#4f46e5', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 700 }}>
+          <button type="button" onClick={() => setSearchQ('')} style={{ fontSize: 12, color: '#1d4ed8', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 700 }}>
             Xóa
           </button>
         )}
@@ -361,7 +372,7 @@ export default function OrgChartPage() {
                   <TreeNode label={
                     <div style={{
                       display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: 4,
-                      background: D.bg, border: '1.5px dashed #e8e3d6', borderRadius: 12,
+                      background: D.bg, border: '1.5px dashed #dce6f4', borderRadius: 12,
                       padding: '10px 16px', minWidth: 120,
                     }}>
                       <p style={{ fontWeight: 700, fontSize: 12, color: D.inkDim, margin: 0 }}>Thành viên tự do</p>
@@ -383,9 +394,9 @@ export default function OrgChartPage() {
       <div className="orgchart-no-print" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 14, fontSize: 12, color: D.inkMuted }}>
         <span style={{ fontWeight: 700, color: D.inkDim }}>Chú thích:</span>
         {[
-          { color: '#4f46e5', label: 'Trưởng CLB' },
+          { color: '#1d4ed8', label: 'Trưởng CLB' },
           { color: '#7c3aed', label: 'Trưởng ban' },
-          { color: '#e8e3d6', label: 'Thành viên' },
+          { color: '#dce6f4', label: 'Thành viên' },
           { color: '#facc15', label: 'Kết quả tìm kiếm' },
         ].map(l => (
           <span key={l.label} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>

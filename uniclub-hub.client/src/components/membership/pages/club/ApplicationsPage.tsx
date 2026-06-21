@@ -1,7 +1,7 @@
 import { APPLICATION_STATUS } from '@/types/auth'
 import { useEffect, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { getApplications, getApplicationsPage, reviewApplication, getMemberFieldSchema, advanceApplicationStage, getPipelineStages, getMyClubPermissions, exportApplications } from '@/components/membership/services/clubApi'
+import { getApplications, getApplicationsPage, reviewApplication, getMemberFieldSchema, advanceApplicationStage, getPipelineStages, exportApplications } from '@/components/membership/services/clubApi'
 import type { ApplicationListQuery } from '@/components/membership/services/clubApi'
 import type { ApplicationItem, MemberFieldDef, PipelineStage } from '@/components/membership/services/club.types'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
@@ -11,6 +11,8 @@ import { LoadMoreBar } from '@/components/shared/LoadMoreBar'
 import { FilterSelect } from '@/components/shared/FilterSelect'
 import { CLUB_PERMISSIONS } from '@/constants/clubPermissions'
 import { D } from '@/components/shared/managementTheme'
+import { PermissionDenied } from '@/components/shared/Can'
+import { useClubPermissions } from '@/hooks/useClubPermissions'
 
 const PAGE_SIZE = 20
 
@@ -42,7 +44,7 @@ export default function ApplicationsPage() {
   const [loadingMore, setLoadingMore] = useState(false)
   const [fieldSchema, setFieldSchema] = useState<MemberFieldDef[]>([])
   const [pipelineStages, setPipelineStages] = useState<PipelineStage[]>([])
-  const [permCodes, setPermCodes] = useState<Set<string>>(new Set())
+  const clubPermissions = useClubPermissions(id)
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState('')
   const [search, setSearch] = useState('')
@@ -59,9 +61,6 @@ export default function ApplicationsPage() {
 
     getMemberFieldSchema(id).then(r => { if (!cancelled) setFieldSchema(r) }).catch(() => {})
     getPipelineStages(id).then(r => { if (!cancelled) setPipelineStages(r) }).catch(() => {})
-    getMyClubPermissions(id)
-      .then(r => { if (!cancelled) setPermCodes(new Set(r.permissionCodes.map(c => c.toLowerCase()))) })
-      .catch(() => {})
 
     return () => { cancelled = true }
   }, [id])
@@ -154,7 +153,9 @@ export default function ApplicationsPage() {
       })
   }
 
-  const canReview = permCodes.has(CLUB_PERMISSIONS.APPLICATIONS_REVIEW)
+  const canView = clubPermissions.canAny(CLUB_PERMISSIONS.APPLICATIONS_VIEW, CLUB_PERMISSIONS.APPLICATIONS_REVIEW)
+  const canReview = clubPermissions.can(CLUB_PERMISSIONS.APPLICATIONS_REVIEW)
+  const canExport = clubPermissions.can(CLUB_PERMISSIONS.REPORTS_EXPORT)
 
   const [selected, setSelected] = useState<ApplicationItem | null>(null)
   const [reviewNote, setReviewNote] = useState('')
@@ -251,6 +252,9 @@ export default function ApplicationsPage() {
     fontFamily: 'inherit',
   }
 
+  if (!clubPermissions.loading && !canView)
+    return <PermissionDenied />
+
   return (
     <div style={{ padding: '28px 32px', minHeight: '100%', background: D.bg, fontFamily: "'Be Vietnam Pro', sans-serif" }}>
       {/* Header */}
@@ -259,15 +263,17 @@ export default function ApplicationsPage() {
           <h1 style={{ fontSize: 24, fontWeight: 900, color: D.ink, letterSpacing: '-.025em', margin: 0 }}>Đơn đăng ký</h1>
           <p style={{ fontSize: 13, color: D.inkMuted, marginTop: 4 }}>{totalApplications} đơn phù hợp</p>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          {(['xlsx', 'csv'] as const).map(fmt => (
-            <button key={fmt} onClick={() => handleExport(fmt)} style={{
-              padding: '8px 14px', borderRadius: D.pill, background: D.card, border: D.border,
-              boxShadow: D.shadow(2, 2), fontSize: 12, fontWeight: 600, color: D.inkDim,
-              cursor: 'pointer', fontFamily: 'inherit',
-            }}>↓ {fmt.toUpperCase()}</button>
-          ))}
-        </div>
+        {canExport && (
+          <div style={{ display: 'flex', gap: 8 }}>
+            {(['xlsx', 'csv'] as const).map(fmt => (
+              <button key={fmt} onClick={() => handleExport(fmt)} style={{
+                padding: '8px 14px', borderRadius: D.pill, background: D.card, border: D.border,
+                boxShadow: D.shadow(2, 2), fontSize: 12, fontWeight: 600, color: D.inkDim,
+                cursor: 'pointer', fontFamily: 'inherit',
+              }}>↓ {fmt.toUpperCase()}</button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Status tabs */}
