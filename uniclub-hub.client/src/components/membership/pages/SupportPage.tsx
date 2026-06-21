@@ -3,19 +3,12 @@ import { getSupportTickets, submitSupportRequest } from '@/components/membership
 import type { SupportTicket } from '@/components/membership/services/userApi'
 import { toast } from 'sonner'
 import { Clock, CheckCircle2, Loader2 } from 'lucide-react'
+import { D } from '@/components/shared/managementTheme'
 
 const STATUS_CONFIG: Record<string, { label: string; bg: string; text: string; icon: React.ElementType }> = {
   Open:       { label: 'Đang chờ',      bg: '#fef3c7', text: '#b45309', icon: Clock },
   InProgress: { label: 'Đang xử lý',   bg: '#dbeafe', text: '#1d4ed8', icon: Loader2 },
   Resolved:   { label: 'Đã giải quyết', bg: '#dcfce7', text: '#15803d', icon: CheckCircle2 },
-}
-
-const D = {
-  border: '1.5px solid #15131a', borderLight: '1px solid #e8e3d6',
-  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 #15131a`,
-  radius: 14, pill: 999,
-  ink: '#15131a', inkDim: '#4a4651', inkMuted: '#918c99',
-  bg: '#f7f6f1', card: '#ffffff', indigo: '#4f46e5',
 }
 
 const inputS: React.CSSProperties = {

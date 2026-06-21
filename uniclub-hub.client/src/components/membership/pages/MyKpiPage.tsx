@@ -5,20 +5,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { MEMBERSHIP_STATUS } from '@/types/auth'
 import { getMyKpiResult, type MemberKpiResult } from '@/components/membership/services/kpiApi'
 import { FilterSelect } from '@/components/shared/FilterSelect'
-
-const D = {
-  border: '1.5px solid #15131a',
-  borderLight: '1px solid #e8e3d6',
-  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 #15131a`,
-  radius: 14,
-  pill: 999,
-  ink: '#15131a',
-  inkDim: '#4a4651',
-  inkMuted: '#918c99',
-  bg: '#f7f6f1',
-  card: '#ffffff',
-  indigo: '#4f46e5',
-}
+import { D } from '@/components/shared/managementTheme'
 
 function currentMonthRange() {
   const now = new Date()
@@ -46,7 +33,7 @@ function clampScore(score: number) {
 
 function gradeAccent(grade: string): { color: string; iconBg: string } {
   if (grade === 'Xuất sắc') return { color: '#16a34a', iconBg: '#dcfce7' }
-  if (grade === 'Tốt')      return { color: '#4f46e5', iconBg: '#eef2ff' }
+  if (grade === 'Tốt')      return { color: '#1d4ed8', iconBg: '#eef2ff' }
   if (grade === 'Đạt')      return { color: '#d97706', iconBg: '#fef3c7' }
   return { color: '#dc2626', iconBg: '#fee2e2' }
 }
@@ -283,7 +270,7 @@ function MetricRow({ metric }: { metric: MemberKpiResult['metrics'][number] }) {
       <div>
         <div style={{ fontWeight: 900, color: D.ink, fontSize: 14 }}>{metric.displayName}</div>
         <div style={{ marginTop: 3, fontSize: 12, color: D.inkMuted }}>{metric.detail}</div>
-        <div style={{ height: 6, background: '#e8e3d6', borderRadius: D.pill, marginTop: 8, overflow: 'hidden' }}>
+        <div style={{ height: 6, background: '#dce6f4', borderRadius: D.pill, marginTop: 8, overflow: 'hidden' }}>
           <div style={{ width: `${clampScore(metric.rawScore)}%`, height: '100%', background: D.indigo, transition: 'width .4s' }} />
         </div>
       </div>

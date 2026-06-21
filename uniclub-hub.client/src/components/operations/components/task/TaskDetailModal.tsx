@@ -21,25 +21,9 @@ import { getClubMembers } from "../../../membership/services/clubApi";
 import type { MemberItem } from "../../../membership/services/club.types";
 import { useAuth } from "@/contexts/AuthContext";
 import { CLUB_ROLES } from "@/types/auth";
+import { D } from '@/components/shared/managementTheme'
 
 /* ── Design tokens ─────────────────────────────────────────────────────────── */
-
-const D = {
-  border: '1.5px solid #15131a',
-  borderLight: '1px solid #e8e3d6',
-  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 #15131a`,
-  radius: 14,
-  pill: 999,
-  ink: '#15131a',
-  inkDim: '#4a4651',
-  inkMuted: '#918c99',
-  bg: '#f7f6f1',
-  card: '#ffffff',
-  indigo: '#4f46e5',
-  emerald: '#10b981',
-  amber: '#f59e0b',
-  red: '#ef4444',
-}
 
 /* ── Interfaces ──────────────────────────────────────────────────────────────── */
 
@@ -106,7 +90,7 @@ type Panel = "add" | "label" | "date" | "member" | "attach" | null
 /* ── Shared styles ─────────────────────────────────────────────────────────── */
 
 const inputStyle: React.CSSProperties = {
-  width: '100%', height: 36, borderRadius: 8, border: '1px solid #e8e3d6',
+  width: '100%', height: 36, borderRadius: 8, border: '1px solid #dce6f4',
   padding: '0 12px', fontSize: 13, color: D.ink, outline: 'none',
   background: D.bg, fontFamily: 'inherit', boxSizing: 'border-box',
 }
@@ -772,7 +756,7 @@ export default function TaskDetailModal({
                   background: '#ede9fe', border: `1.5px solid ${D.indigo}55`,
                   borderRadius: D.pill, padding: '4px 12px',
                   textDecoration: 'none', width: 'fit-content',
-                  boxShadow: '1px 1px 0 #4f46e544',
+                  boxShadow: '1px 1px 0 #1d4ed844',
                 }}
               >
                 <Calendar size={11} />
@@ -814,7 +798,7 @@ export default function TaskDetailModal({
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {attachments.map(a => (
                     <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: D.bg, borderRadius: 8, border: D.borderLight }}>
-                      <div style={{ width: 40, height: 32, background: '#e8e3d6', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 10, fontWeight: 700, color: D.inkMuted, textTransform: 'uppercase' }}>
+                      <div style={{ width: 40, height: 32, background: '#dce6f4', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 10, fontWeight: 700, color: D.inkMuted, textTransform: 'uppercase' }}>
                         {a.isLink ? <Link2 size={13} style={{ color: D.inkMuted }} /> : (a.fileName?.split(".").pop() ?? "?")}
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
@@ -871,7 +855,7 @@ export default function TaskDetailModal({
                   {group.items.length > 0 && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
                       <span style={{ fontSize: 11, color: D.inkMuted, width: 28, textAlign: 'right', flexShrink: 0 }}>{pct}%</span>
-                      <div style={{ flex: 1, height: 6, background: '#e8e3d6', borderRadius: 2, overflow: 'hidden', border: '1px solid #ccc' }}>
+                      <div style={{ flex: 1, height: 6, background: '#dce6f4', borderRadius: 2, overflow: 'hidden', border: '1px solid #ccc' }}>
                         <div style={{ height: '100%', borderRadius: 2, background: pct === 100 ? D.emerald : D.indigo, width: `${pct}%`, transition: 'width .3s' }} />
                       </div>
                     </div>
@@ -942,7 +926,7 @@ export default function TaskDetailModal({
                   Hủy
                 </button>
                 <button type="button" onClick={handleSave} disabled={saving}
-                  style={{ padding: '8px 18px', fontSize: 13, background: D.ink, color: '#facc15', border: D.border, borderRadius: D.pill, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1, boxShadow: D.shadow(2, 2), fontFamily: 'inherit', fontWeight: 700 }}>
+                  style={{ padding: '8px 18px', fontSize: 13, background: D.ink, color: '#ffffff', border: D.border, borderRadius: D.pill, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1, boxShadow: D.shadow(2, 2), fontFamily: 'inherit', fontWeight: 700 }}>
                   {saving ? "Đang lưu..." : isEdit ? "Lưu thay đổi" : "Tạo thẻ"}
                 </button>
               </div>
@@ -959,7 +943,7 @@ export default function TaskDetailModal({
                 </span>
                 <button type="button" onClick={() => setShowDetail(v => !v)}
                   style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: D.inkMuted, background: 'none', border: 'none', cursor: 'pointer', padding: '4px 8px', borderRadius: 6, fontFamily: 'inherit' }}
-                  onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#e8e3d6'}
+                  onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#dce6f4'}
                   onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'none'}
                 >
                   {showDetail ? <EyeOff size={11} /> : <Eye size={11} />}
@@ -976,7 +960,7 @@ export default function TaskDetailModal({
                     if (!showDetail) return null
                     return (
                       <div key={`act-${i}`} style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-                        <div style={{ width: 22, height: 22, borderRadius: '50%', background: '#e8e3d6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, fontWeight: 800, color: D.inkMuted, flexShrink: 0, marginTop: 2 }}>
+                        <div style={{ width: 22, height: 22, borderRadius: '50%', background: '#dce6f4', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, fontWeight: 800, color: D.inkMuted, flexShrink: 0, marginTop: 2 }}>
                           {initials(entry.userName)}
                         </div>
                         <div style={{ minWidth: 0 }}>

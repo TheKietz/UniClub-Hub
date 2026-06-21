@@ -5,14 +5,7 @@ import { toast } from 'sonner'
 import { LoadMoreBar } from '@/components/shared/LoadMoreBar'
 import { FilterSelect } from '@/components/shared/FilterSelect'
 import { UserSearchCombobox } from '@/components/shared/UserSearchCombobox'
-
-const D = {
-  border: '1.5px solid #15131a', borderLight: '1px solid #e8e3d6',
-  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 #15131a`,
-  radius: 14,
-  ink: '#15131a', inkDim: '#4a4651', inkMuted: '#918c99',
-  bg: '#f7f6f1', card: '#ffffff', indigo: '#4f46e5',
-}
+import { D } from '@/components/shared/managementTheme'
 
 const MODULE_OPTIONS = [
   { value: '', label: 'Tất cả loại' },
@@ -90,7 +83,7 @@ function groupByDate(logs: ClubAuditLogItem[]) {
 
 function Avatar({ name, url }: { name: string; url?: string }) {
   const initials = name.split(' ').slice(-2).map(w => w[0]).join('').toUpperCase()
-  const colors = ['#4f46e5', '#7c3aed', '#ec4899', '#f59e0b', '#10b981', '#3b82f6']
+  const colors = ['#1d4ed8', '#7c3aed', '#ec4899', '#f59e0b', '#10b981', '#3b82f6']
   const bg = colors[name.charCodeAt(0) % colors.length]
   return url
     ? <img src={url} style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, border: D.borderLight }} alt="" />
@@ -202,10 +195,10 @@ export default function AdminAuditLogPage() {
                 <span style={{ fontSize: 11, fontWeight: 800, color: D.ink, letterSpacing: '.06em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
                   {group.label}
                 </span>
-                <div style={{ flex: 1, height: 1, background: '#e8e3d6' }} />
+                <div style={{ flex: 1, height: 1, background: '#dce6f4' }} />
               </div>
 
-              <div style={{ marginLeft: 4, borderLeft: '2px solid #e8e3d6', paddingLeft: 22, display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <div style={{ marginLeft: 4, borderLeft: '2px solid #dce6f4', paddingLeft: 22, display: 'flex', flexDirection: 'column', gap: 6 }}>
                 {group.items.map(log => {
                   const actionStyle = ACTION_STYLE[log.action] ?? ACTION_STYLE.Update
                   const modStyle = MODULE_STYLE[log.module] ?? { bg: D.bg, color: D.inkMuted }

@@ -7,25 +7,10 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { toast } from 'sonner'
 import { Link } from 'react-router-dom'
-
-const D = {
-  border: '1.5px solid #15131a',
-  borderLight: '1px solid #e8e3d6',
-  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 #15131a`,
-  radius: 14,
-  pill: 999,
-  ink: '#15131a',
-  inkDim: '#4a4651',
-  inkMuted: '#918c99',
-  bg: '#f7f6f1',
-  card: '#ffffff',
-  indigo: '#4f46e5',
-  violet: '#7c3aed',
-  red: '#ef4444',
-}
+import { D } from '@/components/shared/managementTheme'
 
 const CLUB_PALETTES = [
-  { accent: '#4f46e5', light: '#ede9fe' },
+  { accent: '#1d4ed8', light: '#ede9fe' },
   { accent: '#0ea5e9', light: '#e0f2fe' },
   { accent: '#10b981', light: '#d1fae5' },
   { accent: '#f59e0b', light: '#fef9c3' },
@@ -36,9 +21,9 @@ const CLUB_PALETTES = [
 type DeptsByClub = Record<number, DepartmentItem[]>
 
 const inputStyle: React.CSSProperties = {
-  width: '100%', height: 36, borderRadius: 8, border: '1px solid #e8e3d6',
-  padding: '0 12px', fontSize: 13, color: '#15131a', outline: 'none',
-  background: '#f7f6f1', fontFamily: 'inherit', boxSizing: 'border-box',
+  width: '100%', height: 36, borderRadius: 8, border: '1px solid #dce6f4',
+  padding: '0 12px', fontSize: 13, color: '#0a2f6e', outline: 'none',
+  background: '#f4f7fc', fontFamily: 'inherit', boxSizing: 'border-box',
 }
 const labelStyle: React.CSSProperties = { fontSize: 12, fontWeight: 700, color: '#4a4651', display: 'block', marginBottom: 4 }
 

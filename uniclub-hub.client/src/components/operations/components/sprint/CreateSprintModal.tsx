@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { X } from 'lucide-react'
 import type { CreateSprintDto, SprintStatus } from '../../services/operations.types'
+import { D } from '@/components/shared/managementTheme'
 
 interface CreateSprintModalProps {
   open: boolean
@@ -18,19 +19,6 @@ interface CreateSprintModalProps {
 }
 
 const EMPTY: CreateSprintDto = { name: '', goal: '', startDate: '', endDate: '', eventId: undefined }
-
-const D = {
-  border: '1.5px solid #15131a',
-  borderLight: '1px solid #e8e3d6',
-  radius: 14,
-  ink: '#15131a',
-  inkDim: '#4a4651',
-  inkMuted: '#918c99',
-  bg: '#f7f6f1',
-  card: '#ffffff',
-  indigo: '#4f46e5',
-  red: '#ef4444',
-}
 
 const inputStyle = (hasErr?: boolean): React.CSSProperties => ({
   width: '100%', padding: '9px 12px', fontSize: 13, fontWeight: 500,
@@ -82,7 +70,7 @@ export default function CreateSprintModal({ open, onClose, onSubmit, editData }:
       <div style={{
         position: 'relative', width: '100%', maxWidth: 440, height: '100%',
         background: D.card, border: D.border,
-        boxShadow: '-6px 0 0 #15131a',
+        boxShadow: '-6px 0 0 #0a2f6e',
         display: 'flex', flexDirection: 'column', overflowY: 'auto',
         fontFamily: "'Be Vietnam Pro', sans-serif",
       }}>
@@ -92,15 +80,15 @@ export default function CreateSprintModal({ open, onClose, onSubmit, editData }:
           padding: '16px 20px', borderBottom: D.border, flexShrink: 0,
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         }}>
-          <h2 style={{ margin: 0, fontSize: 15, fontWeight: 900, color: '#facc15', letterSpacing: '.04em', textTransform: 'uppercase' }}>
+          <h2 style={{ margin: 0, fontSize: 15, fontWeight: 900, color: '#ffffff', letterSpacing: '.04em', textTransform: 'uppercase' }}>
             {editData ? 'Chỉnh sửa Sprint' : 'Tạo Sprint mới'}
           </h2>
           <button
             type="button"
             onClick={onClose}
             style={{
-              width: 28, height: 28, border: '1.5px solid #facc15', borderRadius: 6,
-              background: 'transparent', color: '#facc15',
+              width: 28, height: 28, border: '1.5px solid #ffffff', borderRadius: 6,
+              background: 'transparent', color: '#ffffff',
               display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
             }}
           >
@@ -185,9 +173,9 @@ export default function CreateSprintModal({ open, onClose, onSubmit, editData }:
             style={{
               padding: '8px 22px', fontSize: 13, fontWeight: 900,
               border: D.border, borderRadius: D.radius,
-              background: saving ? '#6b7280' : D.ink, color: '#facc15',
+              background: saving ? '#6b7280' : D.ink, color: '#ffffff',
               cursor: saving ? 'not-allowed' : 'pointer',
-              boxShadow: saving ? 'none' : '3px 3px 0 #4f46e5',
+              boxShadow: saving ? 'none' : '3px 3px 0 #1d4ed8',
               letterSpacing: '.04em', textTransform: 'uppercase',
               fontFamily: 'inherit',
             }}

@@ -4,16 +4,7 @@ import type { ClubItem } from '@/components/membership/services/admin.types'
 import PositionManagementPanel from '@/components/membership/pages/shared/PositionManagementPanel'
 import { FilterSelect } from '@/components/shared/FilterSelect'
 import { toast } from 'sonner'
-
-const D = {
-  border: '1.5px solid #15131a',
-  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 #15131a`,
-  radius: 14,
-  ink: '#15131a',
-  inkMuted: '#918c99',
-  bg: '#f7f6f1',
-  card: '#ffffff',
-}
+import { D } from '@/components/shared/managementTheme'
 
 export default function AdminPositionsPage() {
   const [clubs, setClubs] = useState<ClubItem[]>([])

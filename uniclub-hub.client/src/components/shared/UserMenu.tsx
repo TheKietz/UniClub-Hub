@@ -3,8 +3,9 @@ import { LogOut, ChevronDown, LayoutDashboard, ShieldCheck, Settings } from 'luc
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { CLUB_ROLES, MEMBERSHIP_STATUS } from '@/types/auth'
+import { D } from '@/components/shared/managementTheme'
 
-const AVATAR_COLORS = ['#4f46e5', '#7c3aed', '#ec4899', '#f59e0b', '#10b981', '#3b82f6']
+const AVATAR_COLORS = [D.indigo, D.violet, '#ec4899', D.amber, D.emerald, '#3b82f6']
 
 function avatarColor(name: string) {
   return AVATAR_COLORS[name.charCodeAt(0) % AVATAR_COLORS.length]
@@ -14,11 +15,11 @@ function Avatar({ name, url, size = 32 }: { name: string; url?: string | null; s
   const initials = name.trim().split(' ').filter(Boolean).map(w => w[0]).slice(-2).join('').toUpperCase()
   const r = size / 2
   return url
-    ? <img src={url} alt="" style={{ width: size, height: size, borderRadius: r, objectFit: 'cover', flexShrink: 0, border: '1.5px solid #15131a' }} />
-    : <div style={{ width: size, height: size, borderRadius: r, background: avatarColor(name), color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: size * 0.34, fontWeight: 800, flexShrink: 0, border: '1.5px solid #15131a' }}>{initials}</div>
+    ? <img src={url} alt="" style={{ width: size, height: size, borderRadius: r, objectFit: 'cover', flexShrink: 0, border: D.border }} />
+    : <div style={{ width: size, height: size, borderRadius: r, background: avatarColor(name), color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: size * 0.34, fontWeight: 800, flexShrink: 0, border: D.border }}>{initials}</div>
 }
 
-function MenuItem({ icon: Icon, label, onClick, color = '#15131a' }: { icon: React.ElementType; label: string; onClick: () => void; color?: string }) {
+function MenuItem({ icon: Icon, label, onClick, color = D.ink }: { icon: React.ElementType; label: string; onClick: () => void; color?: string }) {
   const [hover, setHover] = useState(false)
   return (
     <button
@@ -27,7 +28,7 @@ function MenuItem({ icon: Icon, label, onClick, color = '#15131a' }: { icon: Rea
       onMouseLeave={() => setHover(false)}
       style={{
         width: '100%', display: 'flex', alignItems: 'center', gap: 10,
-        padding: '9px 14px', background: hover ? '#f7f6f1' : 'transparent',
+        padding: '9px 14px', background: hover ? D.bg : 'transparent',
         border: 'none', cursor: 'pointer', textAlign: 'left',
         fontSize: 13, fontWeight: 600, color,
         fontFamily: "'Be Vietnam Pro', sans-serif",
@@ -47,7 +48,6 @@ export default function UserMenu() {
   const [open, setOpen] = useState(false)
   const btnRef = useRef<HTMLButtonElement>(null)
   const dropRef = useRef<HTMLDivElement>(null)
-  const [pos, setPos] = useState({ top: 0, right: 0 })
 
   useEffect(() => {
     function onClickOutside(e: MouseEvent) {
@@ -61,10 +61,6 @@ export default function UserMenu() {
   const name = user?.fullName ?? user?.email ?? '?'
 
   function handleToggle() {
-    if (!open && btnRef.current) {
-      const r = btnRef.current.getBoundingClientRect()
-      setPos({ top: r.bottom + 8, right: window.innerWidth - r.right })
-    }
     setOpen(v => !v)
   }
 
@@ -81,16 +77,16 @@ export default function UserMenu() {
     : { label: 'Dashboard', icon: LayoutDashboard, to: '/dashboard' }
 
   return (
-    <>
+    <div style={{ position: 'relative', display: 'inline-flex' }}>
       <button
         ref={btnRef}
         onClick={handleToggle}
         style={{
           display: 'flex', alignItems: 'center', gap: 8,
           height: 38, padding: '0 10px 0 6px',
-          borderRadius: 999, border: '1.5px solid #15131a',
-          background: open ? '#15131a' : '#fff',
-          boxShadow: open ? 'none' : '2px 2px 0 #15131a',
+          borderRadius: 999, border: D.border,
+          background: open ? D.ink : D.card,
+          boxShadow: open ? 'none' : D.shadow(2, 2),
           cursor: 'pointer', transition: 'all .15s',
         }}
       >
@@ -98,13 +94,13 @@ export default function UserMenu() {
         <span style={{
           fontSize: 13, fontWeight: 700, maxWidth: 120, overflow: 'hidden',
           textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-          color: open ? '#facc15' : '#15131a',
+          color: open ? '#ffffff' : D.ink,
           fontFamily: "'Be Vietnam Pro', sans-serif",
         }}>
           {user?.fullName ?? user?.email}
         </span>
         <ChevronDown size={13} style={{
-          color: open ? '#facc15' : '#918c99', flexShrink: 0,
+          color: open ? '#ffffff' : D.inkMuted, flexShrink: 0,
           transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .15s',
         }} />
       </button>
@@ -113,41 +109,46 @@ export default function UserMenu() {
         <div
           ref={dropRef}
           style={{
-            position: 'fixed', top: pos.top, right: pos.right,
-            width: 240, background: '#fff',
-            border: '1.5px solid #15131a', borderRadius: 14,
-            boxShadow: '4px 4px 0 #15131a',
+            position: 'absolute',
+            top: 'calc(100% + 10px)',
+            right: 0,
+            width: 240,
+            maxWidth: 'calc(100vw - 32px)',
+            background: D.card,
+            border: D.border,
+            borderRadius: D.radius,
+            boxShadow: D.shadow(4, 4),
             zIndex: 9999, overflow: 'hidden',
             fontFamily: "'Be Vietnam Pro', sans-serif",
           }}
         >
           {/* Profile card */}
-          <div style={{ padding: '14px', borderBottom: '1px solid #e8e3d6' }}>
+          <div style={{ padding: '14px', borderBottom: D.borderLight }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <Avatar name={name} url={user?.avatarUrl} size={40} />
               <div style={{ minWidth: 0 }}>
-                <p style={{ fontSize: 13.5, fontWeight: 800, color: '#15131a', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <p style={{ fontSize: 13.5, fontWeight: 800, color: D.ink, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {user?.fullName ?? user?.email}
                 </p>
-                {user?.studentId && <p style={{ fontSize: 11, color: '#4a4651', margin: '2px 0 0' }}>{user.studentId}</p>}
-                {user?.major && <p style={{ fontSize: 11, color: '#918c99', margin: '1px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.major}</p>}
+                {user?.studentId && <p style={{ fontSize: 11, color: D.inkDim, margin: '2px 0 0' }}>{user.studentId}</p>}
+                {user?.major && <p style={{ fontSize: 11, color: D.inkMuted, margin: '1px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.major}</p>}
               </div>
             </div>
           </div>
 
           {/* Nav items */}
           <div style={{ padding: '6px 0' }}>
-            <MenuItem icon={mainNav.icon} label={mainNav.label} onClick={() => go(mainNav.to)} color="#4f46e5" />
+            <MenuItem icon={mainNav.icon} label={mainNav.label} onClick={() => go(mainNav.to)} color={D.indigo} />
             {!isOnManagement && managedClub && (
-              <MenuItem icon={Settings} label={`Quản lý ${managedClub.clubName}`} onClick={() => go(`/clubs/${managedClub.clubId}/manage`)} color="#4f46e5" />
+              <MenuItem icon={Settings} label={`Quản lý ${managedClub.clubName}`} onClick={() => go(`/clubs/${managedClub.clubId}/manage`)} color={D.indigo} />
             )}
           </div>
 
-          <div style={{ borderTop: '1px solid #e8e3d6', padding: '6px 0' }}>
-            <MenuItem icon={LogOut} label="Đăng xuất" onClick={() => { logout(); navigate('/login', { replace: true }) }} color="#ef4444" />
+          <div style={{ borderTop: D.borderLight, padding: '6px 0' }}>
+            <MenuItem icon={LogOut} label="Đăng xuất" onClick={() => { logout(); navigate('/login', { replace: true }) }} color={D.red} />
           </div>
         </div>
       )}
-    </>
+    </div>
   )
 }

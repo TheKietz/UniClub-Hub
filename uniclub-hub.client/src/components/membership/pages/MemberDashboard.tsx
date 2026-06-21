@@ -2,24 +2,15 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { CLUB_ROLES, MEMBERSHIP_STATUS } from '@/types/auth'
 import { PageShell, DTag } from '@/components/shared/DashboardCharts'
+import { D } from '@/components/shared/managementTheme'
 
-const CLUB_COLORS = ['#4f46e5', '#7c3aed', '#ff5a3c', '#14b8a6', '#38bdf8', '#ec4899']
+const CLUB_COLORS = ['#1d4ed8', '#7c3aed', '#ff5a3c', '#14b8a6', '#38bdf8', '#ec4899']
 const ROLE_LABELS: Record<string, string> = {
   CLUB_ADMIN: 'Ban chủ nhiệm', DEPT_LEAD: 'Trưởng ban', MEMBER: 'Thành viên',
 }
 const ROLE_COLORS: Record<string, string> = {
   CLUB_ADMIN: '#ff5a3c', DEPT_LEAD: '#f59e0b', MEMBER: '#14b8a6',
 }
-const D = {
-  border: '1.5px solid #15131a',
-  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 #15131a`,
-  radius: 14,
-  ink: '#15131a',
-  inkMuted: '#918c99',
-  card: '#ffffff',
-  lemon: '#facc15',
-}
-
 function getClubShort(name: string) {
   return name.split(' ').filter(Boolean).map(w => w[0]).slice(0, 3).join('').toUpperCase()
 }
@@ -49,7 +40,7 @@ export default function MemberDashboard() {
       {/* Quick stats */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 28 }}>
         {[
-          { n: activeMemberships.length, l: 'CLB tham gia', color: '#4f46e5', icon: '◐' },
+          { n: activeMemberships.length, l: 'CLB tham gia', color: '#1d4ed8', icon: '◐' },
           { n: managedClubs.length, l: 'CLB quản lý', color: '#ff5a3c', icon: '◇' },
           { n: probationClubs.length, l: 'Đang thử việc', color: '#f59e0b', icon: '✦' },
         ].map(s => (
@@ -102,7 +93,7 @@ export default function MemberDashboard() {
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 15, fontWeight: 700, color: D.ink }}>{m.clubName}</div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 3 }}>
-                    <DTag bg={ROLE_COLORS[m.clubRole] ?? '#4f46e5'} color="#fff">
+                    <DTag bg={ROLE_COLORS[m.clubRole] ?? '#1d4ed8'} color="#fff">
                       {ROLE_LABELS[m.clubRole] ?? m.clubRole}
                     </DTag>
                   </div>
@@ -183,8 +174,8 @@ export default function MemberDashboard() {
       <button onClick={() => navigate('/clubs')} style={{
         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
         width: '100%', padding: '14px', borderRadius: D.radius,
-        background: D.card, border: `1.5px dashed #e8e3d6`,
-        fontSize: 14, fontWeight: 600, color: '#4f46e5',
+        background: D.card, border: `1.5px dashed #dce6f4`,
+        fontSize: 14, fontWeight: 600, color: '#1d4ed8',
         cursor: 'pointer', fontFamily: 'inherit',
       }}>⌕ Khám phá thêm CLB</button>
     </PageShell>

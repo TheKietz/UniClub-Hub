@@ -28,24 +28,9 @@ import type {
   EventRegistrationItem, AttendanceStatus,
 } from '../services/operations.types'
 import type { MemberItem } from '@/components/membership/services/club.types'
+import { D } from '@/components/shared/managementTheme'
 
 /* ─── Design tokens ──────────────────────────────────────────────────────── */
-
-const D = {
-  border: '1.5px solid #15131a',
-  borderLight: '1px solid #e8e3d6',
-  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 #15131a`,
-  radius: 14,
-  pill: 999,
-  ink: '#15131a',
-  inkDim: '#4a4651',
-  inkMuted: '#918c99',
-  bg: '#f7f6f1',
-  card: '#ffffff',
-  indigo: '#4f46e5',
-  amber: '#f59e0b',
-  red: '#ef4444',
-}
 
 const inputStyle: React.CSSProperties = {
   width: '100%', padding: '8px 12px', fontSize: 13, fontWeight: 500,
@@ -133,7 +118,7 @@ function EditModal({ open, event, onClose, onSaved }: { open: boolean; event: Ev
         </div>
         <DialogFooter style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
           <button type="button" onClick={onClose} style={{ padding: '8px 18px', fontSize: 13, fontWeight: 700, border: D.border, borderRadius: D.radius, background: D.card, color: D.inkDim, cursor: 'pointer', fontFamily: 'inherit' }}>Hủy</button>
-          <button type="button" onClick={handleSave} disabled={saving} style={{ padding: '8px 20px', fontSize: 13, fontWeight: 900, border: D.border, borderRadius: D.radius, background: saving ? '#6b7280' : D.ink, color: '#facc15', cursor: saving ? 'not-allowed' : 'pointer', boxShadow: saving ? 'none' : D.shadow(2, 2), fontFamily: 'inherit' }}>
+          <button type="button" onClick={handleSave} disabled={saving} style={{ padding: '8px 20px', fontSize: 13, fontWeight: 900, border: D.border, borderRadius: D.radius, background: saving ? '#6b7280' : D.ink, color: '#ffffff', cursor: saving ? 'not-allowed' : 'pointer', boxShadow: saving ? 'none' : D.shadow(2, 2), fontFamily: 'inherit' }}>
             {saving ? 'Đang lưu...' : 'Lưu thay đổi'}
           </button>
         </DialogFooter>
@@ -177,7 +162,7 @@ function AddSessionModal({ open, eventId, onClose, onAdded }: { open: boolean; e
         </div>
         <DialogFooter style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
           <button type="button" onClick={onClose} style={{ padding: '8px 18px', fontSize: 13, fontWeight: 700, border: D.border, borderRadius: D.radius, background: D.card, color: D.inkDim, cursor: 'pointer', fontFamily: 'inherit' }}>Hủy</button>
-          <button type="button" onClick={handleSave} disabled={saving} style={{ padding: '8px 20px', fontSize: 13, fontWeight: 900, border: D.border, borderRadius: D.radius, background: saving ? '#6b7280' : D.ink, color: '#facc15', cursor: saving ? 'not-allowed' : 'pointer', boxShadow: saving ? 'none' : D.shadow(2, 2), fontFamily: 'inherit' }}>
+          <button type="button" onClick={handleSave} disabled={saving} style={{ padding: '8px 20px', fontSize: 13, fontWeight: 900, border: D.border, borderRadius: D.radius, background: saving ? '#6b7280' : D.ink, color: '#ffffff', cursor: saving ? 'not-allowed' : 'pointer', boxShadow: saving ? 'none' : D.shadow(2, 2), fontFamily: 'inherit' }}>
             {saving ? 'Đang lưu...' : 'Thêm mục'}
           </button>
         </DialogFooter>
@@ -233,7 +218,7 @@ function AssignStaffModal({ open, eventId, members, onClose, onAssigned }: { ope
         </div>
         <DialogFooter style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
           <button type="button" onClick={onClose} style={{ padding: '8px 18px', fontSize: 13, fontWeight: 700, border: D.border, borderRadius: D.radius, background: D.card, color: D.inkDim, cursor: 'pointer', fontFamily: 'inherit' }}>Hủy</button>
-          <button type="button" onClick={handleSave} disabled={saving} style={{ padding: '8px 20px', fontSize: 13, fontWeight: 900, border: D.border, borderRadius: D.radius, background: saving ? '#6b7280' : D.ink, color: '#facc15', cursor: saving ? 'not-allowed' : 'pointer', boxShadow: saving ? 'none' : D.shadow(2, 2), fontFamily: 'inherit' }}>
+          <button type="button" onClick={handleSave} disabled={saving} style={{ padding: '8px 20px', fontSize: 13, fontWeight: 900, border: D.border, borderRadius: D.radius, background: saving ? '#6b7280' : D.ink, color: '#ffffff', cursor: saving ? 'not-allowed' : 'pointer', boxShadow: saving ? 'none' : D.shadow(2, 2), fontFamily: 'inherit' }}>
             {saving ? 'Đang lưu...' : 'Phân công'}
           </button>
         </DialogFooter>
@@ -288,7 +273,7 @@ function AddParticipantModal({ open, eventId, members, onClose, onAdded }: {
         </div>
         <DialogFooter style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
           <button type="button" onClick={onClose} style={{ padding: '8px 18px', fontSize: 13, fontWeight: 700, border: D.border, borderRadius: D.radius, background: D.card, color: D.inkDim, cursor: 'pointer', fontFamily: 'inherit' }}>Hủy</button>
-          <button type="button" onClick={handleSave} disabled={saving} style={{ padding: '8px 20px', fontSize: 13, fontWeight: 900, border: D.border, borderRadius: D.radius, background: saving ? '#6b7280' : D.ink, color: '#facc15', cursor: saving ? 'not-allowed' : 'pointer', boxShadow: saving ? 'none' : D.shadow(2, 2), fontFamily: 'inherit' }}>
+          <button type="button" onClick={handleSave} disabled={saving} style={{ padding: '8px 20px', fontSize: 13, fontWeight: 900, border: D.border, borderRadius: D.radius, background: saving ? '#6b7280' : D.ink, color: '#ffffff', cursor: saving ? 'not-allowed' : 'pointer', boxShadow: saving ? 'none' : D.shadow(2, 2), fontFamily: 'inherit' }}>
             {saving ? 'Đang thêm...' : 'Thêm'}
           </button>
         </DialogFooter>
@@ -470,7 +455,7 @@ export default function EventDetailPage() {
               <button type="button" onClick={() => setDeleteEventOpen(true)} style={{ ...outlineBtnStyle, color: D.red, borderColor: '#fca5a5' }}>
                 <Trash2 size={13} /> Xóa
               </button>
-              <button type="button" onClick={() => setEditOpen(true)} style={{ ...outlineBtnStyle, background: D.ink, color: '#facc15', boxShadow: D.shadow() }}>
+              <button type="button" onClick={() => setEditOpen(true)} style={{ ...outlineBtnStyle, background: D.ink, color: '#ffffff', boxShadow: D.shadow() }}>
                 <Pencil size={13} /> Chỉnh sửa
               </button>
             </>
@@ -545,7 +530,7 @@ export default function EventDetailPage() {
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
                       <div style={{ width: 10, height: 10, borderRadius: '50%', background: D.indigo, marginTop: 3, flexShrink: 0 }} />
-                      {idx < sessions.length - 1 && <div style={{ width: 1, flex: 1, background: '#e8e3d6', margin: '3px 0' }} />}
+                      {idx < sessions.length - 1 && <div style={{ width: 1, flex: 1, background: '#dce6f4', margin: '3px 0' }} />}
                     </div>
                     <div style={{ flex: 1, paddingBottom: 16, minWidth: 0, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
                       <div style={{ minWidth: 0 }}>
@@ -642,7 +627,7 @@ export default function EventDetailPage() {
             {registrations.length > 0 && <span style={{ fontSize: 10, background: '#d1fae5', color: '#065f46', padding: '1px 6px', borderRadius: 4, fontWeight: 700 }}>{registrations.length}</span>}
           </h2>
           {canManage && (
-            <button type="button" onClick={() => setAddParticipantOpen(true)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 14px', fontSize: 11, fontWeight: 800, border: D.border, borderRadius: D.pill, background: D.ink, color: '#facc15', cursor: 'pointer', boxShadow: D.shadow(2, 2), fontFamily: 'inherit' }}>
+            <button type="button" onClick={() => setAddParticipantOpen(true)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 14px', fontSize: 11, fontWeight: 800, border: D.border, borderRadius: D.pill, background: D.ink, color: '#ffffff', cursor: 'pointer', boxShadow: D.shadow(2, 2), fontFamily: 'inherit' }}>
               <Plus size={11} /> Thêm người tham gia
             </button>
           )}

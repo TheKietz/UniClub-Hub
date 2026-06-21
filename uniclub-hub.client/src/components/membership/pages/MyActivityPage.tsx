@@ -6,14 +6,7 @@ import type { ApplicationItem, ResignationRequestItem } from '@/components/membe
 import { MEMBERSHIP_STATUS } from '@/types/auth'
 import { toast } from 'sonner'
 import { CheckCircle2, Clock, XCircle, MessageCircle, AlertCircle } from 'lucide-react'
-
-const D = {
-  border: '1.5px solid #15131a', borderLight: '1px solid #e8e3d6',
-  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 #15131a`,
-  radius: 14, pill: 999,
-  ink: '#15131a', inkDim: '#4a4651', inkMuted: '#918c99',
-  bg: '#f7f6f1', card: '#ffffff', indigo: '#4f46e5',
-}
+import { D } from '@/components/shared/managementTheme'
 
 const APP_STATUS: Record<string, { label: string; bg: string; color: string; icon: React.ElementType }> = {
   Pending:   { label: 'Chờ duyệt',    bg: '#fef3c7', color: '#b45309', icon: Clock },
@@ -85,14 +78,14 @@ export default function MyActivityPage() {
           return (
             <button key={t} onClick={() => setTab(t)} style={{
               padding: '7px 14px', borderRadius: D.pill,
-              background: active ? D.ink : D.card, color: active ? '#facc15' : D.ink,
+              background: active ? D.ink : D.card, color: active ? '#ffffff' : D.ink,
               border: D.border, boxShadow: active ? 'none' : D.shadow(2, 2),
               transform: active ? 'translate(2px,2px)' : 'none',
               fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
               display: 'flex', alignItems: 'center', gap: 6, transition: 'all .12s',
             }}>
               {t}
-              {c > 0 && <span style={{ padding: '1px 6px', borderRadius: D.pill, fontSize: 10, fontWeight: 800, background: active ? 'rgba(255,255,255,.2)' : D.bg, color: active ? '#facc15' : D.inkMuted }}>{c}</span>}
+              {c > 0 && <span style={{ padding: '1px 6px', borderRadius: D.pill, fontSize: 10, fontWeight: 800, background: active ? 'rgba(255,255,255,.2)' : D.bg, color: active ? '#ffffff' : D.inkMuted }}>{c}</span>}
             </button>
           )
         })}
@@ -229,7 +222,7 @@ export default function MyActivityPage() {
 
 function EmptyCard({ text }: { text: string }) {
   return (
-    <div style={{ background: '#fff', border: '1.5px solid #15131a', borderRadius: 14, padding: '48px 20px', textAlign: 'center', color: '#918c99', fontSize: 13, boxShadow: '3px 3px 0 #15131a' }}>
+    <div style={{ background: '#fff', border: '1.5px solid #0a2f6e', borderRadius: 14, padding: '48px 20px', textAlign: 'center', color: '#918c99', fontSize: 13, boxShadow: '3px 3px 0 #0a2f6e' }}>
       {text}
     </div>
   )
@@ -237,7 +230,7 @@ function EmptyCard({ text }: { text: string }) {
 
 function LoadingCard() {
   return (
-    <div style={{ background: '#fff', border: '1.5px solid #15131a', borderRadius: 14, padding: '48px 20px', textAlign: 'center', color: '#918c99', fontSize: 13 }}>
+    <div style={{ background: '#fff', border: '1.5px solid #0a2f6e', borderRadius: 14, padding: '48px 20px', textAlign: 'center', color: '#918c99', fontSize: 13 }}>
       Đang tải...
     </div>
   )

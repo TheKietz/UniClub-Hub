@@ -4,17 +4,10 @@ import type { SystemSetting } from '@/components/membership/services/adminApi'
 import { toast } from 'sonner'
 import { Save, X, Power, ChevronDown } from 'lucide-react'
 import { SliderItemsEditor } from './SliderItemsEditor'
-
-const D = {
-  border: '1.5px solid #15131a', borderLight: '1px solid #e8e3d6',
-  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 #15131a`,
-  radius: 14, pill: 999,
-  ink: '#15131a', inkDim: '#4a4651', inkMuted: '#918c99',
-  bg: '#f7f6f1', card: '#ffffff', indigo: '#4f46e5',
-}
+import { D } from '@/components/shared/managementTheme'
 
 const CATEGORY_LABELS: Record<string, { label: string; color: string }> = {
-  auth:         { label: 'Xác thực & Đăng ký', color: '#4f46e5' },
+  auth:         { label: 'Xác thực & Đăng ký', color: '#1d4ed8' },
   club:         { label: 'Câu lạc bộ',          color: '#10b981' },
   system:       { label: 'Hệ thống',             color: '#f59e0b' },
   notification: { label: 'Thông báo',            color: '#6366f1' },
@@ -224,7 +217,7 @@ function SettingRow({ setting }: { setting: SystemSetting }) {
           style={{
             width: 36, height: 36, borderRadius: 8, display: 'grid', placeItems: 'center',
             background: dirty ? D.ink : D.bg, border: D.borderLight,
-            color: dirty ? '#facc15' : D.inkMuted,
+            color: dirty ? '#ffffff' : D.inkMuted,
             cursor: dirty ? 'pointer' : 'default',
             flexShrink: 0, marginTop: 2, transition: 'all .15s',
           }}
@@ -272,7 +265,7 @@ export default function SystemSettingsPage() {
           <p style={{ fontSize: 13, color: D.inkMuted, marginTop: 4 }}>Tuỳ chỉnh hành vi hệ thống — thay đổi áp dụng ngay lập tức</p>
         </div>
         {!loading && (
-          <div style={{ display: 'flex', flexWrap: 'wrap', borderBottom: '2px solid #e8e3d6', overflow: 'visible' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', borderBottom: '2px solid #dce6f4', overflow: 'visible' }}>
             {categories.map(cat => {
               const info = CATEGORY_LABELS[cat] ?? { label: cat, color: D.indigo }
               const isActive = activeTab === cat

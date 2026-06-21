@@ -5,24 +5,9 @@ import { ChevronLeft, ChevronRight, Bell } from 'lucide-react'
 import { getEvents, getTasks } from '../services/operationsApi'
 import { useTasks } from '../context/TasksContext'
 import type { EventItem, TaskItem, TaskPriority } from '../services/operations.types'
+import { D } from '@/components/shared/managementTheme'
 
 /* ─── Design tokens ──────────────────────────────────────────────────────── */
-
-const D = {
-  border: '1.5px solid #15131a',
-  borderLight: '1px solid #e8e3d6',
-  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 #15131a`,
-  radius: 14,
-  ink: '#15131a',
-  inkDim: '#4a4651',
-  inkMuted: '#918c99',
-  bg: '#f7f6f1',
-  card: '#ffffff',
-  indigo: '#4f46e5',
-  emerald: '#10b981',
-  amber: '#f59e0b',
-  red: '#ef4444',
-}
 
 /* ─── Constants ──────────────────────────────────────────────────────────── */
 
@@ -208,7 +193,7 @@ export default function CalendarPage() {
                   padding: '4px 12px', fontSize: 12, fontWeight: 700, borderRadius: 6,
                   border: view === v ? D.border : 'none',
                   background: view === v ? D.card : 'transparent',
-                  boxShadow: view === v ? '2px 2px 0 #15131a' : 'none',
+                  boxShadow: view === v ? '2px 2px 0 #0a2f6e' : 'none',
                   color: view === v ? D.ink : D.inkMuted, cursor: 'pointer',
                 }}
               >

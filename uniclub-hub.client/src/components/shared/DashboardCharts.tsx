@@ -1,13 +1,14 @@
+import { D } from '@/components/shared/managementTheme'
 // Shared SVG chart components for dashboard pages — Campus neo-brutalist style.
 
-const INK = '#15131a'
-const INK_MUTED = '#918c99'
-const BORDER = '1.5px solid #15131a'
-const BORDER_LIGHT = '1px solid #e8e3d6'
-const BG = '#f7f6f1'
-const RADIUS = 14
+const INK = D.ink
+const INK_MUTED = D.inkMuted
+const BORDER = D.border
+const BORDER_LIGHT = D.borderLight
+const BG = D.bg
+const RADIUS = D.radius
 
-function shadow(x = 3, y = 3) { return `${x}px ${y}px 0 #15131a` }
+function shadow(x = 3, y = 3) { return D.shadow(x, y) }
 
 // ── MiniAreaChart ────────────────────────────────────────────────
 export function MiniAreaChart({ data, color, height = 100 }: {
@@ -145,7 +146,7 @@ export function ChartCard({ title, sub, rightLabel, children, style: sx }: {
           <div style={{ fontSize: 14, fontWeight: 700, color: INK }}>{title}</div>
           {sub && <div style={{ fontSize: 11, color: INK_MUTED, marginTop: 1 }}>{sub}</div>}
         </div>
-        {rightLabel && <div style={{ fontSize: 12, fontWeight: 700, color: '#4f46e5' }}>{rightLabel}</div>}
+        {rightLabel && <div style={{ fontSize: 12, fontWeight: 700, color: D.indigo }}>{rightLabel}</div>}
       </div>
       <div style={{ padding: '16px 18px' }}>{children}</div>
     </div>
@@ -153,7 +154,7 @@ export function ChartCard({ title, sub, rightLabel, children, style: sx }: {
 }
 
 // ── DTag ─────────────────────────────────────────────────────────
-export function DTag({ children, bg = INK, color = '#f7f6f1', style: sx }: {
+export function DTag({ children, bg = INK, color = D.bg, style: sx }: {
   children: React.ReactNode; bg?: string; color?: string; style?: React.CSSProperties
 }) {
   return (

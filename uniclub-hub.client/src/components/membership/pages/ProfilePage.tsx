@@ -5,6 +5,7 @@ import { updateUserAvatar, updateUserProfile } from '@/components/membership/ser
 import { toast } from 'sonner'
 import { Camera, ChevronDown } from 'lucide-react'
 import MajorSelect from '@/components/shared/MajorSelect'
+import { D } from '@/components/shared/managementTheme'
 
 const GENDER_OPTIONS = [
   { value: '', label: '— Chưa chọn —' },
@@ -12,14 +13,6 @@ const GENDER_OPTIONS = [
   { value: 'Female', label: 'Nữ' },
   { value: 'Other', label: 'Khác' },
 ]
-
-const D = {
-  border: '1.5px solid #15131a', borderLight: '1px solid #e8e3d6',
-  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 #15131a`,
-  radius: 14, pill: 999,
-  ink: '#15131a', inkDim: '#4a4651', inkMuted: '#918c99',
-  bg: '#f7f6f1', card: '#ffffff', indigo: '#4f46e5',
-}
 
 const inputS: React.CSSProperties = {
   width: '100%', height: 38, borderRadius: 8, border: D.borderLight,
@@ -34,8 +27,8 @@ const ROLE_LABELS: Record<string, string> = {
 const ROLE_COLORS: Record<string, string> = {
   CLUB_ADMIN: '#ff5a3c', DEPT_LEAD: '#f59e0b', MEMBER: '#14b8a6',
 }
-const AVATAR_COLORS = ['#4f46e5', '#10b981', '#7c3aed', '#ef4444', '#f59e0b', '#06b6d4']
-const CLUB_BG_COLORS = ['#4f46e5', '#7c3aed', '#ff5a3c', '#14b8a6', '#38bdf8', '#ec4899', '#f59e0b', '#10b981']
+const AVATAR_COLORS = ['#1d4ed8', '#10b981', '#7c3aed', '#ef4444', '#f59e0b', '#06b6d4']
+const CLUB_BG_COLORS = ['#1d4ed8', '#7c3aed', '#ff5a3c', '#14b8a6', '#38bdf8', '#ec4899', '#f59e0b', '#10b981']
 
 function getClubShort(name: string) {
   return name.split(' ').filter(Boolean).map(w => w[0]).slice(0, 3).join('').toUpperCase()

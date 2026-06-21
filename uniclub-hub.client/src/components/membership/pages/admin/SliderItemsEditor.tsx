@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { X, ChevronUp, ChevronDown, ImagePlus, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { uploadApplicationFile } from '@/components/membership/services/clubApi'
+import { D } from '@/components/shared/managementTheme'
 
 // Trình sửa slider "Spotlight" của trang chủ — thay ô JSON thô.
 // Serialize ra cùng cấu trúc mà LandingPage đọc (landing.slider_items).
@@ -14,12 +15,6 @@ type Slide = {
   ctaLabel?: string
   ctaHref?: string
   accent?: string
-}
-
-const D = {
-  borderLight: '1px solid #e8e3d6',
-  ink: '#15131a', inkDim: '#4a4651', inkMuted: '#918c99',
-  bg: '#f7f6f1', card: '#ffffff', indigo: '#4f46e5',
 }
 
 const ACCENTS = ['#1d4ed8', '#e11d2a', '#2563eb', '#0ea5e9', '#7c3aed', '#0a2f6e']
@@ -151,7 +146,7 @@ export function SliderItemsEditor({ value, onChange }: { value: string; onChange
                       <div style={{ display: 'flex', gap: 4 }}>
                         {ACCENTS.map(c => (
                           <button key={c} type="button" onClick={() => setField(i, 'accent', c)} title={c}
-                            style={{ width: 20, height: 20, borderRadius: 5, background: c, border: accent.toLowerCase() === c ? '2px solid #15131a' : D.borderLight, cursor: 'pointer' }} />
+                            style={{ width: 20, height: 20, borderRadius: 5, background: c, border: accent.toLowerCase() === c ? '2px solid #0a2f6e' : D.borderLight, cursor: 'pointer' }} />
                         ))}
                       </div>
                     </div>

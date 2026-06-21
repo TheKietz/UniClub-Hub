@@ -7,23 +7,9 @@ import { getTasks, getEvents } from '../services/operationsApi'
 import { useTasks } from '../context/TasksContext'
 import type { TaskItem, EventItem, TaskStatus } from '../services/operations.types'
 import { FilterSelect } from '@/components/shared/FilterSelect'
+import { D } from '@/components/shared/managementTheme'
 
 /* ─── Design tokens ──────────────────────────────────────────────────────── */
-
-const D = {
-  border: '1.5px solid #15131a',
-  borderLight: '1px solid #e8e3d6',
-  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 #15131a`,
-  radius: 14,
-  pill: 999,
-  ink: '#15131a',
-  inkDim: '#4a4651',
-  inkMuted: '#918c99',
-  bg: '#f7f6f1',
-  card: '#ffffff',
-  indigo: '#4f46e5',
-  emerald: '#10b981',
-}
 
 /* ─── Constants ──────────────────────────────────────────────────────────── */
 
@@ -60,7 +46,7 @@ function getWeeks(startMs: number, endMs: number) {
 
 /* ─── Avatar ──────────────────────────────────────────────────────────────── */
 
-const PALETTE = ['#4f46e5', '#0891b2', '#059669', '#d97706', '#dc2626', '#7c3aed']
+const PALETTE = ['#1d4ed8', '#0891b2', '#059669', '#d97706', '#dc2626', '#7c3aed']
 function avatarBg(name: string): string {
   let h = 0; for (const c of name) h = c.charCodeAt(0) + ((h << 5) - h)
   return PALETTE[Math.abs(h) % PALETTE.length]
@@ -155,7 +141,7 @@ export default function GanttPage() {
         <div style={{ background: D.card, border: D.border, borderRadius: D.radius, boxShadow: D.shadow(), padding: 20, marginBottom: 20 }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, marginBottom: 16 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-              <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: '.08em', padding: '2px 8px', borderRadius: 4, background: D.ink, color: '#facc15', textTransform: 'uppercase' }}>EVENT</span>
+              <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: '.08em', padding: '2px 8px', borderRadius: 4, background: D.ink, color: '#ffffff', textTransform: 'uppercase' }}>EVENT</span>
               <span style={{
                 fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: D.pill,
                 background: '#d1fae5', color: '#065f46',
@@ -207,7 +193,7 @@ export default function GanttPage() {
                 <p style={{ fontSize: 10, fontWeight: 800, color: D.inkMuted, textTransform: 'uppercase', letterSpacing: '.08em', margin: 0 }}>Overall Progress</p>
                 <span style={{ fontSize: 13, fontWeight: 900, color: D.ink }}>{overallProgress}%</span>
               </div>
-              <div style={{ height: 6, background: '#e8e3d6', borderRadius: 3, overflow: 'hidden' }}>
+              <div style={{ height: 6, background: '#dce6f4', borderRadius: 3, overflow: 'hidden' }}>
                 <div
                   className="gantt-progress-fill"
                   style={{ '--bar-color': D.indigo, '--bar-pct': `${overallProgress}%` } as React.CSSProperties}
@@ -236,7 +222,7 @@ export default function GanttPage() {
                 style={{
                   padding: '6px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer',
                   background: zoom === z ? D.ink : D.card,
-                  color: zoom === z ? '#facc15' : D.inkDim,
+                  color: zoom === z ? '#ffffff' : D.inkDim,
                   border: 'none', borderRight: z !== 'Month' ? D.borderLight : 'none',
                   fontFamily: 'inherit',
                 }}
@@ -247,7 +233,7 @@ export default function GanttPage() {
             type="button"
             style={{
               display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px',
-              border: D.border, borderRadius: 8, background: D.ink, color: '#facc15',
+              border: D.border, borderRadius: 8, background: D.ink, color: '#ffffff',
               fontSize: 12, fontWeight: 800, cursor: 'pointer', boxShadow: D.shadow(2, 2),
               fontFamily: 'inherit',
             }}

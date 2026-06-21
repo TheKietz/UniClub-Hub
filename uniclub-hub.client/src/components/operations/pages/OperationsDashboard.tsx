@@ -12,25 +12,9 @@ import {
 import type { SprintItem, EventItem, AuditLogItem } from "../services/operations.types";
 import { useTasks } from "../context/TasksContext";
 import StatCard from "../components/StatCard";
+import { D } from '@/components/shared/managementTheme'
 
 /* ── Design tokens ─────────────────────────────────────────────────────────── */
-
-const D = {
-  border: '1.5px solid #15131a',
-  borderLight: '1px solid #e8e3d6',
-  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 #15131a`,
-  radius: 14,
-  pill: 999,
-  ink: '#15131a',
-  inkDim: '#4a4651',
-  inkMuted: '#918c99',
-  bg: '#f7f6f1',
-  card: '#ffffff',
-  indigo: '#4f46e5',
-  emerald: '#10b981',
-  amber: '#f59e0b',
-  red: '#ef4444',
-}
 
 /* ── Nav cards ─────────────────────────────────────────────────────────────── */
 
@@ -233,7 +217,7 @@ export default function OperationsDashboard() {
                   <span style={{ fontSize: 12, color: D.inkMuted }}>{activeSprint.taskCount} công việc</span>
                   <span style={{ fontSize: 12, fontWeight: 800, color: D.indigo }}>{sprintProgress}%</span>
                 </div>
-                <div style={{ height: 8, background: '#e8e3d6', borderRadius: 2, overflow: 'hidden', border: '1px solid #ccc' }}>
+                <div style={{ height: 8, background: '#dce6f4', borderRadius: 2, overflow: 'hidden', border: '1px solid #ccc' }}>
                   <div style={{ height: '100%', background: D.indigo, width: `${sprintProgress}%`, transition: 'width .4s' }} />
                 </div>
               </div>

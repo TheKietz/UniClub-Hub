@@ -200,7 +200,7 @@ export default function ClubDetailPage() {
 
             {/* Club header card */}
             <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-              <div className="h-1" style={{ background: 'linear-gradient(90deg, #4f46e5, #7c3aed)' }} />
+              <div className="h-1" style={{ background: 'linear-gradient(90deg, #1d4ed8, #7c3aed)' }} />
               <div className="p-6">
                 <div className="flex items-start gap-4">
                   {club.logoUrl ? (
