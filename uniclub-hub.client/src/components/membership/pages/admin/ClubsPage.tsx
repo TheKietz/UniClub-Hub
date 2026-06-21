@@ -1,5 +1,6 @@
 import { MEMBERSHIP_STATUS } from '@/types/auth'
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
+import { useDeferredEffect } from '@/hooks/useDeferredEffect'
 import { getAdminClubsPage, createClub, updateClub, deleteClub, getCategories, exportClubs } from '@/components/membership/services/adminApi'
 import type { AdminClubListQuery } from '@/components/membership/services/adminApi'
 import type { ClubItem, CategoryItem, CreateClubDto, UpdateClubDto } from '@/components/membership/services/admin.types'
@@ -78,33 +79,27 @@ export default function ClubsPage() {
     sortDir,
   }), [debouncedSearch, statusFilter, categoryFilter, sortBy, sortDir])
 
-  useEffect(() => {
+  useDeferredEffect((isCancelled) => {
     latestQueryKey.current = querySignature
-    let cancelled = false
-    void (async () => {
-      await Promise.resolve()
-      if (cancelled) return
-      setLoading(true)
-      setLoadingMore(false)
-      setClubs([])
-      setPage(1)
-      Promise.all([getAdminClubsPage(buildQuery(1)), getCategories()])
-        .then(([c, cats]) => {
-          if (cancelled || latestQueryKey.current !== querySignature) return
-          setClubs(c.items)
-          setTotalClubs(c.totalCount)
-          setCategories(cats)
-        })
-        .catch(() => {
-          if (!cancelled && latestQueryKey.current === querySignature)
-            toast.error('Không thể tải dữ liệu.')
-        })
-        .finally(() => {
-          if (!cancelled && latestQueryKey.current === querySignature)
-            setLoading(false)
-        })
-    })()
-    return () => { cancelled = true }
+    setLoading(true)
+    setLoadingMore(false)
+    setClubs([])
+    setPage(1)
+    Promise.all([getAdminClubsPage(buildQuery(1)), getCategories()])
+      .then(([c, cats]) => {
+        if (isCancelled() || latestQueryKey.current !== querySignature) return
+        setClubs(c.items)
+        setTotalClubs(c.totalCount)
+        setCategories(cats)
+      })
+      .catch(() => {
+        if (!isCancelled() && latestQueryKey.current === querySignature)
+          toast.error('Không thể tải dữ liệu.')
+      })
+      .finally(() => {
+        if (!isCancelled() && latestQueryKey.current === querySignature)
+          setLoading(false)
+      })
   }, [refreshKey, querySignature, buildQuery])
 
   function loadMore() {

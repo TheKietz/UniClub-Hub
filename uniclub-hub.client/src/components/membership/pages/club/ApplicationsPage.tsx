@@ -1,5 +1,6 @@
 import { APPLICATION_STATUS } from '@/types/auth'
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
+import { useDeferredEffect } from '@/hooks/useDeferredEffect'
 import { useParams } from 'react-router-dom'
 import { getApplications, getApplicationsPage, reviewApplication, getMemberFieldSchema, advanceApplicationStage, getPipelineStages, exportApplications } from '@/components/membership/services/clubApi'
 import type { ApplicationListQuery } from '@/components/membership/services/clubApi'
@@ -104,32 +105,26 @@ export default function ApplicationsPage() {
     sortDir,
   }), [debouncedSearch, statusFilter, stageFilter, dateFrom, dateTo, sortDir])
 
-  useEffect(() => {
+  useDeferredEffect((isCancelled) => {
     latestQueryKey.current = querySignature
-    let cancelled = false
-    void (async () => {
-      await Promise.resolve()
-      if (cancelled) return
-      setLoading(true)
-      setLoadingMore(false)
-      setApplications([])
-      setPage(1)
-      getApplicationsPage(id, buildQuery(1))
-        .then(r => {
-          if (cancelled || latestQueryKey.current !== querySignature) return
-          setApplications(r.items)
-          setTotalApplications(r.totalCount)
-        })
-        .catch(() => {
-          if (!cancelled && latestQueryKey.current === querySignature)
-            toast.error('Không thể tải danh sách đơn.')
-        })
-        .finally(() => {
-          if (!cancelled && latestQueryKey.current === querySignature)
-            setLoading(false)
-        })
-    })()
-    return () => { cancelled = true }
+    setLoading(true)
+    setLoadingMore(false)
+    setApplications([])
+    setPage(1)
+    getApplicationsPage(id, buildQuery(1))
+      .then(r => {
+        if (isCancelled() || latestQueryKey.current !== querySignature) return
+        setApplications(r.items)
+        setTotalApplications(r.totalCount)
+      })
+      .catch(() => {
+        if (!isCancelled() && latestQueryKey.current === querySignature)
+          toast.error('Không thể tải danh sách đơn.')
+      })
+      .finally(() => {
+        if (!isCancelled() && latestQueryKey.current === querySignature)
+          setLoading(false)
+      })
   }, [id, refreshKey, querySignature, buildQuery])
 
   function loadMore() {

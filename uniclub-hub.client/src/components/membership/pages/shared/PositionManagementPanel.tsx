@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
+import { useDeferredEffect } from '@/hooks/useDeferredEffect'
 import type { CSSProperties, FormEvent } from 'react'
 import {
   assignMemberPositions,
@@ -249,57 +250,43 @@ export default function PositionManagementPanel({
     return Array.from(map.entries()).map(([key, items]) => ({ key, items }))
   }, [permissions])
 
-  useEffect(() => {
-    if (!clubId) return
-    let cancelled = false
-    void (async () => {
-      await Promise.resolve()
-      if (cancelled) return
-      setLoading(true)
-      Promise.all([
-        getClubPositions(clubId, departmentScopeId ? { departmentId: departmentScopeId } : undefined),
-        getClubPermissions(),
-        getDepartments(clubId),
-        getClubMembers(clubId, {
-          status: MEMBERSHIP_STATUS.ACTIVE,
-          departmentId: departmentScopeId,
-        }),
-      ])
-        .then(([positionData, permissionData, departmentData, memberData]) => {
-          if (cancelled) return
-          setPositions(positionData)
-          setPermissions(permissionData)
-          setDepartments(departmentScopeId ? departmentData.filter(d => d.id === departmentScopeId) : departmentData)
-          setMembers(departmentScopeId ? memberData.filter(m => m.departmentId === departmentScopeId) : memberData)
-        })
-        .catch(() => { if (!cancelled) toast.error('Không thể tải dữ liệu vị trí.') })
-        .finally(() => { if (!cancelled) setLoading(false) })
-    })()
-    return () => { cancelled = true }
-  }, [clubId, departmentScopeId, refreshKey])
+  useDeferredEffect((isCancelled) => {
+    setLoading(true)
+    Promise.all([
+      getClubPositions(clubId, departmentScopeId ? { departmentId: departmentScopeId } : undefined),
+      getClubPermissions(),
+      getDepartments(clubId),
+      getClubMembers(clubId, {
+        status: MEMBERSHIP_STATUS.ACTIVE,
+        departmentId: departmentScopeId,
+      }),
+    ])
+      .then(([positionData, permissionData, departmentData, memberData]) => {
+        if (isCancelled()) return
+        setPositions(positionData)
+        setPermissions(permissionData)
+        setDepartments(departmentScopeId ? departmentData.filter(d => d.id === departmentScopeId) : departmentData)
+        setMembers(departmentScopeId ? memberData.filter(m => m.departmentId === departmentScopeId) : memberData)
+      })
+      .catch(() => { if (!isCancelled()) toast.error('Không thể tải dữ liệu vị trí.') })
+      .finally(() => { if (!isCancelled()) setLoading(false) })
+  }, [clubId, departmentScopeId, refreshKey], { enabled: Boolean(clubId) })
 
-  useEffect(() => {
-    if (!selectedMemberId) return
-    let cancelled = false
-    void (async () => {
-      await Promise.resolve()
-      if (cancelled) return
-      setLoadingMemberPositions(true)
-      getMemberPositions(clubId, Number(selectedMemberId))
-        .then(result => {
-          if (cancelled) return
-          const positionIds = canManageCatalog
-            ? result.positions.map(position => position.id)
-            : result.positions
-                .filter(position => position.departmentId === departmentScopeId && position.canBeAssignedByDeptLead)
-                .map(position => position.id)
-          setSelectedMemberPositionIds(positionIds)
-        })
-        .catch(() => { if (!cancelled) toast.error('Không thể tải vị trí của thành viên.') })
-        .finally(() => { if (!cancelled) setLoadingMemberPositions(false) })
-    })()
-    return () => { cancelled = true }
-  }, [canManageCatalog, clubId, departmentScopeId, selectedMemberId])
+  useDeferredEffect((isCancelled) => {
+    setLoadingMemberPositions(true)
+    getMemberPositions(clubId, Number(selectedMemberId))
+      .then(result => {
+        if (isCancelled()) return
+        const positionIds = canManageCatalog
+          ? result.positions.map(position => position.id)
+          : result.positions
+              .filter(position => position.departmentId === departmentScopeId && position.canBeAssignedByDeptLead)
+              .map(position => position.id)
+        setSelectedMemberPositionIds(positionIds)
+      })
+      .catch(() => { if (!isCancelled()) toast.error('Không thể tải vị trí của thành viên.') })
+      .finally(() => { if (!isCancelled()) setLoadingMemberPositions(false) })
+  }, [canManageCatalog, clubId, departmentScopeId, selectedMemberId], { enabled: Boolean(selectedMemberId) })
 
   function openCreate() {
     setEditing(null)

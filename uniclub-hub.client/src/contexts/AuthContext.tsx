@@ -1,4 +1,5 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
+import { useDeferredEffect } from '@/hooks/useDeferredEffect'
 import api from '@/lib/axiosInstance'
 import axios from 'axios'
 import { AuthContext, type AuthContextType, type RegisterData } from '@/contexts/auth-context'
@@ -12,31 +13,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<UserInfo | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
-  useEffect(() => {
-    let cancelled = false
+  useDeferredEffect(async (isCancelled) => {
+    const token = localStorage.getItem('accessToken')
+    if (!token) {
+      setIsLoading(false)
+      return
+    }
 
-    void (async () => {
-      await Promise.resolve()
-      if (cancelled) return
-
-      const token = localStorage.getItem('accessToken')
-      if (!token) {
-        setIsLoading(false)
-        return
-      }
-
-      try {
-        const res = await api.get<{ data: UserInfo }>('/users/me')
-        if (!cancelled) setUser(res.data.data)
-      } catch (error) {
-        if (!cancelled && axios.isAxiosError(error) && error.response?.status === 401)
-          localStorage.removeItem('accessToken')
-      } finally {
-        if (!cancelled) setIsLoading(false)
-      }
-    })()
-
-    return () => { cancelled = true }
+    try {
+      const res = await api.get<{ data: UserInfo }>('/users/me')
+      if (!isCancelled()) setUser(res.data.data)
+    } catch (error) {
+      if (!isCancelled() && axios.isAxiosError(error) && error.response?.status === 401)
+        localStorage.removeItem('accessToken')
+    } finally {
+      if (!isCancelled()) setIsLoading(false)
+    }
   }, [])
 
   async function login(email: string, password: string, rememberMe = true): Promise<UserInfo> {

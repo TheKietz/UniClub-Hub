@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
+import { useDeferredEffect } from '@/hooks/useDeferredEffect'
 import { CalendarDays, Check, CheckCircle2, ClipboardCheck, FileText, ListTodo, Megaphone, Star } from 'lucide-react'
 import { getNotifications, getNotificationUnreadCount, markAllNotificationsRead, markNotificationRead } from '@/components/membership/services/notificationApi'
 import type { NotificationItem, NotificationType } from '@/components/membership/services/notificationApi'
@@ -56,24 +57,18 @@ export default function NotificationsPage() {
   const [loadingMore, setLoadingMore] = useState(false)
   const [filter, setFilter] = useState<FilterKey>('all')
 
-  useEffect(() => {
-    let cancelled = false
-    void (async () => {
-      await Promise.resolve()
-      if (cancelled) return
-      setLoading(true)
-      Promise.all([getNotifications(1), getNotificationUnreadCount()])
-        .then(([list, count]) => {
-          if (cancelled) return
-          setItems(list.items ?? [])
-          setTotal(list.totalCount ?? 0)
-          setUnreadCount(count)
-          setPage(1)
-        })
-        .catch(() => { if (!cancelled) { setItems([]); setTotal(0) } })
-        .finally(() => { if (!cancelled) setLoading(false) })
-    })()
-    return () => { cancelled = true }
+  useDeferredEffect((isCancelled) => {
+    setLoading(true)
+    Promise.all([getNotifications(1), getNotificationUnreadCount()])
+      .then(([list, count]) => {
+        if (isCancelled()) return
+        setItems(list.items ?? [])
+        setTotal(list.totalCount ?? 0)
+        setUnreadCount(count)
+        setPage(1)
+      })
+      .catch(() => { if (!isCancelled()) { setItems([]); setTotal(0) } })
+      .finally(() => { if (!isCancelled()) setLoading(false) })
   }, [])
 
   const filtered = useMemo(

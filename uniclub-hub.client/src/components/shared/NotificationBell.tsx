@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { useDeferredEffect } from '@/hooks/useDeferredEffect'
 import { useNavigate } from 'react-router-dom'
 import { Bell, Star } from 'lucide-react'
 import api from '@/lib/axiosInstance'
@@ -67,27 +68,20 @@ export default function NotificationBell() {
     return () => document.removeEventListener('mousedown', onClickOutside)
   }, [])
 
-  useEffect(() => {
-    if (!open) return
-    let cancelled = false
-    void (async () => {
-      await Promise.resolve()
-      if (cancelled) return
-      setLoading(true)
-      api.get('/notifications?pageSize=15')
-        .then(res => {
-          if (cancelled) return
-          const fetched: Notif[] = res.data.data.items ?? []
-          setItems(fetched)
-          setUnreadCount(fetched.filter(n => !n.isRead).length)
-        })
-        .catch(() => {})
-        .finally(() => {
-          if (!cancelled) setLoading(false)
-        })
-    })()
-    return () => { cancelled = true }
-  }, [open])
+  useDeferredEffect((isCancelled) => {
+    setLoading(true)
+    api.get('/notifications?pageSize=15')
+      .then(res => {
+        if (isCancelled()) return
+        const fetched: Notif[] = res.data.data.items ?? []
+        setItems(fetched)
+        setUnreadCount(fetched.filter(n => !n.isRead).length)
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!isCancelled()) setLoading(false)
+      })
+  }, [open], { enabled: open })
 
   function handleToggle() {
     if (!open && btnRef.current) {

@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useCallback, useState } from 'react'
+import { useMemo, useCallback, useState } from 'react'
+import { useDeferredEffect } from '@/hooks/useDeferredEffect'
 import { CalendarDays, RefreshCw, Trophy, Award, Hash, Users } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '@/hooks/useAuth'
@@ -105,19 +106,9 @@ export default function MyKpiPage() {
       .finally(() => setLoading(false))
   }, [clubId, fromDate, toDate])
 
-  useEffect(() => {
-    let cancelled = false
-    void (async () => {
-      await Promise.resolve()
-      if (cancelled || !clubId) return
-      setLoading(true)
-      getMyKpiResult(clubId, { fromDate, toDate })
-        .then(data => { if (!cancelled) setResult(data) })
-        .catch(() => { if (!cancelled) toast.error('Không thể tải KPI cá nhân.') })
-        .finally(() => { if (!cancelled) setLoading(false) })
-    })()
-    return () => { cancelled = true }
-  }, [clubId, fromDate, toDate])
+  useDeferredEffect(() => {
+    load()
+  }, [load])
 
   const accent = gradeAccent(result?.grade ?? '')
 

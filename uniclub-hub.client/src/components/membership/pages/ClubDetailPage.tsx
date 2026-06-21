@@ -1,5 +1,6 @@
 import { MEMBERSHIP_STATUS, CLUB_ROLES } from '@/types/auth'
 import { useEffect, useState } from 'react'
+import { useDeferredEffect } from '@/hooks/useDeferredEffect'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { getClubDetail, getDepartments, getFormSchema, getMemberFieldSchema, getMyApplications, submitApplication, resignFromClub, submitResignation, getUserResignations, uploadApplicationFile } from '@/components/membership/services/clubApi'
 import type { ClubDetail, DepartmentItem, FormSchema, MemberFieldDef, ApplicationItem, ResignationRequestItem, ResignationPreference } from '@/components/membership/services/club.types'
@@ -92,35 +93,29 @@ export default function ClubDetailPage() {
     }
   }
 
-  useEffect(() => {
-    let cancelled = false
-    void (async () => {
-      await Promise.resolve()
-      if (cancelled) return
-      setLoading(true)
-      const tasks: Promise<void>[] = [
-        getClubDetail(id).then(setClub),
-        getDepartments(id).then(setDepartments),
-        getFormSchema(id).then(s => setSchema(s)),
-        getMemberFieldSchema(id).then(setFieldSchema).catch(() => {}),
-      ]
-      if (isAuthenticated) {
-        tasks.push(
-          getMyApplications(id)
-            .then(apps => {
-              const latest = apps.sort((a, b) =>
-                new Date(b.appliedAt).getTime() - new Date(a.appliedAt).getTime()
-              )[0]
-              if (latest) setApplication(latest)
-            })
-            .catch(() => { })
-        )
-      }
-      Promise.all(tasks)
-        .catch(() => { if (!cancelled) toast.error('Không thể tải thông tin CLB.') })
-        .finally(() => { if (!cancelled) setLoading(false) })
-    })()
-    return () => { cancelled = true }
+  useDeferredEffect((isCancelled) => {
+    setLoading(true)
+    const tasks: Promise<void>[] = [
+      getClubDetail(id).then(setClub),
+      getDepartments(id).then(setDepartments),
+      getFormSchema(id).then(s => setSchema(s)),
+      getMemberFieldSchema(id).then(setFieldSchema).catch(() => {}),
+    ]
+    if (isAuthenticated) {
+      tasks.push(
+        getMyApplications(id)
+          .then(apps => {
+            const latest = apps.sort((a, b) =>
+              new Date(b.appliedAt).getTime() - new Date(a.appliedAt).getTime()
+            )[0]
+            if (latest) setApplication(latest)
+          })
+          .catch(() => { })
+      )
+    }
+    Promise.all(tasks)
+      .catch(() => { if (!isCancelled()) toast.error('Không thể tải thông tin CLB.') })
+      .finally(() => { if (!isCancelled()) setLoading(false) })
   }, [id, isAuthenticated])
 
   async function handleSubmit(e: React.FormEvent) {

@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
+import { useDeferredEffect } from '@/hooks/useDeferredEffect'
 import { getMyClubPermissions } from '@/components/membership/services/clubApi'
 import { useAuth } from '@/hooks/useAuth'
 import { CLUB_ROLES, MEMBERSHIP_STATUS } from '@/types/auth'
@@ -28,28 +29,17 @@ export function useClubPermissions(clubId?: number | string | null): PermissionR
   const isClubAdmin = isSuperAdmin || activeMembership?.clubRole === CLUB_ROLES.CLUB_ADMIN
   const shouldFetch = Boolean(parsedClubId && !Number.isNaN(parsedClubId) && !isClubAdmin)
 
-  useEffect(() => {
-    if (!shouldFetch) return
-
-    let cancelled = false
-
-    void (async () => {
-      await Promise.resolve()
-      if (cancelled) return
-
-      setLoading(true)
-      try {
-        const result = await getMyClubPermissions(parsedClubId)
-        if (!cancelled) setPermissionCodes(result.permissionCodes)
-      } catch {
-        if (!cancelled) setPermissionCodes([])
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    })()
-
-    return () => { cancelled = true }
-  }, [parsedClubId, shouldFetch])
+  useDeferredEffect(async (isCancelled) => {
+    setLoading(true)
+    try {
+      const result = await getMyClubPermissions(parsedClubId)
+      if (!isCancelled()) setPermissionCodes(result.permissionCodes)
+    } catch {
+      if (!isCancelled()) setPermissionCodes([])
+    } finally {
+      if (!isCancelled()) setLoading(false)
+    }
+  }, [parsedClubId, shouldFetch], { enabled: shouldFetch })
 
   const permissionSet = useMemo(
     () => new Set(permissionCodes.map(code => code.toLowerCase())),

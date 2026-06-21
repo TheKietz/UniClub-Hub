@@ -1,4 +1,5 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useState, useCallback } from 'react'
+import { useDeferredEffect } from '@/hooks/useDeferredEffect'
 import { useParams } from 'react-router-dom'
 import { getDepartments, getClubMembers, createDepartment, updateDepartment, deleteDepartment, setDepartmentLead } from '@/components/membership/services/clubApi'
 import type { DepartmentItem, MemberItem } from '@/components/membership/services/club.types'
@@ -66,16 +67,9 @@ export default function DepartmentsPage() {
       .finally(() => setLoading(false))
   }, [id])
 
-  useEffect(() => {
-    if (!clubId) return
-    let cancelled = false
-    void (async () => {
-      await Promise.resolve()
-      if (cancelled) return
-      load()
-    })()
-    return () => { cancelled = true }
-  }, [clubId, load])
+  useDeferredEffect(() => {
+    load()
+  }, [load], { enabled: Boolean(clubId) })
 
   function openAdd() { setForm({ name: '', description: '' }); setEditTarget(null); setDialog('add') }
 

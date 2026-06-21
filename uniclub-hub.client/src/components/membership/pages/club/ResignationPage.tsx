@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { useDeferredEffect } from '@/hooks/useDeferredEffect'
 import { useParams } from 'react-router-dom'
 import { getClubResignations, reviewClubResignation } from '@/components/membership/services/clubApi'
 import type { ResignationRequestItem, ReviewResignationDto } from '@/components/membership/services/club.types'
@@ -39,18 +40,12 @@ export default function ResignationPage() {
   const [refreshKey, setRefreshKey] = useState(0)
   const [hoverRow, setHoverRow] = useState<number | null>(null)
 
-  useEffect(() => {
-    let cancelled = false
-    void (async () => {
-      await Promise.resolve()
-      if (cancelled) return
-      setLoading(true)
+  useDeferredEffect(() => {
+    setLoading(true)
     getClubResignations(id)
       .then(setRequests)
       .catch(() => toast.error('Không thể tải danh sách đơn từ chức.'))
       .finally(() => setLoading(false))
-    })()
-    return () => { cancelled = true }
   }, [id, refreshKey])
 
   async function handleReview(status: 'Approved' | 'Rejected') {

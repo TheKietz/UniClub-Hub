@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { useDeferredEffect } from '@/hooks/useDeferredEffect'
 import { getAdminClubs, createAdminDepartment, updateAdminDepartment, deleteAdminDepartment } from '@/components/membership/services/adminApi'
 import { getDepartments } from '@/components/membership/services/clubApi'
 import type { ClubItem } from '@/components/membership/services/admin.types'
@@ -44,12 +45,8 @@ export default function AdminStructurePage() {
   const [searchName, setSearchName] = useState('')
   const [searchCode, setSearchCode] = useState('')
 
-  useEffect(() => {
-    let cancelled = false
-    void (async () => {
-      await Promise.resolve()
-      if (cancelled) return
-      setLoading(true)
+  useDeferredEffect(() => {
+    setLoading(true)
     getAdminClubs()
       .then(async (clubList) => {
         setClubs(clubList)
@@ -66,8 +63,6 @@ export default function AdminStructurePage() {
       })
       .catch(() => toast.error('Không thể tải dữ liệu.'))
       .finally(() => setLoading(false))
-    })()
-    return () => { cancelled = true }
   }, [refreshKey])
 
   function openCreate(club: ClubItem) {

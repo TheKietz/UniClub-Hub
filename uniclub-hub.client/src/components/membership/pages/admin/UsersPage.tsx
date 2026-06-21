@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
+import { useDeferredEffect } from '@/hooks/useDeferredEffect'
 import { getUsers, lockUser, unlockUser, deleteUser, createUser, changeUserRole, importUsersPreview, importUsersConfirm, exportUsers } from '@/components/membership/services/adminApi'
 import type { UserListQuery } from '@/components/membership/services/adminApi'
 import type { UserItem, UserImportPreview } from '@/components/membership/services/admin.types'
@@ -122,32 +123,26 @@ export default function UsersPage() {
     sortDir,
   }), [debouncedSearch, statusFilter, roleFilter, sortBy, sortDir])
 
-  useEffect(() => {
+  useDeferredEffect((isCancelled) => {
     latestQueryKey.current = querySignature
-    let cancelled = false
-    void (async () => {
-      await Promise.resolve()
-      if (cancelled) return
-      setLoading(true)
-      setLoadingMore(false)
-      setUsers([])
-      setPage(1)
-      getUsers(buildQuery(1))
-        .then(r => {
-          if (cancelled || latestQueryKey.current !== querySignature) return
-          setUsers(r.items)
-          setTotalUsers(r.totalCount)
-        })
-        .catch(() => {
-          if (!cancelled && latestQueryKey.current === querySignature)
-            toast.error('Không thể tải danh sách người dùng.')
-        })
-        .finally(() => {
-          if (!cancelled && latestQueryKey.current === querySignature)
-            setLoading(false)
-        })
-    })()
-    return () => { cancelled = true }
+    setLoading(true)
+    setLoadingMore(false)
+    setUsers([])
+    setPage(1)
+    getUsers(buildQuery(1))
+      .then(r => {
+        if (isCancelled() || latestQueryKey.current !== querySignature) return
+        setUsers(r.items)
+        setTotalUsers(r.totalCount)
+      })
+      .catch(() => {
+        if (!isCancelled() && latestQueryKey.current === querySignature)
+          toast.error('Không thể tải danh sách người dùng.')
+      })
+      .finally(() => {
+        if (!isCancelled() && latestQueryKey.current === querySignature)
+          setLoading(false)
+      })
   }, [refreshKey, querySignature, buildQuery])
 
   function loadMore() {

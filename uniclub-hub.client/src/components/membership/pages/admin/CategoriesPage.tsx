@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { useDeferredEffect } from '@/hooks/useDeferredEffect'
 import { Pencil, Trash2 } from 'lucide-react'
 import { Tooltip } from '@/components/shared/Tooltip'
 import { getCategories, createCategory, updateCategory, deleteCategory } from '@/components/membership/services/adminApi'
@@ -40,18 +41,12 @@ export default function CategoriesPage() {
   const [search, setSearch] = useState('')
   const [hoverRow, setHoverRow] = useState<number | null>(null)
 
-  useEffect(() => {
-    let cancelled = false
-    void (async () => {
-      await Promise.resolve()
-      if (cancelled) return
-      setLoading(true)
+  useDeferredEffect(() => {
+    setLoading(true)
     getCategories()
       .then(setCategories)
       .catch(() => toast.error('Không thể tải danh sách lĩnh vực.'))
       .finally(() => setLoading(false))
-    })()
-    return () => { cancelled = true }
   }, [refreshKey])
 
   function openCreate() { setEditing(null); setForm(emptyForm); setDialogOpen(true) }

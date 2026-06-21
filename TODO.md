@@ -13,6 +13,7 @@
 | [x] Todo | Feature Permission System — CLUB_ADMIN/SUPER_ADMIN giới hạn chức năng cấp dưới |
 | [x] Todo | Email Domain Restriction — Super Admin cấu hình domain email được phép đăng ký |
 | [ ] Todo | Dọn việc sau merge Đề tài 2 — link ClubAdminLayout, filter DEPT_LEAD, Department-Scope cho query |
+| [ ] Todo | Manual test lint-fix frontend trước khi merge PR — checklist: [docs/manual-test-lint-fix.md](docs/manual-test-lint-fix.md) |
 
 ---
 

@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { useDeferredEffect } from '@/hooks/useDeferredEffect'
 import { getAdminAuditLogs, getUsers } from '@/components/membership/services/adminApi'
 import type { ClubAuditLogItem } from '@/components/membership/services/club.types'
 import { toast } from 'sonner'
@@ -105,12 +106,8 @@ export default function AdminAuditLogPage() {
 
   const dateRange = getDateRange(datePreset)
 
-  useEffect(() => {
-    let cancelled = false
-    void (async () => {
-      await Promise.resolve()
-      if (cancelled) return
-      setLoading(true)
+  useDeferredEffect(() => {
+    setLoading(true)
     setLogs([])
     setPage(1)
     getAdminAuditLogs({
@@ -123,8 +120,6 @@ export default function AdminAuditLogPage() {
       .then(res => { setLogs(res.items); setTotal(res.totalCount) })
       .catch(() => toast.error('Không thể tải lịch sử thay đổi.'))
       .finally(() => setLoading(false))
-    })()
-    return () => { cancelled = true }
   }, [module, action, datePreset, search, dateRange])
 
   function loadMore() {

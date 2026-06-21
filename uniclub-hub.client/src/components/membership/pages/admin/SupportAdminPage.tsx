@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { useDeferredEffect } from '@/hooks/useDeferredEffect'
 import api from '@/lib/axiosInstance'
 import { updateSupportRequest } from '@/components/membership/services/adminApi'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
@@ -50,14 +51,8 @@ export default function SupportAdminPage() {
       .finally(() => setLoading(false))
   }
 
-  useEffect(() => {
-    let cancelled = false
-    void (async () => {
-      await Promise.resolve()
-      if (cancelled) return
-      load()
-    })()
-    return () => { cancelled = true }
+  useDeferredEffect(() => {
+    load()
   }, [])
 
   async function handleUpdate(newStatus: string) {

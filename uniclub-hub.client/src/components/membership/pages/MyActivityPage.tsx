@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { useDeferredEffect } from '@/hooks/useDeferredEffect'
 import { Link } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import { getUserApplications, getUserResignations } from '@/components/membership/services/clubApi'
@@ -45,29 +46,22 @@ export default function MyActivityPage() {
   const [loading, setLoading] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
 
-  useEffect(() => {
-    if (!user) return
-    let cancelled = false
-    void (async () => {
-      await Promise.resolve()
-      if (cancelled) return
-      if (tab === 'Đơn ứng tuyển' && applications.length === 0) {
-        setLoading(true)
-        getUserApplications(user.id)
-          .then(data => { if (!cancelled) setApplications(data) })
-          .catch(() => toast.error('Không thể tải đơn ứng tuyển.'))
-          .finally(() => { if (!cancelled) setLoading(false) })
-      }
-      if (tab === 'Đơn từ chức' && resignations.length === 0) {
-        setLoading(true)
-        getUserResignations(user.id)
-          .then(data => { if (!cancelled) setResignations(data) })
-          .catch(() => toast.error('Không thể tải đơn từ chức.'))
-          .finally(() => { if (!cancelled) setLoading(false) })
-      }
-    })()
-    return () => { cancelled = true }
-  }, [tab, user, applications.length, resignations.length])
+  useDeferredEffect((isCancelled) => {
+    if (tab === 'Đơn ứng tuyển' && applications.length === 0) {
+      setLoading(true)
+      getUserApplications(user!.id)
+        .then(data => { if (!isCancelled()) setApplications(data) })
+        .catch(() => toast.error('Không thể tải đơn ứng tuyển.'))
+        .finally(() => { if (!isCancelled()) setLoading(false) })
+    }
+    if (tab === 'Đơn từ chức' && resignations.length === 0) {
+      setLoading(true)
+      getUserResignations(user!.id)
+        .then(data => { if (!isCancelled()) setResignations(data) })
+        .catch(() => toast.error('Không thể tải đơn từ chức.'))
+        .finally(() => { if (!isCancelled()) setLoading(false) })
+    }
+  }, [tab, user, applications.length, resignations.length], { enabled: Boolean(user) })
 
   const memberships = user?.memberships ?? []
   const activeMemberships = memberships.filter(m => m.status === MEMBERSHIP_STATUS.ACTIVE || m.status === MEMBERSHIP_STATUS.PROBATION)

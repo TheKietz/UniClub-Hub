@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
+import { useDeferredEffect } from '@/hooks/useDeferredEffect'
 import { getAdminClubs } from '@/components/membership/services/adminApi'
 import type { ClubItem } from '@/components/membership/services/admin.types'
 import PositionManagementPanel from '@/components/membership/pages/shared/PositionManagementPanel'
@@ -11,12 +12,8 @@ export default function AdminPositionsPage() {
   const [selectedClubId, setSelectedClubId] = useState('')
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    let cancelled = false
-    void (async () => {
-      await Promise.resolve()
-      if (cancelled) return
-      setLoading(true)
+  useDeferredEffect(() => {
+    setLoading(true)
     getAdminClubs()
       .then(data => {
         setClubs(data)
@@ -24,8 +21,6 @@ export default function AdminPositionsPage() {
       })
       .catch(() => toast.error('Không thể tải danh sách CLB.'))
       .finally(() => setLoading(false))
-    })()
-    return () => { cancelled = true }
   }, [])
 
   const selectedClub = useMemo(

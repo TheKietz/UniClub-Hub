@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
+import { useDeferredEffect } from '@/hooks/useDeferredEffect'
 import { useParams } from 'react-router-dom'
 import { Plus, RotateCcw, Save, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -91,12 +92,8 @@ export default function KpiConfigPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
-  useEffect(() => {
-    let cancelled = false
-    void (async () => {
-      await Promise.resolve()
-      if (cancelled) return
-      setLoading(true)
+  useDeferredEffect(() => {
+    setLoading(true)
     getKpiConfig(id)
       .then(config => {
         setCriteria(config.criteria)
@@ -106,8 +103,6 @@ export default function KpiConfigPage() {
       })
       .catch(err => toast.error(getApiErrorMessage(err, 'Không thể tải cấu hình KPI.')))
       .finally(() => setLoading(false))
-    })()
-    return () => { cancelled = true }
   }, [id])
 
   const totalWeight = useMemo(

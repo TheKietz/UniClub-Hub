@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
+import { useDeferredEffect } from '@/hooks/useDeferredEffect'
 import { useParams } from 'react-router-dom'
 import { Tree, TreeNode } from 'react-organizational-chart'
 import html2canvas from 'html2canvas'
@@ -149,27 +150,20 @@ export default function OrgChartPage() {
   const dragRef      = useRef<{ x: number; y: number; sl: number; st: number } | null>(null)
   const [isDragging, setIsDragging] = useState(false)
 
-  useEffect(() => {
-    if (clubPermissions.loading || !canView) return
-    let ignore = false
-    void (async () => {
-      await Promise.resolve()
-      if (ignore) return
-      setLoading(true)
-      Promise.all([getClubDetail(id), getDepartments(id), getClubMembers(id)])
-        .then(([c, d, m]) => {
-          if (ignore) return
-          setClub(c); setDepartments(d); setMembers(m)
-        })
-        .catch(() => {
-          if (!ignore) toast.error('Không thể tải dữ liệu sơ đồ.')
-        })
-        .finally(() => {
-          if (!ignore) setLoading(false)
-        })
-    })()
-    return () => { ignore = true }
-  }, [id, clubPermissions.loading, canView])
+  useDeferredEffect((isCancelled) => {
+    setLoading(true)
+    Promise.all([getClubDetail(id), getDepartments(id), getClubMembers(id)])
+      .then(([c, d, m]) => {
+        if (isCancelled()) return
+        setClub(c); setDepartments(d); setMembers(m)
+      })
+      .catch(() => {
+        if (!isCancelled()) toast.error('Không thể tải dữ liệu sơ đồ.')
+      })
+      .finally(() => {
+        if (!isCancelled()) setLoading(false)
+      })
+  }, [id, clubPermissions.loading, canView], { enabled: !clubPermissions.loading && canView })
 
   if (!clubPermissions.loading && !canView) return <PermissionDenied />
   if (loading) return (

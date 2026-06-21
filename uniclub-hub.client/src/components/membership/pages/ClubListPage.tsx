@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { useDeferredEffect } from '@/hooks/useDeferredEffect'
 import { useNavigate } from 'react-router-dom'
 import { getClubs, getPublicCategories } from '@/components/membership/services/clubApi'
 import type { ClubListItem } from '@/components/membership/services/club.types'
@@ -51,14 +52,8 @@ export default function ClubListPage() {
       .finally(() => setLoading(false))
   }
 
-  useEffect(() => {
-    let cancelled = false
-    void (async () => {
-      await Promise.resolve()
-      if (cancelled) return
-      loadClubsPage()
-    })()
-    return () => { cancelled = true }
+  useDeferredEffect(() => {
+    loadClubsPage()
   }, [])
 
   const catLabels = ['Tất cả', ...categories.map(c => c.name)]

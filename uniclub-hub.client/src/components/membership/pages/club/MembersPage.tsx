@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
+import { useDeferredEffect } from '@/hooks/useDeferredEffect'
 import { useParams } from 'react-router-dom'
 import { getClubMembers, getClubMembersPage, addMember, updateMember, removeMember, getDepartments, getMemberFieldSchema, updateMemberCustomData, suggestMemberRole, promoteMember, importMembersPreview, importMembersConfirm, exportMembers } from '@/components/membership/services/clubApi'
 import type { MemberListQuery } from '@/components/membership/services/clubApi'
@@ -152,32 +153,26 @@ export default function MembersPage() {
     return () => { cancelled = true }
   }, [id, refreshKey])
 
-  useEffect(() => {
+  useDeferredEffect((isCancelled) => {
     latestQueryKey.current = querySignature
-    let cancelled = false
-    void (async () => {
-      await Promise.resolve()
-      if (cancelled) return
-      setLoading(true)
-      setLoadingMore(false)
-      setMembers([])
-      setPage(1)
-      getClubMembersPage(id, buildQuery(1))
-        .then(r => {
-          if (cancelled || latestQueryKey.current !== querySignature) return
-          setMembers(r.items)
-          setTotalMembers(r.totalCount)
-        })
-        .catch(() => {
-          if (!cancelled && latestQueryKey.current === querySignature)
-            toast.error('Không thể tải danh sách thành viên.')
-        })
-        .finally(() => {
-          if (!cancelled && latestQueryKey.current === querySignature)
-            setLoading(false)
-        })
-    })()
-    return () => { cancelled = true }
+    setLoading(true)
+    setLoadingMore(false)
+    setMembers([])
+    setPage(1)
+    getClubMembersPage(id, buildQuery(1))
+      .then(r => {
+        if (isCancelled() || latestQueryKey.current !== querySignature) return
+        setMembers(r.items)
+        setTotalMembers(r.totalCount)
+      })
+      .catch(() => {
+        if (!isCancelled() && latestQueryKey.current === querySignature)
+          toast.error('Không thể tải danh sách thành viên.')
+      })
+      .finally(() => {
+        if (!isCancelled() && latestQueryKey.current === querySignature)
+          setLoading(false)
+      })
   }, [id, refreshKey, querySignature, buildQuery])
 
   function loadMore() {

@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState, useCallback } from 'react'
+import { useMemo, useState, useCallback } from 'react'
+import { useDeferredEffect } from '@/hooks/useDeferredEffect'
 import { useParams } from 'react-router-dom'
 import { CalendarDays, RefreshCw } from 'lucide-react'
 import { toast } from 'sonner'
@@ -102,27 +103,21 @@ export default function KpiDashboardPage() {
       .finally(() => setLoading(false))
   }, [departmentId, fromDate, id, toDate])
 
-  useEffect(() => {
-    let cancelled = false
-    void (async () => {
-      await Promise.resolve()
-      if (cancelled) return
-      setLoading(true)
-      const params = {
-        ...(departmentId ? { departmentId: Number(departmentId) } : {}),
-        fromDate,
-        toDate,
-      }
-      Promise.all([getKpiResults(id, params), getDepartments(id)])
-        .then(([kpi, deps]) => {
-          if (cancelled) return
-          setResults(kpi)
-          setDepartments(deps)
-        })
-        .catch(() => { if (!cancelled) toast.error('Không thể tải bảng KPI.') })
-        .finally(() => { if (!cancelled) setLoading(false) })
-    })()
-    return () => { cancelled = true }
+  useDeferredEffect((isCancelled) => {
+    setLoading(true)
+    const params = {
+      ...(departmentId ? { departmentId: Number(departmentId) } : {}),
+      fromDate,
+      toDate,
+    }
+    Promise.all([getKpiResults(id, params), getDepartments(id)])
+      .then(([kpi, deps]) => {
+        if (isCancelled()) return
+        setResults(kpi)
+        setDepartments(deps)
+      })
+      .catch(() => { if (!isCancelled()) toast.error('Không thể tải bảng KPI.') })
+      .finally(() => { if (!isCancelled()) setLoading(false) })
   }, [departmentId, fromDate, id, toDate])
 
   const filteredMembers = useMemo(() => {
