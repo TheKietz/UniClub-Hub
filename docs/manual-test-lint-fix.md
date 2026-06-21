@@ -5,12 +5,12 @@
 > Mẹo: mở DevTools tab **Console** (bắt lỗi runtime) + **Network** (phát hiện double-fetch) khi click.
 
 ## A. Auth flow — blast radius lớn nhất (tách AuthContext + đổi import `useAuth`)
-- [ ] Login tài khoản thường → vào được, header đúng tên/role
-- [ ] Refresh (F5) khi đang đăng nhập → giữ session, không bị đá ra login
-- [ ] Logout → về login, không truy cập được trang bảo vệ
-- [ ] Register tài khoản mới → ra thông báo "kiểm tra email", luồng không vỡ
-- [ ] ConfirmEmail / ResetPassword / CompleteProfile → mở được, submit chạy
-- [ ] ProtectedRoute / ClubProtectedRoute → user thiếu quyền bị chặn đúng (forbidden)
+- [x] Login tài khoản thường → vào được, header đúng tên/role
+- [x] Refresh (F5) khi đang đăng nhập → giữ session, không bị đá ra login
+- [x] Logout → về login, không truy cập được trang bảo vệ
+- [x] Register tài khoản mới → ra thông báo "kiểm tra email", luồng không vỡ
+- [x] ConfirmEmail / ResetPassword / CompleteProfile → mở được, submit chạy
+- [x] ProtectedRoute / ClubProtectedRoute → user thiếu quyền bị chặn đúng (forbidden)
 - 🔴 trắng trang / lỗi `useAuth must be used inside AuthProvider` / mất session sau F5
 
 ## B. Cross-module smoke — module nhóm khác vẫn import `useAuth` từ AuthContext
@@ -20,11 +20,11 @@
 
 ## C. Paged lists — filter/search/sort/pagination (race + reset trang)
 Áp cho: MembersPage, UsersPage, ClubsPage, ApplicationsPage, DepartmentsPage
-- [ ] Gõ search → lọc đúng, tự về trang 1
-- [ ] Đổi filter (role/status/department/category) → đúng, về trang 1
-- [ ] Đổi sort (cột + chiều) → đúng, về trang 1
-- [ ] Load more / chuyển trang → nối đúng, không trùng/mất item
-- [ ] Gõ search nhanh liên tục rồi dừng → kết quả cuối khớp ô search
+- [x] Gõ search → lọc đúng, tự về trang 1
+- [x] Đổi filter (role/status/department/category) → đúng, về trang 1
+- [x] Đổi sort (cột + chiều) → đúng, về trang 1
+- [x] Load more / chuyển trang → nối đúng, không trùng/mất item
+- [x] Gõ search nhanh liên tục rồi dừng → kết quả cuối khớp ô search
 - 🔴 double-fetch (list nháy 2 lần), đổi filter vẫn ở trang cũ, kết quả không khớp search
 
 ## D. KPI — Pattern B derive state (MyKpiPage, KpiDashboardPage)
@@ -36,8 +36,8 @@
 - 🔴 club không tự chọn, đổi club không đổi data, nhấp nháy, refresh vô tác dụng
 
 ## E. ClubSettingsPage — Pattern B (form khởi tạo từ data)
-- [ ] Mở settings 1 CLB → form điền sẵn đúng giá trị hiện tại
-- [ ] Sửa 1 field → lưu → reload → giá trị mới giữ đúng
+- [x] Mở settings 1 CLB → form điền sẵn đúng giá trị hiện tại
+- [x] Sửa 1 field → lưu → reload → giá trị mới giữ đúng
 - 🔴 form trống/reset sai khi load, mất giá trị đang nhập
 
 ## F. OrgChartPage — fix `ref` → `isDragging` + collapse
@@ -48,9 +48,9 @@
 - 🔴 con trỏ không đổi khi kéo, collapse sai ban
 
 ## G. Notifications (NotificationBell + NotificationsPage)
-- [ ] Chuông: badge số chưa đọc đúng, mở dropdown thấy list
-- [ ] Đánh dấu đã đọc → badge giảm
-- [ ] NotificationsPage: list load đúng
+- [x] Chuông: badge số chưa đọc đúng, mở dropdown thấy list
+- [x] Đánh dấu đã đọc → badge giảm
+- [x] NotificationsPage: list load đúng
 - 🔴 badge sai, không load, không cập nhật khi đã đọc
 
 ## H. Charts (DashboardCharts — fix immutability)
@@ -58,10 +58,10 @@
 - 🔴 các cung donut sai vị trí/chồng nhau
 
 ## I. Deferred-fetch còn lại (smoke: "load đúng, không lỗi console")
-- [ ] MyActivityPage, MemberHistoryPage, ProfilePage, SupportPage, NotificationsPage
-- [ ] AdminAuditLogPage, AdminPositionsPage, AdminResignationPage, AdminStructurePage, CategoriesPage, SupportAdminPage
-- [ ] club/AuditLogPage, KpiConfigPage, ResignationPage, PositionManagementPanel
-- [ ] MajorSelect: form có chọn ngành → list ngành hiện, chọn được
+- [x] MyActivityPage, MemberHistoryPage, ProfilePage, SupportPage, NotificationsPage
+- [x] AdminAuditLogPage, AdminPositionsPage, AdminResignationPage, AdminStructurePage, CategoriesPage, SupportAdminPage
+- [x] club/AuditLogPage, KpiConfigPage, ResignationPage, PositionManagementPanel
+- [x] MajorSelect: form có chọn ngành → list ngành hiện, chọn được
 - 🔴 trắng trang / lỗi console khi mở
 
 ---

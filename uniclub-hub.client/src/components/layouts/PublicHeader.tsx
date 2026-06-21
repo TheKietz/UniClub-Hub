@@ -11,6 +11,7 @@ export default function PublicHeader() {
   const navItems: [string, string][] = [
     ['/', 'Trang chủ'],
     ['/clubs', 'Câu lạc bộ'],
+    ['/events', 'Sự kiện'],
     ['/contact', 'Liên hệ'],
   ]
 

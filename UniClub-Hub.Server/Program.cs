@@ -192,6 +192,15 @@ app.UseCors("AllowReactApp");
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
+
+// API responses không được cache ở trình duyệt — tránh F5 hiện data cũ (vd Settings vừa lưu)
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path.StartsWithSegments("/api"))
+        context.Response.Headers.CacheControl = "no-store";
+    await next();
+});
+
 app.MapControllers();
 app.MapHub<KanbanHub>("/hubs/kanban");
 app.MapFallbackToFile("/index.html");

@@ -1,5 +1,5 @@
 import { MEMBERSHIP_STATUS, CLUB_ROLES } from '@/types/auth'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useDeferredEffect } from '@/hooks/useDeferredEffect'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { getClubDetail, getDepartments, getFormSchema, getMemberFieldSchema, getMyApplications, submitApplication, resignFromClub, submitResignation, getUserResignations, uploadApplicationFile } from '@/components/membership/services/clubApi'
@@ -53,6 +53,20 @@ export default function ClubDetailPage() {
   const membership = user?.memberships.find(m => m.clubId === id)
   const isMember = membership && (membership.status === MEMBERSHIP_STATUS.ACTIVE || membership.status === MEMBERSHIP_STATUS.PROBATION)
   const isLeader = membership?.clubRole === CLUB_ROLES.CLUB_ADMIN || membership?.clubRole === CLUB_ROLES.DEPT_LEAD
+
+  const linkedFieldIds = useMemo(
+    () => new Set(
+      (schema?.fields ?? [])
+        .map(f => f.linkedFieldId)
+        .filter((fid): fid is string => !!fid),
+    ),
+    [schema],
+  )
+
+  const unlinkedMemberFields = useMemo(
+    () => fieldSchema.filter(f => !linkedFieldIds.has(f.id)),
+    [fieldSchema, linkedFieldIds],
+  )
 
   // Load đơn từ chức đang chờ (nếu là leader)
   useEffect(() => {
@@ -129,8 +143,8 @@ export default function ClubDetailPage() {
         return
       }
     }
-    if (fieldSchema.length > 0) {
-      const missingMemberFields = fieldSchema.filter(f => f.required && !memberFieldAnswers[f.id]?.trim())
+    if (unlinkedMemberFields.length > 0) {
+      const missingMemberFields = unlinkedMemberFields.filter(f => f.required && !memberFieldAnswers[f.id]?.trim())
       if (missingMemberFields.length > 0) {
         toast.error(`Vui lòng điền: ${missingMemberFields.map(f => f.label).join(', ')}`)
         return
@@ -151,9 +165,15 @@ export default function ClubDetailPage() {
       }
 
       setSubmitStatus('submitting')
+      const memberFieldData: Record<string, string> = { ...memberFieldAnswers }
+      for (const field of schema?.fields ?? []) {
+        if (field.linkedFieldId && finalAnswers[field.id]?.trim()) {
+          memberFieldData[field.linkedFieldId] = finalAnswers[field.id]
+        }
+      }
       await submitApplication(id, {
         answers: schema ? finalAnswers : { note: finalAnswers['note'] ?? '' },
-        ...(fieldSchema.length > 0 ? { memberFieldData: memberFieldAnswers } : {}),
+        ...(Object.keys(memberFieldData).length > 0 ? { memberFieldData } : {}),
       })
       setSubmitted(true)
       toast.success('Đã gửi đơn đăng ký thành công!')
@@ -382,7 +402,9 @@ export default function ClubDetailPage() {
                               onChange={value => setAnswers(p => ({ ...p, [f.id]: value }))}
                               options={[
                                 { value: '', label: '— Chọn —' },
-                                ...(f.options ?? []).map(o => ({ value: o, label: o })),
+                                ...((f.linkedFieldId
+                                  ? fieldSchema.find(mf => mf.id === f.linkedFieldId)?.options
+                                  : f.options) ?? []).map(o => ({ value: o, label: o })),
                               ]}
                             />
                           ) : f.type === 'file' ? (
@@ -427,12 +449,12 @@ export default function ClubDetailPage() {
                           className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500" />
                       </div>
                     )}
-                    {fieldSchema.length > 0 && (
+                    {unlinkedMemberFields.length > 0 && (
                       <div className="border-t border-gray-100 pt-3 mt-1 space-y-3">
                         <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
                           Thông tin hồ sơ thành viên
                         </p>
-                        {fieldSchema.map(f => (
+                        {unlinkedMemberFields.map(f => (
                           <div key={f.id} className="space-y-1.5">
                             <Label className="text-xs text-gray-600">
                               {f.label}{f.required && <span className="text-red-500 ml-0.5">*</span>}

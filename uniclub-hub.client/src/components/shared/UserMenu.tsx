@@ -145,7 +145,7 @@ export default function UserMenu() {
           </div>
 
           <div style={{ borderTop: D.borderLight, padding: '6px 0' }}>
-            <MenuItem icon={LogOut} label="Đăng xuất" onClick={() => { logout(); navigate('/login', { replace: true }) }} color={D.red} />
+            <MenuItem icon={LogOut} label="Đăng xuất" onClick={() => { logout(); navigate('/', { replace: true }) }} color={D.red} />
           </div>
         </div>
       )}

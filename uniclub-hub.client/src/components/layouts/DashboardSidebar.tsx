@@ -1,6 +1,7 @@
 import { useRef, useState, useEffect, useMemo } from 'react'
-import { NavLink, useNavigate } from 'react-router-dom'
+import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
+import { useOptionalUnsavedChanges } from '@/contexts/unsaved-changes-context'
 import { CLUB_ROLES, MEMBERSHIP_STATUS } from '@/types/auth'
 import type { UserMembership } from '@/types/auth'
 import NotificationBell from '@/components/shared/NotificationBell'
@@ -135,9 +136,20 @@ function clubNav(id: string, role?: string, isSuperAdmin = false, perms: ClubPer
 export default function DashboardSidebar({ mode, clubId }: Props) {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
+  const unsaved = useOptionalUnsavedChanges()
   const [collapsed, setCollapsed] = useState(false)
   const [clubPickerOpen, setClubPickerOpen] = useState(false)
   const pickerRef = useRef<HTMLDivElement>(null)
+
+  function guardedNavigate(to: string) {
+    if (location.pathname === to) return
+    if (unsaved) {
+      unsaved.runGuarded(() => navigate(to))
+    } else {
+      navigate(to)
+    }
+  }
 
   const isSuperAdmin = user?.roles.includes('SUPER_ADMIN') ?? false
 
@@ -199,12 +211,13 @@ export default function DashboardSidebar({ mode, clubId }: Props) {
   }, [clubPickerOpen])
 
   function switchMode(m: Mode) {
-    if (m === 'admin') navigate('/admin')
+    if (m === mode) return
+    if (m === 'admin') guardedNavigate('/admin')
     else if (m === 'club') {
       const first = manageableClubs[0]
-      if (first) navigate(getClubManageEntry(first))
+      if (first) guardedNavigate(getClubManageEntry(first))
     } else {
-      navigate('/dashboard')
+      guardedNavigate('/dashboard')
     }
   }
 
@@ -219,7 +232,7 @@ export default function DashboardSidebar({ mode, clubId }: Props) {
 
   function handleLogout() {
     logout()
-    navigate('/login', { replace: true })
+    navigate('/', { replace: true })
   }
 
   return (
@@ -233,7 +246,7 @@ export default function DashboardSidebar({ mode, clubId }: Props) {
       {/* Logo — click to go home */}
       {collapsed ? (
         <div style={{ padding: '12px 0 8px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-          <button onClick={() => navigate('/')} title="Về trang chủ" style={{
+          <button onClick={() => guardedNavigate('/')} title="Về trang chủ" style={{
             background: 'transparent', border: 'none', cursor: 'pointer', padding: 0,
             transition: 'opacity .15s',
           }}
@@ -260,7 +273,7 @@ export default function DashboardSidebar({ mode, clubId }: Props) {
         </div>
       ) : (
         <div style={{ padding: '14px 10px 10px', display: 'flex', alignItems: 'center', gap: 8 }}>
-          <button onClick={() => navigate('/')} title="Về trang chủ" style={{
+          <button onClick={() => guardedNavigate('/')} title="Về trang chủ" style={{
             flex: 1, display: 'flex', alignItems: 'center', gap: 10, minWidth: 0,
             background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left',
             fontFamily: 'inherit', padding: 0, transition: 'opacity .15s',
@@ -359,7 +372,7 @@ export default function DashboardSidebar({ mode, clubId }: Props) {
                 const isActive = club.clubId === Number(clubId)
                 return (
                   <button key={club.clubId}
-                    onClick={() => { navigate(getClubManageEntry(club)); setClubPickerOpen(false) }}
+                    onClick={() => { guardedNavigate(getClubManageEntry(club)); setClubPickerOpen(false) }}
                     style={{
                       width: '100%', display: 'flex', alignItems: 'center', gap: 10,
                       padding: '9px 10px', borderRadius: 8, marginBottom: 2, border: 'none',
@@ -448,7 +461,7 @@ export default function DashboardSidebar({ mode, clubId }: Props) {
                 const isActive = m.clubId === Number(clubId)
                 return (
                   <button key={m.clubId}
-                    onClick={() => { navigate(`/clubs/${m.clubId}/operations`); setClubPickerOpen(false) }}
+                    onClick={() => { guardedNavigate(`/clubs/${m.clubId}/operations`); setClubPickerOpen(false) }}
                     style={{
                       width: '100%', display: 'flex', alignItems: 'center', gap: 10,
                       padding: '9px 10px', borderRadius: 8, marginBottom: 2, border: 'none',
@@ -498,7 +511,17 @@ export default function DashboardSidebar({ mode, clubId }: Props) {
       <nav style={{ flex: 1, padding: '0 8px', overflowY: 'auto' }}>
         {navItems.map((item) => (
           <div key={item.to}>
-            <NavLink to={item.to} end={item.end ?? false} style={{ textDecoration: 'none', display: 'block' }}>
+            <NavLink
+              to={item.to}
+              end={item.end ?? false}
+              style={{ textDecoration: 'none', display: 'block' }}
+              onClick={(e) => {
+                if (location.pathname !== item.to) {
+                  e.preventDefault()
+                  guardedNavigate(item.to)
+                }
+              }}
+            >
               {({ isActive }) => (
                 <div title={collapsed ? item.label : undefined} style={{
                   display: 'flex', alignItems: 'center', gap: 10,

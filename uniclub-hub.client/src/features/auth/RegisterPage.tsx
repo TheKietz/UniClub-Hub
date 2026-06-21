@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useResendCooldown } from '@/hooks/useResendCooldown'
 import { Link, useNavigate } from 'react-router-dom'
 import { useGoogleLogin } from '@react-oauth/google'
 import { Eye, EyeOff, MailCheck, RefreshCw } from 'lucide-react'
@@ -80,6 +81,7 @@ export default function RegisterPage() {
   const [errs, setErrs] = useState<Errs>({})
   const [loading, setLoading] = useState(false)
   const [resendLoading, setResendLoading] = useState(false)
+  const resend = useResendCooldown(60)
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
 
@@ -146,10 +148,12 @@ export default function RegisterPage() {
   }
 
   async function handleResend() {
+    if (resend.active) return
     setResendLoading(true)
     try {
       await api.post('/auth/resend-confirmation', { email: registeredEmail })
       toast.success('Email xác thực đã được gửi lại.')
+      resend.start(60)
     } catch {
       toast.error('Gửi lại thất bại. Vui lòng thử lại sau.')
     } finally {
@@ -223,27 +227,28 @@ export default function RegisterPage() {
           <button
             type="button"
             onClick={handleResend}
-            disabled={resendLoading}
+            disabled={resendLoading || resend.active}
             style={{
               width: '100%',
               height: 48,
               borderRadius: 14,
               border: '1.5px solid #e4dfd4',
               background: C.card,
-              color: C.ink,
+              color: resend.active ? C.inkDim : C.ink,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               gap: 8,
               fontSize: 14,
               fontWeight: 800,
-              cursor: resendLoading ? 'wait' : 'pointer',
+              cursor: (resendLoading || resend.active) ? 'not-allowed' : 'pointer',
+              opacity: resend.active ? 0.7 : 1,
               marginBottom: 12,
               fontFamily: 'inherit',
             }}
           >
             <RefreshCw size={16} style={{ animation: resendLoading ? 'spin 1s linear infinite' : 'none' }} />
-            {resendLoading ? 'Đang gửi...' : 'Gửi lại email xác thực'}
+            {resend.active ? `Gửi lại sau ${resend.seconds}s` : resendLoading ? 'Đang gửi...' : 'Gửi lại email xác thực'}
           </button>
           <Link
             to="/login"

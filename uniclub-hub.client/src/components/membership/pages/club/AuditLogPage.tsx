@@ -116,6 +116,7 @@ export default function AuditLogPage() {
   const dateRange = getDateRange(datePreset)
 
   useDeferredEffect(() => {
+    const range = getDateRange(datePreset)
     setLoading(true)
     setLogs([])
     setPage(1)
@@ -123,13 +124,13 @@ export default function AuditLogPage() {
       module: module || undefined,
       action: action || undefined,
       search: search || undefined,
-      ...dateRange,
+      ...range,
       page: 1, pageSize,
     })
       .then(res => { setLogs(res.items); setTotal(res.totalCount) })
       .catch(() => toast.error('Không thể tải lịch sử thay đổi.'))
       .finally(() => setLoading(false))
-  }, [id, module, action, datePreset, search, dateRange])
+  }, [id, module, action, datePreset, search])
 
   function loadMore() {
     const nextPage = page + 1

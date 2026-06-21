@@ -775,12 +775,14 @@ export default function LandingPage() {
                   boxShadow: C.shadow(), cursor: 'pointer', fontFamily: 'inherit',
                 }}>Đăng nhập</button>
               )}
-              <button onClick={() => navigate('/register')} style={{
-                height: 52, padding: '0 24px', borderRadius: C.radius,
-                background: C.coral, color: C.bg, border: C.border,
-                fontSize: 15, fontWeight: 800, display: 'flex', alignItems: 'center', gap: 8,
-                boxShadow: C.shadow(), cursor: 'pointer', fontFamily: 'inherit',
-              }}>Đăng ký →</button>
+              {!isAuthenticated && (
+                <button onClick={() => navigate('/register')} style={{
+                  height: 52, padding: '0 24px', borderRadius: C.radius,
+                  background: C.coral, color: C.bg, border: C.border,
+                  fontSize: 15, fontWeight: 800, display: 'flex', alignItems: 'center', gap: 8,
+                  boxShadow: C.shadow(), cursor: 'pointer', fontFamily: 'inherit',
+                }}>Đăng ký →</button>
+              )}
             </div>
           </Rv>
 
@@ -1091,12 +1093,14 @@ export default function LandingPage() {
               fontSize: 14.5, fontWeight: 800, display: 'flex', alignItems: 'center', gap: 8,
               boxShadow: C.shadow(), cursor: 'pointer', fontFamily: 'inherit',
             }}>Khám phá CLB →</button>
-            <button onClick={() => navigate('/register')} style={{
-              height: 50, padding: '0 22px', borderRadius: C.radius,
-              background: C.coral, color: C.bg, border: C.border,
-              fontSize: 14.5, fontWeight: 800, display: 'flex', alignItems: 'center', gap: 8,
-              boxShadow: C.shadow(), cursor: 'pointer', fontFamily: 'inherit',
-            }}>Đăng ký →</button>
+            {!isAuthenticated && (
+              <button onClick={() => navigate('/register')} style={{
+                height: 50, padding: '0 22px', borderRadius: C.radius,
+                background: C.coral, color: C.bg, border: C.border,
+                fontSize: 14.5, fontWeight: 800, display: 'flex', alignItems: 'center', gap: 8,
+                boxShadow: C.shadow(), cursor: 'pointer', fontFamily: 'inherit',
+              }}>Đăng ký →</button>
+            )}
           </div>
         </div>
       </section>

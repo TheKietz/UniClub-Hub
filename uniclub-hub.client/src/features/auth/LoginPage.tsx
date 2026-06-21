@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { useResendCooldown } from '@/hooks/useResendCooldown'
 import { useGoogleLogin } from '@react-oauth/google'
 import { Eye, EyeOff } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
@@ -62,6 +63,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [unconfirmedEmail, setUnconfirmedEmail] = useState('')
   const [resendLoading, setResendLoading] = useState(false)
+  const resend = useResendCooldown(60)
   const [errs, setErrs] = useState<{ email?: string; password?: string }>({})
   const [showPassword, setShowPassword] = useState(false)
 
@@ -97,10 +99,12 @@ export default function LoginPage() {
   }
 
   async function handleResend() {
+    if (resend.active) return
     setResendLoading(true)
     try {
       await api.post('/auth/resend-confirmation', { email: unconfirmedEmail })
       toast.success('Email xác thực đã được gửi lại.')
+      resend.start(60)
     } catch {
       toast.error('Gửi lại thất bại. Vui lòng thử lại sau.')
     } finally {
@@ -155,20 +159,21 @@ export default function LoginPage() {
           <button
             type="button"
             onClick={handleResend}
-            disabled={resendLoading}
+            disabled={resendLoading || resend.active}
             style={{
               fontSize: 12,
               fontWeight: 800,
               color: '#b45309',
               background: 'none',
               border: 'none',
-              cursor: resendLoading ? 'wait' : 'pointer',
+              cursor: (resendLoading || resend.active) ? 'not-allowed' : 'pointer',
+              opacity: resend.active ? 0.7 : 1,
               textDecoration: 'underline',
               fontFamily: 'inherit',
               padding: 0,
             }}
           >
-            {resendLoading ? 'Đang gửi...' : 'Gửi lại email xác thực'}
+            {resend.active ? `Gửi lại sau ${resend.seconds}s` : resendLoading ? 'Đang gửi...' : 'Gửi lại email xác thực'}
           </button>
         </div>
       )}

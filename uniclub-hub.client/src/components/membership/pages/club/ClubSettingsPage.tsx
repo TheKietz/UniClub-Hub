@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { getClubDetail, uploadClubLogo, updateClubSettings } from '@/components/membership/services/clubApi'
 import { toast } from 'sonner'
@@ -11,6 +11,9 @@ import { PermissionDenied } from '@/components/shared/Can'
 import { useClubPermissions } from '@/hooks/useClubPermissions'
 import { CLUB_PERMISSIONS } from '@/constants/clubPermissions'
 import { getApiErrorMessage } from '@/lib/apiError'
+import { SettingsTabButton } from '@/components/shared/SettingsTabButton'
+import { useUnsavedNavigationGuard } from '@/hooks/useUnsavedNavigationGuard'
+import type { SettingsTabHandles } from './settingsTabTypes'
 
 const inputStyle: React.CSSProperties = {
   width: '100%', height: 36, borderRadius: 8, border: '1px solid #dce6f4',
@@ -27,6 +30,13 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'fields', label: 'Trường thành viên' },
 ]
 
+type InfoSnapshot = {
+  description: string
+  contactInfo: string
+  advisorName: string
+  logoUrl: string
+}
+
 export default function ClubSettingsPage() {
   const { clubId } = useParams<{ clubId: string }>()
   const id = Number(clubId)
@@ -40,6 +50,8 @@ export default function ClubSettingsPage() {
     return canManageForm
   }), [canManageForm, canManageInfo, canManagePipeline])
   const [activeTab, setActiveTab] = useState<Tab>('info')
+  const [dirtyTabs, setDirtyTabs] = useState<Partial<Record<Tab, boolean>>>({})
+  const tabHandles = useRef<Partial<Record<Tab, SettingsTabHandles>>>({})
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -47,19 +59,15 @@ export default function ClubSettingsPage() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const publicUrl = `${window.location.origin}/clubs/${id}`
 
-  function downloadQR() {
-    const canvas = document.getElementById('club-qr-canvas') as HTMLCanvasElement | null
-    if (!canvas) return
-    const link = document.createElement('a')
-    link.download = `qr-club-${id}.png`
-    link.href = canvas.toDataURL('image/png')
-    link.click()
-  }
-
   const [pendingFile, setPendingFile] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string>('')
-
-  const [form, setForm] = useState({
+  const [savedInfo, setSavedInfo] = useState<InfoSnapshot>({
+    description: '',
+    contactInfo: '',
+    advisorName: '',
+    logoUrl: '',
+  })
+  const [form, setForm] = useState<InfoSnapshot>({
     description: '',
     contactInfo: '',
     advisorName: '',
@@ -68,12 +76,16 @@ export default function ClubSettingsPage() {
 
   useEffect(() => {
     getClubDetail(id)
-      .then(club => setForm({
-        description: club.description ?? '',
-        contactInfo: club.contactInfo ?? '',
-        advisorName: club.advisorName ?? '',
-        logoUrl: club.logoUrl ?? '',
-      }))
+      .then(club => {
+        const snapshot = {
+          description: club.description ?? '',
+          contactInfo: club.contactInfo ?? '',
+          advisorName: club.advisorName ?? '',
+          logoUrl: club.logoUrl ?? '',
+        }
+        setSavedInfo(snapshot)
+        setForm(snapshot)
+      })
       .catch(() => toast.error('Không thể tải thông tin CLB.'))
       .finally(() => setLoading(false))
   }, [id])
@@ -88,9 +100,47 @@ export default function ClubSettingsPage() {
     return allowedTabs[0].key
   }, [activeTab, allowedTabs, clubPermissions.loading])
 
-  const field = (key: keyof typeof form) =>
+  const infoDirty = useMemo(() => (
+    pendingFile !== null
+    || form.description !== savedInfo.description
+    || form.contactInfo !== savedInfo.contactInfo
+    || form.advisorName !== savedInfo.advisorName
+    || form.logoUrl !== savedInfo.logoUrl
+  ), [form, pendingFile, savedInfo])
+
+  const dirtyTabsWithInfo = useMemo<Partial<Record<Tab, boolean>>>(() => (
+    infoDirty ? { ...dirtyTabs, info: true } : dirtyTabs
+  ), [dirtyTabs, infoDirty])
+
+  const hasUnsaved = Object.keys(dirtyTabsWithInfo).length > 0
+
+  const setTabDirty = useCallback((tab: Tab, dirty: boolean) => {
+    setDirtyTabs(prev => {
+      if (dirty) return prev[tab] ? prev : { ...prev, [tab]: true }
+      if (!prev[tab]) return prev
+      const next = { ...prev }
+      delete next[tab]
+      return next
+    })
+  }, [])
+
+  const bindTabHandles = useCallback((tab: Tab, handles: SettingsTabHandles | null) => {
+    if (handles) tabHandles.current[tab] = handles
+    else delete tabHandles.current[tab]
+  }, [])
+
+  const field = (key: keyof InfoSnapshot) =>
     (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
       setForm(p => ({ ...p, [key]: e.target.value }))
+
+  function downloadQR() {
+    const canvas = document.getElementById('club-qr-canvas') as HTMLCanvasElement | null
+    if (!canvas) return
+    const link = document.createElement('a')
+    link.download = `qr-club-${id}.png`
+    link.href = canvas.toDataURL('image/png')
+    link.click()
+  }
 
   function pickFile(file: File) {
     const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
@@ -123,8 +173,7 @@ export default function ClubSettingsPage() {
 
   const displayLogo = previewUrl || form.logoUrl
 
-  async function handleSave(e: React.FormEvent) {
-    e.preventDefault()
+  const saveInfoTab = useCallback(async (): Promise<boolean> => {
     setSaving(true)
     try {
       let logoUrl = form.logoUrl
@@ -134,7 +183,6 @@ export default function ClubSettingsPage() {
         if (previewUrl) URL.revokeObjectURL(previewUrl)
         setPendingFile(null)
         setPreviewUrl('')
-        setForm(p => ({ ...p, logoUrl }))
       }
       await updateClubSettings(id, {
         description: form.description || null,
@@ -142,12 +190,62 @@ export default function ClubSettingsPage() {
         advisorName: form.advisorName || null,
         logoUrl: logoUrl || null,
       })
+      const snapshot = {
+        description: form.description,
+        contactInfo: form.contactInfo,
+        advisorName: form.advisorName,
+        logoUrl,
+      }
+      setForm(snapshot)
+      setSavedInfo(snapshot)
       toast.success('Đã cập nhật thông tin CLB.')
+      return true
     } catch (err: unknown) {
       toast.error(getApiErrorMessage(err, 'Cập nhật thất bại.'))
+      return false
     } finally {
       setSaving(false)
     }
+  }, [form, id, pendingFile, previewUrl])
+
+  const discardInfoTab = useCallback(() => {
+    if (previewUrl) URL.revokeObjectURL(previewUrl)
+    setPendingFile(null)
+    setPreviewUrl('')
+    setForm(savedInfo)
+  }, [previewUrl, savedInfo])
+
+  const saveAllDirty = useCallback(async (): Promise<boolean> => {
+    for (const tab of Object.keys(dirtyTabsWithInfo) as Tab[]) {
+      if (tab === 'info') {
+        if (!(await saveInfoTab())) return false
+      } else {
+        const handles = tabHandles.current[tab]
+        if (handles && !(await handles.save())) return false
+      }
+    }
+    setDirtyTabs({})
+    return true
+  }, [dirtyTabsWithInfo, saveInfoTab])
+
+  const discardAllDirty = useCallback(() => {
+    for (const tab of Object.keys(dirtyTabsWithInfo) as Tab[]) {
+      if (tab === 'info') discardInfoTab()
+      else tabHandles.current[tab]?.discard()
+    }
+    setDirtyTabs({})
+  }, [dirtyTabsWithInfo, discardInfoTab])
+
+  useUnsavedNavigationGuard({
+    when: hasUnsaved,
+    onSave: saveAllDirty,
+    onDiscard: discardAllDirty,
+    description: 'Bạn có thay đổi chưa lưu trong cài đặt CLB. Lưu trước khi rời trang?',
+  })
+
+  async function handleSave(e: React.FormEvent) {
+    e.preventDefault()
+    await saveInfoTab()
   }
 
   if (!clubPermissions.loading && allowedTabs.length === 0)
@@ -157,7 +255,6 @@ export default function ClubSettingsPage() {
 
   return (
     <div style={{ minHeight: '100%', background: D.bg, fontFamily: "'Be Vietnam Pro', sans-serif" }}>
-      {/* Header + tab bar */}
       <div style={{ padding: '28px 32px 0' }}>
         <div style={{ marginBottom: 20 }}>
           <h1 style={{ fontSize: 24, fontWeight: 900, color: D.ink, letterSpacing: '-.025em', margin: 0 }}>Cài đặt CLB</h1>
@@ -165,29 +262,25 @@ export default function ClubSettingsPage() {
         </div>
         <div style={{ display: 'flex', borderBottom: '2px solid #dce6f4' }}>
           {allowedTabs.map(tab => (
-            <button key={tab.key} onClick={() => setActiveTab(tab.key)} style={{
-              padding: '9px 18px', fontSize: 13,
-              fontWeight: resolvedTab === tab.key ? 700 : 500,
-              color: resolvedTab === tab.key ? D.ink : D.inkMuted,
-              background: 'transparent', border: 'none',
-              borderBottom: `2.5px solid ${resolvedTab === tab.key ? D.indigo : 'transparent'}`,
-              marginBottom: -2, cursor: 'pointer', fontFamily: 'inherit', transition: 'color .12s',
-            }}>{tab.label}</button>
+            <SettingsTabButton
+              key={tab.key}
+              label={tab.label}
+              active={resolvedTab === tab.key}
+              dirty={!!dirtyTabsWithInfo[tab.key]}
+              onClick={() => setActiveTab(tab.key)}
+            />
           ))}
         </div>
       </div>
 
-      {/* Tab: Thông tin CLB */}
-      {resolvedTab === 'info' && (
-        loading ? (
+      <div style={{ display: resolvedTab === 'info' ? 'block' : 'none' }}>
+        {loading ? (
           <div style={{ padding: '28px 32px', fontSize: 13, color: D.inkMuted }}>Đang tải...</div>
         ) : (
           <div style={{ padding: '24px 32px' }}>
             <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-              {/* Logo + QR section */}
               <div style={{ background: D.card, borderRadius: D.radius, border: D.border, boxShadow: D.shadow(), padding: 24 }}>
                 <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '0 0' }}>
-                  {/* Left: Logo */}
                   <div style={{ paddingRight: 24 }}>
                     <label style={{ ...labelStyle, fontSize: 13, marginBottom: 16 }}>Logo CLB</label>
                     <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start' }}>
@@ -241,7 +334,6 @@ export default function ClubSettingsPage() {
                     </div>
                   </div>
 
-                  {/* Right: QR */}
                   <div style={{ paddingLeft: 24, borderLeft: D.borderLight }}>
                     <label style={{ ...labelStyle, fontSize: 13, marginBottom: 16 }}>QR trang CLB</label>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
@@ -263,7 +355,6 @@ export default function ClubSettingsPage() {
                 </div>
               </div>
 
-              {/* Info fields */}
               <div style={{ background: D.card, borderRadius: D.radius, border: D.border, boxShadow: D.shadow(), padding: 24, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
                 <div style={{ gridColumn: '1 / -1' }}>
                   <label style={labelStyle}>Mô tả CLB</label>
@@ -293,12 +384,34 @@ export default function ClubSettingsPage() {
               </div>
             </form>
           </div>
-        )
+        )}
+      </div>
+
+      {canManagePipeline && (
+        <div style={{ display: resolvedTab === 'pipeline' ? 'block' : 'none' }}>
+          <PipelineSettingsPage
+            onDirtyChange={dirty => setTabDirty('pipeline', dirty)}
+            onBindHandles={handles => bindTabHandles('pipeline', handles)}
+          />
+        </div>
       )}
 
-      {resolvedTab === 'pipeline' && <PipelineSettingsPage />}
-      {resolvedTab === 'form' && <FormSchemaPage />}
-      {resolvedTab === 'fields' && <MemberFieldsPage />}
+      {canManageForm && (
+        <>
+          <div style={{ display: resolvedTab === 'form' ? 'block' : 'none' }}>
+            <FormSchemaPage
+              onDirtyChange={dirty => setTabDirty('form', dirty)}
+              onBindHandles={handles => bindTabHandles('form', handles)}
+            />
+          </div>
+          <div style={{ display: resolvedTab === 'fields' ? 'block' : 'none' }}>
+            <MemberFieldsPage
+              onDirtyChange={dirty => setTabDirty('fields', dirty)}
+              onBindHandles={handles => bindTabHandles('fields', handles)}
+            />
+          </div>
+        </>
+      )}
     </div>
   )
 }

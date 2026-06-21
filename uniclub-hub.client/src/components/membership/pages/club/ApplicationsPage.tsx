@@ -2,9 +2,9 @@ import { APPLICATION_STATUS } from '@/types/auth'
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { useDeferredEffect } from '@/hooks/useDeferredEffect'
 import { useParams } from 'react-router-dom'
-import { getApplications, getApplicationsPage, reviewApplication, getMemberFieldSchema, advanceApplicationStage, getPipelineStages, exportApplications } from '@/components/membership/services/clubApi'
+import { getApplications, getApplicationsPage, reviewApplication, getMemberFieldSchema, getFormSchema, advanceApplicationStage, getPipelineStages, exportApplications } from '@/components/membership/services/clubApi'
 import type { ApplicationListQuery } from '@/components/membership/services/clubApi'
-import type { ApplicationItem, MemberFieldDef, PipelineStage } from '@/components/membership/services/club.types'
+import type { ApplicationItem, FormField, MemberFieldDef, PipelineStage } from '@/components/membership/services/club.types'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { toast } from 'sonner'
 import { Clock, MessageCircle, CheckCircle2, XCircle, GitBranch } from 'lucide-react'
@@ -45,6 +45,7 @@ export default function ApplicationsPage() {
   const [page, setPage] = useState(1)
   const [loadingMore, setLoadingMore] = useState(false)
   const [fieldSchema, setFieldSchema] = useState<MemberFieldDef[]>([])
+  const [formFields, setFormFields] = useState<FormField[]>([])
   const [pipelineStages, setPipelineStages] = useState<PipelineStage[]>([])
   const clubPermissions = useClubPermissions(id)
   const [loading, setLoading] = useState(true)
@@ -62,6 +63,7 @@ export default function ApplicationsPage() {
     let cancelled = false
 
     getMemberFieldSchema(id).then(r => { if (!cancelled) setFieldSchema(r) }).catch(() => {})
+    getFormSchema(id).then(s => { if (!cancelled) setFormFields(s?.fields ?? []) }).catch(() => {})
     getPipelineStages(id).then(r => { if (!cancelled) setPipelineStages(r) }).catch(() => {})
 
     return () => { cancelled = true }
@@ -461,12 +463,15 @@ export default function ApplicationsPage() {
                     <div>
                       <label style={labelStyle}>Câu trả lời</label>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                        {entries.map(([k, v]) => (
+                        {entries.map(([k, v]) => {
+                          const question = formFields.find(f => f.id === k)
+                          return (
                           <div key={k} style={fieldBoxStyle}>
-                            <p style={{ fontSize: 11.5, color: D.inkMuted, marginBottom: 3 }}>{k}</p>
+                            <p style={{ fontSize: 11.5, color: D.inkMuted, marginBottom: 3 }}>{question?.label ?? k}</p>
                             <p style={{ fontSize: 13, color: D.ink }}>{String(v)}</p>
                           </div>
-                        ))}
+                          )
+                        })}
                       </div>
                     </div>
                   )
