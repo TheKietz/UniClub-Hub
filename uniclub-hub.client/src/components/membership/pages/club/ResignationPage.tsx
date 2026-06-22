@@ -6,16 +6,17 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { toast } from 'sonner'
 
 const D = {
-  border: '1.5px solid #15131a',
+  border: '1.5px solid var(--c-ink)',
   borderLight: '1px solid #e8e3d6',
-  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 #15131a`,
+  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 var(--c-ink)`,
   radius: 14,
   pill: 999,
-  ink: '#15131a',
+  ink: 'var(--c-ink)',
   inkDim: '#4a4651',
   inkMuted: '#918c99',
-  bg: '#f7f6f1',
+  bg: 'var(--c-bg)',
   card: '#ffffff',
+  lemon: '#facc15',
   indigo: '#4f46e5',
   emerald: '#10b981',
   red: '#ef4444',
@@ -86,27 +87,30 @@ export default function ResignationPage() {
       </div>
 
       {/* Status tabs */}
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
         {STATUS_TABS.map(tab => {
+          const c = tab.value ? (counts[tab.value] ?? 0) : requests.length
           const active = statusFilter === tab.value
           return (
             <button key={tab.value} onClick={() => setStatusFilter(tab.value)}
               style={{
-                padding: '6px 14px', borderRadius: D.pill, fontSize: 12, fontWeight: 700,
+                padding: '7px 14px', borderRadius: D.pill, fontSize: 12, fontWeight: 700,
                 border: D.border, cursor: 'pointer', fontFamily: 'inherit',
-                background: active ? D.indigo : D.card,
-                color: active ? '#fff' : D.inkDim,
-                boxShadow: active ? D.shadow(2,2) : 'none',
+                background: active ? D.ink : D.card,
+                color: active ? D.lemon : D.ink,
+                boxShadow: active ? 'none' : D.shadow(2, 2),
+                transform: active ? 'translate(2px,2px)' : 'none',
                 display: 'flex', alignItems: 'center', gap: 6,
+                transition: 'all .12s',
               }}>
               {tab.label}
-              {tab.value && counts[tab.value] ? (
+              {c > 0 && (
                 <span style={{
-                  fontSize: 10, padding: '1px 6px', borderRadius: D.pill, fontWeight: 700,
-                  background: active ? 'rgba(255,255,255,0.2)' : D.bg,
-                  color: active ? '#fff' : D.inkMuted,
-                }}>{counts[tab.value]}</span>
-              ) : null}
+                  fontSize: 10, padding: '1px 6px', borderRadius: D.pill, fontWeight: 800,
+                  background: active ? 'rgba(255,255,255,.2)' : D.bg,
+                  color: active ? D.lemon : D.inkMuted,
+                }}>{c}</span>
+              )}
             </button>
           )
         })}

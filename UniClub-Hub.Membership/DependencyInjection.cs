@@ -32,6 +32,11 @@ namespace UniClub_Hub.Membership
             services.AddScoped<IGalleryService, GalleryService>();
             services.AddScoped<IAnalyticsService, AnalyticsService>();
             services.AddScoped<IRecommendationService, RecommendationService>();
+            services.AddScoped<IRoleSuggestionService, RoleSuggestionService>();
+            services.AddScoped<IClubPermissionCatalogService, ClubPermissionCatalogService>();
+            services.AddScoped<IClubPermissionService, ClubPermissionService>();
+            services.AddScoped<IClubPositionService, ClubPositionService>();
+            services.AddScoped<IKpiService, KpiService>();
             return services;
         }
     }

@@ -1,21 +1,21 @@
 import { useEffect, useState, useRef } from 'react'
 import { toast } from 'sonner'
-import { Paperclip, Upload, Trash2, Download, FileText, File } from 'lucide-react'
+import { Paperclip, Upload, Trash2, Download, FileText, File, Image, Archive } from 'lucide-react'
 import { getEventAttachments, uploadEventAttachment, deleteEventAttachment } from '../../services/operationsApi'
 import type { EventAttachmentItem } from '../../services/operations.types'
 
 /* ─── Design tokens ──────────────────────────────────────────────────────── */
 
 const D = {
-  border: '1.5px solid #15131a',
+  border: '1.5px solid var(--c-ink)',
   borderLight: '1px solid #e8e3d6',
-  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 #15131a`,
+  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 var(--c-ink)`,
   radius: 14,
   pill: 999,
-  ink: '#15131a',
+  ink: 'var(--c-ink)',
   inkDim: '#4a4651',
   inkMuted: '#918c99',
-  bg: '#f7f6f1',
+  bg: 'var(--c-bg)',
   card: '#ffffff',
   indigo: '#4f46e5',
   red: '#ef4444',
@@ -23,16 +23,20 @@ const D = {
 
 /* ─── Helpers ─────────────────────────────────────────────────────────────── */
 
-const ALLOWED_EXT = ['.pdf', '.doc', '.docx', '.xls', '.xlsx']
-const ALLOWED_MIME = [
-  'application/pdf',
-  'application/msword',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  'application/vnd.ms-excel',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+const ALLOWED_EXT = [
+  '.pdf', '.doc', '.docx', '.xls', '.xlsx',
+  '.png', '.jpg', '.jpeg', '.webp',
+  '.zip', '.rar',
 ]
 
-function getFileIcon(contentType?: string) {
+const ALLOWED_ACCEPT = ALLOWED_EXT.join(',')
+
+function getFileIcon(contentType?: string, fileName?: string) {
+  const ext = fileName?.split('.').pop()?.toLowerCase()
+  if (ext && ['png', 'jpg', 'jpeg', 'webp'].includes(ext))
+    return <Image size={16} style={{ color: '#ec4899' }} />
+  if (ext && ['zip', 'rar'].includes(ext))
+    return <Archive size={16} style={{ color: '#a16207' }} />
   if (!contentType) return <File size={16} style={{ color: D.inkMuted }} />
   if (contentType === 'application/pdf')
     return <FileText size={16} style={{ color: '#ef4444' }} />
@@ -40,6 +44,8 @@ function getFileIcon(contentType?: string) {
     return <FileText size={16} style={{ color: '#2563eb' }} />
   if (contentType.includes('excel') || contentType.includes('spreadsheet'))
     return <FileText size={16} style={{ color: '#16a34a' }} />
+  if (contentType.startsWith('image/'))
+    return <Image size={16} style={{ color: '#ec4899' }} />
   return <File size={16} style={{ color: D.inkMuted }} />
 }
 
@@ -51,6 +57,7 @@ function getExtLabel(contentType?: string, fileName?: string): string {
   if (contentType?.includes('pdf')) return 'PDF'
   if (contentType?.includes('word')) return 'DOCX'
   if (contentType?.includes('excel') || contentType?.includes('spreadsheet')) return 'XLSX'
+  if (contentType?.startsWith('image/')) return 'IMG'
   return 'FILE'
 }
 
@@ -103,8 +110,8 @@ export default function EventAttachmentsSection({ eventId, isManager }: Props) {
     if (!files || files.length === 0) return
     const file = files[0]
     const ext = '.' + file.name.split('.').pop()?.toLowerCase()
-    if (!ALLOWED_EXT.includes(ext) && !ALLOWED_MIME.includes(file.type)) {
-      toast.error(`Định dạng không được hỗ trợ. Chỉ chấp nhận: PDF, DOC, DOCX, XLS, XLSX`)
+    if (!ALLOWED_EXT.includes(ext)) {
+      toast.error(`Định dạng "${ext}" không được hỗ trợ.\nChấp nhận: PDF, DOC, DOCX, XLS, XLSX, PNG, JPG, JPEG, WEBP, ZIP, RAR`)
       return
     }
     if (file.size > 20 * 1024 * 1024) {
@@ -182,7 +189,7 @@ export default function EventAttachmentsSection({ eventId, isManager }: Props) {
       <input
         ref={fileRef}
         type="file"
-        accept=".pdf,.doc,.docx,.xls,.xlsx"
+        accept={ALLOWED_ACCEPT}
         style={{ display: 'none' }}
         onChange={e => handleFiles(e.target.files)}
       />
@@ -210,7 +217,9 @@ export default function EventAttachmentsSection({ eventId, isManager }: Props) {
           <p style={{ fontSize: 12, color: dragging ? D.indigo : D.inkMuted, margin: 0, fontWeight: 600 }}>
             {uploading ? 'Đang tải lên...' : 'Kéo thả file vào đây hoặc click để chọn'}
           </p>
-          <p style={{ fontSize: 11, color: D.inkMuted, margin: 0 }}>PDF, DOC, DOCX, XLS, XLSX · Tối đa 20 MB</p>
+          <p style={{ fontSize: 11, color: D.inkMuted, margin: 0 }}>
+            PDF · DOCX · XLSX · PNG · JPG · WEBP · ZIP · RAR · Tối đa 20 MB
+          </p>
         </div>
       )}
 
@@ -224,63 +233,79 @@ export default function EventAttachmentsSection({ eventId, isManager }: Props) {
           </p>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: isManager ? 12 : 4 }}>
-            {attachments.map(a => (
-              <div
-                key={a.id}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 12,
-                  padding: '10px 14px',
-                  background: D.bg, border: D.borderLight, borderRadius: 10,
-                }}
-              >
-                {/* Icon + ext badge */}
-                <div style={{ width: 36, height: 36, background: D.card, border: D.borderLight, borderRadius: 8, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flexShrink: 0, gap: 1 }}>
-                  {getFileIcon(a.contentType)}
-                  <span style={{ fontSize: 8, fontWeight: 900, color: D.inkMuted, letterSpacing: '.03em' }}>
-                    {getExtLabel(a.contentType, a.fileName)}
-                  </span>
-                </div>
+            {attachments.map(a => {
+              const ext = a.fileName?.split('.').pop()?.toLowerCase()
+              const isImage = ext && ['png', 'jpg', 'jpeg', 'webp'].includes(ext)
 
-                {/* Info */}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ fontSize: 13, fontWeight: 700, color: D.ink, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {a.note ?? a.fileName ?? 'Tài liệu'}
-                  </p>
-                  <p style={{ fontSize: 11, color: D.inkMuted, margin: '2px 0 0' }}>
-                    {a.uploaderName} · {fmtDate(a.uploadedAt)}{a.fileSize ? ` · ${formatBytes(a.fileSize)}` : ''}
-                  </p>
-                </div>
+              return (
+                <div
+                  key={a.id}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 12,
+                    padding: '10px 14px',
+                    background: D.bg, border: D.borderLight, borderRadius: 10,
+                  }}
+                >
+                  {/* Icon + ext badge */}
+                  <div style={{ width: 36, height: 36, background: D.card, border: D.borderLight, borderRadius: 8, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flexShrink: 0, gap: 1, overflow: 'hidden' }}>
+                    {isImage && a.fileUrl ? (
+                      <img
+                        src={a.fileUrl}
+                        alt={a.fileName}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 8 }}
+                        onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
+                      />
+                    ) : (
+                      <>
+                        {getFileIcon(a.contentType, a.fileName)}
+                        <span style={{ fontSize: 8, fontWeight: 900, color: D.inkMuted, letterSpacing: '.03em' }}>
+                          {getExtLabel(a.contentType, a.fileName)}
+                        </span>
+                      </>
+                    )}
+                  </div>
 
-                {/* Actions */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
-                  <a
-                    href={a.fileUrl}
-                    download={a.fileName}
-                    target="_blank"
-                    rel="noreferrer"
-                    title="Tải xuống"
-                    style={{ padding: 6, borderRadius: 6, color: D.inkMuted, display: 'flex', textDecoration: 'none', background: 'transparent', border: 'none' }}
-                    onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = D.indigo}
-                    onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = D.inkMuted}
-                  >
-                    <Download size={14} />
-                  </a>
-                  {isManager && (
-                    <button
-                      type="button"
-                      title="Xóa tài liệu"
-                      disabled={deletingId === a.id}
-                      onClick={() => handleDelete(a.id)}
-                      style={{ padding: 6, borderRadius: 6, color: D.inkMuted, background: 'transparent', border: 'none', cursor: deletingId === a.id ? 'not-allowed' : 'pointer', display: 'flex', opacity: deletingId === a.id ? 0.5 : 1 }}
-                      onMouseEnter={e => { if (deletingId !== a.id) (e.currentTarget as HTMLElement).style.color = D.red }}
+                  {/* Info */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ fontSize: 13, fontWeight: 700, color: D.ink, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {a.note ?? a.fileName ?? 'Tài liệu'}
+                    </p>
+                    <p style={{ fontSize: 11, color: D.inkMuted, margin: '2px 0 0' }}>
+                      {a.uploaderName} · {fmtDate(a.uploadedAt)}{a.fileSize ? ` · ${formatBytes(a.fileSize)}` : ''}
+                    </p>
+                  </div>
+
+                  {/* Actions */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+                    <a
+                      href={a.fileUrl}
+                      download={a.fileName}
+                      target="_blank"
+                      rel="noreferrer"
+                      title="Tải xuống"
+                      style={{ padding: 6, borderRadius: 6, color: D.inkMuted, display: 'flex', textDecoration: 'none', background: 'transparent', border: 'none' }}
+                      onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = D.indigo}
                       onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = D.inkMuted}
                     >
-                      <Trash2 size={14} />
-                    </button>
-                  )}
+                      <Download size={14} />
+                    </a>
+                    {isManager && (
+                      <button
+                        type="button"
+                        title="Xóa tài liệu"
+                        disabled={deletingId === a.id}
+                        onClick={() => handleDelete(a.id)}
+                        style={{ padding: 6, borderRadius: 6, color: D.inkMuted, background: 'transparent', border: 'none', cursor: deletingId === a.id ? 'not-allowed' : 'pointer', display: 'flex', opacity: deletingId === a.id ? 0.5 : 1 }}
+                        onMouseEnter={e => { if (deletingId !== a.id) (e.currentTarget as HTMLElement).style.color = D.red }}
+                        onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = D.inkMuted}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </div>

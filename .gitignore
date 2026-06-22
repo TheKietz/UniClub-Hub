@@ -393,7 +393,10 @@ design_handoff_public_redesign/
 uniclub-hub.client/obj/
 uniclub-hub.client/bin/
 /uniclub-hub.client/.env
+# Personal agent files (per-developer workflow: Claude = plan, Codex = implement)
 CLAUDE.md
+AGENTS.md
 TODO.md
+/.claude/
 
 /design

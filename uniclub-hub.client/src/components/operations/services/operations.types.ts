@@ -111,7 +111,7 @@ export interface EventStaffItem {
 
 export interface EventItem {
   id: number
-  clubId: number
+  clubId: number | null   // null = sự kiện cấp trường
   name: string
   description?: string
   location?: string
@@ -347,4 +347,50 @@ export interface EventAttachmentItem {
 export interface UpdateAttendanceDto {
   attendance: AttendanceStatus
   note?: string
+}
+
+// ── Event Club Assignments (briefs from SUPER_ADMIN to clubs) ────────────────
+
+export type AssignmentStatus = 'Pending' | 'InProgress' | 'Done'
+
+export interface AssignmentItem {
+  id: number
+  eventId: number
+  eventName?: string
+  clubId: number
+  clubName?: string
+  title: string
+  description?: string
+  priority: TaskPriority
+  deadline?: string
+  status: AssignmentStatus
+  attachmentUrls: string[]
+  createdBy?: string
+  createdAt: string
+}
+
+// ── Intelligence (Features 1 & 3) ─────────────────────────────────────────────
+
+export interface AssignmentSuggestion {
+  userId: string
+  fullName: string
+  avatarUrl?: string
+  suitabilityScore: number
+  reason: string
+  onTimeRate: number
+  productivityScore: number
+  currentWorkloadHours: number
+}
+
+export interface UrgentTaskItem {
+  taskId: number
+  title: string
+  priority: TaskPriority
+  status: TaskStatus
+  deadline?: string
+  assigneeName?: string
+  dependentsWaiting: number
+  hoursToDeadline: number
+  urgencyIndex: number
+  urgencyReason: string
 }

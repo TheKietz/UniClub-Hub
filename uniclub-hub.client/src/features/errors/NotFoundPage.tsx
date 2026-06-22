@@ -2,10 +2,10 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 
 const C = {
-  bg: '#fbf9f3', ink: '#15131a', lemon: '#facc15', coral: '#ff5a3c',
+  bg: '#fbf9f3', ink: 'var(--c-ink)', lemon: '#facc15', coral: 'var(--c-accent)',
   card: '#ffffff', inkMuted: '#918c99',
-  border: '1.5px solid #15131a',
-  shadow: '4px 4px 0 #15131a',
+  border: '1.5px solid var(--c-ink)',
+  shadow: '4px 4px 0 var(--c-ink)',
 }
 
 export default function NotFoundPage() {
@@ -53,7 +53,7 @@ export default function NotFoundPage() {
             style={{
               height: 44, padding: '0 20px', borderRadius: 10,
               background: C.card, color: C.ink, border: C.border,
-              boxShadow: '2px 2px 0 #15131a', fontSize: 13, fontWeight: 700,
+              boxShadow: '2px 2px 0 var(--c-ink)', fontSize: 13, fontWeight: 700,
               cursor: 'pointer', fontFamily: 'inherit',
             }}
           >← Quay lại</button>
@@ -62,7 +62,7 @@ export default function NotFoundPage() {
             style={{
               height: 44, padding: '0 20px', borderRadius: 10,
               background: C.ink, color: C.lemon, border: C.border,
-              boxShadow: '2px 2px 0 #15131a', fontSize: 13, fontWeight: 800,
+              boxShadow: '2px 2px 0 var(--c-ink)', fontSize: 13, fontWeight: 800,
               cursor: 'pointer', fontFamily: 'inherit', textDecoration: 'none',
               display: 'inline-flex', alignItems: 'center',
             }}

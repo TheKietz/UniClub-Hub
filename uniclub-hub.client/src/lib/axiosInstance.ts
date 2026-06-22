@@ -2,6 +2,14 @@ import axios from 'axios'
 
 const api = axios.create({ baseURL: '/api', withCredentials: true })
 
+/** Trang public — không redirect /login khi refresh token thất bại */
+function isPublicPath(pathname: string): boolean {
+  if (pathname === '/' || pathname === '/login' || pathname === '/register' || pathname === '/contact') return true
+  if (pathname.startsWith('/clubs')) return true
+  if (pathname.startsWith('/forgot-password') || pathname.startsWith('/reset-password') || pathname.startsWith('/confirm-email')) return true
+  return false
+}
+
 // Đính kèm access token vào mỗi request
 api.interceptors.request.use(config => {
   const token = localStorage.getItem('accessToken')
@@ -18,7 +26,9 @@ api.interceptors.response.use(
   async error => {
     const original = error.config
 
-    const isAuthEndpoint = /\/auth\/(login|register|google|revoke|refresh)/.test(original.url ?? '')
+    const url = original.url ?? ''
+    const isAuthEndpoint = /\/auth\/(login|register|google|revoke|refresh)/.test(url)
+    const isSessionProbe = /\/users\/me(\/|$)/.test(url)
     if (error.response?.status === 401 && !original._retry && !isAuthEndpoint) {
       if (isRefreshing) {
         return new Promise(resolve => {
@@ -46,7 +56,10 @@ api.interceptors.response.use(
         return api(original)
       } catch {
         localStorage.removeItem('accessToken')
-        window.location.href = '/login'
+        const path = window.location.pathname
+        if (!isPublicPath(path) && !isSessionProbe) {
+          window.location.href = '/login'
+        }
         return Promise.reject(error)
       } finally {
         isRefreshing = false

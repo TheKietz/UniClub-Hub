@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { getClubStats, getClubGrowth, getDepartments, getClubResignations } from '@/components/membership/services/clubApi'
 import type { ClubStats, MonthlyGrowth, DepartmentItem } from '@/components/membership/services/club.types'
@@ -10,21 +10,29 @@ import {
   StatCard, ChartCard, MiniAreaChart, MiniBarChart, MiniDonut,
   PageShell, DTag,
 } from '@/components/shared/DashboardCharts'
+import { exportDashboardPdf } from '@/lib/pdfExport'
+
+const MONTH_OPTIONS = [
+  { value: 3, label: '3 tháng' },
+  { value: 6, label: '6 tháng' },
+  { value: 12, label: '12 tháng' },
+  { value: 24, label: '24 tháng' },
+]
 
 const ROLE_LABELS: Record<string, string> = {
   CLUB_ADMIN: 'Ban chủ nhiệm', DEPT_LEAD: 'Trưởng ban', MEMBER: 'Thành viên',
 }
-const ROLE_COLORS = ['#ff5a3c', '#f59e0b', '#4f46e5']
+const ROLE_COLORS = ['var(--c-accent)', '#f59e0b', '#4f46e5']
 const DEPT_COLORS = ['#4f46e5', '#7c3aed', '#ec4899', '#14b8a6', '#38bdf8']
 
 const D = {
-  border: '1.5px solid #15131a',
+  border: '1.5px solid var(--c-ink)',
   borderLight: '1px solid #e8e3d6',
-  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 #15131a`,
+  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 var(--c-ink)`,
   radius: 14,
-  ink: '#15131a',
+  ink: 'var(--c-ink)',
   inkMuted: '#918c99',
-  bg: '#f7f6f1',
+  bg: 'var(--c-bg)',
   amber: '#f59e0b',
   emerald: '#10b981',
   red: '#ef4444',
@@ -88,6 +96,9 @@ export default function ClubManageDashboard() {
   const [approvedResignCount, setApprovedResignCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [months, setMonths] = useState(12)
+  const [exporting, setExporting] = useState(false)
+  const contentRef = useRef<HTMLDivElement>(null)
 
   type MediaStats = {
     totalPosts: number; publishedPosts: number; draftPosts: number
@@ -119,10 +130,9 @@ export default function ClubManageDashboard() {
       }
     })
 
-    Promise.all([getClubStats(id), getClubGrowth(id, 12), getDepartments(id), getClubResignations(id)])
-      .then(([s, g, dpts, resignations]) => {
+    Promise.all([getClubStats(id), getDepartments(id), getClubResignations(id)])
+      .then(([s, dpts, resignations]) => {
         setStats(s)
-        setGrowth(g)
         setDepts(dpts)
         setApprovedResignCount(resignations.filter(r => r.status === 'Approved').length)
 
@@ -144,6 +154,22 @@ export default function ClubManageDashboard() {
       .catch(() => setError('Không thể tải thống kê CLB.'))
       .finally(() => setLoading(false))
   }, [clubId])
+
+  useEffect(() => {
+    if (!clubId) return
+    getClubGrowth(Number(clubId), months).then(setGrowth).catch(() => {})
+  }, [clubId, months])
+
+  async function handleExportPdf() {
+    if (!contentRef.current) return
+    setExporting(true)
+    try {
+      const date = new Date().toLocaleDateString('vi-VN').replace(/\//g, '-')
+      await exportDashboardPdf(contentRef.current, `bao-cao-clb-${clubId}-${date}.pdf`)
+    } finally {
+      setExporting(false)
+    }
+  }
 
   if (loading) return <PageShell><div style={{ padding: '60px 0', textAlign: 'center', color: D.inkMuted }}>Đang tải...</div></PageShell>
   if (error) return <PageShell><div style={{ padding: '60px 0', textAlign: 'center', color: D.red }}>{error}</div></PageShell>
@@ -180,7 +206,8 @@ export default function ClubManageDashboard() {
   return (
     <PageShell>
       {/* Club header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 18, marginBottom: 24 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, marginBottom: 24 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
         {club?.clubLogoUrl ? (
           <img src={club.clubLogoUrl} alt="" style={{
             width: 64, height: 64, borderRadius: 16, objectFit: 'cover',
@@ -201,7 +228,24 @@ export default function ClubManageDashboard() {
           <p style={{ fontSize: 13, color: D.inkMuted, marginTop: 4 }}>Tổng quan hoạt động câu lạc bộ</p>
         </div>
       </div>
+        <button
+          onClick={handleExportPdf}
+          disabled={exporting}
+          style={{
+            flexShrink: 0, padding: '8px 16px', borderRadius: 999,
+            background: exporting ? D.bg : D.ink,
+            color: exporting ? D.inkMuted : '#facc15',
+            border: '1.5px solid var(--c-ink)',
+            boxShadow: exporting ? 'none' : '3px 3px 0 var(--c-ink)',
+            fontSize: 12, fontWeight: 700, cursor: exporting ? 'not-allowed' : 'pointer',
+            fontFamily: 'inherit', transition: 'all .15s',
+          }}
+        >
+          {exporting ? 'Đang xuất...' : '↓ Xuất PDF'}
+        </button>
+      </div>
 
+      <div ref={contentRef}>
       <ActionItems items={alerts} />
 
       {/* Stat cards */}
@@ -215,8 +259,26 @@ export default function ClubManageDashboard() {
 
       {/* Growth chart */}
       <ChartCard
-        title="Tăng trưởng thành viên" sub="12 tháng gần nhất"
-        rightLabel={`${totalNew} thành viên mới`}
+        title="Tăng trưởng thành viên"
+        sub={`${months} tháng gần nhất`}
+        rightLabel={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 12, color: D.inkMuted, fontWeight: 600 }}>{totalNew} TV mới</span>
+            <div style={{ display: 'flex', gap: 4 }}>
+              {MONTH_OPTIONS.map(o => (
+                <button key={o.value} onClick={() => setMonths(o.value)} style={{
+                  padding: '3px 9px', borderRadius: 999, fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                  background: months === o.value ? D.ink : D.bg,
+                  color: months === o.value ? '#facc15' : D.inkMuted,
+                  border: '1.5px solid var(--c-ink)',
+                  boxShadow: months === o.value ? 'none' : '2px 2px 0 var(--c-ink)',
+                  transform: months === o.value ? 'translate(2px,2px)' : 'none',
+                  transition: 'all .1s', fontFamily: 'inherit',
+                }}>{o.label}</button>
+              ))}
+            </div>
+          </div>
+        }
         style={{ marginBottom: 20 }}
       >
         <MiniAreaChart data={growthData} color="#4f46e5" height={140} />
@@ -459,6 +521,7 @@ export default function ClubManageDashboard() {
           </div>
         </ChartCard>
       )}
+      </div>
     </PageShell>
   )
 }

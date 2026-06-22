@@ -4,19 +4,20 @@ import { toast } from 'sonner'
 import { RefreshCw, Plus, ArrowRightLeft, Trash2, Download, Search } from 'lucide-react'
 import { getAuditLogs } from '../services/operationsApi'
 import type { AuditLogItem } from '../services/operations.types'
+import { FilterSelect } from '@/components/shared/FilterSelect'
 
 /* ── Design tokens ─────────────────────────────────────────────────────────── */
 
 const D = {
-  border: '1.5px solid #15131a',
+  border: '1.5px solid var(--c-ink)',
   borderLight: '1px solid #e8e3d6',
-  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 #15131a`,
+  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 var(--c-ink)`,
   radius: 14,
   pill: 999,
-  ink: '#15131a',
+  ink: 'var(--c-ink)',
   inkDim: '#4a4651',
   inkMuted: '#918c99',
-  bg: '#f7f6f1',
+  bg: 'var(--c-bg)',
   card: '#ffffff',
   indigo: '#4f46e5',
   emerald: '#10b981',
@@ -193,13 +194,6 @@ function EntryRow({ entry }: { entry: AuditLogItem }) {
 
 /* ─── Page ─────────────────────────────────────────────────────────────────── */
 
-const selectStyle: React.CSSProperties = {
-  height: 36, borderRadius: 8, border: '1px solid #e8e3d6',
-  padding: '0 12px', fontSize: 13, color: D.ink, outline: 'none',
-  background: D.bg, fontFamily: 'inherit', cursor: 'pointer',
-  appearance: 'none', paddingRight: 28,
-}
-
 export default function ActivityLogPage() {
   const { clubId: clubIdParam } = useParams<{ clubId: string }>()
   const clubId = Number(clubIdParam ?? 1)
@@ -270,17 +264,15 @@ export default function ActivityLogPage() {
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
           {/* Module filter */}
-          <div style={{ position: 'relative' }}>
-            <select
-              aria-label="Lọc module"
-              value={moduleFilter}
-              onChange={e => setModuleFilter(e.target.value)}
-              style={selectStyle}
-            >
-              <option value="">Tất cả Module</option>
-              {MODULES.map(m => <option key={m} value={m}>{MODULE_LABELS[m]}</option>)}
-            </select>
-          </div>
+          <FilterSelect
+            value={moduleFilter}
+            onChange={setModuleFilter}
+            options={[
+              { value: '', label: 'Tất cả module' },
+              ...MODULES.map(m => ({ value: m, label: MODULE_LABELS[m] })),
+            ]}
+            style={{ width: 170 }}
+          />
 
           <button
             type="button"
@@ -292,7 +284,7 @@ export default function ActivityLogPage() {
               cursor: 'pointer', fontFamily: 'inherit',
             }}
           >
-            <Download size={13} /> Export Log
+            <Download size={13} /> Xuất nhật ký
           </button>
 
           <button

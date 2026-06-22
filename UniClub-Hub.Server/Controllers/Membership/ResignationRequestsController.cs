@@ -1,12 +1,10 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 using UniClub_Hub.Membership.DTOs.Resignation;
 using UniClub_Hub.Membership.Services.Interfaces;
 using UniClub_Hub.Shared.Common;
-using UniClub_Hub.Shared.Data;
-using UniClub_Hub.Shared.Enums;
+using UniClub_Hub.Shared.Constants;
 
 namespace UniClub_Hub.Server.Controllers.Membership
 {
@@ -15,12 +13,12 @@ namespace UniClub_Hub.Server.Controllers.Membership
     public class ResignationRequestsController : ControllerBase
     {
         private readonly IResignationService _resignationService;
-        private readonly UniClubDbContext _db;
+        private readonly IClubPermissionService _permissions;
 
-        public ResignationRequestsController(IResignationService resignationService, UniClubDbContext db)
+        public ResignationRequestsController(IResignationService resignationService, IClubPermissionService permissions)
         {
             _resignationService = resignationService;
-            _db = db;
+            _permissions = permissions;
         }
 
         // Thành viên gửi đơn từ chức
@@ -37,36 +35,28 @@ namespace UniClub_Hub.Server.Controllers.Membership
             catch (KeyNotFoundException ex) { return NotFound(ApiResponse<object>.Fail(ex.Message)); }
         }
 
-        // CLUB_ADMIN xem đơn từ chức của DEPT_LEAD trong CLB
+        // Xem đơn từ chức trong CLB
         [HttpGet("api/clubs/{clubId}/resignation-requests")]
         public async Task<IActionResult> GetByClub(int clubId)
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
             var isSuperAdmin = User.IsInRole("SUPER_ADMIN");
-            if (!isSuperAdmin)
-            {
-                var isClubAdmin = await _db.ClubMemberships.AnyAsync(m =>
-                    m.ClubId == clubId && m.UserId == userId &&
-                    m.ClubRole == ClubRole.CLUB_ADMIN && m.Status == MembershipStatus.Active);
-                if (!isClubAdmin) return Forbid();
-            }
+            if (!await _permissions.HasPermissionAsync(clubId, userId, isSuperAdmin, ClubPermissions.ResignationsView))
+                return Forbid();
+
             var result = await _resignationService.GetByClubAsync(clubId);
             return Ok(ApiResponse<object>.Ok(result));
         }
 
-        // CLUB_ADMIN duyệt đơn từ chức của DEPT_LEAD
+        // Duyệt đơn từ chức trong CLB
         [HttpPatch("api/clubs/{clubId}/resignation-requests/{id}")]
         public async Task<IActionResult> ReviewByClub(int clubId, int id, [FromBody] ReviewResignationDto dto)
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
             var isSuperAdmin = User.IsInRole("SUPER_ADMIN");
-            if (!isSuperAdmin)
-            {
-                var isClubAdmin = await _db.ClubMemberships.AnyAsync(m =>
-                    m.ClubId == clubId && m.UserId == userId &&
-                    m.ClubRole == ClubRole.CLUB_ADMIN && m.Status == MembershipStatus.Active);
-                if (!isClubAdmin) return Forbid();
-            }
+            if (!await _permissions.HasPermissionAsync(clubId, userId, isSuperAdmin, ClubPermissions.ResignationsReview))
+                return Forbid();
+
             try
             {
                 var result = await _resignationService.ReviewAsync(id, dto, userId);

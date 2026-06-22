@@ -15,7 +15,7 @@ namespace UniClub_Hub.Server.Controllers.Operations
 
         [HttpGet]
         public async Task<IActionResult> GetAll(
-            [FromQuery] int clubId,
+            [FromQuery] int? clubId,
             [FromQuery] string? status,
             [FromQuery] string? search,
             [FromQuery] int page = 1,
@@ -41,7 +41,7 @@ namespace UniClub_Hub.Server.Controllers.Operations
 
         [HttpPost]
         [Authorize]
-        public async Task<IActionResult> Create([FromQuery] int clubId, [FromBody] CreateEventDto dto)
+        public async Task<IActionResult> Create([FromQuery] int? clubId, [FromBody] CreateEventDto dto)
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
             try

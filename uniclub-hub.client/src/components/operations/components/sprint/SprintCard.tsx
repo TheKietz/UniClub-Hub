@@ -1,5 +1,6 @@
-import { MoreVertical, CalendarDays, ArrowRight } from 'lucide-react'
+import { MoreVertical, CalendarDays, ArrowRight, CalendarCheck } from 'lucide-react'
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { SprintStatusBadge } from '../../../shared/StatusBadge'
 import ProgressBar from '../../../shared/ProgressBar'
 import AvatarGroup from '../../../shared/AvatarGroup'
@@ -7,6 +8,7 @@ import type { SprintStatus } from '../../services/operations.types'
 
 export interface SprintCardData {
   id: number
+  clubId: number
   name: string
   status: SprintStatus
   startDate: string
@@ -16,6 +18,8 @@ export interface SprintCardData {
   taskCount: number
   leadName?: string
   members: Array<{ name: string; imageUrl?: string }>
+  eventId?: number
+  eventName?: string
 }
 
 interface SprintCardProps {
@@ -27,14 +31,14 @@ interface SprintCardProps {
 }
 
 const D = {
-  border: '1.5px solid #15131a',
+  border: '1.5px solid var(--c-ink)',
   borderLight: '1px solid #e8e3d6',
-  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 #15131a`,
+  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 var(--c-ink)`,
   radius: 14,
-  ink: '#15131a',
+  ink: 'var(--c-ink)',
   inkDim: '#4a4651',
   inkMuted: '#918c99',
-  bg: '#f7f6f1',
+  bg: 'var(--c-bg)',
   card: '#ffffff',
   indigo: '#4f46e5',
   red: '#ef4444',
@@ -153,6 +157,25 @@ export default function SprintCard({
       <h3 style={{ fontSize: 15, fontWeight: 800, color: D.ink, marginBottom: 4, lineHeight: 1.3 }}>
         {sprint.name}
       </h3>
+
+      {/* Event badge */}
+      {sprint.eventId && (
+        <Link
+          to={`/clubs/${sprint.clubId}/events/${sprint.eventId}`}
+          title="Xem chi tiết sự kiện"
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 5,
+            fontSize: 11, fontWeight: 700, color: D.indigo,
+            background: '#ede9fe', border: `1.5px solid ${D.indigo}44`,
+            borderRadius: D.pill, padding: '3px 10px',
+            textDecoration: 'none', marginBottom: 10,
+            maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          }}
+        >
+          <CalendarCheck size={11} />
+          {sprint.eventName ?? `Sự kiện #${sprint.eventId}`}
+        </Link>
+      )}
 
       {/* Date range */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: D.inkMuted, marginBottom: 16 }}>

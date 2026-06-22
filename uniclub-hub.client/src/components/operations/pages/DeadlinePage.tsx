@@ -9,15 +9,15 @@ import type { TaskItem, TaskStatus } from '../services/operations.types'
 /* ─── Design tokens ──────────────────────────────────────────────────────── */
 
 const D = {
-  border: '1.5px solid #15131a',
+  border: '1.5px solid var(--c-ink)',
   borderLight: '1px solid #e8e3d6',
-  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 #15131a`,
+  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 var(--c-ink)`,
   radius: 14,
   pill: 999,
-  ink: '#15131a',
+  ink: 'var(--c-ink)',
   inkDim: '#4a4651',
   inkMuted: '#918c99',
-  bg: '#f7f6f1',
+  bg: 'var(--c-bg)',
   card: '#ffffff',
   indigo: '#4f46e5',
   emerald: '#10b981',
@@ -190,7 +190,7 @@ export default function DeadlinePage() {
   const { overdue, today, week, upcoming } = classify(tasks)
   const totalAlerts = overdue.length + today.length + week.length
 
-  const statCardStyle = (borderColor: string, iconBg: string): React.CSSProperties => ({
+  const statCardStyle = (borderColor: string): React.CSSProperties => ({
     background: D.card, border: `1.5px solid ${borderColor}`,
     borderRadius: D.radius, padding: 16,
     display: 'flex', alignItems: 'center', gap: 12,
@@ -225,7 +225,7 @@ export default function DeadlinePage() {
 
       {/* Summary cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 24 }}>
-        <div style={statCardStyle('#fca5a5', '#fee2e2')}>
+        <div style={statCardStyle('#fca5a5')}>
           <div style={{ width: 40, height: 40, borderRadius: 10, background: '#fee2e2', border: '1.5px solid #fca5a5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <AlertTriangle size={20} style={{ color: D.red }} />
           </div>
@@ -234,7 +234,7 @@ export default function DeadlinePage() {
             <p style={{ fontSize: 12, color: D.inkMuted, margin: 0 }}>Quá hạn</p>
           </div>
         </div>
-        <div style={statCardStyle('#fcd34d', '#fef3c7')}>
+        <div style={statCardStyle('#fcd34d')}>
           <div style={{ width: 40, height: 40, borderRadius: 10, background: '#fef3c7', border: '1.5px solid #fcd34d', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <Clock size={20} style={{ color: D.amber }} />
           </div>
@@ -243,7 +243,7 @@ export default function DeadlinePage() {
             <p style={{ fontSize: 12, color: D.inkMuted, margin: 0 }}>Hết hạn hôm nay</p>
           </div>
         </div>
-        <div style={statCardStyle('#93c5fd', '#dbeafe')}>
+        <div style={statCardStyle('#93c5fd')}>
           <div style={{ width: 40, height: 40, borderRadius: 10, background: '#dbeafe', border: '1.5px solid #93c5fd', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <Clock size={20} style={{ color: '#2563eb' }} />
           </div>

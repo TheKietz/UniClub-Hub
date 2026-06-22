@@ -1,4 +1,5 @@
 import { Search, Filter, ChevronDown } from 'lucide-react'
+import { FilterSelect } from '@/components/shared/FilterSelect'
 
 interface FilterBarProps {
   searchValue: string
@@ -49,21 +50,15 @@ export default function FilterBar({
 
       {/* Department selector */}
       {departmentOptions && onDepartmentChange && (
-        <div className="relative">
-          <select
-            value={selectedDepartment ?? ''}
-            onChange={(e) => onDepartmentChange(e.target.value ? Number(e.target.value) : null)}
-            className="appearance-none pl-3 pr-8 py-2 text-sm bg-white border border-gray-200 rounded-xl
-              focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400
-              text-gray-700 transition-all cursor-pointer"
-          >
-            <option value="">Tất cả ban</option>
-            {departmentOptions.map((d) => (
-              <option key={d.id} value={d.id}>{d.name}</option>
-            ))}
-          </select>
-          <ChevronDown size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-        </div>
+        <FilterSelect
+          value={selectedDepartment?.toString() ?? ''}
+          onChange={(value) => onDepartmentChange(value ? Number(value) : null)}
+          options={[
+            { value: '', label: 'Tất cả ban' },
+            ...departmentOptions.map((d) => ({ value: String(d.id), label: d.name })),
+          ]}
+          style={{ width: 180 }}
+        />
       )}
 
       {/* Status pills */}

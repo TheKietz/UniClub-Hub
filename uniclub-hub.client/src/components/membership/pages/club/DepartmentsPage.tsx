@@ -1,24 +1,23 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { getDepartments, getClubMembers } from '@/components/membership/services/clubApi'
+import { getDepartments, getClubMembers, createDepartment, updateDepartment, deleteDepartment, setDepartmentLead } from '@/components/membership/services/clubApi'
 import type { DepartmentItem, MemberItem } from '@/components/membership/services/club.types'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { toast } from 'sonner'
-import api from '@/lib/axiosInstance'
 import { Crown, Pencil, Trash2 } from 'lucide-react'
 import { Tooltip } from '@/components/shared/Tooltip'
 import { FilterSelect } from '@/components/shared/FilterSelect'
 
 const D = {
-  border: '1.5px solid #15131a',
+  border: '1.5px solid var(--c-ink)',
   borderLight: '1px solid #e8e3d6',
-  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 #15131a`,
+  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 var(--c-ink)`,
   radius: 14,
   pill: 999,
-  ink: '#15131a',
+  ink: 'var(--c-ink)',
   inkDim: '#4a4651',
   inkMuted: '#918c99',
-  bg: '#f7f6f1',
+  bg: 'var(--c-bg)',
   card: '#ffffff',
   indigo: '#4f46e5',
   emerald: '#10b981',
@@ -28,8 +27,8 @@ const D = {
 
 const inputStyle: React.CSSProperties = {
   width: '100%', height: 36, borderRadius: 8, border: '1px solid #e8e3d6',
-  padding: '0 12px', fontSize: 13, color: '#15131a', outline: 'none',
-  background: '#f7f6f1', fontFamily: 'inherit', boxSizing: 'border-box',
+  padding: '0 12px', fontSize: 13, color: 'var(--c-ink)', outline: 'none',
+  background: 'var(--c-bg)', fontFamily: 'inherit', boxSizing: 'border-box',
 }
 const labelStyle: React.CSSProperties = { fontSize: 12, fontWeight: 700, color: '#4a4651', display: 'block', marginBottom: 4 }
 
@@ -102,11 +101,12 @@ export default function DepartmentsPage() {
     if (!form.name.trim()) { toast.error('Vui lòng nhập tên ban.'); return }
     setSaving(true)
     try {
+      const dto = { name: form.name.trim(), description: form.description || null }
       if (dialog === 'add') {
-        await api.post(`/clubs/${id}/departments`, { name: form.name.trim(), description: form.description || null })
+        await createDepartment(id, dto)
         toast.success('Đã thêm ban mới.')
       } else {
-        await api.put(`/clubs/${id}/departments/${editTarget!.id}`, { name: form.name.trim(), description: form.description || null })
+        await updateDepartment(id, editTarget!.id, dto)
         toast.success('Đã cập nhật ban.')
       }
       setDialog(null)
@@ -122,7 +122,7 @@ export default function DepartmentsPage() {
     if (!deleteTarget) return
     setDeleting(true)
     try {
-      await api.delete(`/clubs/${id}/departments/${deleteTarget.id}`)
+      await deleteDepartment(id, deleteTarget.id)
       toast.success(`Đã xóa ban "${deleteTarget.name}".`)
       setDeleteTarget(null)
       load()
@@ -137,9 +137,7 @@ export default function DepartmentsPage() {
     if (!leadDept) return
     setSettingLead(true)
     try {
-      await api.patch(`/clubs/${id}/departments/${leadDept.id}/lead`, {
-        membershipId: selectedMembershipId ? Number(selectedMembershipId) : null,
-      })
+      await setDepartmentLead(id, leadDept.id, selectedMembershipId ? Number(selectedMembershipId) : null)
       toast.success('Đã cập nhật trưởng ban.')
       setLeadDept(null)
       load()
@@ -314,15 +312,17 @@ export default function DepartmentsPage() {
             ) : (
               <div>
                 <label style={labelStyle}>Chọn trưởng ban</label>
-                <select value={selectedMembershipId} onChange={e => setSelectedMembershipId(e.target.value)}
-                  style={{ ...inputStyle, height: 36, cursor: 'pointer' }}>
-                  <option value="">— Không có trưởng ban —</option>
-                  {deptMembers.map(m => (
-                    <option key={m.id} value={m.id}>
-                      {m.fullName ?? m.email}{m.studentId ? ` (${m.studentId})` : ''}
-                    </option>
-                  ))}
-                </select>
+                <FilterSelect
+                  value={selectedMembershipId}
+                  onChange={setSelectedMembershipId}
+                  options={[
+                    { value: '', label: '— Không có trưởng ban —' },
+                    ...deptMembers.map(m => ({
+                      value: String(m.id),
+                      label: `${m.fullName ?? m.email}${m.studentId ? ` (${m.studentId})` : ''}`,
+                    })),
+                  ]}
+                />
               </div>
             )}
           </div>

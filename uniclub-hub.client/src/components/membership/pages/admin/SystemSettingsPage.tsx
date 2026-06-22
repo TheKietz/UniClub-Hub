@@ -2,14 +2,15 @@ import { useEffect, useState, useRef } from 'react'
 import { getSettings, updateSetting, toggleSettingEnabled } from '@/components/membership/services/adminApi'
 import type { SystemSetting } from '@/components/membership/services/adminApi'
 import { toast } from 'sonner'
-import { Save, X, Power } from 'lucide-react'
+import { Save, X, Power, ChevronDown } from 'lucide-react'
+import { SliderItemsEditor } from './SliderItemsEditor'
 
 const D = {
-  border: '1.5px solid #15131a', borderLight: '1px solid #e8e3d6',
-  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 #15131a`,
+  border: '1.5px solid var(--c-ink)', borderLight: '1px solid #e8e3d6',
+  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 var(--c-ink)`,
   radius: 14, pill: 999,
-  ink: '#15131a', inkDim: '#4a4651', inkMuted: '#918c99',
-  bg: '#f7f6f1', card: '#ffffff', indigo: '#4f46e5',
+  ink: 'var(--c-ink)', inkDim: '#4a4651', inkMuted: '#918c99',
+  bg: 'var(--c-bg)', card: '#ffffff', indigo: '#4f46e5',
 }
 
 const CATEGORY_LABELS: Record<string, { label: string; color: string }> = {
@@ -171,6 +172,10 @@ function SettingRow({ setting }: { setting: SystemSetting }) {
         </div>
 
         <div style={{ flex: 1, pointerEvents: (isNotification && !enabled) ? 'none' : 'auto' }}>
+          {setting.key === 'landing.slider_items' ? (
+            <SliderItemsEditor value={value} onChange={handleChange} />
+          ) : (
+          <>
           {setting.inputType === 'toggle' && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, height: 40 }}>
               <Toggle checked={value === 'true'} onChange={v => handleChange(v ? 'true' : 'false')} />
@@ -192,6 +197,8 @@ function SettingRow({ setting }: { setting: SystemSetting }) {
               style={{ ...inputS, height: 'auto', padding: '8px 12px', resize: 'vertical' }} />
           )}
           {setting.inputType === 'faq' && <FaqEditor value={value} onChange={handleChange} />}
+          </>
+          )}
         </div>
 
         {isNotification && (
@@ -234,6 +241,7 @@ export default function SystemSettingsPage() {
   const [settings, setSettings] = useState<SystemSetting[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<string>('')
+  const [collapsedCategories, setCollapsedCategories] = useState<Record<string, boolean>>({})
 
   useEffect(() => {
     getSettings()
@@ -249,6 +257,11 @@ export default function SystemSettingsPage() {
   const categories = [...new Set(settings.map(s => s.category))]
   const activeSettings = settings.filter(s => s.category === activeTab)
   const activeColor = CATEGORY_LABELS[activeTab]?.color ?? D.indigo
+  const collapsed = !!collapsedCategories[activeTab]
+
+  function toggleActiveCategory() {
+    setCollapsedCategories(prev => ({ ...prev, [activeTab]: !prev[activeTab] }))
+  }
 
   return (
     <div style={{ minHeight: '100%', background: D.bg, fontFamily: "'Be Vietnam Pro', sans-serif" }}>
@@ -259,7 +272,7 @@ export default function SystemSettingsPage() {
           <p style={{ fontSize: 13, color: D.inkMuted, marginTop: 4 }}>Tuỳ chỉnh hành vi hệ thống — thay đổi áp dụng ngay lập tức</p>
         </div>
         {!loading && (
-          <div style={{ display: 'flex', borderBottom: '2px solid #e8e3d6', overflowX: 'auto' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', borderBottom: '2px solid #e8e3d6', overflow: 'visible' }}>
             {categories.map(cat => {
               const info = CATEGORY_LABELS[cat] ?? { label: cat, color: D.indigo }
               const isActive = activeTab === cat
@@ -284,12 +297,27 @@ export default function SystemSettingsPage() {
       ) : (
         <div style={{ padding: '24px 32px' }}>
           <div style={{ background: D.card, border: D.border, borderRadius: D.radius, boxShadow: D.shadow(), overflow: 'hidden' }}>
-            <div style={{ padding: '10px 20px', background: activeColor, borderBottom: D.borderLight }}>
-              <span style={{ fontSize: 11, fontWeight: 800, color: '#fff', letterSpacing: '.08em', textTransform: 'uppercase' }}>
+            <button
+              type="button"
+              onClick={toggleActiveCategory}
+              aria-expanded={!collapsed}
+              style={{
+                width: '100%', padding: '10px 20px', background: activeColor,
+                border: 'none', borderBottom: collapsed ? 'none' : D.borderLight,
+                display: 'flex', alignItems: 'center', gap: 10,
+                cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
+              }}
+            >
+              <span style={{ flex: 1, fontSize: 11, fontWeight: 800, color: '#fff', letterSpacing: '.08em', textTransform: 'uppercase' }}>
                 {CATEGORY_LABELS[activeTab]?.label ?? activeTab} — {activeSettings.length} cài đặt
               </span>
-            </div>
-            {activeSettings.map(s => <SettingRow key={s.key} setting={s} />)}
+              <ChevronDown
+                size={16}
+                color="#fff"
+                style={{ transition: 'transform .15s', transform: collapsed ? 'rotate(-90deg)' : 'rotate(0deg)' }}
+              />
+            </button>
+            {!collapsed && activeSettings.map(s => <SettingRow key={s.key} setting={s} />)}
           </div>
         </div>
       )}

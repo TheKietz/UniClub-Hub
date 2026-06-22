@@ -1,20 +1,20 @@
 import { MEMBERSHIP_STATUS, CLUB_ROLES } from '@/types/auth'
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { getClubDetail, getDepartments, getFormSchema, getMemberFieldSchema, getMyApplications, submitApplication, resignFromClub, submitResignation, getUserResignations } from '@/components/membership/services/clubApi'
+import { getClubDetail, getDepartments, getFormSchema, getMemberFieldSchema, getMyApplications, submitApplication, resignFromClub, submitResignation, getUserResignations, uploadApplicationFile } from '@/components/membership/services/clubApi'
 import type { ClubDetail, DepartmentItem, FormSchema, MemberFieldDef, ApplicationItem, ResignationRequestItem, ResignationPreference } from '@/components/membership/services/club.types'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
-import api from '@/lib/axiosInstance'
 import { ArrowLeft, Users, Building, Calendar, Phone, GraduationCap, CheckCircle2, Clock, XCircle, MessageCircle, LogOut, AlertCircle, Paperclip, X, GitBranch } from 'lucide-react'
 import { Tree, TreeNode } from 'react-organizational-chart'
 import PublicHeader from '@/components/layouts/PublicHeader'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { getClubLandingPage } from '@/components/portal/services/portal.api'
 import type { ClubLandingData } from '@/components/portal/services/portal.types'
+import { FilterSelect } from '@/components/shared/FilterSelect'
 
 const AVATAR_COLORS = ['bg-indigo-500', 'bg-emerald-500', 'bg-violet-500', 'bg-rose-500', 'bg-amber-500', 'bg-cyan-500']
 
@@ -150,12 +150,7 @@ export default function ClubDetailPage() {
       if (fileFields.length > 0) {
         setSubmitStatus('uploading')
         await Promise.all(fileFields.map(async f => {
-          const fd = new FormData()
-          fd.append('file', fileAnswers[f.id]!)
-          const res = await api.post<{ data: { url: string } }>('/uploads/application-file', fd, {
-            headers: { 'Content-Type': 'multipart/form-data' },
-          })
-          finalAnswers[f.id] = res.data.data.url
+          finalAnswers[f.id] = await uploadApplicationFile(fileAnswers[f.id]!)
         }))
       }
 
@@ -198,7 +193,7 @@ export default function ClubDetailPage() {
     }}>
       <PublicHeader />
 
-      <div className="flex-1 max-w-5xl mx-auto w-full px-6 py-8 space-y-6">
+      <div className="flex-1 max-w-5xl mx-auto w-full px-6 pt-[132px] pb-8 space-y-6">
 
         {/* Back link — nằm trong nội dung, không có nền riêng */}
         <div className="flex items-center gap-1.5 text-sm">
@@ -385,16 +380,106 @@ export default function ClubDetailPage() {
                 ) : club.status !== 'Active' ? (
                   <p className="text-center text-sm text-gray-400 py-2">CLB hiện không nhận thành viên mới.</p>
                 ) : (
-                  <div className="py-2 text-center space-y-3">
-                    <p className="text-sm text-gray-500">Tham gia {club.name} và cùng nhau phát triển!</p>
-                    <button
-                      onClick={() => setApplyOpen(true)}
-                      className="w-full py-4 rounded-xl font-black text-xl text-white transition-all active:translate-y-0.5"
-                      style={{ background: '#C8102E', border: '2px solid #8B0000', boxShadow: '0 4px 0 #8B0000', letterSpacing: '-.01em' }}
-                    >
-                      Đăng ký ngay!!!
-                    </button>
-                  </div>
+                  <form onSubmit={handleSubmit} className="space-y-3">
+                    {schema && schema.fields.length > 0 ? (
+                      schema.fields.map(f => (
+                        <div key={f.id} className="space-y-1.5">
+                          <Label className="text-xs text-gray-600">
+                            {f.label}{f.required && <span className="text-red-500 ml-0.5">*</span>}
+                          </Label>
+                          {f.type === 'textarea' ? (
+                            <textarea rows={3} value={answers[f.id] ?? ''}
+                              onChange={e => setAnswers(p => ({ ...p, [f.id]: e.target.value }))}
+                              className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                          ) : f.type === 'select' ? (
+                            <FilterSelect
+                              value={answers[f.id] ?? ''}
+                              onChange={value => setAnswers(p => ({ ...p, [f.id]: value }))}
+                              options={[
+                                { value: '', label: '— Chọn —' },
+                                ...(f.options ?? []).map(o => ({ value: o, label: o })),
+                              ]}
+                            />
+                          ) : f.type === 'file' ? (
+                            <div>
+                              <label className={`flex items-center gap-2 w-full border rounded-lg px-3 py-2 text-sm cursor-pointer transition-colors ${
+                                fileAnswers[f.id] ? 'border-indigo-400 bg-indigo-50' : 'border-input bg-background hover:bg-gray-50'
+                              }`}>
+                                <Paperclip size={14} className="text-gray-400 flex-shrink-0" />
+                                <span className="flex-1 truncate text-gray-600">
+                                  {fileAnswers[f.id]?.name ?? 'Chọn file...'}
+                                </span>
+                                {fileAnswers[f.id] && (
+                                  <button type="button" onClick={e => { e.preventDefault(); setFileAnswers(p => ({ ...p, [f.id]: null })) }}
+                                    className="text-gray-400 hover:text-red-500 flex-shrink-0">
+                                    <X size={13} />
+                                  </button>
+                                )}
+                                <input type="file" className="hidden"
+                                  accept={f.accept}
+                                  onChange={e => {
+                                    const file = e.target.files?.[0] ?? null
+                                    setFileAnswers(p => ({ ...p, [f.id]: file }))
+                                    e.target.value = ''
+                                  }} />
+                              </label>
+                              {f.accept && (
+                                <p className="text-xs text-gray-400 mt-1">Định dạng chấp nhận: {f.accept}</p>
+                              )}
+                            </div>
+                          ) : (
+                            <Input value={answers[f.id] ?? ''}
+                              onChange={e => setAnswers(p => ({ ...p, [f.id]: e.target.value }))} />
+                          )}
+                        </div>
+                      ))
+                    ) : (
+                      <div className="space-y-1.5">
+                        <Label className="text-xs text-gray-600">Lý do muốn tham gia</Label>
+                        <textarea rows={4} value={answers['note'] ?? ''}
+                          onChange={e => setAnswers(p => ({ ...p, note: e.target.value }))}
+                          placeholder="Chia sẻ lý do bạn muốn tham gia CLB..."
+                          className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                      </div>
+                    )}
+                    {fieldSchema.length > 0 && (
+                      <div className="border-t border-gray-100 pt-3 mt-1 space-y-3">
+                        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                          Thông tin hồ sơ thành viên
+                        </p>
+                        {fieldSchema.map(f => (
+                          <div key={f.id} className="space-y-1.5">
+                            <Label className="text-xs text-gray-600">
+                              {f.label}{f.required && <span className="text-red-500 ml-0.5">*</span>}
+                            </Label>
+                            {f.type === 'textarea' ? (
+                              <textarea rows={3} value={memberFieldAnswers[f.id] ?? ''}
+                                onChange={e => setMemberFieldAnswers(p => ({ ...p, [f.id]: e.target.value }))}
+                                className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                            ) : f.type === 'select' ? (
+                              <FilterSelect
+                                value={memberFieldAnswers[f.id] ?? ''}
+                                onChange={value => setMemberFieldAnswers(p => ({ ...p, [f.id]: value }))}
+                                options={[
+                                  { value: '', label: '— Chọn —' },
+                                  ...(f.options ?? []).map(o => ({ value: o, label: o })),
+                                ]}
+                              />
+                            ) : (
+                              <Input value={memberFieldAnswers[f.id] ?? ''}
+                                onChange={e => setMemberFieldAnswers(p => ({ ...p, [f.id]: e.target.value }))} />
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <Button type="submit" disabled={submitting}
+                      className="w-full bg-indigo-600 hover:bg-indigo-700 mt-1">
+                      {submitStatus === 'uploading' ? 'Đang tải file...'
+                        : submitStatus === 'submitting' ? 'Đang gửi...'
+                        : 'Gửi đơn đăng ký'}
+                    </Button>
+                  </form>
                 )}
               </div>
             </div>

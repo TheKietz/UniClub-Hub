@@ -620,6 +620,421 @@ namespace UniClub_Hub.Server.Data
                 await db.SaveChangesAsync();
             }
 
+            // ── Club Positions & Permissions ─────────────────────────────
+            // Demo data for the flexible position/permission model. This is intentionally
+            // idempotent and only adds missing permissions so admin edits are not wiped.
+            {
+                int? GetDeptId(string clubCode, string deptName)
+                    => deptMap.TryGetValue($"{clubCode}_{deptName}", out var dept) ? dept.Id : null;
+
+                async Task<ClubPosition> EnsurePositionAsync(
+                    Club club,
+                    int? departmentId,
+                    string name,
+                    string description,
+                    bool isDefault,
+                    bool canBeAssignedByDeptLead,
+                    params string[] permissionCodes)
+                {
+                    var position = await db.ClubPositions
+                        .IgnoreQueryFilters()
+                        .Where(p =>
+                            p.ClubId == club.Id &&
+                            p.DepartmentId == departmentId &&
+                            p.Name == name)
+                        .OrderBy(p => p.IsDeleted ? 1 : 0)
+                        .FirstOrDefaultAsync();
+
+                    if (position == null)
+                    {
+                        position = new ClubPosition
+                        {
+                            ClubId = club.Id,
+                            DepartmentId = departmentId,
+                            Name = name,
+                            Description = description,
+                            IsDefault = isDefault,
+                            CanBeAssignedByDeptLead = canBeAssignedByDeptLead,
+                            CreatedAt = DateTime.UtcNow,
+                            UpdatedAt = DateTime.UtcNow,
+                        };
+                        db.ClubPositions.Add(position);
+                        await db.SaveChangesAsync();
+                    }
+                    else
+                    {
+                        position.Description = description;
+                        position.IsDefault = isDefault;
+                        position.CanBeAssignedByDeptLead = canBeAssignedByDeptLead;
+                        position.IsDeleted = false;
+                        position.DeletedBy = null;
+                        position.UpdatedAt = DateTime.UtcNow;
+                        await db.SaveChangesAsync();
+                    }
+
+                    var targetCodes = permissionCodes
+                        .Where(ClubPermissions.IsKnown)
+                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                        .ToList();
+
+                    var existingCodes = await db.ClubPositionPermissions
+                        .IgnoreQueryFilters()
+                        .Where(p => p.PositionId == position.Id)
+                        .Select(p => p.PermissionCode)
+                        .ToListAsync();
+
+                    var existingSet = existingCodes.ToHashSet(StringComparer.OrdinalIgnoreCase);
+                    var missing = targetCodes
+                        .Where(code => !existingSet.Contains(code))
+                        .Select(code => new ClubPositionPermission
+                        {
+                            PositionId = position.Id,
+                            PermissionCode = code,
+                        })
+                        .ToList();
+
+                    if (missing.Count > 0)
+                    {
+                        db.ClubPositionPermissions.AddRange(missing);
+                        await db.SaveChangesAsync();
+                    }
+
+                    return position;
+                }
+
+                async Task AssignPositionAsync(string email, Club club, int? departmentId, ClubPosition position)
+                {
+                    if (!createdUsers.TryGetValue(email, out var user))
+                        return;
+
+                    var membership = await db.ClubMemberships
+                        .Where(m =>
+                            m.UserId == user.Id &&
+                            m.ClubId == club.Id &&
+                            m.DepartmentId == departmentId &&
+                            (m.Status == MembershipStatus.Active || m.Status == MembershipStatus.Probation))
+                        .OrderBy(m => m.Status == MembershipStatus.Active ? 0 : 1)
+                        .ThenBy(m => m.Id)
+                        .FirstOrDefaultAsync();
+
+                    if (membership == null)
+                        return;
+
+                    var exists = await db.ClubMemberPositions.AnyAsync(p =>
+                        p.MembershipId == membership.Id && p.PositionId == position.Id);
+
+                    if (!exists)
+                    {
+                        db.ClubMemberPositions.Add(new ClubMemberPosition
+                        {
+                            MembershipId = membership.Id,
+                            PositionId = position.Id,
+                            AssignedAt = DateTime.UtcNow,
+                            AssignedBy = "seeder",
+                        });
+                        await db.SaveChangesAsync();
+                    }
+                }
+
+                var techDeptId = GetDeptId("TECH", "Ban Kỹ thuật");
+                var mediaDeptId = GetDeptId("TECH", "Ban Truyền thông");
+                var eventDeptId = GetDeptId("TECH", "Ban Sự kiện");
+
+                var clubPresident = await EnsurePositionAsync(
+                    clubTech,
+                    null,
+                    "Chủ nhiệm CLB",
+                    "Điều phối toàn bộ hoạt động, nhân sự, tuyển thành viên và cấu hình CLB.",
+                    isDefault: true,
+                    canBeAssignedByDeptLead: false,
+                    ClubPermissions.MembersView,
+                    ClubPermissions.MembersManage,
+                    ClubPermissions.MemberHistoryView,
+                    ClubPermissions.MemberLifecycleManage,
+                    ClubPermissions.MemberImportExport,
+                    ClubPermissions.DepartmentsManage,
+                    ClubPermissions.ApplicationsView,
+                    ClubPermissions.ApplicationsReview,
+                    ClubPermissions.RecruitmentPipelineManage,
+                    ClubPermissions.RecruitmentFormManage,
+                    ClubPermissions.ResignationsView,
+                    ClubPermissions.ResignationsReview,
+                    ClubPermissions.OrgChartView,
+                    ClubPermissions.OrgChartManage,
+                    ClubPermissions.PositionsManage,
+                    ClubPermissions.PositionAssignmentsManage,
+                    ClubPermissions.ReportsView,
+                    ClubPermissions.ReportsExport,
+                    ClubPermissions.RoleSuggestionsUse,
+                    ClubPermissions.ClubSettingsManage,
+                    ClubPermissions.ClubAuditLogView,
+                    ClubPermissions.ClubProfileManage,
+                    ClubPermissions.NotificationSettingsManage,
+                    ClubPermissions.NotificationsView,
+                    ClubPermissions.OperationsDashboardView,
+                    ClubPermissions.TasksView,
+                    ClubPermissions.TasksManage,
+                    ClubPermissions.SprintsManage,
+                    ClubPermissions.EventsView,
+                    ClubPermissions.EventsManage,
+                    ClubPermissions.EventParticipantsManage,
+                    ClubPermissions.WorkloadView,
+                    ClubPermissions.PortalLandingPageManage,
+                    ClubPermissions.PortalContentView,
+                    ClubPermissions.PortalContentManage,
+                    ClubPermissions.PortalContentReview,
+                    ClubPermissions.PortalMediaManage,
+                    ClubPermissions.PortalAnalyticsView,
+                    ClubPermissions.PortalSocialManage);
+
+                var vicePresident = await EnsurePositionAsync(
+                    clubTech,
+                    null,
+                    "Phó chủ nhiệm",
+                    "Hỗ trợ chủ nhiệm điều phối nhân sự, sự kiện và vận hành CLB.",
+                    isDefault: true,
+                    canBeAssignedByDeptLead: false,
+                    ClubPermissions.MembersView,
+                    ClubPermissions.MembersManage,
+                    ClubPermissions.ApplicationsView,
+                    ClubPermissions.ApplicationsReview,
+                    ClubPermissions.ResignationsView,
+                    ClubPermissions.OrgChartView,
+                    ClubPermissions.PositionAssignmentsManage,
+                    ClubPermissions.ReportsView,
+                    ClubPermissions.TasksView,
+                    ClubPermissions.TasksManage,
+                    ClubPermissions.EventsView,
+                    ClubPermissions.EventsManage,
+                    ClubPermissions.NotificationsView);
+
+                var treasurer = await EnsurePositionAsync(
+                    clubTech,
+                    null,
+                    "Thủ quỹ",
+                    "Theo dõi thu chi, xuất báo cáo và hỗ trợ tổng kết sự kiện.",
+                    isDefault: false,
+                    canBeAssignedByDeptLead: false,
+                    ClubPermissions.ReportsView,
+                    ClubPermissions.ReportsExport,
+                    ClubPermissions.EventsView,
+                    ClubPermissions.EventParticipantsManage,
+                    ClubPermissions.NotificationsView);
+
+                var techLead = await EnsurePositionAsync(
+                    clubTech,
+                    techDeptId,
+                    "Trưởng ban Kỹ thuật",
+                    "Quản lý thành viên, task và sprint của Ban Kỹ thuật.",
+                    isDefault: true,
+                    canBeAssignedByDeptLead: false,
+                    ClubPermissions.MembersView,
+                    ClubPermissions.TasksView,
+                    ClubPermissions.TasksManage,
+                    ClubPermissions.SprintsManage,
+                    ClubPermissions.WorkloadView,
+                    ClubPermissions.EventsView,
+                    ClubPermissions.OrgChartView,
+                    ClubPermissions.PositionAssignmentsManage,
+                    ClubPermissions.NotificationsView);
+
+                var developerLead = await EnsurePositionAsync(
+                    clubTech,
+                    techDeptId,
+                    "Tech Lead",
+                    "Dẫn dắt nhóm kỹ thuật theo từng dự án hoặc sprint.",
+                    isDefault: false,
+                    canBeAssignedByDeptLead: true,
+                    ClubPermissions.TasksView,
+                    ClubPermissions.TasksManage,
+                    ClubPermissions.SprintsManage,
+                    ClubPermissions.WorkloadView);
+
+                var developer = await EnsurePositionAsync(
+                    clubTech,
+                    techDeptId,
+                    "Developer",
+                    "Tham gia phát triển sản phẩm, workshop kỹ thuật và task được giao.",
+                    isDefault: false,
+                    canBeAssignedByDeptLead: true,
+                    ClubPermissions.TasksView,
+                    ClubPermissions.EventsView);
+
+                var mediaLead = await EnsurePositionAsync(
+                    clubTech,
+                    mediaDeptId,
+                    "Trưởng ban Truyền thông",
+                    "Quản lý nội dung, media và lịch truyền thông của CLB.",
+                    isDefault: true,
+                    canBeAssignedByDeptLead: false,
+                    ClubPermissions.MembersView,
+                    ClubPermissions.PortalContentView,
+                    ClubPermissions.PortalContentManage,
+                    ClubPermissions.PortalContentReview,
+                    ClubPermissions.PortalMediaManage,
+                    ClubPermissions.PortalSocialManage,
+                    ClubPermissions.TasksView,
+                    ClubPermissions.TasksManage,
+                    ClubPermissions.PositionAssignmentsManage,
+                    ClubPermissions.NotificationsView);
+
+                var contentWriter = await EnsurePositionAsync(
+                    clubTech,
+                    mediaDeptId,
+                    "Content Writer",
+                    "Viết bài, cập nhật nội dung và phối hợp đăng tải truyền thông.",
+                    isDefault: false,
+                    canBeAssignedByDeptLead: true,
+                    ClubPermissions.PortalContentView,
+                    ClubPermissions.PortalContentManage,
+                    ClubPermissions.PortalMediaManage,
+                    ClubPermissions.TasksView);
+
+                var designer = await EnsurePositionAsync(
+                    clubTech,
+                    mediaDeptId,
+                    "Designer",
+                    "Thiết kế hình ảnh, banner và media cho bài viết/sự kiện.",
+                    isDefault: false,
+                    canBeAssignedByDeptLead: true,
+                    ClubPermissions.PortalMediaManage,
+                    ClubPermissions.TasksView);
+
+                var eventLead = await EnsurePositionAsync(
+                    clubTech,
+                    eventDeptId,
+                    "Trưởng ban Sự kiện",
+                    "Lên kế hoạch, phân công và quản lý người tham gia sự kiện.",
+                    isDefault: true,
+                    canBeAssignedByDeptLead: false,
+                    ClubPermissions.EventsView,
+                    ClubPermissions.EventsManage,
+                    ClubPermissions.EventParticipantsManage,
+                    ClubPermissions.TasksView,
+                    ClubPermissions.TasksManage,
+                    ClubPermissions.PositionAssignmentsManage,
+                    ClubPermissions.NotificationsView);
+
+                var eventCoordinator = await EnsurePositionAsync(
+                    clubTech,
+                    eventDeptId,
+                    "Event Coordinator",
+                    "Điều phối timeline, nhân sự và hạng mục chuẩn bị sự kiện.",
+                    isDefault: false,
+                    canBeAssignedByDeptLead: true,
+                    ClubPermissions.EventsView,
+                    ClubPermissions.EventsManage,
+                    ClubPermissions.EventParticipantsManage,
+                    ClubPermissions.TasksView);
+
+                var logistics = await EnsurePositionAsync(
+                    clubTech,
+                    eventDeptId,
+                    "Hậu cần sự kiện",
+                    "Chuẩn bị vật dụng, địa điểm và hỗ trợ vận hành sự kiện.",
+                    isDefault: false,
+                    canBeAssignedByDeptLead: true,
+                    ClubPermissions.EventsView,
+                    ClubPermissions.TasksView);
+
+                await AssignPositionAsync("truong.clb@uef.edu.vn", clubTech, null, clubPresident);
+                await AssignPositionAsync("khoa.clb@uef.edu.vn", clubTech, null, treasurer);
+                await AssignPositionAsync("linh.clb@uef.edu.vn", clubTech, techDeptId, techLead);
+                await AssignPositionAsync("linh.clb@uef.edu.vn", clubTech, techDeptId, developerLead);
+                await AssignPositionAsync("linh.clb@uef.edu.vn", clubTech, mediaDeptId, mediaLead);
+                await AssignPositionAsync("linh.clb@uef.edu.vn", clubTech, eventDeptId, eventCoordinator);
+                await AssignPositionAsync("an.clb@uef.edu.vn", clubTech, mediaDeptId, contentWriter);
+                await AssignPositionAsync("an.clb@uef.edu.vn", clubTech, mediaDeptId, designer);
+                _ = vicePresident;
+                _ = developer;
+                _ = eventLead;
+                _ = logistics;
+            }
+
+            // ── Resignation requests ──────────────────────────────────────
+            if (!await db.ResignationRequests.AnyAsync())
+            {
+                var techClubId = (await db.Clubs.IgnoreQueryFilters().FirstAsync(c => c.Code == "TECH")).Id;
+                var techAdminId = createdUsers["truong.clb@uef.edu.vn"].Id;
+                var linhId = createdUsers["linh.clb@uef.edu.vn"].Id;
+
+                var linhTechLeadMemberships = await db.ClubMemberships
+                    .Where(m =>
+                        m.ClubId == techClubId &&
+                        m.UserId == linhId &&
+                        m.ClubRole == ClubRole.DEPT_LEAD)
+                    .OrderBy(m => m.DepartmentId)
+                    .ToListAsync();
+
+                if (linhTechLeadMemberships.Count > 0)
+                {
+                    db.ResignationRequests.Add(new ResignationRequest
+                    {
+                        UserId = linhId,
+                        ClubId = techClubId,
+                        MembershipId = linhTechLeadMemberships[0].Id,
+                        Preference = ResignationPreference.BecomeMember,
+                        Status = ResignationStatus.Pending,
+                        RequestedAt = DateTime.UtcNow.AddDays(-2),
+                        ReviewNote = "Em muốn chuyển xuống thành viên thường để tập trung học kỳ này.",
+                    });
+                }
+
+                if (linhTechLeadMemberships.Count > 1)
+                {
+                    db.ResignationRequests.Add(new ResignationRequest
+                    {
+                        UserId = linhId,
+                        ClubId = techClubId,
+                        MembershipId = linhTechLeadMemberships[1].Id,
+                        Preference = ResignationPreference.LeaveClub,
+                        Status = ResignationStatus.Approved,
+                        RequestedAt = DateTime.UtcNow.AddDays(-12),
+                        ReviewedAt = DateTime.UtcNow.AddDays(-10),
+                        ReviewerId = techAdminId,
+                        ReviewNote = "Đã trao đổi và thống nhất bàn giao công việc truyền thông.",
+                    });
+                }
+
+                await db.SaveChangesAsync();
+            }
+
+            // ── Notifications ─────────────────────────────────────────────
+            if (!await db.Notifications.AnyAsync(n => n.UserId == createdUsers["truong.clb@uef.edu.vn"].Id))
+            {
+                var techAdminId = createdUsers["truong.clb@uef.edu.vn"].Id;
+                db.Notifications.AddRange(
+                    new Notification
+                    {
+                        UserId = techAdminId,
+                        Title = "Có đơn từ chức mới",
+                        Message = "Phạm Thị Linh đã gửi đơn xin chuyển xuống thành viên thường tại CLB Công nghệ UEF.",
+                        Type = NotificationType.System,
+                        IsRead = false,
+                        CreatedAt = DateTime.UtcNow.AddMinutes(-25),
+                    },
+                    new Notification
+                    {
+                        UserId = techAdminId,
+                        Title = "Có đơn đăng ký mới",
+                        Message = "CLB Công nghệ UEF vừa nhận thêm một đơn đăng ký cần xem xét.",
+                        Type = NotificationType.Application,
+                        IsRead = false,
+                        CreatedAt = DateTime.UtcNow.AddHours(-3),
+                    },
+                    new Notification
+                    {
+                        UserId = techAdminId,
+                        Title = "Nhắc kiểm tra báo cáo thành viên",
+                        Message = "Bạn có thể xuất danh sách thành viên CLB Công nghệ UEF để rà soát dữ liệu demo.",
+                        Type = NotificationType.System,
+                        IsRead = true,
+                        CreatedAt = DateTime.UtcNow.AddDays(-1),
+                    }
+                );
+                await db.SaveChangesAsync();
+            }
+
             // ── Applications ──────────────────────────────────────────────
             if (!await db.Applications.AnyAsync())
             {
@@ -753,13 +1168,39 @@ namespace UniClub_Hub.Server.Data
             await db.SaveChangesAsync();
 
             // ── Landing page & Footer settings (idempotent) ───────────────────
+            var landingSliderDefault = """
+            [
+              {
+                "eyebrow": "Spotlight tuần này",
+                "title": "Workshop, tuyển thành viên và sân chơi mới trong một nơi.",
+                "description": "Dùng khu vực này để admin ghim banner quan trọng, ảnh sự kiện hoặc thông báo nổi bật trên trang chủ.",
+                "ctaLabel": "Xem hoạt động",
+                "ctaHref": "/clubs",
+                "accent": "#1b4fd8"
+              },
+              {
+                "eyebrow": "Dành cho tân sinh viên",
+                "title": "Tìm CLB hợp gu trước khi bỏ lỡ mùa tuyển quân.",
+                "description": "Slider có thể đổi nội dung theo từng đợt tuyển thành viên, tuần lễ định hướng hoặc sự kiện cấp trường.",
+                "ctaLabel": "Khám phá CLB",
+                "ctaHref": "/clubs",
+                "accent": "#ed1b2f"
+              }
+            ]
+            """;
             (string Key, string Cat, string Type, string Label, string Desc, string Val)[] publicSettings =
             [
                 ("landing.banner_enabled", "landing", "toggle", "Hiển thị banner thông báo",   "Bật để hiện banner ở đầu trang chủ.",                                  "false"),
                 ("landing.banner_text",    "landing", "text",   "Nội dung banner",              "Ví dụ: Đang mở đơn tuyển thành viên học kỳ 2/2026!",                   ""),
                 ("landing.banner_color",   "landing", "text",   "Màu nền banner (hex)",         "Ví dụ: #f59e0b (vàng), #4f46e5 (tím), #10b981 (xanh), #ef4444 (đỏ).", "#f59e0b"),
+                ("landing.slider_enabled", "landing", "toggle", "Hiển thị slider nổi bật",      "Bật để hiện section slider giữa hoạt động mới và danh sách CLB.",      "true"),
+                ("landing.slider_items",   "landing", "textarea","Nội dung slider nổi bật",      "JSON array: eyebrow, title, description, imageUrl, ctaLabel, ctaHref, accent.", landingSliderDefault),
                 ("footer.facebook_url",    "footer",  "text",   "Link Facebook",                "URL trang Facebook của trường/phòng CTSV. Để trống = ẩn icon.",         ""),
                 ("footer.instagram_url",   "footer",  "text",   "Link Instagram",               "URL trang Instagram. Để trống = ẩn icon.",                             ""),
+                ("footer.tiktok_url",      "footer",  "text",   "Link TikTok",                  "URL trang TikTok. Để trống = ẩn icon.",                                ""),
+                ("footer.youtube_url",     "footer",  "text",   "Link YouTube",                 "URL kênh YouTube. Để trống = ẩn icon.",                                ""),
+                ("footer.x_url",           "footer",  "text",   "Link X (Twitter)",             "URL trang X/Twitter. Để trống = ẩn icon.",                             ""),
+                ("footer.linkedin_url",    "footer",  "text",   "Link LinkedIn",                "URL trang LinkedIn. Để trống = ẩn icon.",                              ""),
                 ("footer.address",         "footer",  "text",   "Địa chỉ hiển thị trong footer","Ví dụ: 276 Điện Biên Phủ, Q.3, TP.HCM",                               ""),
             ];
             foreach (var (key, cat, type, label, desc, val) in publicSettings)
@@ -1303,6 +1744,258 @@ namespace UniClub_Hub.Server.Data
 
                 db.MediaGalleries.AddRange(galleryItems);
                 await db.SaveChangesAsync();
+            }
+
+            // ── KPI demo data ─────────────────────────────────────────────
+            // Seed dữ liệu đủ để test nhanh KPI config/results/my-kpi trong môi trường dev.
+            // Idempotent theo marker trong Title/Note để chạy lại app không tạo trùng task.
+            {
+                static List<KpiCriteria> DefaultKpiCriteria() =>
+                [
+                    new()
+                    {
+                        MetricKey = KpiMetricKey.TaskCompletion,
+                        DisplayName = "Hoàn thành công việc",
+                        Description = "Tỷ lệ task đã hoàn thành trên tổng task được giao trong kỳ.",
+                        Weight = 35,
+                        IsEnabled = true,
+                    },
+                    new()
+                    {
+                        MetricKey = KpiMetricKey.OnTimeCompletion,
+                        DisplayName = "Hoàn thành đúng hạn",
+                        Description = "Tỷ lệ task hoàn thành trước hoặc đúng deadline.",
+                        Weight = 25,
+                        IsEnabled = true,
+                    },
+                    new()
+                    {
+                        MetricKey = KpiMetricKey.AvgProgress,
+                        DisplayName = "Tiến độ trung bình",
+                        Description = "Tiến độ trung bình của các task trong kỳ.",
+                        Weight = 15,
+                        IsEnabled = true,
+                    },
+                    new()
+                    {
+                        MetricKey = KpiMetricKey.ContributionPoints,
+                        DisplayName = "Điểm đóng góp",
+                        Description = "Điểm đóng góp thủ công được ghi nhận cho thành viên.",
+                        Weight = 15,
+                        IsEnabled = true,
+                    },
+                    new()
+                    {
+                        MetricKey = KpiMetricKey.Workload,
+                        DisplayName = "Khối lượng công việc",
+                        Description = "Số task được giao, chuẩn hóa theo thành viên có workload cao nhất trong CLB.",
+                        Weight = 10,
+                        IsEnabled = true,
+                    },
+                ];
+
+                static List<KpiGradeConfig> DefaultKpiGrades() =>
+                [
+                    new() { Label = "Xuất sắc", MinScore = 90, Color = "#16a34a", DisplayOrder = 0 },
+                    new() { Label = "Tốt", MinScore = 75, Color = "#4f46e5", DisplayOrder = 1 },
+                    new() { Label = "Đạt", MinScore = 60, Color = "#d97706", DisplayOrder = 2 },
+                    new() { Label = "Cần cải thiện", MinScore = 0, Color = "#dc2626", DisplayOrder = 3 },
+                ];
+
+                async Task EnsureKpiConfigAsync(Club club)
+                {
+                    var config = await db.KpiConfigs
+                        .Include(c => c.Criteria)
+                        .Include(c => c.Grades)
+                        .FirstOrDefaultAsync(c => c.ClubId == club.Id);
+
+                    if (config == null)
+                    {
+                        db.KpiConfigs.Add(new KpiConfig
+                        {
+                            ClubId = club.Id,
+                            UpdatedAt = DateTimeOffset.UtcNow,
+                            UpdatedBy = "seeder",
+                            Criteria = DefaultKpiCriteria(),
+                            Grades = DefaultKpiGrades(),
+                        });
+                        await db.SaveChangesAsync();
+                        return;
+                    }
+
+                    var existingKeys = config.Criteria.Select(c => c.MetricKey).ToHashSet();
+                    foreach (var criterion in DefaultKpiCriteria().Where(c => !existingKeys.Contains(c.MetricKey)))
+                        config.Criteria.Add(criterion);
+
+                    if (config.Grades.Count == 0)
+                    {
+                        foreach (var grade in DefaultKpiGrades())
+                            config.Grades.Add(grade);
+                    }
+
+                    await db.SaveChangesAsync();
+                }
+
+                await EnsureKpiConfigAsync(clubTech);
+                await EnsureKpiConfigAsync(clubEnglish);
+                await EnsureKpiConfigAsync(clubMusic);
+
+                var now = DateTimeOffset.UtcNow;
+                var marker = $"[KPI-SEED-{now:yyyy-MM}]";
+                if (!await db.Tasks.IgnoreQueryFilters().AnyAsync(t => t.Title.Contains(marker)))
+                {
+                    int? GetDeptId(string clubCode, string deptName)
+                        => deptMap.TryGetValue($"{clubCode}_{deptName}", out var dept) ? dept.Id : null;
+
+                    var monthStart = new DateTimeOffset(
+                        now.Year,
+                        now.Month,
+                        1,
+                        9,
+                        0,
+                        0,
+                        TimeSpan.Zero);
+
+                    var techLeadId = createdUsers["linh.clb@uef.edu.vn"].Id;
+                    var techMemberId = createdUsers["an.clb@uef.edu.vn"].Id;
+                    var techProbationId = createdUsers["duc.clb@uef.edu.vn"].Id;
+                    var englishAdminId = createdUsers["thu.clb@uef.edu.vn"].Id;
+                    var englishLeadId = createdUsers["linh.clb@uef.edu.vn"].Id;
+                    var englishProbationId = createdUsers["an.clb@uef.edu.vn"].Id;
+                    var musicMemberId = createdUsers["thu.clb@uef.edu.vn"].Id;
+
+                    var techDeptId = GetDeptId("TECH", "Ban Kỹ thuật");
+                    var techMediaDeptId = GetDeptId("TECH", "Ban Truyền thông");
+                    var englishDeptId = GetDeptId("ENGLISH", "Ban Đào tạo");
+
+                    ClubTask DemoTask(
+                        Club club,
+                        int? departmentId,
+                        string title,
+                        string userId,
+                        ClubTaskStatus status,
+                        int progress,
+                        int createdDay,
+                        int deadlineDay,
+                        int? completedDay,
+                        TaskPriority priority = TaskPriority.Medium) =>
+                        new()
+                        {
+                            ClubId = club.Id,
+                            DepartmentId = departmentId,
+                            Title = $"{marker} {title}",
+                            Description = "Dữ liệu demo để kiểm tra luồng KPI nội bộ.",
+                            AssignedTo = userId,
+                            Status = status,
+                            Progress = progress,
+                            Priority = priority,
+                            CreatedAt = monthStart.AddDays(createdDay).DateTime,
+                            CreatedBy = "seeder",
+                            UpdatedAt = monthStart.AddDays(createdDay).DateTime,
+                            UpdatedBy = "seeder",
+                            StartDate = monthStart.AddDays(createdDay),
+                            Deadline = monthStart.AddDays(deadlineDay).AddHours(17),
+                            CompletedAt = completedDay.HasValue
+                                ? monthStart.AddDays(completedDay.Value).AddHours(16)
+                                : null,
+                        };
+
+                    var tasks = new List<ClubTask>
+                    {
+                        // TECH: đủ phổ điểm để test xếp hạng/xếp loại
+                        DemoTask(clubTech, techDeptId, "Hoàn thiện module đăng ký workshop", techLeadId, ClubTaskStatus.Done, 100, 0, 6, 1, TaskPriority.High),
+                        DemoTask(clubTech, techDeptId, "Chuẩn bị checklist triển khai demo", techLeadId, ClubTaskStatus.Done, 100, 0, 8, 1),
+                        DemoTask(clubTech, techDeptId, "Rà soát lỗi giao diện dashboard", techLeadId, ClubTaskStatus.Doing, 70, 1, 18, null),
+                        DemoTask(clubTech, techMediaDeptId, "Viết nội dung truyền thông tuyển thành viên", techMemberId, ClubTaskStatus.Done, 100, 0, 7, 2),
+                        DemoTask(clubTech, techMediaDeptId, "Thiết kế poster sự kiện công nghệ", techMemberId, ClubTaskStatus.Doing, 55, 1, 20, null),
+                        DemoTask(clubTech, null, "Phụ trách hậu cần buổi onboarding", techProbationId, ClubTaskStatus.Done, 100, 1, 12, 2),
+                        DemoTask(clubTech, null, "Tổng hợp phản hồi thành viên mới", techProbationId, ClubTaskStatus.Todo, 20, 2, 22, null, TaskPriority.Low),
+
+                        // ENGLISH: thu.clb là Club Admin, dùng để test config/results của CLB này
+                        DemoTask(clubEnglish, null, "Lên kế hoạch English Speaking Day", englishAdminId, ClubTaskStatus.Done, 100, 0, 5, 1, TaskPriority.High),
+                        DemoTask(clubEnglish, null, "Duyệt nội dung bài đăng tuyển thành viên", englishAdminId, ClubTaskStatus.Done, 100, 1, 9, 2),
+                        DemoTask(clubEnglish, englishDeptId, "Chuẩn bị giáo án mini game từ vựng", englishLeadId, ClubTaskStatus.Doing, 80, 1, 17, null),
+                        DemoTask(clubEnglish, null, "Hỗ trợ check-in buổi sinh hoạt", englishProbationId, ClubTaskStatus.Done, 100, 1, 11, 2),
+                        DemoTask(clubEnglish, null, "Tổng hợp ảnh hoạt động", englishProbationId, ClubTaskStatus.Doing, 45, 2, 23, null),
+
+                        // MUSIC: thu.clb chỉ là member, dùng để test my-kpi nhưng không có quyền quản lý
+                        DemoTask(clubMusic, null, "Hỗ trợ chuẩn bị tiết mục acoustic", musicMemberId, ClubTaskStatus.Done, 100, 0, 10, 2),
+                        DemoTask(clubMusic, null, "Ghi nhận danh sách nhạc cụ cần mượn", musicMemberId, ClubTaskStatus.Doing, 60, 2, 21, null),
+                    };
+
+                    db.Tasks.AddRange(tasks);
+                    await db.SaveChangesAsync();
+
+                    var englishPlanningTask = tasks.First(t => t.Title.Contains("English Speaking Day"));
+                    var techPosterTask = tasks.First(t => t.Title.Contains("Thiết kế poster"));
+                    db.TaskAssignees.AddRange(
+                        new TaskAssignee
+                        {
+                            TaskId = englishPlanningTask.Id,
+                            UserId = englishLeadId,
+                            AssignedAt = DateTime.UtcNow,
+                            AssignedBy = "seeder",
+                        },
+                        new TaskAssignee
+                        {
+                            TaskId = techPosterTask.Id,
+                            UserId = techLeadId,
+                            AssignedAt = DateTime.UtcNow,
+                            AssignedBy = "seeder",
+                        });
+
+                    db.Contributions.AddRange(
+                        new Contribution
+                        {
+                            ClubId = clubTech.Id,
+                            UserId = techLeadId,
+                            TaskId = tasks.First(t => t.Title.Contains("checklist")).Id,
+                            ActivityType = ActivityType.Task,
+                            Points = 35,
+                            Note = $"{marker} Chủ động hỗ trợ review kỹ thuật.",
+                            RecordedAt = monthStart.AddDays(1),
+                        },
+                        new Contribution
+                        {
+                            ClubId = clubTech.Id,
+                            UserId = techMemberId,
+                            TaskId = techPosterTask.Id,
+                            ActivityType = ActivityType.Task,
+                            Points = 18,
+                            Note = $"{marker} Thiết kế bổ sung ngoài kế hoạch.",
+                            RecordedAt = monthStart.AddDays(2),
+                        },
+                        new Contribution
+                        {
+                            ClubId = clubEnglish.Id,
+                            UserId = englishAdminId,
+                            TaskId = englishPlanningTask.Id,
+                            ActivityType = ActivityType.Task,
+                            Points = 40,
+                            Note = $"{marker} Điều phối kế hoạch sự kiện.",
+                            RecordedAt = monthStart.AddDays(1),
+                        },
+                        new Contribution
+                        {
+                            ClubId = clubEnglish.Id,
+                            UserId = englishProbationId,
+                            ActivityType = ActivityType.Task,
+                            Points = 12,
+                            Note = $"{marker} Hỗ trợ hậu cần sinh hoạt.",
+                            RecordedAt = monthStart.AddDays(2),
+                        },
+                        new Contribution
+                        {
+                            ClubId = clubMusic.Id,
+                            UserId = musicMemberId,
+                            ActivityType = ActivityType.Task,
+                            Points = 25,
+                            Note = $"{marker} Hỗ trợ chuẩn bị biểu diễn.",
+                            RecordedAt = monthStart.AddDays(2),
+                        });
+
+                    await db.SaveChangesAsync();
+                }
             }
 
             Console.WriteLine("[Seeder] Done.");

@@ -1,24 +1,23 @@
 import { useEffect, useState } from 'react'
-import { getAdminClubs } from '@/components/membership/services/adminApi'
+import { getAdminClubs, createAdminDepartment, updateAdminDepartment, deleteAdminDepartment } from '@/components/membership/services/adminApi'
 import { getDepartments } from '@/components/membership/services/clubApi'
 import type { ClubItem } from '@/components/membership/services/admin.types'
 import type { DepartmentItem } from '@/components/membership/services/club.types'
-import api from '@/lib/axiosInstance'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { toast } from 'sonner'
 import { Link } from 'react-router-dom'
 
 const D = {
-  border: '1.5px solid #15131a',
+  border: '1.5px solid var(--c-ink)',
   borderLight: '1px solid #e8e3d6',
-  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 #15131a`,
+  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 var(--c-ink)`,
   radius: 14,
   pill: 999,
-  ink: '#15131a',
+  ink: 'var(--c-ink)',
   inkDim: '#4a4651',
   inkMuted: '#918c99',
-  bg: '#f7f6f1',
+  bg: 'var(--c-bg)',
   card: '#ffffff',
   indigo: '#4f46e5',
   violet: '#7c3aed',
@@ -38,8 +37,8 @@ type DeptsByClub = Record<number, DepartmentItem[]>
 
 const inputStyle: React.CSSProperties = {
   width: '100%', height: 36, borderRadius: 8, border: '1px solid #e8e3d6',
-  padding: '0 12px', fontSize: 13, color: '#15131a', outline: 'none',
-  background: '#f7f6f1', fontFamily: 'inherit', boxSizing: 'border-box',
+  padding: '0 12px', fontSize: 13, color: 'var(--c-ink)', outline: 'none',
+  background: 'var(--c-bg)', fontFamily: 'inherit', boxSizing: 'border-box',
 }
 const labelStyle: React.CSSProperties = { fontSize: 12, fontWeight: 700, color: '#4a4651', display: 'block', marginBottom: 4 }
 
@@ -100,10 +99,10 @@ export default function AdminStructurePage() {
     try {
       const dto = { name: form.name, description: form.description || undefined }
       if (editingDept) {
-        await api.put(`/admin/clubs/${dialogClub.id}/departments/${editingDept.id}`, dto)
+        await updateAdminDepartment(dialogClub.id, editingDept.id, dto)
         toast.success('Đã cập nhật ban.')
       } else {
-        await api.post(`/admin/clubs/${dialogClub.id}/departments`, dto)
+        await createAdminDepartment(dialogClub.id, dto)
         toast.success('Đã thêm ban mới.')
       }
       setDialogOpen(false)
@@ -118,7 +117,7 @@ export default function AdminStructurePage() {
   async function handleDelete() {
     if (!deleteTarget) return
     try {
-      await api.delete(`/admin/clubs/${deleteTarget.clubId}/departments/${deleteTarget.dept.id}`)
+      await deleteAdminDepartment(deleteTarget.clubId, deleteTarget.dept.id)
       toast.success('Đã xoá ban.')
       setDeleteTarget(null)
       setRefreshKey(k => k + 1)

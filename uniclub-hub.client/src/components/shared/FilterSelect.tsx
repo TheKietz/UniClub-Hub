@@ -8,19 +8,23 @@ interface Props {
   onChange: (v: string) => void
   options: SelectOption[]
   style?: React.CSSProperties
+  buttonStyle?: React.CSSProperties
+  menuStyle?: React.CSSProperties
+  disabled?: boolean
+  maxMenuHeight?: number
 }
 
 const D = {
-  border: '1.5px solid #15131a', borderLight: '1px solid #e8e3d6',
-  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 #15131a`,
-  ink: '#15131a', inkDim: '#4a4651', inkMuted: '#918c99',
-  bg: '#f7f6f1', card: '#ffffff', indigo: '#4f46e5',
+  border: '1.5px solid var(--c-ink)', borderLight: '1px solid #e8e3d6',
+  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 var(--c-ink)`,
+  ink: 'var(--c-ink)', inkDim: '#4a4651', inkMuted: '#918c99',
+  bg: 'var(--c-bg)', card: '#ffffff', indigo: '#4f46e5',
 }
 
-export function FilterSelect({ value, onChange, options, style }: Props) {
+export function FilterSelect({ value, onChange, options, style, buttonStyle, menuStyle, disabled = false, maxMenuHeight = 280 }: Props) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
-  const current = options.find(o => o.value === value) ?? options[0]
+  const current = options.find(o => o.value === value) ?? options[0] ?? { value: '', label: '—' }
 
   useEffect(() => {
     function handler(e: MouseEvent) {
@@ -34,13 +38,17 @@ export function FilterSelect({ value, onChange, options, style }: Props) {
     <div ref={ref} style={{ position: 'relative', ...style }}>
       <button
         type="button"
-        onClick={() => setOpen(o => !o)}
+        onClick={() => { if (!disabled) setOpen(o => !o) }}
+        disabled={disabled}
         style={{
           width: '100%', height: 36, borderRadius: 8, border: D.borderLight,
           padding: '0 10px 0 12px', display: 'flex', alignItems: 'center',
           justifyContent: 'space-between', gap: 6, background: D.bg,
-          cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, color: D.inkDim,
+          cursor: disabled ? 'not-allowed' : 'pointer', fontFamily: 'inherit', fontSize: 13,
+          color: disabled ? D.inkMuted : D.inkDim,
+          opacity: disabled ? 0.7 : 1,
           whiteSpace: 'nowrap',
+          ...buttonStyle,
         }}
       >
         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', flex: 1, textAlign: 'left' }}>
@@ -52,11 +60,12 @@ export function FilterSelect({ value, onChange, options, style }: Props) {
         />
       </button>
 
-      {open && (
+      {open && !disabled && (
         <div style={{
           position: 'absolute', zIndex: 50, minWidth: '100%', top: 'calc(100% + 4px)', left: 0,
           background: D.card, border: D.border, borderRadius: 10,
-          boxShadow: D.shadow(3, 3), overflow: 'hidden',
+          boxShadow: D.shadow(3, 3), overflowY: 'auto', maxHeight: maxMenuHeight,
+          ...menuStyle,
         }}>
           {options.map((o, idx) => (
             <button

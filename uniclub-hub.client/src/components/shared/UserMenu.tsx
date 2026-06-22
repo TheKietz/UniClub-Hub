@@ -14,11 +14,11 @@ function Avatar({ name, url, size = 32 }: { name: string; url?: string | null; s
   const initials = name.trim().split(' ').filter(Boolean).map(w => w[0]).slice(-2).join('').toUpperCase()
   const r = size / 2
   return url
-    ? <img src={url} alt="" style={{ width: size, height: size, borderRadius: r, objectFit: 'cover', flexShrink: 0, border: '1.5px solid #15131a' }} />
-    : <div style={{ width: size, height: size, borderRadius: r, background: avatarColor(name), color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: size * 0.34, fontWeight: 800, flexShrink: 0, border: '1.5px solid #15131a' }}>{initials}</div>
+    ? <img src={url} alt="" style={{ width: size, height: size, borderRadius: r, objectFit: 'cover', flexShrink: 0, border: '1.5px solid var(--c-ink)' }} />
+    : <div style={{ width: size, height: size, borderRadius: r, background: avatarColor(name), color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: size * 0.34, fontWeight: 800, flexShrink: 0, border: '1.5px solid var(--c-ink)' }}>{initials}</div>
 }
 
-function MenuItem({ icon: Icon, label, onClick, color = '#15131a' }: { icon: React.ElementType; label: string; onClick: () => void; color?: string }) {
+function MenuItem({ icon: Icon, label, onClick, color = 'var(--c-ink)' }: { icon: React.ElementType; label: string; onClick: () => void; color?: string }) {
   const [hover, setHover] = useState(false)
   return (
     <button
@@ -27,7 +27,7 @@ function MenuItem({ icon: Icon, label, onClick, color = '#15131a' }: { icon: Rea
       onMouseLeave={() => setHover(false)}
       style={{
         width: '100%', display: 'flex', alignItems: 'center', gap: 10,
-        padding: '9px 14px', background: hover ? '#f7f6f1' : 'transparent',
+        padding: '9px 14px', background: hover ? 'var(--c-bg)' : 'transparent',
         border: 'none', cursor: 'pointer', textAlign: 'left',
         fontSize: 13, fontWeight: 600, color,
         fontFamily: "'Be Vietnam Pro', sans-serif",
@@ -88,9 +88,9 @@ export default function UserMenu() {
         style={{
           display: 'flex', alignItems: 'center', gap: 8,
           height: 38, padding: '0 10px 0 6px',
-          borderRadius: 999, border: '1.5px solid #15131a',
-          background: open ? '#15131a' : '#fff',
-          boxShadow: open ? 'none' : '2px 2px 0 #15131a',
+          borderRadius: 999, border: '1.5px solid var(--c-ink)',
+          background: open ? 'var(--c-ink)' : '#fff',
+          boxShadow: open ? 'none' : '2px 2px 0 var(--c-ink)',
           cursor: 'pointer', transition: 'all .15s',
         }}
       >
@@ -98,7 +98,7 @@ export default function UserMenu() {
         <span style={{
           fontSize: 13, fontWeight: 700, maxWidth: 120, overflow: 'hidden',
           textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-          color: open ? '#facc15' : '#15131a',
+          color: open ? '#facc15' : 'var(--c-ink)',
           fontFamily: "'Be Vietnam Pro', sans-serif",
         }}>
           {user?.fullName ?? user?.email}
@@ -115,8 +115,8 @@ export default function UserMenu() {
           style={{
             position: 'fixed', top: pos.top, right: pos.right,
             width: 240, background: '#fff',
-            border: '1.5px solid #15131a', borderRadius: 14,
-            boxShadow: '4px 4px 0 #15131a',
+            border: '1.5px solid var(--c-ink)', borderRadius: 14,
+            boxShadow: '4px 4px 0 var(--c-ink)',
             zIndex: 9999, overflow: 'hidden',
             fontFamily: "'Be Vietnam Pro', sans-serif",
           }}
@@ -126,7 +126,7 @@ export default function UserMenu() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <Avatar name={name} url={user?.avatarUrl} size={40} />
               <div style={{ minWidth: 0 }}>
-                <p style={{ fontSize: 13.5, fontWeight: 800, color: '#15131a', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <p style={{ fontSize: 13.5, fontWeight: 800, color: 'var(--c-ink)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {user?.fullName ?? user?.email}
                 </p>
                 {user?.studentId && <p style={{ fontSize: 11, color: '#4a4651', margin: '2px 0 0' }}>{user.studentId}</p>}

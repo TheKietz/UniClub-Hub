@@ -3,6 +3,13 @@ import { C, Rv, Tag, PublicFooter } from '@/components/public/publicComponents'
 import PublicHeader from '@/components/layouts/PublicHeader'
 import { ChevronDown } from 'lucide-react'
 import { getPublicContactInfo } from '@/components/membership/services/adminApi'
+import SkyBackground from '@/components/public/SkyBackground'
+
+const glassCard: React.CSSProperties = {
+  background: 'rgba(255,255,255,.74)',
+  backdropFilter: 'blur(16px) saturate(140%)',
+  WebkitBackdropFilter: 'blur(16px) saturate(140%)',
+}
 
 const SUBJECTS = ['Hỏi về CLB', 'Hỗ trợ kỹ thuật', 'Góp ý', 'Hợp tác', 'Khác']
 
@@ -70,14 +77,11 @@ export default function ContactPage() {
   }
 
   return (
-    <div className="v3-page v3-enter" style={{
-      backgroundColor: '#EBF3FF',
-      backgroundImage: 'radial-gradient(circle, rgba(0,48,135,0.10) 1.5px, transparent 1.5px)',
-      backgroundSize: '26px 26px',
-    }}>
+    <div className="v3-page v3-enter" style={{ background: 'transparent' }}>
+      <SkyBackground />
       <PublicHeader />
 
-      <section style={{ padding: '48px 28px 56px', flex: 1 }}>
+      <section style={{ padding: '132px 28px 56px', flex: 1 }}>
         <div style={{ maxWidth: 1280, margin: '0 auto' }}>
 
           {/* Heading */}
@@ -108,7 +112,8 @@ export default function ContactPage() {
             {/* Form */}
             <Rv delay={140}>
               <div style={{
-                background: C.card, border: C.border, borderRadius: 20,
+                ...glassCard,
+                border: C.border, borderRadius: 20,
                 boxShadow: C.shadow(6, 6), padding: '28px 24px',
                 height: '100%', boxSizing: 'border-box',
                 display: 'flex', flexDirection: 'column',
@@ -187,8 +192,8 @@ export default function ContactPage() {
             {/* Info cards — 3 thẻ, không có FAQ */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <Rv delay={180}>
-                <div style={{ padding: 20, borderRadius: C.radius, background: C.lemon, border: C.border, boxShadow: C.shadow() }}>
-                  <Tag bg={C.ink} color={C.lemon} style={{ marginBottom: 10 }}>Văn phòng</Tag>
+                <div style={{ ...glassCard, padding: 20, borderRadius: C.radius, border: C.border, boxShadow: C.shadow() }}>
+                  <Tag bg={C.ink} color={C.bg} style={{ marginBottom: 10 }}>Văn phòng</Tag>
                   <div style={{ fontSize: 15, fontWeight: 700, color: C.ink, marginBottom: 6 }}>{info['contact.office_name']}</div>
                   <div style={{ fontSize: 13, color: C.inkDim, lineHeight: 1.55, whiteSpace: 'pre-line' }}>
                     {info['contact.office_address']}
@@ -219,7 +224,8 @@ export default function ContactPage() {
           {/* ── FAQ full-width accordion ── */}
           <Rv delay={360}>
             <div style={{
-              background: C.card, border: C.border, borderRadius: 20,
+              ...glassCard,
+              border: C.border, borderRadius: 20,
               boxShadow: C.shadow(6, 6), overflow: 'hidden',
             }}>
               <button

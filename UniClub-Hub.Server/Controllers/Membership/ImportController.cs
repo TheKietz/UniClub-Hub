@@ -1,12 +1,11 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 using UniClub_Hub.Membership.DTOs.Membership;
 using UniClub_Hub.Membership.Services.Implements;
+using UniClub_Hub.Membership.Services.Interfaces;
 using UniClub_Hub.Shared.Common;
-using UniClub_Hub.Shared.Enums;
-using UniClub_Hub.Shared.Data;
+using UniClub_Hub.Shared.Constants;
 
 namespace UniClub_Hub.Server.Controllers.Membership
 {
@@ -16,12 +15,12 @@ namespace UniClub_Hub.Server.Controllers.Membership
     public class ImportController : ControllerBase
     {
         private readonly ImportService _import;
-        private readonly UniClubDbContext _db;
+        private readonly IClubPermissionService _permissions;
 
-        public ImportController(ImportService import, UniClubDbContext db)
+        public ImportController(ImportService import, IClubPermissionService permissions)
         {
             _import = import;
-            _db = db;
+            _permissions = permissions;
         }
 
         /// <summary>Preview import — parse file, validate, trả về kết quả mà chưa lưu</summary>
@@ -58,11 +57,9 @@ namespace UniClub_Hub.Server.Controllers.Membership
 
         private async Task<bool> CanManage(int clubId)
         {
-            if (User.IsInRole("SUPER_ADMIN")) return true;
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
-            return await _db.ClubMemberships.AnyAsync(m =>
-                m.UserId == userId && m.ClubId == clubId &&
-                m.ClubRole == ClubRole.CLUB_ADMIN && m.Status == MembershipStatus.Active);
+            var isSuperAdmin = User.IsInRole("SUPER_ADMIN");
+            return await _permissions.HasPermissionAsync(clubId, userId, isSuperAdmin, ClubPermissions.MemberImportExport);
         }
     }
 }

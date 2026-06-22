@@ -1,16 +1,17 @@
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
+import { ChevronDown } from 'lucide-react'
 import {
   getGlobalPreferences, updateGlobalPreference,
   type NotificationPreferenceItem, type UpdateNotificationPreferenceRequest,
 } from '@/components/membership/services/notificationPreferenceApi'
 
 const D = {
-  border: '1.5px solid #15131a', borderLight: '1px solid #e8e3d6',
-  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 #15131a`,
+  border: '1.5px solid var(--c-ink)', borderLight: '1px solid #e8e3d6',
+  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 var(--c-ink)`,
   radius: 14,
-  ink: '#15131a', inkDim: '#4a4651', inkMuted: '#918c99',
-  bg: '#f7f6f1', card: '#ffffff', indigo: '#4f46e5',
+  ink: 'var(--c-ink)', inkDim: '#4a4651', inkMuted: '#918c99',
+  bg: 'var(--c-bg)', card: '#ffffff', indigo: '#4f46e5',
 }
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -221,6 +222,10 @@ export default function NotificationPreferencePage() {
   const [prefs, setPrefs] = useState<NotificationPreferenceItem[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<Tab>('recipients')
+  const [collapsedCategories, setCollapsedCategories] = useState<Record<Tab, Record<string, boolean>>>({
+    recipients: {},
+    templates: {},
+  })
 
   useEffect(() => {
     getGlobalPreferences()
@@ -243,6 +248,16 @@ export default function NotificationPreferencePage() {
     ;(acc[cat] ??= []).push(p)
     return acc
   }, {})
+
+  function toggleCategory(category: string) {
+    setCollapsedCategories(prev => ({
+      ...prev,
+      [activeTab]: {
+        ...prev[activeTab],
+        [category]: !prev[activeTab][category],
+      },
+    }))
+  }
 
   return (
     <div style={{ minHeight: '100%', background: D.bg, fontFamily: "'Be Vietnam Pro', sans-serif" }}>
@@ -276,21 +291,43 @@ export default function NotificationPreferencePage() {
           {Object.entries(byCategory).map(([cat, items]) => {
             const color = CATEGORY_COLORS[cat] ?? '#6366f1'
             const triggers = groupByTrigger(items)
+            const collapsed = !!collapsedCategories[activeTab][cat]
             return (
               <div key={cat} style={{ border: D.border, borderRadius: D.radius, overflow: 'hidden', background: D.card, boxShadow: D.shadow() }}>
-                <div style={{ padding: '10px 16px', background: color }}>
-                  <span style={{ fontSize: 12, fontWeight: 800, color: '#fff', letterSpacing: '.08em', textTransform: 'uppercase' }}>{cat}</span>
-                </div>
-                {triggers.map(({ triggerKey, label, items: roleItems }, ti) => (
-                  <div key={triggerKey} style={{ borderTop: ti === 0 ? 'none' : D.borderLight }}>
-                    {activeTab === 'recipients' && (
-                      <TriggerGroup label={label} items={roleItems} onSaveRole={save} />
-                    )}
-                    {activeTab === 'templates' && (
-                      <TriggerTemplateEditor label={label} items={roleItems} onSave={save} />
-                    )}
+                <button
+                  type="button"
+                  onClick={() => toggleCategory(cat)}
+                  aria-expanded={!collapsed}
+                  style={{
+                    width: '100%', padding: '10px 16px', background: color,
+                    border: 'none', display: 'flex', alignItems: 'center', gap: 10,
+                    cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
+                  }}
+                >
+                  <span style={{ flex: 1, fontSize: 12, fontWeight: 800, color: '#fff', letterSpacing: '.08em', textTransform: 'uppercase' }}>{cat}</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.78)' }}>
+                    {triggers.length} mục
+                  </span>
+                  <ChevronDown
+                    size={16}
+                    color="#fff"
+                    style={{ transition: 'transform .15s', transform: collapsed ? 'rotate(-90deg)' : 'rotate(0deg)' }}
+                  />
+                </button>
+                {!collapsed && (
+                  <div>
+                    {triggers.map(({ triggerKey, label, items: roleItems }, ti) => (
+                      <div key={triggerKey} style={{ borderTop: ti === 0 ? 'none' : D.borderLight }}>
+                        {activeTab === 'recipients' && (
+                          <TriggerGroup label={label} items={roleItems} onSaveRole={save} />
+                        )}
+                        {activeTab === 'templates' && (
+                          <TriggerTemplateEditor label={label} items={roleItems} onSave={save} />
+                        )}
+                      </div>
+                    ))}
                   </div>
-                ))}
+                )}
               </div>
             )
           })}

@@ -20,13 +20,13 @@ interface CreateSprintModalProps {
 const EMPTY: CreateSprintDto = { name: '', goal: '', startDate: '', endDate: '', eventId: undefined }
 
 const D = {
-  border: '1.5px solid #15131a',
+  border: '1.5px solid var(--c-ink)',
   borderLight: '1px solid #e8e3d6',
   radius: 14,
-  ink: '#15131a',
+  ink: 'var(--c-ink)',
   inkDim: '#4a4651',
   inkMuted: '#918c99',
-  bg: '#f7f6f1',
+  bg: 'var(--c-bg)',
   card: '#ffffff',
   indigo: '#4f46e5',
   red: '#ef4444',
@@ -82,7 +82,7 @@ export default function CreateSprintModal({ open, onClose, onSubmit, editData }:
       <div style={{
         position: 'relative', width: '100%', maxWidth: 440, height: '100%',
         background: D.card, border: D.border,
-        boxShadow: '-6px 0 0 #15131a',
+        boxShadow: '-6px 0 0 var(--c-ink)',
         display: 'flex', flexDirection: 'column', overflowY: 'auto',
         fontFamily: "'Be Vietnam Pro', sans-serif",
       }}>

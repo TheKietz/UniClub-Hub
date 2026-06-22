@@ -1,17 +1,8 @@
 import { useEffect, useState } from 'react'
-import api from '@/lib/axiosInstance'
+import { getSupportTickets, submitSupportRequest } from '@/components/membership/services/userApi'
+import type { SupportTicket } from '@/components/membership/services/userApi'
 import { toast } from 'sonner'
 import { Clock, CheckCircle2, Loader2 } from 'lucide-react'
-
-interface Ticket {
-  id: number
-  subject: string
-  message: string
-  status: string
-  adminNote?: string
-  createdAt: string
-  resolvedAt?: string
-}
 
 const STATUS_CONFIG: Record<string, { label: string; bg: string; text: string; icon: React.ElementType }> = {
   Open:       { label: 'Đang chờ',      bg: '#fef3c7', text: '#b45309', icon: Clock },
@@ -20,11 +11,11 @@ const STATUS_CONFIG: Record<string, { label: string; bg: string; text: string; i
 }
 
 const D = {
-  border: '1.5px solid #15131a', borderLight: '1px solid #e8e3d6',
-  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 #15131a`,
+  border: '1.5px solid var(--c-ink)', borderLight: '1px solid #e8e3d6',
+  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 var(--c-ink)`,
   radius: 14, pill: 999,
-  ink: '#15131a', inkDim: '#4a4651', inkMuted: '#918c99',
-  bg: '#f7f6f1', card: '#ffffff', indigo: '#4f46e5',
+  ink: 'var(--c-ink)', inkDim: '#4a4651', inkMuted: '#918c99',
+  bg: 'var(--c-bg)', card: '#ffffff', indigo: '#4f46e5',
 }
 
 const inputS: React.CSSProperties = {
@@ -39,7 +30,7 @@ function fmtDate(d: string) {
 }
 
 export default function SupportPage() {
-  const [tickets, setTickets] = useState<Ticket[]>([])
+  const [tickets, setTickets] = useState<SupportTicket[]>([])
   const [loading, setLoading] = useState(true)
   const [subject, setSubject] = useState('')
   const [message, setMessage] = useState('')
@@ -47,8 +38,8 @@ export default function SupportPage() {
   const [expanded, setExpanded] = useState<number | null>(null)
 
   function load() {
-    api.get<{ data: Ticket[] }>('/support/me')
-      .then(r => setTickets(r.data.data))
+    getSupportTickets()
+      .then(setTickets)
       .catch(() => toast.error('Không thể tải danh sách yêu cầu.'))
       .finally(() => setLoading(false))
   }
@@ -60,7 +51,7 @@ export default function SupportPage() {
     if (!subject.trim() || !message.trim()) { toast.error('Vui lòng điền đầy đủ tiêu đề và nội dung.'); return }
     setSending(true)
     try {
-      await api.post('/support', { subject: subject.trim(), message: message.trim() })
+      await submitSupportRequest(subject.trim(), message.trim())
       toast.success('Đã gửi yêu cầu hỗ trợ.')
       setSubject(''); setMessage('')
       load()

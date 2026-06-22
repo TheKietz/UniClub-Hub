@@ -10,6 +10,7 @@ using UniClub_Hub.Membership;
 using UniClub_Hub.Operations;
 using UniClub_Hub.Portal;
 using UniClub_Hub.Server.Hubs;
+using UniClub_Hub.Shared.AI;
 using UniClub_Hub.Shared.Common.Storage;
 using UniClub_Hub.Shared.Data;
 using UniClub_Hub.Shared.Email;
@@ -104,6 +105,8 @@ builder
 
 builder.Services.AddAuthorization();
 builder.Services.AddHttpContextAccessor();
+builder.Services.Configure<GeminiOptions>(builder.Configuration.GetSection("Gemini"));
+builder.Services.AddHttpClient<IAiModelClient, GeminiAiModelClient>();
 
 builder.Services.AddMemoryCache();
 builder.Services.AddHttpClient();

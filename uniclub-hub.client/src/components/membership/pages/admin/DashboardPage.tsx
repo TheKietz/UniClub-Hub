@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { getSystemStats, getSystemGrowth, getAdminClubs } from '@/components/membership/services/adminApi'
 import { getAdminResignations } from '@/components/membership/services/clubApi'
@@ -7,16 +7,17 @@ import {
   StatCard, ChartCard, MiniAreaChart, MiniBarChart, MiniDonut,
   PageShell, PageHeader, DTag,
 } from '@/components/shared/DashboardCharts'
+import { exportDashboardPdf } from '@/lib/pdfExport'
 
-const BAR_COLORS = ['#4f46e5', '#7c3aed', '#ec4899', '#38bdf8', '#14b8a6', '#ff5a3c']
+const BAR_COLORS = ['#4f46e5', '#7c3aed', '#ec4899', '#38bdf8', '#14b8a6', 'var(--c-accent)']
 const D = {
-  border: '1.5px solid #15131a',
+  border: '1.5px solid var(--c-ink)',
   borderLight: '1px solid #e8e3d6',
-  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 #15131a`,
+  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 var(--c-ink)`,
   radius: 14,
-  ink: '#15131a',
+  ink: 'var(--c-ink)',
   inkMuted: '#918c99',
-  bg: '#f7f6f1',
+  bg: 'var(--c-bg)',
   amber: '#f59e0b',
   emerald: '#10b981',
   red: '#ef4444',
@@ -65,18 +66,29 @@ function ActionItems({ items }: { items: AlertItem[] }) {
   )
 }
 
+const MONTH_OPTIONS = [
+  { value: 3, label: '3 tháng' },
+  { value: 6, label: '6 tháng' },
+  { value: 12, label: '12 tháng' },
+  { value: 24, label: '24 tháng' },
+]
+
 export default function DashboardPage() {
   const [stats, setStats] = useState<SystemStats | null>(null)
   const [growth, setGrowth] = useState<MonthlyGrowth[]>([])
   const [alerts, setAlerts] = useState<AlertItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [months, setMonths] = useState(12)
+  const [approvedResignCount, setApprovedResignCount] = useState(0)
+  const [exporting, setExporting] = useState(false)
+  const contentRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    Promise.all([getSystemStats(), getSystemGrowth(12), getAdminClubs(), getAdminResignations()])
-      .then(([s, g, clubs, resignations]) => {
+    Promise.all([getSystemStats(), getAdminClubs(), getAdminResignations()])
+      .then(([s, clubs, resignations]) => {
         setStats(s)
-        setGrowth(g)
+        setApprovedResignCount(resignations.filter(r => r.status === 'Approved').length)
         const items: AlertItem[] = []
         clubs.filter(c => !c.hasAdmin && c.status === 'Active').forEach(c => {
           items.push({ message: `CLB "${c.name}" chưa có Trưởng CLB`, link: '/admin/structure', linkLabel: 'Bổ nhiệm' })
@@ -89,6 +101,21 @@ export default function DashboardPage() {
       .catch(() => setError('Không thể tải dữ liệu thống kê.'))
       .finally(() => setLoading(false))
   }, [])
+
+  useEffect(() => {
+    getSystemGrowth(months).then(setGrowth).catch(() => {})
+  }, [months])
+
+  async function handleExportPdf() {
+    if (!contentRef.current) return
+    setExporting(true)
+    try {
+      const date = new Date().toLocaleDateString('vi-VN').replace(/\//g, '-')
+      await exportDashboardPdf(contentRef.current, `bao-cao-he-thong-${date}.pdf`)
+    } finally {
+      setExporting(false)
+    }
+  }
 
   if (loading) return (
     <PageShell>
@@ -104,8 +131,13 @@ export default function DashboardPage() {
 
   const activeRate = stats.totalClubs > 0 ? Math.round((stats.activeClubs / stats.totalClubs) * 100) : 0
   const totalNew = growth.reduce((s, g) => s + g.newMembers, 0)
-
   const growthData = growth.map(g => ({ month: g.label, val: g.newMembers }))
+
+  const reviewedApps = stats.applications.accepted + stats.applications.rejected
+  const acceptanceRate = reviewedApps > 0 ? Math.round(stats.applications.accepted / reviewedApps * 100) : null
+  const totalHistorical = stats.totalActiveMembers + stats.totalProbationMembers + approvedResignCount
+  const retentionRate = totalHistorical > 0
+    ? Math.round((stats.totalActiveMembers + stats.totalProbationMembers) / totalHistorical * 100) : null
   const categoryData = stats.clubsByCategory.map(c => ({
     name: c.categoryName.length > 10 ? c.categoryName.slice(0, 8) + '…' : c.categoryName,
     val: c.clubCount,
@@ -121,8 +153,29 @@ export default function DashboardPage() {
 
   return (
     <PageShell>
-      <PageHeader title="Tổng quan hệ thống" sub="Thống kê toàn bộ hệ thống câu lạc bộ" />
+      <PageHeader
+        title="Tổng quan hệ thống"
+        sub="Thống kê toàn bộ hệ thống câu lạc bộ"
+        actions={
+          <button
+            onClick={handleExportPdf}
+            disabled={exporting}
+            style={{
+              padding: '8px 16px', borderRadius: 999,
+              background: exporting ? D.bg : D.ink,
+              color: exporting ? D.inkMuted : '#facc15',
+              border: '1.5px solid var(--c-ink)',
+              boxShadow: exporting ? 'none' : '3px 3px 0 var(--c-ink)',
+              fontSize: 12, fontWeight: 700, cursor: exporting ? 'not-allowed' : 'pointer',
+              fontFamily: 'inherit', transition: 'all .15s',
+            }}
+          >
+            {exporting ? 'Đang xuất...' : '↓ Xuất PDF'}
+          </button>
+        }
+      />
 
+      <div ref={contentRef}>
       <ActionItems items={alerts} />
 
       {/* Stat cards */}
@@ -139,8 +192,25 @@ export default function DashboardPage() {
       {/* Growth area chart */}
       <ChartCard
         title="Tăng trưởng thành viên"
-        sub="12 tháng gần nhất"
-        rightLabel={`${totalNew} thành viên mới`}
+        sub={`${months} tháng gần nhất`}
+        rightLabel={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 12, color: D.inkMuted, fontWeight: 600 }}>{totalNew} TV mới</span>
+            <div style={{ display: 'flex', gap: 4 }}>
+              {MONTH_OPTIONS.map(o => (
+                <button key={o.value} onClick={() => setMonths(o.value)} style={{
+                  padding: '3px 9px', borderRadius: 999, fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                  background: months === o.value ? D.ink : D.bg,
+                  color: months === o.value ? '#facc15' : D.inkMuted,
+                  border: '1.5px solid var(--c-ink)',
+                  boxShadow: months === o.value ? 'none' : '2px 2px 0 var(--c-ink)',
+                  transform: months === o.value ? 'translate(2px,2px)' : 'none',
+                  transition: 'all .1s', fontFamily: 'inherit',
+                }}>{o.label}</button>
+              ))}
+            </div>
+          </div>
+        }
         style={{ marginBottom: 20 }}
       >
         <MiniAreaChart data={growthData} color="#4f46e5" height={160} />
@@ -209,12 +279,48 @@ export default function DashboardPage() {
         </ChartCard>
       )}
 
-      {/* App stats summary row */}
-      <div style={{ marginTop: 20 }}>
-        <DTag bg="#f7f6f1" color="#918c99" style={{ border: D.borderLight, fontSize: 11 }}>
-          Tổng đơn: {stats.applications.total} · Tỷ lệ duyệt: {stats.applications.total > 0
-            ? Math.round((stats.applications.accepted / stats.applications.total) * 100) : 0}%
+      {/* KPI cards */}
+      {(acceptanceRate !== null || retentionRate !== null) && (
+        <ChartCard title="Chỉ số hiệu suất hệ thống" sub="Tính từ dữ liệu tích lũy toàn hệ thống" style={{ marginTop: 20 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            {acceptanceRate !== null && (
+              <div style={{ padding: '16px 20px', borderRadius: 12, background: D.bg, border: '1.5px solid #d1fae5' }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: D.emerald, letterSpacing: '.06em', marginBottom: 6 }}>TỶ LỆ CHẤP NHẬN ĐƠN</div>
+                <div style={{ fontSize: 36, fontWeight: 900, color: D.emerald, letterSpacing: '-.04em', lineHeight: 1 }}>
+                  {acceptanceRate}<span style={{ fontSize: 18 }}>%</span>
+                </div>
+                <div style={{ fontSize: 12, color: D.inkMuted, marginTop: 6 }}>
+                  {stats.applications.accepted} duyệt / {reviewedApps} đã xét
+                </div>
+                <div style={{ marginTop: 10, height: 6, borderRadius: 3, background: '#d1fae5', overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${acceptanceRate}%`, background: D.emerald, borderRadius: 3, transition: 'width .6s ease' }} />
+                </div>
+              </div>
+            )}
+            {retentionRate !== null && (
+              <div style={{ padding: '16px 20px', borderRadius: 12, background: D.bg, border: '1.5px solid #dbeafe' }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: D.sky, letterSpacing: '.06em', marginBottom: 6 }}>TỶ LỆ GIỮ CHÂN THÀNH VIÊN</div>
+                <div style={{ fontSize: 36, fontWeight: 900, color: D.sky, letterSpacing: '-.04em', lineHeight: 1 }}>
+                  {retentionRate}<span style={{ fontSize: 18 }}>%</span>
+                </div>
+                <div style={{ fontSize: 12, color: D.inkMuted, marginTop: 6 }}>
+                  {stats.totalActiveMembers + stats.totalProbationMembers} đang hoạt động / {totalHistorical} lịch sử
+                </div>
+                <div style={{ marginTop: 10, height: 6, borderRadius: 3, background: '#dbeafe', overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${retentionRate}%`, background: D.sky, borderRadius: 3, transition: 'width .6s ease' }} />
+                </div>
+              </div>
+            )}
+          </div>
+        </ChartCard>
+      )}
+
+      {/* Summary tag */}
+      <div style={{ marginTop: 16 }}>
+        <DTag bg="var(--c-bg)" color="#918c99" style={{ border: D.borderLight, fontSize: 11 }}>
+          Tổng đơn: {stats.applications.total} · Tỷ lệ duyệt: {acceptanceRate ?? 0}% · Giữ chân TV: {retentionRate ?? '—'}%
         </DTag>
+      </div>
       </div>
     </PageShell>
   )

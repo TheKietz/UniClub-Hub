@@ -2,6 +2,7 @@
 using UniClub_Hub.Operations.Services.Implements;
 using UniClub_Hub.Operations.Services.Interfaces;
 
+
 namespace UniClub_Hub.Operations
 {
     public static class DependencyInjection
@@ -17,6 +18,8 @@ namespace UniClub_Hub.Operations
             services.AddScoped<ITaskAttachmentService, TaskAttachmentService>();
             services.AddScoped<ITaskAssigneeService, TaskAssigneeService>();
             services.AddScoped<IKpiService, KpiService>();
+            services.AddScoped<ITaskIntelligenceService, TaskIntelligenceService>();
+            services.AddScoped<IEventAssignmentService, EventAssignmentService>();
             return services;
         }
     }

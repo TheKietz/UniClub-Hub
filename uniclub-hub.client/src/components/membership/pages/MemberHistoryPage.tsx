@@ -1,20 +1,9 @@
 import { MEMBERSHIP_STATUS } from '@/types/auth'
 import { useEffect, useState } from 'react'
-import api from '@/lib/axiosInstance'
+import { getMemberHistory } from '@/components/membership/services/userApi'
+import type { MembershipHistory } from '@/components/membership/services/userApi'
 import { toast } from 'sonner'
 import { CalendarDays, LogOut } from 'lucide-react'
-
-interface MembershipHistory {
-  membershipId: number
-  clubId: number
-  clubName: string
-  clubLogoUrl?: string
-  clubRole: string
-  departmentName?: string
-  status: string
-  joinedDate: string
-  resignedDate?: string
-}
 
 const ROLE_LABELS: Record<string, string> = {
   CLUB_ADMIN: 'Ban chủ nhiệm', DEPT_LEAD: 'Trưởng ban', MEMBER: 'Thành viên',
@@ -26,17 +15,17 @@ const STATUS_STYLE: Record<string, { bg: string; text: string; label: string }> 
   Resigned:  { bg: '#f3f4f6', text: '#6b7280', label: 'Đã rời CLB' },
 }
 
-const CLUB_COLORS = ['#4f46e5', '#7c3aed', '#ff5a3c', '#14b8a6', '#38bdf8', '#ec4899']
+const CLUB_COLORS = ['#4f46e5', '#7c3aed', 'var(--c-accent)', '#14b8a6', '#38bdf8', '#ec4899']
 
 function fmt(dateStr: string) {
   return new Date(dateStr).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
 const D = {
-  border: '1.5px solid #15131a', borderLight: '1px solid #e8e3d6',
-  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 #15131a`,
-  radius: 14, ink: '#15131a', inkDim: '#4a4651', inkMuted: '#918c99',
-  bg: '#f7f6f1', card: '#ffffff',
+  border: '1.5px solid var(--c-ink)', borderLight: '1px solid #e8e3d6',
+  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 var(--c-ink)`,
+  radius: 14, ink: 'var(--c-ink)', inkDim: '#4a4651', inkMuted: '#918c99',
+  bg: 'var(--c-bg)', card: '#ffffff',
 }
 
 export default function MemberHistoryPage() {
@@ -44,8 +33,8 @@ export default function MemberHistoryPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    api.get<{ data: MembershipHistory[] }>('/users/me/history')
-      .then(r => setHistory(r.data.data))
+    getMemberHistory()
+      .then(setHistory)
       .catch(() => toast.error('Không thể tải lịch sử tham gia.'))
       .finally(() => setLoading(false))
   }, [])
@@ -107,15 +96,15 @@ function HistoryCard({ h }: { h: MembershipHistory }) {
 
   return (
     <div style={{
-      background: '#fff', border: '1.5px solid #15131a', borderRadius: 14,
-      boxShadow: '3px 3px 0 #15131a', padding: '16px 18px',
+      background: '#fff', border: '1.5px solid var(--c-ink)', borderRadius: 14,
+      boxShadow: '3px 3px 0 var(--c-ink)', padding: '16px 18px',
       display: 'flex', alignItems: 'center', gap: 14,
       opacity: isResigned ? 0.75 : 1,
     }}>
       {h.clubLogoUrl ? (
-        <img src={h.clubLogoUrl} alt="" style={{ width: 46, height: 46, borderRadius: 12, objectFit: 'cover', border: '1.5px solid #15131a', flexShrink: 0, transform: 'rotate(-3deg)' }} />
+        <img src={h.clubLogoUrl} alt="" style={{ width: 46, height: 46, borderRadius: 12, objectFit: 'cover', border: '1.5px solid var(--c-ink)', flexShrink: 0, transform: 'rotate(-3deg)' }} />
       ) : (
-        <div style={{ width: 46, height: 46, borderRadius: 12, flexShrink: 0, background: color, border: '1.5px solid #15131a', display: 'grid', placeItems: 'center', color: '#fff', fontWeight: 900, fontSize: 18, transform: 'rotate(-3deg)' }}>
+        <div style={{ width: 46, height: 46, borderRadius: 12, flexShrink: 0, background: color, border: '1.5px solid var(--c-ink)', display: 'grid', placeItems: 'center', color: '#fff', fontWeight: 900, fontSize: 18, transform: 'rotate(-3deg)' }}>
           {h.clubName[0]}
         </div>
       )}
@@ -123,7 +112,7 @@ function HistoryCard({ h }: { h: MembershipHistory }) {
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
           <div>
-            <p style={{ fontWeight: 700, fontSize: 14, color: '#15131a', margin: 0 }}>{h.clubName}</p>
+            <p style={{ fontWeight: 700, fontSize: 14, color: 'var(--c-ink)', margin: 0 }}>{h.clubName}</p>
             <p style={{ fontSize: 12, color: '#918c99', marginTop: 2 }}>
               {ROLE_LABELS[h.clubRole] ?? h.clubRole}
               {h.departmentName && <span> · {h.departmentName}</span>}

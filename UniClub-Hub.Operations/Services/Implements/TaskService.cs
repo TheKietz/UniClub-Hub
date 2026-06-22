@@ -11,7 +11,7 @@ namespace UniClub_Hub.Operations.Services.Implements
     public class TaskService(UniClubDbContext db) : ITaskService
     {
         public async Task<PagedResult<TaskDto>> GetByClubAsync(
-            int clubId,
+            int? clubId,
             string? status,
             int? sprintId,
             int? eventId,
@@ -19,12 +19,22 @@ namespace UniClub_Hub.Operations.Services.Implements
             int? parentId,
             int? departmentId,
             int page,
-            int pageSize
+            int pageSize,
+            bool? unassigned = null
         )
         {
-            var query = db.Tasks.AsNoTracking().Where(t => t.ClubId == clubId);
+            var query = db.Tasks.AsNoTracking().AsQueryable();
 
-            if (departmentId.HasValue)
+            if (clubId.HasValue)
+                query = query.Where(t => t.ClubId == clubId.Value);
+            else if (eventId.HasValue)
+                query = query.Where(t => t.EventId == eventId.Value);
+            else
+                return new PagedResult<TaskDto> { Items = [], TotalCount = 0, Page = page, PageSize = pageSize };
+
+            if (unassigned == true)
+                query = query.Where(t => t.DepartmentId == null);
+            else if (departmentId.HasValue)
                 query = query.Where(t => t.DepartmentId == departmentId);
 
             if (Enum.TryParse<ClubTaskStatus>(status, true, out var parsedStatus))

@@ -9,7 +9,7 @@ namespace UniClub_Hub.Shared.Models
     public class ClubEvent : IAuditable, ISoftDeletable
     {
         public int Id { get; set; }
-        public int ClubId { get; set; }
+        public int? ClubId { get; set; }
         public string Name { get; set; } = null!;
         public string? Description { get; set; }
         public string? Location { get; set; }

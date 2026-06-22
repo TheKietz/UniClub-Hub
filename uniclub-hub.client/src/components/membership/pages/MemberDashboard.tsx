@@ -3,18 +3,18 @@ import { useAuth } from '@/contexts/AuthContext'
 import { CLUB_ROLES, MEMBERSHIP_STATUS } from '@/types/auth'
 import { PageShell, DTag } from '@/components/shared/DashboardCharts'
 
-const CLUB_COLORS = ['#4f46e5', '#7c3aed', '#ff5a3c', '#14b8a6', '#38bdf8', '#ec4899']
+const CLUB_COLORS = ['#4f46e5', '#7c3aed', 'var(--c-accent)', '#14b8a6', '#38bdf8', '#ec4899']
 const ROLE_LABELS: Record<string, string> = {
   CLUB_ADMIN: 'Ban chủ nhiệm', DEPT_LEAD: 'Trưởng ban', MEMBER: 'Thành viên',
 }
 const ROLE_COLORS: Record<string, string> = {
-  CLUB_ADMIN: '#ff5a3c', DEPT_LEAD: '#f59e0b', MEMBER: '#14b8a6',
+  CLUB_ADMIN: 'var(--c-accent)', DEPT_LEAD: '#f59e0b', MEMBER: '#14b8a6',
 }
 const D = {
-  border: '1.5px solid #15131a',
-  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 #15131a`,
+  border: '1.5px solid var(--c-ink)',
+  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 var(--c-ink)`,
   radius: 14,
-  ink: '#15131a',
+  ink: 'var(--c-ink)',
   inkMuted: '#918c99',
   card: '#ffffff',
   lemon: '#facc15',
@@ -50,7 +50,7 @@ export default function MemberDashboard() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 28 }}>
         {[
           { n: activeMemberships.length, l: 'CLB tham gia', color: '#4f46e5', icon: '◐' },
-          { n: managedClubs.length, l: 'CLB quản lý', color: '#ff5a3c', icon: '◇' },
+          { n: managedClubs.length, l: 'CLB quản lý', color: 'var(--c-accent)', icon: '◇' },
           { n: probationClubs.length, l: 'Đang thử việc', color: '#f59e0b', icon: '✦' },
         ].map(s => (
           <div key={s.l} style={{
@@ -75,7 +75,7 @@ export default function MemberDashboard() {
       {managedClubs.length > 0 && (
         <section style={{ marginBottom: 24 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-            <DTag bg="#ff5a3c" color="#fff">Đang quản lý</DTag>
+            <DTag bg="var(--c-accent)" color="#fff">Đang quản lý</DTag>
             <span style={{ fontSize: 12, color: D.inkMuted }}>{managedClubs.length} CLB</span>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
