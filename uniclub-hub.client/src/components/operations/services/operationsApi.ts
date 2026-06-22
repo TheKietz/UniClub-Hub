@@ -13,6 +13,8 @@ import type {
   PersonalKpiData, DepartmentKpiData,
   EventRegistrationItem, RegisterMemberForEventDto, UpdateAttendanceDto,
   EventAttachmentItem,
+  AssignmentSuggestion, UrgentTaskItem,
+  AssignmentItem,
 } from './operations.types'
 
 type ApiResponse<T> = { data: T; success: boolean; message: string }
@@ -20,11 +22,14 @@ type ApiResponse<T> = { data: T; success: boolean; message: string }
 // ── Tasks ─────────────────────────────────────────────────────────────────────
 
 export const getTasks = (params: {
-  clubId: number; departmentId?: number; status?: string; sprintId?: number; eventId?: number;
+  clubId?: number; departmentId?: number; status?: string; sprintId?: number; eventId?: number;
   assignedTo?: string; parentId?: number;
   page?: number; pageSize?: number
 }) =>
   api.get<ApiResponse<PagedResult<TaskItem>>>('/v1/operations/tasks', { params }).then(r => r.data.data)
+
+export const getTasksByEvent = (eventId: number, params?: { page?: number; pageSize?: number }) =>
+  api.get<ApiResponse<PagedResult<TaskItem>>>('/v1/operations/tasks', { params: { eventId, pageSize: 200, ...params } }).then(r => r.data.data)
 
 export const getTaskById = (id: number) =>
   api.get<ApiResponse<TaskItem>>(`/v1/operations/tasks/${id}`).then(r => r.data.data)
@@ -115,15 +120,55 @@ export const reorderKanbanColumns = (clubId: number, orderedIds: number[]) =>
 // ── Events ────────────────────────────────────────────────────────────────────
 
 export const getEvents = (params: {
-  clubId: number; status?: string; search?: string; page?: number; pageSize?: number
+  clubId?: number | null; status?: string; search?: string; page?: number; pageSize?: number
 }) =>
   api.get<ApiResponse<PagedResult<EventItem>>>('/v1/operations/events', { params }).then(r => r.data.data)
+
+export const getUniversityEvents = (params?: { status?: string; search?: string; page?: number; pageSize?: number }) =>
+  api.get<ApiResponse<PagedResult<EventItem>>>('/v1/operations/events', { params: { ...params, clubId: null } }).then(r => r.data.data)
+
+export const getInboxTasks = (clubId: number, params?: { page?: number; pageSize?: number }) =>
+  api.get<ApiResponse<PagedResult<TaskItem>>>('/v1/operations/tasks', {
+    params: { clubId, unassigned: true, pageSize: 50, ...params },
+  }).then(r => r.data.data)
+
+// ── Event Club Assignments ────────────────────────────────────────────────────
+
+export const getAssignmentsByEvent = (eventId: number) =>
+  api.get<ApiResponse<AssignmentItem[]>>('/v1/operations/assignments', { params: { eventId } }).then(r => r.data.data)
+
+export const getInboxAssignments = (clubId: number) =>
+  api.get<ApiResponse<AssignmentItem[]>>('/v1/operations/assignments/inbox', { params: { clubId } }).then(r => r.data.data)
+
+export const createAssignment = (
+  eventId: number,
+  clubId: number,
+  data: { title: string; description?: string; priority: string; deadline?: string },
+  files?: File[]
+) => {
+  const form = new FormData()
+  form.append('title', data.title)
+  if (data.description) form.append('description', data.description)
+  form.append('priority', data.priority)
+  if (data.deadline) form.append('deadline', data.deadline)
+  files?.forEach(f => form.append('files', f))
+  return api.post<ApiResponse<AssignmentItem>>('/v1/operations/assignments', form, {
+    params: { eventId, clubId },
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }).then(r => r.data.data)
+}
+
+export const updateAssignmentStatus = (id: number, status: string) =>
+  api.patch<ApiResponse<AssignmentItem>>(`/v1/operations/assignments/${id}/status`, { status }).then(r => r.data.data)
+
+export const deleteAssignment = (id: number) =>
+  api.delete(`/v1/operations/assignments/${id}`)
 
 export const getEventById = (id: number) =>
   api.get<ApiResponse<EventItem>>(`/v1/operations/events/${id}`).then(r => r.data.data)
 
-export const createEvent = (clubId: number, dto: CreateEventDto) =>
-  api.post<ApiResponse<EventItem>>(`/v1/operations/events?clubId=${clubId}`, dto).then(r => r.data.data)
+export const createEvent = (clubId: number | null, dto: CreateEventDto) =>
+  api.post<ApiResponse<EventItem>>(`/v1/operations/events`, dto, { params: { clubId } }).then(r => r.data.data)
 
 export const updateEvent = (id: number, dto: UpdateEventDto) =>
   api.put<ApiResponse<EventItem>>(`/v1/operations/events/${id}`, dto).then(r => r.data.data)
@@ -215,3 +260,15 @@ export const getDepartmentKpi = (departmentId: number, params: {
   clubId: number; sprintId?: number
 }) =>
   api.get<ApiResponse<DepartmentKpiData>>(`/v1/operations/kpi/departments/${departmentId}`, { params }).then(r => r.data.data)
+
+// ── Intelligence ──────────────────────────────────────────────────────────────
+
+export const getSuggestAssignees = (params: {
+  clubId: number; departmentId: number; estimatedHours?: number; priority?: string; sprintId?: number
+}) =>
+  api.get<ApiResponse<AssignmentSuggestion[]>>('/v1/operations/tasks/suggest-assignees', { params }).then(r => r.data.data)
+
+export const getUrgentTasks = (params: {
+  clubId: number; departmentId?: number; sprintId?: number
+}) =>
+  api.get<ApiResponse<UrgentTaskItem[]>>('/v1/operations/tasks/urgent-tasks', { params }).then(r => r.data.data)

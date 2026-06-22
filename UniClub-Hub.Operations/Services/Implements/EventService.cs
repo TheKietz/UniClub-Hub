@@ -1,24 +1,31 @@
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using UniClub_Hub.Operations.DTOs.Event;
 using UniClub_Hub.Operations.Services.Interfaces;
 using UniClub_Hub.Shared.Common;
-using UniClub_Hub.Shared.Common.Storage ;
+using UniClub_Hub.Shared.Common.Storage;
 using UniClub_Hub.Shared.Data;
 using UniClub_Hub.Shared.Enums;
 using UniClub_Hub.Shared.Models;
 
 namespace UniClub_Hub.Operations.Services.Implements
 {
-    public class EventService(UniClubDbContext db, IFileStorageService fileStorage) : IEventService
+    public class EventService(UniClubDbContext db, IFileStorageService fileStorage, UserManager<ApplicationUser> userManager) : IEventService
     {
-        private static readonly string[] AllowedExtensions = [".pdf", ".doc", ".docx", ".xls", ".xlsx"];
+        private static readonly string[] AllowedExtensions =
+        [
+            ".pdf", ".doc", ".docx", ".xls", ".xlsx",
+            ".png", ".jpg", ".jpeg", ".webp",
+            ".zip", ".rar",
+        ];
         private static readonly long MaxFileSizeBytes = 20 * 1024 * 1024; // 20 MB
-        public async Task<PagedResult<EventDto>> GetAllAsync(int clubId, string? status, string? search, int page, int pageSize)
+
+        public async Task<PagedResult<EventDto>> GetAllAsync(int? clubId, string? status, string? search, int page, int pageSize)
         {
             var query = db.Events
                 .AsNoTracking()
-                .Where(e => e.ClubId == clubId);
+                .Where(e => clubId == null ? e.ClubId == null : e.ClubId == clubId);
 
             if (Enum.TryParse<EventStatus>(status, true, out var parsedStatus))
                 query = query.Where(e => e.Status == parsedStatus);
@@ -35,7 +42,7 @@ namespace UniClub_Hub.Operations.Services.Implements
                 .Select(e => new EventDto
                 {
                     Id = e.Id,
-                    ClubId = e.ClubId,
+                    ClubId = e.ClubId,   // null for university events
                     Name = e.Name,
                     Description = e.Description,
                     Location = e.Location,
@@ -75,7 +82,7 @@ namespace UniClub_Hub.Operations.Services.Implements
             return MapToDto(e);
         }
 
-        public async Task<EventDto> CreateAsync(int clubId, CreateEventDto dto, string actorId)
+        public async Task<EventDto> CreateAsync(int? clubId, CreateEventDto dto, string actorId)
         {
             await RequireManagerRoleAsync(actorId, clubId);
 
@@ -390,7 +397,7 @@ namespace UniClub_Hub.Operations.Services.Implements
         private static EventDto MapToDto(ClubEvent e) => new()
         {
             Id = e.Id,
-            ClubId = e.ClubId,
+            ClubId = e.ClubId,   // null for university events
             Name = e.Name,
             Description = e.Description,
             Location = e.Location,
@@ -460,22 +467,26 @@ namespace UniClub_Hub.Operations.Services.Implements
             UploadedAt = a.UploadedAt,
         };
 
-        private async Task<int> GetEventClubIdAsync(int eventId)
+        private async Task<int?> GetEventClubIdAsync(int eventId)
         {
-            var clubId = await db.Events
+            var ev = await db.Events
                 .AsNoTracking()
                 .Where(e => e.Id == eventId)
-                .Select(e => e.ClubId)
-                .FirstOrDefaultAsync();
+                .Select(e => new { e.Id, e.ClubId })
+                .FirstOrDefaultAsync()
+                ?? throw new KeyNotFoundException($"Event {eventId} not found.");
 
-            if (clubId == 0)
-                throw new KeyNotFoundException($"Event {eventId} not found.");
-
-            return clubId;
+            return ev.ClubId;
         }
 
-        private async Task RequireManagerRoleAsync(string userId, int clubId)
+        private async Task RequireManagerRoleAsync(string userId, int? clubId)
         {
+            var user = await userManager.FindByIdAsync(userId);
+            if (user != null && await userManager.IsInRoleAsync(user, "SUPER_ADMIN")) return;
+
+            if (clubId == null)
+                throw new UnauthorizedAccessException("Chỉ Admin trường mới có thể quản lý sự kiện cấp trường.");
+
             var membership = await db.ClubMemberships
                 .AsNoTracking()
                 .FirstOrDefaultAsync(m =>

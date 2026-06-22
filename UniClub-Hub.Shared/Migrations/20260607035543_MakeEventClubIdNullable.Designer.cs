@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using UniClub_Hub.Shared.Data;
@@ -11,9 +12,11 @@ using UniClub_Hub.Shared.Data;
 namespace UniClub_Hub.Shared.Migrations
 {
     [DbContext(typeof(UniClubDbContext))]
-    partial class UniClubDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260607035543_MakeEventClubIdNullable")]
+    partial class MakeEventClubIdNullable
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -848,56 +851,6 @@ namespace UniClub_Hub.Shared.Migrations
                     b.HasIndex("UploadedBy");
 
                     b.ToTable("EventAttachments");
-                });
-
-            modelBuilder.Entity("UniClub_Hub.Shared.Models.EventClubAssignment", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("AttachmentUrlsJson")
-                        .HasColumnType("text");
-
-                    b.Property<int>("ClubId")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("CreatedBy")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<DateTimeOffset?>("Deadline")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Description")
-                        .HasColumnType("text");
-
-                    b.Property<int>("EventId")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("Priority")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("Title")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ClubId");
-
-                    b.HasIndex("EventId", "ClubId");
-
-                    b.ToTable("EventClubAssignments");
                 });
 
             modelBuilder.Entity("UniClub_Hub.Shared.Models.EventRegistration", b =>
