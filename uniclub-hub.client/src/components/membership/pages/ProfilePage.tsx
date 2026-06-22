@@ -1,7 +1,7 @@
 import { MEMBERSHIP_STATUS } from '@/types/auth'
 import { useRef, useState, useEffect } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
-import api from '@/lib/axiosInstance'
+import { updateUserAvatar, updateUserProfile } from '@/components/membership/services/userApi'
 import { toast } from 'sonner'
 import { Camera, ChevronDown } from 'lucide-react'
 import MajorSelect from '@/components/shared/MajorSelect'
@@ -100,9 +100,7 @@ export default function ProfilePage() {
     if (file.size > 5 * 1024 * 1024) { toast.error('File không được vượt quá 5MB.'); return }
     setUploadingAvatar(true)
     try {
-      const fd = new FormData()
-      fd.append('file', file)
-      await api.patch('/users/me/avatar', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
+      await updateUserAvatar(file)
       await refreshUser()
       toast.success('Đã cập nhật ảnh đại diện.')
     } catch (err: any) {
@@ -117,7 +115,7 @@ export default function ProfilePage() {
     e.preventDefault()
     setSaving(true)
     try {
-      await api.patch('/users/me', {
+      await updateUserProfile({
         fullName: form.fullName || null,
         studentId: form.studentId || null,
         major: form.major || null,
@@ -134,7 +132,9 @@ export default function ProfilePage() {
     }
   }
 
-  const initials = (user?.fullName ?? user?.email ?? '?')[0].toUpperCase()
+  const initials = user?.fullName
+    ? user.fullName.trim().split(' ').filter(Boolean).slice(-2).map(w => w[0]).join('').toUpperCase()
+    : (user?.email?.[0] ?? '?').toUpperCase()
   const avatarColor = AVATAR_COLORS[(user?.fullName?.charCodeAt(0) ?? 0) % AVATAR_COLORS.length]
   const activeMemberships = user?.memberships.filter(m => m.status === MEMBERSHIP_STATUS.ACTIVE) ?? []
 
@@ -145,7 +145,7 @@ export default function ProfilePage() {
         <p style={{ fontSize: 13, color: D.inkMuted, marginTop: 4 }}>Quản lý thông tin tài khoản của bạn</p>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: 20, alignItems: 'start' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '300px 1fr', gap: 20, alignItems: 'start' }}>
 
         {/* Left column */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -154,21 +154,21 @@ export default function ProfilePage() {
             <div style={{ padding: '12px 18px', borderBottom: D.borderLight, background: D.bg }}>
               <p style={{ fontSize: 13, fontWeight: 700, color: D.ink, margin: 0 }}>Ảnh đại diện</p>
             </div>
-            <div style={{ padding: '20px 18px', display: 'flex', alignItems: 'center', gap: 16 }}>
+            <div style={{ padding: '28px 18px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, textAlign: 'center' }}>
               <div style={{ position: 'relative', flexShrink: 0 }}>
                 {user?.avatarUrl
-                  ? <img src={user.avatarUrl} alt="" style={{ width: 72, height: 72, borderRadius: '50%', objectFit: 'cover', border: D.border }} />
-                  : <div style={{ width: 72, height: 72, borderRadius: '50%', background: avatarColor, border: D.border, display: 'grid', placeItems: 'center', color: '#fff', fontSize: 28, fontWeight: 900 }}>{initials}</div>
+                  ? <img src={user.avatarUrl} alt="" style={{ width: 116, height: 116, borderRadius: '50%', objectFit: 'cover', border: D.border }} />
+                  : <div style={{ width: 116, height: 116, borderRadius: '50%', background: avatarColor, border: D.border, display: 'grid', placeItems: 'center', color: '#fff', fontSize: 42, fontWeight: 900, letterSpacing: '-.04em' }}>{initials}</div>
                 }
-                <button type="button" onClick={() => fileRef.current?.click()} disabled={uploadingAvatar} style={{ position: 'absolute', bottom: 0, right: 0, width: 26, height: 26, borderRadius: '50%', background: D.indigo, color: '#fff', border: '2px solid #fff', display: 'grid', placeItems: 'center', cursor: 'pointer' }}>
-                  {uploadingAvatar ? <span style={{ fontSize: 10 }}>⟳</span> : <Camera size={12} />}
+                <button type="button" onClick={() => fileRef.current?.click()} disabled={uploadingAvatar} style={{ position: 'absolute', bottom: 2, right: 2, width: 34, height: 34, borderRadius: '50%', background: D.indigo, color: '#fff', border: D.border, display: 'grid', placeItems: 'center', cursor: 'pointer', boxShadow: '0 0 0 3px #fff' }}>
+                  {uploadingAvatar ? <span style={{ fontSize: 12 }}>⟳</span> : <Camera size={15} />}
                 </button>
               </div>
               <input ref={fileRef} type="file" hidden accept="image/jpeg,image/png,image/webp,image/gif" onChange={handleAvatarChange} />
-              <div>
-                <p style={{ fontSize: 14, fontWeight: 700, color: D.ink, margin: 0 }}>{user?.fullName ?? '—'}</p>
-                <p style={{ fontSize: 12, color: D.inkMuted, marginTop: 2 }}>{user?.email}</p>
-                <button type="button" onClick={() => fileRef.current?.click()} style={{ fontSize: 11, fontWeight: 700, color: D.indigo, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', marginTop: 6, padding: 0 }}>
+              <div style={{ maxWidth: '100%' }}>
+                <p style={{ fontSize: 18, fontWeight: 900, color: D.ink, margin: 0, letterSpacing: '-.02em', lineHeight: 1.2 }}>{user?.fullName ?? '—'}</p>
+                <p style={{ fontSize: 14, color: D.inkMuted, marginTop: 6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user?.email}</p>
+                <button type="button" onClick={() => fileRef.current?.click()} style={{ fontSize: 13, fontWeight: 800, color: D.indigo, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', marginTop: 10, padding: 0 }}>
                   Đổi ảnh đại diện
                 </button>
               </div>
@@ -185,7 +185,6 @@ export default function ProfilePage() {
                 <div style={{ width: 36, height: 36, borderRadius: 9, flexShrink: 0, background: D.bg, border: `1.5px dashed #c4bdb1`, display: 'grid', placeItems: 'center', fontSize: 16, color: D.inkMuted }}>◇</div>
                 <div>
                   <p style={{ fontSize: 13, fontWeight: 600, color: D.inkMuted, margin: 0 }}>Chưa tham gia CLB nào</p>
-                  <p style={{ fontSize: 11, color: D.inkMuted, marginTop: 2 }}>Khám phá và đăng ký các câu lạc bộ phù hợp với bạn.</p>
                 </div>
               </div>
             ) : (
@@ -247,9 +246,9 @@ export default function ProfilePage() {
             </div>
 
             <div>
-              <label style={labelS}>Email</label>
+              <label style={labelS}>Email  {<span style={{ fontSize: 11, color: D.inkMuted, marginTop: 4, marginLeft: 6 }}> (Email không thể thay đổi)</span>}</label>
               <input value={user?.email ?? ''} disabled style={{ ...inputS, opacity: 0.6, cursor: 'not-allowed' }} />
-              <p style={{ fontSize: 11, color: D.inkMuted, marginTop: 4 }}>Email không thể thay đổi.</p>
+
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>

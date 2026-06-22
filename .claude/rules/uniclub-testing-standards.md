@@ -17,7 +17,7 @@ trigger: always_on
 
 ## Test Project Location
 
-- `UniClubHub.Tests/` at solution root.
+- `UniClub-Hub.Tests/` at solution root.
 - Mirror module structure: `Tests/Operations/`, `Tests/Membership/`, `Tests/Portal/`.
 
 ## Database Isolation

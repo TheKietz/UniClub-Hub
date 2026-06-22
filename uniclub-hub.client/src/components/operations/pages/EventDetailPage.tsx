@@ -21,6 +21,7 @@ import EventDeptTasksBoard from '../components/event/EventDeptTasksBoard'
 import EventAttachmentsSection from '../components/event/EventAttachmentsSection'
 import { getClubMembers } from '@/components/membership/services/clubApi'
 import { EventStatusBadge } from '../../shared/StatusBadge'
+import { FilterSelect } from '@/components/shared/FilterSelect'
 import type {
   EventItem, UpdateEventDto, EventStatus,
   CreateEventSessionDto, AssignEventStaffDto,
@@ -103,10 +104,16 @@ function EditModal({ open, event, onClose, onSaved }: { open: boolean; event: Ev
           <div><label style={labelStyle}>Tên sự kiện <span style={{ color: D.red }}>*</span></label><input style={inputStyle} value={form.name} onChange={e => set('name', e.target.value)} /></div>
           <div>
             <label style={labelStyle}>Trạng thái</label>
-            <select aria-label="Trạng thái" style={{ ...inputStyle, cursor: 'pointer' }} value={form.status} onChange={e => set('status', e.target.value as EventStatus)}>
-              <option value="Draft">Nháp</option><option value="InProgress">Đang diễn ra</option>
-              <option value="Completed">Hoàn thành</option><option value="Cancelled">Đã hủy</option>
-            </select>
+            <FilterSelect
+              value={form.status}
+              onChange={value => set('status', value as EventStatus)}
+              options={[
+                { value: 'Draft', label: 'Nháp' },
+                { value: 'InProgress', label: 'Đang diễn ra' },
+                { value: 'Completed', label: 'Hoàn thành' },
+                { value: 'Cancelled', label: 'Đã hủy' },
+              ]}
+            />
           </div>
           <div><label style={labelStyle}>Mô tả</label><textarea style={{ ...inputStyle, resize: 'none', minHeight: 72 }} rows={3} value={form.description} onChange={e => set('description', e.target.value)} /></div>
           <div><label style={labelStyle}>Địa điểm</label><input style={inputStyle} value={form.location} onChange={e => set('location', e.target.value)} /></div>
@@ -202,17 +209,26 @@ function AssignStaffModal({ open, eventId, members, onClose, onAssigned }: { ope
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: '8px 0' }}>
           <div>
             <label style={labelStyle}>Thành viên <span style={{ color: D.red }}>*</span></label>
-            <select aria-label="Chọn thành viên" style={{ ...inputStyle, cursor: 'pointer' }} value={form.userId} onChange={e => setForm(f => ({ ...f, userId: e.target.value }))}>
-              <option value="">-- Chọn thành viên --</option>
-              {members.map(m => <option key={m.userId} value={m.userId}>{m.fullName ?? m.email}</option>)}
-            </select>
+            <FilterSelect
+              value={form.userId}
+              onChange={value => setForm(f => ({ ...f, userId: value }))}
+              options={[
+                { value: '', label: '-- Chọn thành viên --' },
+                ...members.map(m => ({ value: m.userId, label: m.fullName ?? m.email ?? 'Thành viên' })),
+              ]}
+              maxMenuHeight={260}
+            />
           </div>
           <div>
             <label style={labelStyle}>Vai trò</label>
-            <select aria-label="Vai trò" style={{ ...inputStyle, cursor: 'pointer' }} value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value }))}>
-              <option value="Lead">Trưởng ban</option>
-              <option value="Staff">Nhân sự</option>
-            </select>
+            <FilterSelect
+              value={form.role ?? 'Staff'}
+              onChange={value => setForm(f => ({ ...f, role: value }))}
+              options={[
+                { value: 'Lead', label: 'Trưởng ban' },
+                { value: 'Staff', label: 'Nhân sự' },
+              ]}
+            />
           </div>
         </div>
         <DialogFooter style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
@@ -749,4 +765,3 @@ export default function EventDetailPage() {
     </div>
   )
 }
-

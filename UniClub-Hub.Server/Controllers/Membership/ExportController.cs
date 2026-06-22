@@ -1,11 +1,9 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using UniClub_Hub.Membership.Services.Interfaces;
 using UniClub_Hub.Shared.Common;
-using UniClub_Hub.Shared.Data;
-using UniClub_Hub.Shared.Enums;
+using UniClub_Hub.Shared.Constants;
 
 namespace UniClub_Hub.Server.Controllers.Membership
 {
@@ -15,12 +13,12 @@ namespace UniClub_Hub.Server.Controllers.Membership
     public class ExportController : ControllerBase
     {
         private readonly IExportService _exportService;
-        private readonly UniClubDbContext _db;
+        private readonly IClubPermissionService _permissions;
 
-        public ExportController(IExportService exportService, UniClubDbContext db)
+        public ExportController(IExportService exportService, IClubPermissionService permissions)
         {
             _exportService = exportService;
-            _db = db;
+            _permissions = permissions;
         }
 
         /// <summary>
@@ -32,7 +30,7 @@ namespace UniClub_Hub.Server.Controllers.Membership
             [FromQuery] string format = "xlsx"
         )
         {
-            var authResult = await AuthorizeClubAsync(clubId);
+            var authResult = await AuthorizeClubAsync(clubId, ClubPermissions.MemberImportExport);
             if (authResult != null)
                 return authResult;
 
@@ -60,7 +58,7 @@ namespace UniClub_Hub.Server.Controllers.Membership
             [FromQuery] string? status = null
         )
         {
-            var authResult = await AuthorizeClubAsync(clubId);
+            var authResult = await AuthorizeClubAsync(clubId, ClubPermissions.ApplicationsView);
             if (authResult != null)
                 return authResult;
 
@@ -95,21 +93,13 @@ namespace UniClub_Hub.Server.Controllers.Membership
             return File(content, contentType, fileName);
         }
 
-        // Kiểm tra quyền: CLUB_ADMIN của CLB hoặc SUPER_ADMIN
-        private async Task<IActionResult?> AuthorizeClubAsync(int clubId)
+        private async Task<IActionResult?> AuthorizeClubAsync(int clubId, string permissionCode)
         {
-            if (User.IsInRole("SUPER_ADMIN"))
-                return null;
-
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
-            var isClubAdmin = await _db.ClubMemberships.AnyAsync(m =>
-                m.UserId == userId
-                && m.ClubId == clubId
-                && m.ClubRole == UniClub_Hub.Shared.Enums.ClubRole.CLUB_ADMIN
-                && m.Status == MembershipStatus.Active
-            );
-
-            return isClubAdmin ? null : Forbid();
+            var isSuperAdmin = User.IsInRole("SUPER_ADMIN");
+            return await _permissions.HasPermissionAsync(clubId, userId, isSuperAdmin, permissionCode)
+                ? null
+                : Forbid();
         }
     }
 }

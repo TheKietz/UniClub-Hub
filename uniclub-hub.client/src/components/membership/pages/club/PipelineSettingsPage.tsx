@@ -24,6 +24,7 @@ const inputStyle: React.CSSProperties = {
 const PRESET_STAGES = [
   'Xét CV', 'Phỏng vấn', 'Bài kiểm tra kỹ năng', 'Live coding', 'Phỏng vấn văn hóa', 'Thử việc',
 ]
+const DEFAULT_STAGES = ['Xét CV', 'Phỏng vấn', 'Thử việc']
 
 export default function PipelineSettingsPage() {
   const { clubId } = useParams<{ clubId: string }>()
@@ -56,6 +57,23 @@ export default function PipelineSettingsPage() {
       toast.success(`Đã thêm vòng "${trimmed}".`)
     } catch {
       toast.error('Thêm vòng thất bại.')
+    } finally {
+      setAdding(false)
+    }
+  }
+
+  async function createDefaultStages() {
+    if (stages.length > 0 || adding) return
+    setAdding(true)
+    try {
+      const created: PipelineStage[] = []
+      for (let i = 0; i < DEFAULT_STAGES.length; i++) {
+        created.push(await createPipelineStage(id, { name: DEFAULT_STAGES[i], stageOrder: i + 1 }))
+      }
+      setStages(created)
+      toast.success('Đã tạo quy trình mặc định.')
+    } catch {
+      toast.error('Tạo quy trình mặc định thất bại.')
     } finally {
       setAdding(false)
     }
@@ -129,6 +147,20 @@ export default function PipelineSettingsPage() {
             <p style={{ fontSize: 12, color: D.inkMuted, marginTop: 6 }}>
               Nếu không cấu hình, đơn sẽ dùng luồng cũ: Chờ duyệt → Phỏng vấn → Kết quả.
             </p>
+            <button
+              type="button"
+              onClick={createDefaultStages}
+              disabled={adding}
+              style={{
+                marginTop: 14, padding: '8px 16px', borderRadius: D.pill,
+                background: D.indigo, color: '#fff', border: D.border,
+                boxShadow: D.shadow(2, 2), fontSize: 12, fontWeight: 700,
+                cursor: adding ? 'not-allowed' : 'pointer', opacity: adding ? 0.7 : 1,
+                fontFamily: 'inherit',
+              }}
+            >
+              {adding ? 'Đang tạo...' : 'Tạo quy trình mặc định'}
+            </button>
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>

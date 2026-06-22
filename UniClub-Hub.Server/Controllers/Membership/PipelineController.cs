@@ -1,12 +1,10 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 using UniClub_Hub.Membership.DTOs.Pipeline;
 using UniClub_Hub.Membership.Services.Interfaces;
 using UniClub_Hub.Shared.Common;
-using UniClub_Hub.Shared.Data;
-using UniClub_Hub.Shared.Enums;
+using UniClub_Hub.Shared.Constants;
 
 namespace UniClub_Hub.Server.Controllers.Membership
 {
@@ -16,20 +14,12 @@ namespace UniClub_Hub.Server.Controllers.Membership
     public class PipelineController : ControllerBase
     {
         private readonly IPipelineService _pipeline;
-        private readonly UniClubDbContext _db;
+        private readonly IClubPermissionService _permissions;
 
-        public PipelineController(IPipelineService pipeline, UniClubDbContext db)
+        public PipelineController(IPipelineService pipeline, IClubPermissionService permissions)
         {
             _pipeline = pipeline;
-            _db = db;
-        }
-
-        private async Task<bool> IsClubAdminAsync(int clubId, string userId)
-        {
-            if (User.IsInRole("SUPER_ADMIN")) return true;
-            return await _db.ClubMemberships.AnyAsync(m =>
-                m.ClubId == clubId && m.UserId == userId &&
-                m.ClubRole == ClubRole.CLUB_ADMIN && m.Status == MembershipStatus.Active);
+            _permissions = permissions;
         }
 
         [HttpGet("stages")]
@@ -50,8 +40,7 @@ namespace UniClub_Hub.Server.Controllers.Membership
         [HttpPost("stages")]
         public async Task<IActionResult> CreateStage(int clubId, [FromBody] CreatePipelineStageRequest req)
         {
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
-            if (!await IsClubAdminAsync(clubId, userId)) return Forbid();
+            if (!await CanManageAsync(clubId)) return Forbid();
 
             try
             {
@@ -67,8 +56,7 @@ namespace UniClub_Hub.Server.Controllers.Membership
         [HttpPut("stages/{stageId}")]
         public async Task<IActionResult> UpdateStage(int clubId, int stageId, [FromBody] UpdatePipelineStageRequest req)
         {
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
-            if (!await IsClubAdminAsync(clubId, userId)) return Forbid();
+            if (!await CanManageAsync(clubId)) return Forbid();
 
             try
             {
@@ -84,8 +72,7 @@ namespace UniClub_Hub.Server.Controllers.Membership
         [HttpDelete("stages/{stageId}")]
         public async Task<IActionResult> DeleteStage(int clubId, int stageId)
         {
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
-            if (!await IsClubAdminAsync(clubId, userId)) return Forbid();
+            if (!await CanManageAsync(clubId)) return Forbid();
 
             try
             {
@@ -101,11 +88,17 @@ namespace UniClub_Hub.Server.Controllers.Membership
         [HttpPut("stages/reorder")]
         public async Task<IActionResult> Reorder(int clubId, [FromBody] ReorderStagesRequest req)
         {
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
-            if (!await IsClubAdminAsync(clubId, userId)) return Forbid();
+            if (!await CanManageAsync(clubId)) return Forbid();
 
             await _pipeline.ReorderAsync(clubId, req);
             return Ok(ApiResponse<object>.Ok(null, "Đã cập nhật thứ tự."));
+        }
+
+        private async Task<bool> CanManageAsync(int clubId)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+            var isSuperAdmin = User.IsInRole("SUPER_ADMIN");
+            return await _permissions.HasPermissionAsync(clubId, userId, isSuperAdmin, ClubPermissions.RecruitmentPipelineManage);
         }
     }
 }

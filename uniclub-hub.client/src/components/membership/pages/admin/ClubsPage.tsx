@@ -1,11 +1,10 @@
 import { MEMBERSHIP_STATUS } from '@/types/auth'
 import { useEffect, useState } from 'react'
-import { getAdminClubs, createClub, updateClub, deleteClub, getCategories } from '@/components/membership/services/adminApi'
+import { getAdminClubs, createClub, updateClub, deleteClub, getCategories, exportClubs } from '@/components/membership/services/adminApi'
 import type { ClubItem, CategoryItem, CreateClubDto, UpdateClubDto } from '@/components/membership/services/admin.types'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { toast } from 'sonner'
-import api from '@/lib/axiosInstance'
 import { Pencil, Trash2 } from 'lucide-react'
 import { Tooltip } from '@/components/shared/Tooltip'
 import { FilterSelect } from '@/components/shared/FilterSelect'
@@ -56,6 +55,7 @@ export default function ClubsPage() {
   const [deleteTarget, setDeleteTarget] = useState<ClubItem | null>(null)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+  const [categoryFilter, setCategoryFilter] = useState('')
   const [sortBy, setSortBy] = useState<'id' | 'name' | 'members'>('id')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
   const [hoverRow, setHoverRow] = useState<number | null>(null)
@@ -123,7 +123,7 @@ export default function ClubsPage() {
     }
   }
 
-  const hasFilter = search || statusFilter
+  const hasFilter = search || statusFilter || categoryFilter
   const filtered = clubs
     .filter(c => {
       if (!search) return true
@@ -131,6 +131,7 @@ export default function ClubsPage() {
       return c.name.toLowerCase().includes(q) || c.code.toLowerCase().includes(q)
     })
     .filter(c => !statusFilter || c.status === statusFilter)
+    .filter(c => !categoryFilter || String(c.categoryId ?? '') === categoryFilter)
     .sort((a, b) => {
       const cmp = sortBy === 'name' ? a.name.localeCompare(b.name)
         : sortBy === 'members' ? a.memberCount - b.memberCount
@@ -150,7 +151,7 @@ export default function ClubsPage() {
           <button
             style={{ background: D.card, color: D.inkDim, border: D.border, boxShadow: D.shadow(2,2), padding: '8px 14px', borderRadius: D.pill, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
             onClick={async () => {
-              const res = await api.get('/admin/export/clubs?format=xlsx', { responseType: 'blob' })
+              const res = await exportClubs('xlsx')
               const url = URL.createObjectURL(res.data)
               const a = document.createElement('a'); a.href = url; a.download = 'clubs.xlsx'; a.click()
               URL.revokeObjectURL(url)
@@ -160,7 +161,7 @@ export default function ClubsPage() {
           <button
             style={{ background: D.card, color: D.inkDim, border: D.border, boxShadow: D.shadow(2,2), padding: '8px 14px', borderRadius: D.pill, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
             onClick={async () => {
-              const res = await api.get('/admin/export/clubs?format=csv', { responseType: 'blob' })
+              const res = await exportClubs('csv')
               const url = URL.createObjectURL(res.data)
               const a = document.createElement('a'); a.href = url; a.download = 'clubs.csv'; a.click()
               URL.revokeObjectURL(url)
@@ -194,6 +195,15 @@ export default function ClubsPage() {
           style={{ width: 160 }}
         />
         <FilterSelect
+          value={categoryFilter}
+          onChange={setCategoryFilter}
+          options={[
+            { value: '', label: 'Tất cả lĩnh vực' },
+            ...categories.map(c => ({ value: String(c.id), label: c.name })),
+          ]}
+          style={{ width: 160 }}
+        />
+        <FilterSelect
           value={`${sortBy}-${sortDir}`}
           onChange={v => {
             const [col, dir] = v.split('-')
@@ -211,7 +221,7 @@ export default function ClubsPage() {
         />
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto' }}>
           {hasFilter && (
-            <button onClick={() => { setSearch(''); setStatusFilter('') }}
+            <button onClick={() => { setSearch(''); setStatusFilter(''); setCategoryFilter('') }}
               style={{ fontSize: 12, color: D.indigo, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
               Xoá lọc
             </button>
@@ -303,11 +313,14 @@ export default function ClubsPage() {
             </div>
             <div>
               <label style={labelStyle}>Lĩnh vực</label>
-              <select value={form.categoryId} onChange={setField('categoryId')}
-                style={{ ...inputStyle, height: 36 }}>
-                <option value="">— Chọn lĩnh vực —</option>
-                {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
+              <FilterSelect
+                value={form.categoryId}
+                onChange={value => setForm(prev => ({ ...prev, categoryId: value }))}
+                options={[
+                  { value: '', label: '— Chọn lĩnh vực —' },
+                  ...categories.map(c => ({ value: String(c.id), label: c.name })),
+                ]}
+              />
             </div>
             <div>
               <label style={labelStyle}>Mô tả</label>
@@ -326,10 +339,14 @@ export default function ClubsPage() {
             {editing && (
               <div>
                 <label style={labelStyle}>Trạng thái</label>
-                <select value={form.status} onChange={setField('status')} style={{ ...inputStyle, height: 36 }}>
-                  <option value="Active">Hoạt động</option>
-                  <option value="Inactive">Ngừng hoạt động</option>
-                </select>
+                <FilterSelect
+                  value={form.status}
+                  onChange={value => setForm(prev => ({ ...prev, status: value }))}
+                  options={[
+                    { value: 'Active', label: 'Hoạt động' },
+                    { value: 'Inactive', label: 'Ngừng hoạt động' },
+                  ]}
+                />
               </div>
             )}
             <DialogFooter style={{ borderTop: 'none', background: 'transparent', paddingTop: 4 }}>

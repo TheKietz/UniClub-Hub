@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { getUsers, lockUser, unlockUser, deleteUser, createUser, changeUserRole } from '@/components/membership/services/adminApi'
-import type { UserItem } from '@/components/membership/services/admin.types'
+import { getUsers, lockUser, unlockUser, deleteUser, createUser, changeUserRole, importUsersPreview, importUsersConfirm, exportUsers } from '@/components/membership/services/adminApi'
+import type { UserItem, UserImportPreview } from '@/components/membership/services/admin.types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -9,7 +9,6 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { toast } from 'sonner'
 import { Trash2, LockKeyhole, LockKeyholeOpen, ShieldCheck, ShieldOff, Upload, Download, FileSpreadsheet, CheckCircle2, XCircle, AlertCircle } from 'lucide-react'
 import { FilterSelect } from '@/components/shared/FilterSelect'
-import api from '@/lib/axiosInstance'
 import { LoadMoreBar } from '@/components/shared/LoadMoreBar'
 
 const PAGE_SIZE = 20
@@ -49,11 +48,9 @@ export default function UsersPage() {
   const [deleteTarget, setDeleteTarget] = useState<UserItem | null>(null)
 
   // Import state
-  type ImportUserRow = { rowNumber: number; email: string; fullName?: string; studentId?: string; major?: string; isValid: boolean; error?: string }
-  type ImportUserPreview = { validRows: ImportUserRow[]; invalidRows: ImportUserRow[]; totalRows: number; defaultPassword: string }
   const [importOpen, setImportOpen] = useState(false)
   const [importStep, setImportStep] = useState<'upload' | 'preview' | 'done'>('upload')
-  const [importPreview, setImportPreview] = useState<ImportUserPreview | null>(null)
+  const [importPreview, setImportPreview] = useState<UserImportPreview | null>(null)
   const [importResult, setImportResult] = useState<{ imported: number; skipped: number } | null>(null)
   const [importing, setImporting] = useState(false)
   const importFileRef = useRef<HTMLInputElement>(null)
@@ -66,12 +63,8 @@ export default function UsersPage() {
   async function handleImportPreview(file: File) {
     setImporting(true)
     try {
-      const fd = new FormData()
-      fd.append('file', file)
-      const res = await api.post<{ data: ImportUserPreview }>('/admin/import/users/preview', fd, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      })
-      setImportPreview(res.data.data)
+      const preview = await importUsersPreview(file)
+      setImportPreview(preview)
       setImportStep('preview')
     } catch (err: any) {
       toast.error(err.response?.data?.message ?? 'Không thể đọc file. Kiểm tra định dạng.')
@@ -87,8 +80,8 @@ export default function UsersPage() {
       const rows = importPreview.validRows.map(r => ({
         email: r.email, fullName: r.fullName, studentId: r.studentId, major: r.major,
       }))
-      const res = await api.post<{ data: { imported: number; skipped: number } }>('/admin/import/users/confirm', { rows })
-      setImportResult(res.data.data)
+      const result = await importUsersConfirm(rows)
+      setImportResult(result)
       setImportStep('done')
       setRefreshKey(k => k + 1)
     } catch (err: any) {
@@ -215,8 +208,8 @@ export default function UsersPage() {
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           {[
-            { label: '↓ Excel', action: async () => { const res = await api.get('/admin/export/users?format=xlsx', { responseType: 'blob' }); const url = URL.createObjectURL(res.data); const a = document.createElement('a'); a.href = url; a.download = 'users.xlsx'; a.click(); URL.revokeObjectURL(url) }, color: D.inkDim },
-            { label: '↓ CSV', action: async () => { const res = await api.get('/admin/export/users?format=csv', { responseType: 'blob' }); const url = URL.createObjectURL(res.data); const a = document.createElement('a'); a.href = url; a.download = 'users.csv'; a.click(); URL.revokeObjectURL(url) }, color: D.inkDim },
+            { label: '↓ Excel', action: async () => { const res = await exportUsers('xlsx'); const url = URL.createObjectURL(res.data); const a = document.createElement('a'); a.href = url; a.download = 'users.xlsx'; a.click(); URL.revokeObjectURL(url) }, color: D.inkDim },
+            { label: '↓ CSV', action: async () => { const res = await exportUsers('csv'); const url = URL.createObjectURL(res.data); const a = document.createElement('a'); a.href = url; a.download = 'users.csv'; a.click(); URL.revokeObjectURL(url) }, color: D.inkDim },
           ].map(btn => (
             <button key={btn.label} onClick={btn.action} style={{
               padding: '8px 14px', borderRadius: D.pill, background: D.card, border: D.border,
@@ -374,11 +367,15 @@ export default function UsersPage() {
               </div>
               <div className="space-y-1.5">
                 <Label>Giới tính</Label>
-                <select value={form.gender} onChange={field('gender')} className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background">
-                  <option value="">—</option>
-                  <option value="Nam">Nam</option>
-                  <option value="Nữ">Nữ</option>
-                </select>
+                <FilterSelect
+                  value={form.gender}
+                  onChange={value => setForm(prev => ({ ...prev, gender: value }))}
+                  options={[
+                    { value: '', label: '—' },
+                    { value: 'Nam', label: 'Nam' },
+                    { value: 'Nữ', label: 'Nữ' },
+                  ]}
+                />
               </div>
               <div className="col-span-2 space-y-1.5">
                 <Label>Ngành</Label>

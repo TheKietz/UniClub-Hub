@@ -21,15 +21,17 @@ namespace UniClub_Hub.Membership.Services.Implements
         private readonly IConfiguration _config;
         private readonly ISystemSettingService _settings;
         private readonly INotificationDispatchService _dispatch;
+        private readonly IClubPermissionService _permissions;
 
         public ApplicationService(UniClubDbContext db, IEmailService email, IConfiguration config,
-            ISystemSettingService settings, INotificationDispatchService dispatch)
+            ISystemSettingService settings, INotificationDispatchService dispatch, IClubPermissionService permissions)
         {
             _db = db;
             _email = email;
             _config = config;
             _settings = settings;
             _dispatch = dispatch;
+            _permissions = permissions;
         }
 
         public async Task<IEnumerable<ApplicationDto>> GetMyApplicationsAsync(string userId)
@@ -170,20 +172,8 @@ namespace UniClub_Hub.Membership.Services.Implements
                     "Đơn này đã được xử lý xong, không thể thay đổi."
                 );
 
-            if (!isSuperAdmin)
-            {
-                var isClubAdmin = await _db.ClubMemberships.AnyAsync(m =>
-                    m.ClubId == clubId
-                    && m.UserId == reviewerId
-                    && m.ClubRole == UniClub_Hub.Shared.Enums.ClubRole.CLUB_ADMIN
-                    && m.Status == MembershipStatus.Active
-                );
-
-                if (!isClubAdmin)
-                    throw new UnauthorizedAccessException(
-                        "Bạn không có quyền duyệt đơn của CLB này."
-                    );
-            }
+            await _permissions.EnsureHasPermissionAsync(
+                clubId, reviewerId, isSuperAdmin, ClubPermissions.ApplicationsReview);
 
             application.Status = dto.Status;
             application.ReviewNote = dto.ReviewNote;
@@ -325,15 +315,8 @@ namespace UniClub_Hub.Membership.Services.Implements
             if (application.Status is ApplicationStatus.Accepted or ApplicationStatus.Rejected)
                 throw new InvalidOperationException("Đơn này đã được xử lý xong, không thể thay đổi.");
 
-            if (!isSuperAdmin)
-            {
-                var isClubAdmin = await _db.ClubMemberships.AnyAsync(m =>
-                    m.ClubId == clubId && m.UserId == reviewerId &&
-                    m.ClubRole == UniClub_Hub.Shared.Enums.ClubRole.CLUB_ADMIN &&
-                    m.Status == MembershipStatus.Active);
-                if (!isClubAdmin)
-                    throw new UnauthorizedAccessException("Bạn không có quyền xét đơn của CLB này.");
-            }
+            await _permissions.EnsureHasPermissionAsync(
+                clubId, reviewerId, isSuperAdmin, ClubPermissions.ApplicationsReview);
 
             var stages = await _db.ClubPipelineStages
                 .Where(s => s.ClubId == clubId && s.IsActive)

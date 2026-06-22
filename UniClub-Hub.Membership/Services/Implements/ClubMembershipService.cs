@@ -14,12 +14,14 @@ namespace UniClub_Hub.Membership.Services.Implements
         private readonly UniClubDbContext _db;
         private readonly INotificationDispatchService _dispatch;
         private readonly ISystemSettingService _settings;
+        private readonly IClubPermissionService _permissions;
 
-        public ClubMembershipService(UniClubDbContext db, INotificationDispatchService dispatch, ISystemSettingService settings)
+        public ClubMembershipService(UniClubDbContext db, INotificationDispatchService dispatch, ISystemSettingService settings, IClubPermissionService permissions)
         {
             _db = db;
             _dispatch = dispatch;
             _settings = settings;
+            _permissions = permissions;
         }
 
         // ── Public ───────────────────────────────────────────────────────
@@ -438,17 +440,10 @@ namespace UniClub_Hub.Membership.Services.Implements
 
         private async Task EnsureCanManageAsync(int clubId, string userId)
         {
-            var isClubAdmin = await _db.ClubMemberships.AnyAsync(m =>
-                m.ClubId == clubId
-                && m.UserId == userId
-                && m.ClubRole == UniClub_Hub.Shared.Enums.ClubRole.CLUB_ADMIN
-                && m.Status == MembershipStatus.Active
-            );
-
-            if (!isClubAdmin)
-                throw new UnauthorizedAccessException(
-                    "Bạn không có quyền quản lý thành viên trong CLB này."
-                );
+            // SUPER_ADMIN là handled ở controller (gọi AsAdmin variants)
+            // isSuperAdmin = false vì đây là nhánh non-admin
+            await _permissions.EnsureHasPermissionAsync(
+                clubId, userId, false, ClubPermissions.MembersManage);
         }
 
         private async Task EnsureDepartmentBelongsToClubAsync(int clubId, int departmentId)

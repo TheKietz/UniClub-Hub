@@ -2,24 +2,17 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getClubs, getPublicCategories } from '@/components/membership/services/clubApi'
 import type { ClubListItem } from '@/components/membership/services/club.types'
-import { C, Rv, ClubCard, CatPill, Marquee, PublicFooter, type ClubCardData } from '@/components/public/publicComponents'
+import { C, Rv, ClubCard, CatPill, Marquee, PublicFooter } from '@/components/public/publicComponents'
+import { LandingClubGridSkeleton } from '@/components/public/LandingSkeleton'
+import { toClubCardData } from '@/components/public/clubCardMapper'
 import PublicHeader from '@/components/layouts/PublicHeader'
+import { FilterSelect } from '@/components/shared/FilterSelect'
+import SkyBackground from '@/components/public/SkyBackground'
 
-const CLUB_COLORS = [C.indigo, C.violet, C.coral, C.mint, C.sky, C.pink, C.lemon, C.coral]
-
-function toCardData(c: ClubListItem, i: number): ClubCardData {
-  return {
-    id: c.id,
-    name: c.name,
-    short: c.name.split(' ').filter(Boolean).map(w => w[0]).slice(0, 3).join('').toUpperCase(),
-    category: c.categoryName ?? '',
-    memberCount: c.memberCount ?? 0,
-    hue: (i * 47 + 200) % 360,
-    description: c.description ?? '',
-    isRecruiting: false,
-    color: CLUB_COLORS[i % CLUB_COLORS.length],
-    logoUrl: c.logoUrl,
-  }
+const glassCard: React.CSSProperties = {
+  background: 'rgba(255,255,255,.74)',
+  backdropFilter: 'blur(16px) saturate(140%)',
+  WebkitBackdropFilter: 'blur(16px) saturate(140%)',
 }
 
 export default function ClubListPage() {
@@ -27,16 +20,38 @@ export default function ClubListPage() {
   const [clubs, setClubs] = useState<ClubListItem[]>([])
   const [categories, setCategories] = useState<{ id: number; name: string }[]>([])
   const [loading, setLoading] = useState(true)
+  const [clubsError, setClubsError] = useState(false)
+  const [categoriesError, setCategoriesError] = useState(false)
   const [search, setSearch] = useState('')
   const [activeCat, setActiveCat] = useState('Tất cả')
   const [sortBy, setSortBy] = useState<'default' | 'name-asc' | 'name-desc' | 'members-desc' | 'members-asc'>('default')
+  const [onlyRecruiting, setOnlyRecruiting] = useState(false)
 
-  useEffect(() => {
-    Promise.all([getClubs(), getPublicCategories()])
-      .then(([c, cats]) => { setClubs(c); setCategories(cats) })
-      .catch(() => { })
+  function loadClubsPage() {
+    setLoading(true)
+    setClubsError(false)
+    setCategoriesError(false)
+
+    Promise.allSettled([getClubs(), getPublicCategories()])
+      .then(([clubsResult, categoriesResult]) => {
+        if (clubsResult.status === 'fulfilled') {
+          setClubs(clubsResult.value)
+        } else {
+          setClubs([])
+          setClubsError(true)
+        }
+
+        if (categoriesResult.status === 'fulfilled') {
+          setCategories(categoriesResult.value)
+        } else {
+          setCategories([])
+          setCategoriesError(true)
+        }
+      })
       .finally(() => setLoading(false))
-  }, [])
+  }
+
+  useEffect(() => { loadClubsPage() }, [])
 
   const catLabels = ['Tất cả', ...categories.map(c => c.name)]
 
@@ -45,7 +60,8 @@ export default function ClubListPage() {
       const matchCat = activeCat === 'Tất cả' || c.categoryName === activeCat
       const q = search.toLowerCase()
       const matchSearch = !q || c.name.toLowerCase().includes(q) || (c.description ?? '').toLowerCase().includes(q)
-      return matchCat && matchSearch
+      const matchRecruiting = !onlyRecruiting || c.isRecruiting === true
+      return matchCat && matchSearch && matchRecruiting
     })
     .sort((a, b) => {
       if (sortBy === 'name-asc') return a.name.localeCompare(b.name)
@@ -55,20 +71,28 @@ export default function ClubListPage() {
       return 0
     })
 
-  const cardData = filtered.map(toCardData)
+  const cardData = filtered.map(toClubCardData)
   const marqueeItems = clubs.length > 0 ? clubs.map(c => c.name.toUpperCase()) : ['CLB UEF']
 
+  // CLB đang tuyển nổi bật — chỉ hiện khi chưa lọc/tìm kiếm
+  const recruitingCount = clubs.filter(c => c.isRecruiting === true).length
+  const spotlightCards = clubs.filter(c => c.isRecruiting === true).slice(0, 2).map(toClubCardData)
+  const showSpotlight = !loading && !clubsError
+    && activeCat === 'Tất cả' && !search.trim() && !onlyRecruiting
+    && spotlightCards.length > 0
+
   return (
-    <div className="v3-page v3-enter">
+    <div className="v3-page v3-enter" style={{ background: 'transparent' }}>
+      <SkyBackground />
       <PublicHeader />
 
       {/* ─── Header / Search ──────────────────────────── */}
-      <section style={{ padding: '44px 28px 28px', position: 'relative', overflow: 'hidden' }}>
+      <section style={{ padding: '132px 28px 28px', position: 'relative', zIndex: 20 }}>
         <div style={{ maxWidth: 1280, margin: '0 auto', position: 'relative' }}>
           {/* Decoration */}
           <div aria-hidden style={{
             position: 'absolute', top: 10, right: 40,
-            fontSize: 48, color: C.lemon, transform: 'rotate(15deg)',
+            fontSize: 48, color: C.coral, opacity: 0.35, transform: 'rotate(15deg)',
             animation: 'float 4s ease-in-out infinite', pointerEvents: 'none',
           }}>✦</div>
 
@@ -86,7 +110,7 @@ export default function ClubListPage() {
             }}>
               Tìm câu lạc bộ{' '}
               <span style={{
-                display: 'inline-block', background: C.lemon, padding: '0 14px',
+                display: 'inline-block', background: C.coral, color: C.bg, padding: '0 14px',
                 border: C.border, borderRadius: 14, transform: 'rotate(-1.5deg)',
               }}>phù hợp.</span>
             </h1>
@@ -95,8 +119,9 @@ export default function ClubListPage() {
           {/* Search */}
           <Rv delay={100}>
             <div style={{
+              ...glassCard,
               display: 'flex', alignItems: 'center', gap: 10,
-              background: C.card, border: C.border, borderRadius: C.radiusPill,
+              border: C.border, borderRadius: C.radiusPill,
               padding: '0 20px', height: 52, marginBottom: 16, boxShadow: C.shadow(),
             }}>
               <span style={{ fontSize: 18, color: C.inkMuted }}>⌕</span>
@@ -115,7 +140,7 @@ export default function ClubListPage() {
                   onClick={() => setSearch('')}
                   style={{
                     width: 28, height: 28, borderRadius: 999, border: 'none',
-                    background: C.ink, color: C.lemon, fontSize: 14, fontWeight: 800,
+                    background: C.ink, color: C.bg, fontSize: 14, fontWeight: 800,
                     display: 'grid', placeItems: 'center', cursor: 'pointer',
                   }}
                 >×</button>
@@ -125,11 +150,39 @@ export default function ClubListPage() {
 
           {/* Categories */}
           <Rv delay={140}>
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
               {catLabels.map(c => (
                 <CatPill key={c} label={c} active={activeCat === c} onClick={() => setActiveCat(c)} />
               ))}
+              {recruitingCount > 0 && (
+                <button
+                  onClick={() => setOnlyRecruiting(v => !v)}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 7,
+                    padding: '8px 16px', borderRadius: C.radiusPill,
+                    background: onlyRecruiting ? C.coral : C.card,
+                    color: onlyRecruiting ? C.bg : C.coral,
+                    border: `1.5px solid ${C.coral}`,
+                    boxShadow: onlyRecruiting ? 'none' : C.shadow(2, 2),
+                    transform: onlyRecruiting ? 'translate(2px,2px)' : 'none',
+                    fontSize: 13, fontWeight: 700, transition: 'all .12s',
+                    cursor: 'pointer', fontFamily: 'inherit',
+                  }}
+                >
+                  <span style={{
+                    width: 7, height: 7, borderRadius: 999,
+                    background: onlyRecruiting ? C.bg : C.coral,
+                    animation: 'pulse 2s infinite',
+                  }} />
+                  Đang tuyển ({recruitingCount})
+                </button>
+              )}
             </div>
+            {categoriesError && (
+              <div style={{ marginTop: 10, fontSize: 12, color: C.inkMuted, fontWeight: 600 }}>
+                Chưa tải được danh mục, bạn vẫn có thể xem danh sách CLB.
+              </div>
+            )}
           </Rv>
 
           <Rv delay={160}>
@@ -138,32 +191,126 @@ export default function ClubListPage() {
                 Hiển thị <strong style={{ color: C.ink }}>{filtered.length}</strong> trong {clubs.length} câu lạc bộ
                 {activeCat !== 'Tất cả' && <> · <strong style={{ color: C.ink }}>{activeCat}</strong></>}
               </span>
-              <select
+              <FilterSelect
                 value={sortBy}
-                onChange={e => setSortBy(e.target.value as typeof sortBy)}
-                style={{
-                  marginLeft: 'auto', height: 34, borderRadius: 8,
-                  border: C.border, padding: '0 10px', fontSize: 12, fontWeight: 600,
-                  background: C.card, color: C.ink, cursor: 'pointer',
-                  fontFamily: "'Be Vietnam Pro', sans-serif", outline: 'none',
+                onChange={value => setSortBy(value as typeof sortBy)}
+                options={[
+                  { value: 'default', label: 'Mặc định' },
+                  { value: 'name-asc', label: 'Tên A → Z' },
+                  { value: 'name-desc', label: 'Tên Z → A' },
+                  { value: 'members-desc', label: 'Thành viên nhiều nhất' },
+                  { value: 'members-asc', label: 'Thành viên ít nhất' },
+                ]}
+                style={{ marginLeft: 'auto', width: 210 }}
+                buttonStyle={{
+                  height: 42, borderRadius: C.radiusPill,
+                  border: C.border, color: C.ink, fontWeight: 700, fontSize: 13,
+                  background: 'rgba(255,255,255,.74)',
+                  backdropFilter: 'blur(16px) saturate(140%)',
+                  WebkitBackdropFilter: 'blur(16px) saturate(140%)',
                 }}
-              >
-                <option value="default">Mặc định</option>
-                <option value="name-asc">Tên A → Z</option>
-                <option value="name-desc">Tên Z → A</option>
-                <option value="members-desc">Thành viên nhiều nhất</option>
-                <option value="members-asc">Thành viên ít nhất</option>
-              </select>
+                menuStyle={{
+                  border: C.border, borderRadius: 14, boxShadow: C.shadow(3, 3),
+                }}
+              />
             </div>
           </Rv>
         </div>
       </section>
 
+      {/* ─── Spotlight: CLB đang tuyển nổi bật ────────── */}
+      {showSpotlight && (
+        <section style={{ padding: '4px 28px 8px' }}>
+          <div style={{ maxWidth: 1280, margin: '0 auto' }}>
+            <Rv>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+                <span style={{ width: 8, height: 8, borderRadius: 999, background: C.coral, animation: 'pulse 2s infinite' }} />
+                <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase', color: C.coral }}>
+                  Đang mở đơn tuyển thành viên
+                </span>
+              </div>
+            </Rv>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 14 }}>
+              {spotlightCards.map((club, i) => (
+                <Rv key={club.id} delay={i * 60}>
+                  <div
+                    className="card-lift"
+                    onClick={() => navigate(`/clubs/${club.id}`)}
+                    style={{
+                      ...glassCard, display: 'flex', border: C.border, borderRadius: 20,
+                      boxShadow: C.shadow(6, 6), overflow: 'hidden', cursor: 'pointer', minHeight: 156,
+                    }}
+                  >
+                    <div style={{
+                      width: 112, flexShrink: 0, background: club.color, borderRight: C.border,
+                      display: 'grid', placeItems: 'center',
+                    }}>
+                      {club.logoUrl ? (
+                        <img src={club.logoUrl} alt="" style={{ width: 56, height: 56, borderRadius: 12, objectFit: 'cover', border: C.border }} />
+                      ) : (
+                        <div style={{ fontSize: 26, fontWeight: 900, color: C.bg, letterSpacing: '-.02em', transform: 'rotate(-3deg)' }}>
+                          {club.short}
+                        </div>
+                      )}
+                    </div>
+                    <div style={{ flex: 1, padding: '16px 18px', display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                      <span style={{
+                        alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 5,
+                        fontSize: 10, fontWeight: 800, letterSpacing: '.05em', textTransform: 'uppercase',
+                        padding: '3px 9px', borderRadius: 999, background: C.coral, color: C.bg, marginBottom: 8,
+                      }}>★ Tuyển thành viên</span>
+                      <div style={{ fontSize: 17, fontWeight: 800, color: C.ink, letterSpacing: '-.01em', marginBottom: 5 }}>
+                        {club.name}
+                      </div>
+                      <div style={{
+                        fontSize: 12.5, color: C.inkDim, lineHeight: 1.5, flex: 1,
+                        display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as const, overflow: 'hidden',
+                      }}>
+                        {club.description}
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 }}>
+                        <span style={{ fontSize: 12, color: C.inkMuted, fontWeight: 600 }}>{club.memberCount} thành viên</span>
+                        <span style={{ fontSize: 13, fontWeight: 800, color: C.coral }}>Xem &amp; nộp đơn →</span>
+                      </div>
+                    </div>
+                  </div>
+                </Rv>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* ─── Club grid ────────────────────────────────── */}
       {loading ? (
-        <div style={{ padding: '60px 28px', textAlign: 'center', color: C.inkMuted, fontSize: 15 }}>
-          Đang tải...
-        </div>
+        <section style={{ padding: '16px 28px 60px', flex: 1 }}>
+          <div style={{ maxWidth: 1280, margin: '0 auto' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 14 }}>
+              <LandingClubGridSkeleton count={8} compact={false} />
+            </div>
+          </div>
+        </section>
+      ) : clubsError ? (
+        <section style={{ padding: '64px 28px', textAlign: 'center' }}>
+          <div style={{ maxWidth: 420, margin: '0 auto' }}>
+            <div style={{ fontSize: 18, fontWeight: 800, color: C.ink, marginBottom: 8 }}>
+              Không tải được danh sách CLB
+            </div>
+            <div style={{ fontSize: 14, color: C.inkMuted, marginBottom: 20, lineHeight: 1.55 }}>
+              Backend có thể chưa chạy hoặc API đang gián đoạn. Thử tải lại danh sách một lần nữa.
+            </div>
+            <button
+              type="button"
+              onClick={loadClubsPage}
+              style={{
+                padding: '10px 20px', borderRadius: C.radiusPill,
+                background: C.ink, color: C.lemon, border: C.border,
+                fontSize: 14, fontWeight: 750, boxShadow: C.shadow(),
+                cursor: 'pointer', fontFamily: 'inherit',
+              }}
+            >Thử lại</button>
+          </div>
+        </section>
       ) : cardData.length > 0 ? (
         <section style={{ padding: '16px 28px 60px', flex: 1 }}>
           <div style={{ maxWidth: 1280, margin: '0 auto' }}>

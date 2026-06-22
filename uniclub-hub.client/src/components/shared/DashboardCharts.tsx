@@ -129,7 +129,7 @@ export function StatCard({ icon, label, value, sub, color }: {
 
 // ── ChartCard ────────────────────────────────────────────────────
 export function ChartCard({ title, sub, rightLabel, children, style: sx }: {
-  title: string; sub?: string; rightLabel?: string
+  title: string; sub?: string; rightLabel?: React.ReactNode
   children: React.ReactNode; style?: React.CSSProperties
 }) {
   return (

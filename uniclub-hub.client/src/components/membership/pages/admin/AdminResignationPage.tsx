@@ -15,6 +15,7 @@ const D = {
   inkMuted: '#918c99',
   bg: '#f7f6f1',
   card: '#ffffff',
+  lemon: '#facc15',
   indigo: '#4f46e5',
   emerald: '#10b981',
   amber: '#f59e0b',
@@ -83,27 +84,30 @@ export default function AdminResignationPage() {
       </div>
 
       {/* Status tabs */}
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
         {STATUS_TABS.map(tab => {
           const active = statusFilter === tab.value
+          const c = tab.value ? (counts[tab.value] ?? 0) : requests.length
           return (
             <button key={tab.value} onClick={() => setStatusFilter(tab.value)}
               style={{
-                padding: '6px 14px', borderRadius: D.pill, fontSize: 12, fontWeight: 700,
+                padding: '7px 14px', borderRadius: D.pill, fontSize: 12, fontWeight: 700,
                 border: D.border, cursor: 'pointer', fontFamily: 'inherit',
-                background: active ? D.indigo : D.card,
-                color: active ? '#fff' : D.inkDim,
-                boxShadow: active ? D.shadow(2,2) : 'none',
+                background: active ? D.ink : D.card,
+                color: active ? D.lemon : D.ink,
+                boxShadow: active ? 'none' : D.shadow(2, 2),
+                transform: active ? 'translate(2px,2px)' : 'none',
                 display: 'flex', alignItems: 'center', gap: 6,
+                transition: 'all .12s',
               }}>
               {tab.label}
-              {tab.value && counts[tab.value] ? (
+              {c > 0 && (
                 <span style={{
-                  fontSize: 10, padding: '1px 6px', borderRadius: D.pill, fontWeight: 700,
-                  background: active ? 'rgba(255,255,255,0.2)' : D.bg,
-                  color: active ? '#fff' : D.inkMuted,
-                }}>{counts[tab.value]}</span>
-              ) : null}
+                  fontSize: 10, padding: '1px 6px', borderRadius: D.pill, fontWeight: 800,
+                  background: active ? 'rgba(255,255,255,.2)' : D.bg,
+                  color: active ? D.lemon : D.inkMuted,
+                }}>{c}</span>
+              )}
             </button>
           )
         })}

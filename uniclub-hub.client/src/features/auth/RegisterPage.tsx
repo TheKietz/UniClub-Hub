@@ -1,14 +1,14 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useGoogleLogin } from '@react-oauth/google'
+import { Eye, EyeOff, MailCheck, RefreshCw } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
-import { C, Rv, PublicFooter } from '@/components/public/publicComponents'
-import PublicHeader from '@/components/layouts/PublicHeader'
+import { C } from '@/components/public/publicComponents'
 import MajorSelect from '@/components/shared/MajorSelect'
 import { toast } from 'sonner'
 import api from '@/lib/axiosInstance'
-import { MailCheck, RefreshCw, Eye, EyeOff } from 'lucide-react'
 import type { UserInfo } from '@/types/auth'
+import AuthShell from './AuthShell'
 
 function redirectAfterLogin(me: UserInfo): string {
   if (me.roles.includes('SUPER_ADMIN')) return '/admin'
@@ -18,28 +18,48 @@ function redirectAfterLogin(me: UserInfo): string {
   return '/clubs'
 }
 
-type F = { fullName: string; email: string; studentId: string; major: string; password: string; confirmPassword: string }
+type F = {
+  fullName: string
+  email: string
+  studentId: string
+  major: string
+  password: string
+  confirmPassword: string
+}
 type Errs = Partial<Record<keyof F, string>>
 
-const CLUB_SQUARES = [
-  { short: 'UEC', color: C.indigo },
-  { short: 'MKC', color: C.violet },
-  { short: 'ITS', color: C.sky },
-  { short: 'VLC', color: C.mint },
-  { short: 'DCU', color: C.pink },
-  { short: 'STH', color: C.coral },
-]
-
 const inputStyle: React.CSSProperties = {
-  width: '100%', height: 40, borderRadius: C.radiusPill,
-  border: C.border, background: C.bg,
-  padding: '0 14px', fontSize: 13.5, color: C.ink, outline: 'none',
-  marginBottom: 8, fontWeight: 500, boxSizing: 'border-box',
+  width: '100%',
+  height: 48,
+  borderRadius: 14,
+  border: '1.5px solid #e4dfd4',
+  background: C.bg,
+  padding: '0 16px',
+  fontSize: 14,
+  color: C.ink,
+  outline: 'none',
+  fontWeight: 600,
+  boxSizing: 'border-box',
   fontFamily: "'Be Vietnam Pro', sans-serif",
 }
+
 const labelStyle: React.CSSProperties = {
-  display: 'block', fontSize: 11, fontWeight: 700, color: C.inkDim,
-  marginBottom: 4, letterSpacing: '.04em', textTransform: 'uppercase',
+  display: 'block',
+  fontSize: 13,
+  fontWeight: 800,
+  color: C.inkDim,
+  marginBottom: 8,
+}
+
+function GoogleIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden>
+      <path fill="#4285F4" d="M16.51 8H8.98v3h4.3c-.18 1-.74 1.48-1.6 2.04v2.01h2.6a7.8 7.8 0 002.38-5.88c0-.57-.05-.66-.15-1.18z" />
+      <path fill="#34A853" d="M8.98 17c2.16 0 3.97-.72 5.3-1.94l-2.6-2a4.8 4.8 0 01-7.18-2.54H1.83v2.07A8 8 0 008.98 17z" />
+      <path fill="#FBBC05" d="M4.5 10.52a4.8 4.8 0 010-3.04V5.41H1.83a8 8 0 000 7.18l2.67-2.07z" />
+      <path fill="#EA4335" d="M8.98 4.18c1.17 0 2.23.4 3.06 1.2l2.3-2.3A8 8 0 001.83 5.4L4.5 7.49a4.77 4.77 0 014.48-3.31z" />
+    </svg>
+  )
 }
 
 export default function RegisterPage() {
@@ -48,7 +68,14 @@ export default function RegisterPage() {
 
   const [step, setStep] = useState<1 | 2 | 3>(1)
   const [registeredEmail, setRegisteredEmail] = useState('')
-  const [form, setForm] = useState<F>({ fullName: '', email: '', studentId: '', major: '', password: '', confirmPassword: '' })
+  const [form, setForm] = useState<F>({
+    fullName: '',
+    email: '',
+    studentId: '',
+    major: '',
+    password: '',
+    confirmPassword: '',
+  })
   const [errs, setErrs] = useState<Errs>({})
   const [loading, setLoading] = useState(false)
   const [resendLoading, setResendLoading] = useState(false)
@@ -84,7 +111,10 @@ export default function RegisterPage() {
   function handleNext(e: { preventDefault(): void }) {
     e.preventDefault()
     const fieldErrs = validateStep1(form)
-    if (Object.keys(fieldErrs).length > 0) { setErrs(fieldErrs); return }
+    if (Object.keys(fieldErrs).length > 0) {
+      setErrs(fieldErrs)
+      return
+    }
     setErrs({})
     setStep(2)
   }
@@ -92,10 +122,19 @@ export default function RegisterPage() {
   async function handleSubmit(e: { preventDefault(): void }) {
     e.preventDefault()
     const fieldErrs = validateStep2(form)
-    if (Object.keys(fieldErrs).length > 0) { setErrs(fieldErrs); return }
+    if (Object.keys(fieldErrs).length > 0) {
+      setErrs(fieldErrs)
+      return
+    }
     setLoading(true)
     try {
-      await register({ email: form.email, password: form.password, fullName: form.fullName, studentId: form.studentId, major: form.major })
+      await register({
+        email: form.email,
+        password: form.password,
+        fullName: form.fullName,
+        studentId: form.studentId,
+        major: form.major,
+      })
       setRegisteredEmail(form.email)
       setStep(3)
     } catch (err: any) {
@@ -133,264 +172,355 @@ export default function RegisterPage() {
     onError: () => toast.error('Đăng ký Google thất bại. Vui lòng thử lại.'),
   })
 
-
   return (
-    <div className="v3-page v3-enter">
-      <PublicHeader />
-      <div style={{
-        flex: 1, background: C.bg,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        padding: '20px 28px', fontFamily: "'Be Vietnam Pro', sans-serif",
-      }}>
-      <div style={{
-        display: 'grid', gridTemplateColumns: '1fr 440px', gap: 56,
-        maxWidth: 980, width: '100%', alignItems: 'center',
-      }}>
-        {/* ── Left panel ── */}
-        <div style={{ position: 'relative' }}>
-          <Rv>
-            <span style={{
-              display: 'inline-flex', alignItems: 'center', gap: 4,
-              fontSize: 10.5, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase',
-              padding: '3px 10px', borderRadius: 4, background: C.lemon, color: C.ink,
-              border: C.border, marginBottom: 16,
-            }}>★ Đăng ký</span>
-          </Rv>
-          <Rv delay={60}>
-            <h1 style={{
-              fontSize: 'clamp(36px, 5.5vw, 64px)', fontWeight: 900, color: C.ink,
-              letterSpacing: '-.045em', lineHeight: 0.95, margin: 0,
-            }}>
-              Chào mừng<br />
-              <span style={{ fontFamily: "'Instrument Serif', serif", fontStyle: 'italic', fontWeight: 400 }}>
-                đến UniClub!
-              </span>{' '}🎉
-            </h1>
-          </Rv>
-          <Rv delay={120}>
-            <p style={{ fontSize: 16, color: C.inkDim, lineHeight: 1.5, margin: '20px 0 0', maxWidth: 400, fontWeight: 500 }}>
-              Tham gia cộng đồng CLB sinh viên. Khám phá, tham gia và đóng góp cùng mọi người.
-            </p>
-          </Rv>
-          <Rv delay={180}>
-            <div style={{ marginTop: 32 }}>
-              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                {CLUB_SQUARES.map((club, i) => (
-                  <div key={club.short} style={{
-                    width: 52, height: 52, borderRadius: 14,
-                    background: club.color, border: C.border,
-                    display: 'grid', placeItems: 'center',
-                    color: C.bg, fontWeight: 900, fontSize: 13, letterSpacing: '-.02em',
-                    transform: `rotate(${(i % 2 === 0 ? -1 : 1) * (3 + i)}deg)`,
-                    boxShadow: C.shadow(3, 3),
-                    animation: `float ${3 + i * 0.5}s ease-in-out infinite ${i * 0.3}s`,
-                  } as React.CSSProperties}>{club.short}</div>
-                ))}
-              </div>
-              <div style={{ fontSize: 13, color: C.inkMuted, fontWeight: 500, marginTop: 12 }}>
-                42 CLB đang hoạt động tại UEF
-              </div>
-            </div>
-          </Rv>
-        </div>
+    <AuthShell
+      eyebrow="Tham gia UniClub"
+      title="Bắt đầu hành trình"
+      accent="cùng CLB UEF"
+      description="Tạo tài khoản để đăng ký CLB, nhận thông báo tuyển thành viên và tham gia các hoạt động sinh viên."
+    >
+      <h1 style={{ margin: 0, fontSize: 32, fontWeight: 900, color: C.ink, letterSpacing: '-.04em' }}>
+        {step === 3 ? 'Xác thực email' : 'Đăng ký'}
+      </h1>
+      <p style={{ margin: '8px 0 24px', fontSize: 15, color: C.inkDim, fontWeight: 600 }}>
+        {step === 3 ? 'Hoàn tất bước xác thực để sử dụng tài khoản' : 'Tạo tài khoản sinh viên UniClub'}
+      </p>
 
-        {/* ── Form card ── */}
-        <Rv delay={100}>
+      {step === 3 ? (
+        <div style={{ textAlign: 'center' }}>
           <div style={{
-            background: C.card, border: C.border, borderRadius: 20,
-            boxShadow: C.shadow(6, 6), padding: '24px 24px 20px',
+            width: 72,
+            height: 72,
+            borderRadius: 22,
+            background: '#ede9fe',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: '0 auto 18px',
+            color: C.violet,
           }}>
-            {/* Step 3 — check email */}
-            {step === 3 ? (
-              <div style={{ textAlign: 'center', padding: '8px 0 4px' }}>
-                <div style={{
-                  width: 60, height: 60, borderRadius: 999, background: '#ede9fe',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px',
+            <MailCheck size={34} />
+          </div>
+          <h2 style={{ fontSize: 22, fontWeight: 900, color: C.ink, margin: '0 0 8px' }}>
+            Kiểm tra email
+          </h2>
+          <p style={{ fontSize: 14, color: C.inkDim, lineHeight: 1.6, margin: '0 0 18px', fontWeight: 600 }}>
+            Link xác thực đã được gửi đến <strong style={{ color: C.ink }}>{registeredEmail}</strong>.
+          </p>
+          <div style={{
+            background: '#fef3c7',
+            border: '1.5px solid #fde68a',
+            borderRadius: 14,
+            padding: '12px 14px',
+            marginBottom: 16,
+            textAlign: 'left',
+          }}>
+            <p style={{ fontSize: 13, color: '#92400e', margin: 0, fontWeight: 700 }}>
+              Không thấy email? Kiểm tra thư mục Spam hoặc gửi lại email xác thực.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleResend}
+            disabled={resendLoading}
+            style={{
+              width: '100%',
+              height: 48,
+              borderRadius: 14,
+              border: '1.5px solid #e4dfd4',
+              background: C.card,
+              color: C.ink,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
+              fontSize: 14,
+              fontWeight: 800,
+              cursor: resendLoading ? 'wait' : 'pointer',
+              marginBottom: 12,
+              fontFamily: 'inherit',
+            }}
+          >
+            <RefreshCw size={16} style={{ animation: resendLoading ? 'spin 1s linear infinite' : 'none' }} />
+            {resendLoading ? 'Đang gửi...' : 'Gửi lại email xác thực'}
+          </button>
+          <Link
+            to="/login"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '100%',
+              height: 50,
+              borderRadius: 14,
+              background: `linear-gradient(90deg, ${C.coral}, #f43f5e)`,
+              color: C.bg,
+              fontSize: 15,
+              fontWeight: 900,
+              textDecoration: 'none',
+            }}
+          >
+            Về trang đăng nhập
+          </Link>
+        </div>
+      ) : (
+        <>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20, minWidth: 0 }}>
+            {[1, 2].map(item => (
+              <div key={item} style={{ display: 'flex', alignItems: 'center', gap: 8, flex: '0 0 auto' }}>
+                <span style={{
+                  width: 28,
+                  height: 28,
+                  borderRadius: 999,
+                  background: step >= item ? C.ink : '#f0eee8',
+                  color: step >= item ? C.lemon : C.inkMuted,
+                  display: 'grid',
+                  placeItems: 'center',
+                  fontSize: 12,
+                  fontWeight: 900,
                 }}>
-                  <MailCheck size={28} color={C.violet} />
-                </div>
-                <h2 style={{ fontSize: 20, fontWeight: 800, color: C.ink, margin: '0 0 8px' }}>
-                  Kiểm tra email!
-                </h2>
-                <p style={{ fontSize: 13.5, color: C.inkDim, lineHeight: 1.5, margin: '0 0 16px' }}>
-                  Đã gửi link xác thực đến{' '}
-                  <strong style={{ color: C.ink }}>{registeredEmail}</strong>.
-                </p>
-                <div style={{
-                  background: '#fef3c7', border: '1.5px solid #fde68a',
-                  borderRadius: 10, padding: '10px 14px', marginBottom: 16, textAlign: 'left',
-                }}>
-                  <p style={{ fontSize: 12, color: '#92400e', margin: 0 }}>
-                    Không thấy email? Kiểm tra thư mục <strong>Spam</strong>.
-                  </p>
-                </div>
-                <button onClick={handleResend} disabled={resendLoading} style={{
-                  width: '100%', height: 40, borderRadius: C.radiusPill,
-                  border: C.border, background: C.card, color: C.ink,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                  fontSize: 13, fontWeight: 600, cursor: 'pointer', marginBottom: 10,
-                  fontFamily: 'inherit',
-                }}>
-                  <RefreshCw size={14} style={{ animation: resendLoading ? 'spin 1s linear infinite' : 'none' }} />
-                  {resendLoading ? 'Đang gửi...' : 'Gửi lại email xác thực'}
-                </button>
-                <Link to="/login" style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  width: '100%', height: 44, borderRadius: C.radiusPill,
-                  background: C.coral, color: C.bg, border: C.border,
-                  boxShadow: C.shadow(), fontSize: 14, fontWeight: 800,
-                  textDecoration: 'none',
-                }}>Về trang đăng nhập</Link>
+                  {item}
+                </span>
+                <span style={{ color: step === item ? C.ink : C.inkMuted, fontSize: 13, fontWeight: 800, whiteSpace: 'nowrap' }}>
+                  {item === 1 ? 'Tài khoản' : 'Hồ sơ'}
+                </span>
+                {item === 1 && <span style={{ width: 28, height: 1, background: '#e6e0d6' }} />}
               </div>
-            ) : (
-              <>
-                {/* Step indicator */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 18 }}>
-                  {[1, 2].map(s => (
-                    <div key={s} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <div style={{
-                        width: 24, height: 24, borderRadius: 999, border: C.border,
-                        background: step >= s ? C.ink : C.card,
-                        color: step >= s ? C.lemon : C.inkMuted,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: 11, fontWeight: 800, lineHeight: 1,
-                      }}>{s}</div>
-                      <span style={{ fontSize: 12, fontWeight: 600, color: step === s ? C.ink : C.inkMuted }}>
-                        {s === 1 ? 'Tài khoản' : 'Hồ sơ'}
-                      </span>
-                      {s < 2 && <div style={{ width: 20, height: 1.5, background: C.rule, margin: '0 2px' }} />}
-                    </div>
-                  ))}
-                  <span style={{ marginLeft: 'auto', fontSize: 11, color: C.inkMuted, fontWeight: 600 }}>
-                    Bước {step}/2
-                  </span>
+            ))}
+            <span style={{ marginLeft: 'auto', color: C.inkMuted, fontSize: 12, fontWeight: 800 }}>
+              Bước {step}/2
+            </span>
+          </div>
+
+          {step === 1 && (
+            <>
+              <button
+                type="button"
+                onClick={() => handleGoogleRegister()}
+                disabled={loading}
+                style={{
+                  width: '100%',
+                  height: 48,
+                  borderRadius: 14,
+                  border: '1.5px solid #e4dfd4',
+                  background: C.card,
+                  color: C.inkDim,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 12,
+                  fontSize: 14,
+                  fontWeight: 800,
+                  cursor: loading ? 'not-allowed' : 'pointer',
+                  fontFamily: 'inherit',
+                }}
+              >
+                <GoogleIcon />
+                Tiếp tục bằng Google
+              </button>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '20px 0 18px' }}>
+                <div style={{ flex: 1, height: 1, background: '#e6e0d6' }} />
+                <span style={{ color: C.inkMuted, fontSize: 13, fontWeight: 700 }}>Hoặc đăng ký với email</span>
+                <div style={{ flex: 1, height: 1, background: '#e6e0d6' }} />
+              </div>
+
+              <form onSubmit={handleNext} noValidate>
+                <div style={{ marginBottom: 16 }}>
+                  <label style={labelStyle}>Email</label>
+                  <input
+                    type="email"
+                    value={form.email}
+                    onChange={onChange('email')}
+                    placeholder="example@email.com"
+                    style={{ ...inputStyle, borderColor: errs.email ? '#ef4444' : '#e4dfd4' }}
+                  />
+                  {errs.email && <p style={{ fontSize: 12, color: '#ef4444', margin: '6px 0 0' }}>{errs.email}</p>}
                 </div>
 
-                {/* Google (step 1 only) */}
-                {step === 1 && (
-                  <>
-                    <button onClick={() => handleGoogleRegister()} style={{
-                      width: '100%', height: 42, borderRadius: C.radiusPill,
-                      border: C.border, background: C.card,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-                      fontSize: 13.5, fontWeight: 600, color: C.ink,
-                      boxShadow: C.shadow(2, 2), marginBottom: 14, cursor: 'pointer',
-                      fontFamily: 'inherit',
-                    }}>
-                      <svg width="18" height="18" viewBox="0 0 18 18">
-                        <path fill="#4285F4" d="M16.51 8H8.98v3h4.3c-.18 1-.74 1.48-1.6 2.04v2.01h2.6a7.8 7.8 0 002.38-5.88c0-.57-.05-.66-.15-1.18z" />
-                        <path fill="#34A853" d="M8.98 17c2.16 0 3.97-.72 5.3-1.94l-2.6-2a4.8 4.8 0 01-7.18-2.54H1.83v2.07A8 8 0 008.98 17z" />
-                        <path fill="#FBBC05" d="M4.5 10.52a4.8 4.8 0 010-3.04V5.41H1.83a8 8 0 000 7.18l2.67-2.07z" />
-                        <path fill="#EA4335" d="M8.98 4.18c1.17 0 2.23.4 3.06 1.2l2.3-2.3A8 8 0 001.83 5.4L4.5 7.49a4.77 4.77 0 014.48-3.31z" />
-                      </svg>
-                      Đăng ký với Google
-                    </button>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-                      <div style={{ flex: 1, height: 1.5, background: C.rule }} />
-                      <span style={{ fontSize: 11, color: C.inkMuted, fontWeight: 600 }}>hoặc</span>
-                      <div style={{ flex: 1, height: 1.5, background: C.rule }} />
-                    </div>
-                  </>
-                )}
-
-                {/* Step 1 */}
-                {step === 1 && (
-                  <form onSubmit={handleNext} noValidate>
-                    <div style={{ marginBottom: 14 }}>
-                      <label style={labelStyle}>Email</label>
-                      <input type="email" value={form.email} onChange={onChange('email')} placeholder="example@email.com"
-                        style={{ ...inputStyle, marginBottom: 0, borderColor: errs.email ? '#ef4444' : C.ink }} />
-                      {errs.email && <p style={{ fontSize: 11, color: '#ef4444', margin: '4px 0 0', paddingLeft: 14 }}>{errs.email}</p>}
-                    </div>
-
-                    <div style={{ marginBottom: 14 }}>
-                      <label style={labelStyle}>Mật khẩu</label>
-                      <div style={{ position: 'relative' }}>
-                        <input type={showPassword ? 'text' : 'password'} value={form.password} onChange={onChange('password')} placeholder="Tối thiểu 6 ký tự"
-                          style={{ ...inputStyle, marginBottom: 0, paddingRight: 40, borderColor: errs.password ? '#ef4444' : C.ink }} />
-                        <button type="button" onClick={() => setShowPassword(v => !v)} style={{
-                          position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)',
-                          background: 'none', border: 'none', cursor: 'pointer', color: C.inkMuted, padding: 0,
-                        }}>{showPassword ? <EyeOff size={15} /> : <Eye size={15} />}</button>
-                      </div>
-                      {errs.password && <p style={{ fontSize: 11, color: '#ef4444', margin: '4px 0 0', paddingLeft: 14 }}>{errs.password}</p>}
-                    </div>
-
-                    <div style={{ marginBottom: 0 }}>
-                      <label style={labelStyle}>Xác nhận mật khẩu</label>
-                      <div style={{ position: 'relative' }}>
-                        <input type={showConfirm ? 'text' : 'password'} value={form.confirmPassword} onChange={onChange('confirmPassword')} placeholder="Nhập lại mật khẩu"
-                          style={{ ...inputStyle, marginBottom: 0, paddingRight: 40, borderColor: errs.confirmPassword ? '#ef4444' : C.ink }} />
-                        <button type="button" onClick={() => setShowConfirm(v => !v)} style={{
-                          position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)',
-                          background: 'none', border: 'none', cursor: 'pointer', color: C.inkMuted, padding: 0,
-                        }}>{showConfirm ? <EyeOff size={15} /> : <Eye size={15} />}</button>
-                      </div>
-                      {errs.confirmPassword && <p style={{ fontSize: 11, color: '#ef4444', margin: '4px 0 0', paddingLeft: 14 }}>{errs.confirmPassword}</p>}
-                    </div>
-
-                    <button type="submit" style={{
-                      width: '100%', height: 46, borderRadius: C.radiusPill,
-                      background: C.coral, color: C.bg, border: C.border,
-                      boxShadow: C.shadow(), fontSize: 15, fontWeight: 800,
-                      cursor: 'pointer', fontFamily: 'inherit', marginTop: 16,
-                    }}>Tiếp theo →</button>
-
-                    <p style={{ marginTop: 12, textAlign: 'center', fontSize: 13, color: C.inkMuted }}>
-                      Đã có tài khoản?{' '}
-                      <Link to="/login" style={{ color: C.ink, fontWeight: 700, borderBottom: `2px solid ${C.coral}`, textDecoration: 'none' }}>
-                        Đăng nhập
-                      </Link>
-                    </p>
-                  </form>
-                )}
-
-                {/* Step 2 */}
-                {step === 2 && (
-                  <form onSubmit={handleSubmit} noValidate>
-                    <label style={labelStyle}>Họ và tên *</label>
-                    <input type="text" value={form.fullName} onChange={onChange('fullName')} placeholder="Nguyễn Văn A"
-                      style={{ ...inputStyle, borderColor: errs.fullName ? '#ef4444' : C.ink }} />
-                    {errs.fullName && <p style={{ fontSize: 11, color: '#ef4444', margin: '-4px 0 6px', paddingLeft: 14 }}>{errs.fullName}</p>}
-
-                    <label style={labelStyle}>Mã số sinh viên *</label>
-                    <input type="text" value={form.studentId} onChange={onChange('studentId')} placeholder="2151234567"
-                      style={{ ...inputStyle, borderColor: errs.studentId ? '#ef4444' : C.ink }} />
-                    {errs.studentId && <p style={{ fontSize: 11, color: '#ef4444', margin: '-4px 0 6px', paddingLeft: 14 }}>{errs.studentId}</p>}
-
-                    <label style={labelStyle}>Ngành học *</label>
-                    <MajorSelect
-                      value={form.major}
-                      onChange={val => { setForm(p => ({ ...p, major: val })); if (errs.major) setErrs(p => ({ ...p, major: '' })) }}
-                      error={!!errs.major}
-                    />
-                    {errs.major && <p style={{ fontSize: 11, color: '#ef4444', margin: '2px 0 6px', paddingLeft: 14 }}>{errs.major}</p>}
-
-                    <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
-                      <button type="button" onClick={() => { setStep(1); setErrs({}) }} style={{
-                        height: 46, padding: '0 20px', borderRadius: C.radiusPill,
-                        border: C.border, background: C.card, color: C.ink,
-                        fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
-                      }}>← Quay lại</button>
-                      <button type="submit" disabled={loading} style={{
-                        flex: 1, height: 46, borderRadius: C.radiusPill,
-                        background: loading ? '#9ca3af' : C.coral, color: C.bg, border: C.border,
-                        boxShadow: loading ? 'none' : C.shadow(),
-                        fontSize: 14, fontWeight: 800, cursor: loading ? 'not-allowed' : 'pointer',
-                        fontFamily: 'inherit',
-                      }}>
-                        {loading ? 'Đang tạo...' : 'Hoàn tất đăng ký →'}
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                  gap: 12,
+                  marginBottom: 22,
+                }}>
+                  <div>
+                    <label style={labelStyle}>Mật khẩu</label>
+                    <div style={{ position: 'relative' }}>
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        value={form.password}
+                        onChange={onChange('password')}
+                        placeholder="Tối thiểu 6 ký tự"
+                        style={{ ...inputStyle, paddingRight: 42, borderColor: errs.password ? '#ef4444' : '#e4dfd4' }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(v => !v)}
+                        style={{
+                          position: 'absolute',
+                          right: 12,
+                          top: '50%',
+                          transform: 'translateY(-50%)',
+                          background: 'none',
+                          border: 'none',
+                          color: C.inkMuted,
+                          cursor: 'pointer',
+                          padding: 0,
+                        }}
+                        aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                      >
+                        {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
                       </button>
                     </div>
-                  </form>
-                )}
-              </>
-            )}
-          </div>
-        </Rv>
-      </div>
-      </div>
-      <PublicFooter />
-    </div>
+                    {errs.password && <p style={{ fontSize: 12, color: '#ef4444', margin: '6px 0 0' }}>{errs.password}</p>}
+                  </div>
+
+                  <div>
+                    <label style={labelStyle}>Xác nhận</label>
+                    <div style={{ position: 'relative' }}>
+                      <input
+                        type={showConfirm ? 'text' : 'password'}
+                        value={form.confirmPassword}
+                        onChange={onChange('confirmPassword')}
+                        placeholder="Nhập lại"
+                        style={{ ...inputStyle, paddingRight: 42, borderColor: errs.confirmPassword ? '#ef4444' : '#e4dfd4' }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirm(v => !v)}
+                        style={{
+                          position: 'absolute',
+                          right: 12,
+                          top: '50%',
+                          transform: 'translateY(-50%)',
+                          background: 'none',
+                          border: 'none',
+                          color: C.inkMuted,
+                          cursor: 'pointer',
+                          padding: 0,
+                        }}
+                        aria-label={showConfirm ? 'Ẩn xác nhận mật khẩu' : 'Hiện xác nhận mật khẩu'}
+                      >
+                        {showConfirm ? <EyeOff size={17} /> : <Eye size={17} />}
+                      </button>
+                    </div>
+                    {errs.confirmPassword && <p style={{ fontSize: 12, color: '#ef4444', margin: '6px 0 0' }}>{errs.confirmPassword}</p>}
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  style={{
+                    width: '100%',
+                    height: 50,
+                    border: 'none',
+                    borderRadius: 14,
+                    background: `linear-gradient(90deg, ${C.coral}, #f43f5e)`,
+                    color: C.bg,
+                    fontSize: 15,
+                    fontWeight: 900,
+                    cursor: 'pointer',
+                    fontFamily: 'inherit',
+                  }}
+                >
+                  Tiếp theo
+                </button>
+              </form>
+            </>
+          )}
+
+          {step === 2 && (
+            <form onSubmit={handleSubmit} noValidate>
+              <div style={{ marginBottom: 16 }}>
+                <label style={labelStyle}>Họ và tên</label>
+                <input
+                  type="text"
+                  value={form.fullName}
+                  onChange={onChange('fullName')}
+                  placeholder="Nguyễn Văn A"
+                  style={{ ...inputStyle, borderColor: errs.fullName ? '#ef4444' : '#e4dfd4' }}
+                />
+                {errs.fullName && <p style={{ fontSize: 12, color: '#ef4444', margin: '6px 0 0' }}>{errs.fullName}</p>}
+              </div>
+
+              <div style={{ marginBottom: 16 }}>
+                <label style={labelStyle}>MSSV</label>
+                <input
+                  type="text"
+                  value={form.studentId}
+                  onChange={onChange('studentId')}
+                  placeholder="2151234567"
+                  style={{ ...inputStyle, borderColor: errs.studentId ? '#ef4444' : '#e4dfd4' }}
+                />
+                {errs.studentId && <p style={{ fontSize: 12, color: '#ef4444', margin: '6px 0 0' }}>{errs.studentId}</p>}
+              </div>
+
+              <div style={{ marginBottom: 22 }}>
+                <label style={labelStyle}>Ngành học</label>
+                <MajorSelect
+                  value={form.major}
+                  onChange={val => {
+                    setForm(prev => ({ ...prev, major: val }))
+                    if (errs.major) setErrs(prev => ({ ...prev, major: '' }))
+                  }}
+                  error={!!errs.major}
+                />
+                {errs.major && <p style={{ fontSize: 12, color: '#ef4444', margin: '6px 0 0' }}>{errs.major}</p>}
+              </div>
+
+              <div style={{ display: 'flex', gap: 12 }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStep(1)
+                    setErrs({})
+                  }}
+                  style={{
+                    height: 50,
+                    padding: '0 18px',
+                    borderRadius: 14,
+                    border: '1.5px solid #e4dfd4',
+                    background: C.card,
+                    color: C.inkDim,
+                    fontSize: 14,
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                    fontFamily: 'inherit',
+                  }}
+                >
+                  Quay lại
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  style={{
+                    flex: 1,
+                    height: 50,
+                    border: 'none',
+                    borderRadius: 14,
+                    background: loading ? '#9ca3af' : `linear-gradient(90deg, ${C.coral}, #f43f5e)`,
+                    color: C.bg,
+                    fontSize: 15,
+                    fontWeight: 900,
+                    cursor: loading ? 'not-allowed' : 'pointer',
+                    fontFamily: 'inherit',
+                  }}
+                >
+                  {loading ? 'Đang tạo...' : 'Hoàn tất đăng ký'}
+                </button>
+              </div>
+            </form>
+          )}
+
+          <p style={{ margin: '22px 0 0', textAlign: 'center', color: C.inkDim, fontSize: 14, fontWeight: 700 }}>
+            Đã có tài khoản?{' '}
+            <Link to="/login" style={{ color: C.coral, fontWeight: 900, textDecoration: 'none' }}>
+              Đăng nhập
+            </Link>
+          </p>
+        </>
+      )}
+    </AuthShell>
   )
 }

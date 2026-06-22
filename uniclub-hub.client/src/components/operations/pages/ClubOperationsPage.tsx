@@ -15,6 +15,7 @@ import { getDepartments } from '../../membership/services/clubApi';
 import type { DepartmentItem } from '../../membership/services/club.types';
 import { useAuth } from '@/contexts/AuthContext';
 import { CLUB_ROLES } from '@/types/auth';
+import { FilterSelect } from '@/components/shared/FilterSelect';
 
 const TABS = [
   { id: 'overview',   label: 'Tổng quan',  icon: '◇', memberAllowed: true  },
@@ -122,32 +123,13 @@ export default function ClubOperationsPage() {
           flexShrink: 0,
         }}>
           {departments.length > 1 ? (
-            <select
-              value={selectedDeptId ?? ''}
-              onChange={e => setSelectedDeptId(Number(e.target.value))}
-              style={{
-                fontSize: 11,
-                fontWeight: 900,
-                color: '#FFE500',
-                letterSpacing: '.08em',
-                textTransform: 'uppercase',
-                background: 'transparent',
-                border: 'none',
-                outline: 'none',
-                cursor: 'pointer',
-                appearance: 'none',
-                padding: '0 18px 0 0',
-                backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'10\' height=\'6\' viewBox=\'0 0 10 6\'%3E%3Cpath d=\'M0 0l5 6 5-6z\' fill=\'%23FFE500\'/%3E%3C/svg%3E")',
-                backgroundRepeat: 'no-repeat',
-                backgroundPosition: 'right 0 center',
-              }}
-            >
-              {departments.map(d => (
-                <option key={d.id} value={d.id} style={{ background: '#0A0A0A', color: 'white', fontWeight: 700 }}>
-                  {d.name}
-                </option>
-              ))}
-            </select>
+            <FilterSelect
+              value={selectedDeptId?.toString() ?? ''}
+              onChange={value => setSelectedDeptId(Number(value))}
+              options={departments.map(d => ({ value: d.id.toString(), label: d.name }))}
+              style={{ width: 180 }}
+              maxMenuHeight={260}
+            />
           ) : (
             <span style={{
               fontSize: 11,

@@ -23,5 +23,6 @@ namespace UniClub_Hub.Shared.Models
         public ICollection<ClubMembership>? Members { get; set; }
         public ICollection<ClubTask>? Tasks { get; set; }
         public ICollection<Post>? Posts { get; set; }
+        public ICollection<ClubPosition>? Positions { get; set; }
     }
 }

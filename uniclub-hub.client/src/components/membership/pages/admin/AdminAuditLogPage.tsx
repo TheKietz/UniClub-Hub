@@ -64,22 +64,28 @@ const MODULE_STYLE: Record<string, { bg: string; color: string }> = {
   'Đơn đăng ký': { bg: '#fef3c7', color: '#92400e' },
 }
 
-const thS: React.CSSProperties = {
-  padding: '10px 14px', textAlign: 'left', fontSize: 11,
-  fontWeight: 700, color: D.inkMuted, letterSpacing: '.04em',
-  whiteSpace: 'nowrap', textTransform: 'uppercase',
+function formatDateLabel(iso: string) {
+  const d = new Date(iso)
+  const today = new Date()
+  const yesterday = new Date()
+  yesterday.setDate(today.getDate() - 1)
+  if (d.toDateString() === today.toDateString()) return 'Hôm nay'
+  if (d.toDateString() === yesterday.toDateString()) return 'Hôm qua'
+  return d.toLocaleDateString('vi-VN', { weekday: 'long', day: 'numeric', month: 'long' })
 }
 
-function timeAgo(iso: string) {
-  const diff = Date.now() - new Date(iso).getTime()
-  const mins = Math.floor(diff / 60000)
-  if (mins < 1) return 'Vừa xong'
-  if (mins < 60) return `${mins} phút trước`
-  const hrs = Math.floor(mins / 60)
-  if (hrs < 24) return `${hrs} giờ trước`
-  const days = Math.floor(hrs / 24)
-  if (days < 7) return `${days} ngày trước`
-  return new Date(iso).toLocaleDateString('vi-VN')
+function groupByDate(logs: ClubAuditLogItem[]) {
+  const result: { label: string; dateKey: string; items: ClubAuditLogItem[] }[] = []
+  for (const log of logs) {
+    const dateKey = new Date(log.timestamp).toDateString()
+    const last = result[result.length - 1]
+    if (last?.dateKey === dateKey) {
+      last.items.push(log)
+    } else {
+      result.push({ label: formatDateLabel(log.timestamp), dateKey, items: [log] })
+    }
+  }
+  return result
 }
 
 function Avatar({ name, url }: { name: string; url?: string }) {
@@ -102,7 +108,6 @@ export default function AdminAuditLogPage() {
   const [searchInput, setSearchInput] = useState('')
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
-  const [hoverRow, setHoverRow] = useState<number | null>(null)
   const pageSize = 20
 
   const dateRange = getDateRange(datePreset)
@@ -148,6 +153,8 @@ export default function AdminAuditLogPage() {
     return result.items.map(u => ({ id: u.id, name: u.fullName ?? u.email, avatarUrl: u.avatarUrl }))
   }
 
+  const grouped = groupByDate(logs)
+
   return (
     <div style={{ padding: '28px 32px', minHeight: '100%', background: D.bg, fontFamily: "'Be Vietnam Pro', sans-serif" }}>
       {/* Header */}
@@ -178,87 +185,76 @@ export default function AdminAuditLogPage() {
         <span style={{ fontSize: 12, color: D.inkMuted, marginLeft: 'auto', whiteSpace: 'nowrap' }}>{total} bản ghi</span>
       </div>
 
-      {/* Table */}
-      <div style={{ borderRadius: D.radius, overflow: 'hidden', background: D.card, border: D.border, boxShadow: D.shadow() }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-          <thead>
-            <tr style={{ background: D.bg, borderBottom: D.borderLight }}>
-              <th style={thS}>Người thực hiện</th>
-              <th style={thS}>Hành động</th>
-              <th style={thS}>Loại</th>
-              <th style={thS}>Đối tượng</th>
-              <th style={thS}>CLB</th>
-              <th style={{ ...thS, textAlign: 'right' }}>Thời gian</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr><td colSpan={6} style={{ textAlign: 'center', color: D.inkMuted, padding: '48px 0', fontSize: 13 }}>Đang tải...</td></tr>
-            ) : logs.length === 0 ? (
-              <tr>
-                <td colSpan={6} style={{ textAlign: 'center', padding: '64px 0' }}>
-                  <p style={{ fontSize: 32, margin: '0 0 8px' }}>📋</p>
-                  <p style={{ fontSize: 13, color: D.inkMuted, margin: 0 }}>Chưa có lịch sử thay đổi nào.</p>
-                </td>
-              </tr>
-            ) : logs.map(log => {
-              const action = ACTION_STYLE[log.action] ?? ACTION_STYLE.Update
-              const modStyle = MODULE_STYLE[log.module] ?? { bg: D.bg, color: D.inkMuted }
-              return (
-                <tr key={log.id}
-                  onMouseEnter={() => setHoverRow(log.id)}
-                  onMouseLeave={() => setHoverRow(null)}
-                  style={{ background: hoverRow === log.id ? D.bg : D.card, borderBottom: D.borderLight }}>
-                  {/* Người thực hiện */}
-                  <td style={{ padding: '11px 14px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <Avatar name={log.userName} url={log.userAvatarUrl} />
-                      <span style={{ fontWeight: 600, color: D.ink, fontSize: 13 }}>{log.userName}</span>
+      {/* Timeline */}
+      {loading ? (
+        <div style={{ textAlign: 'center', color: D.inkMuted, padding: '64px 0', fontSize: 13 }}>Đang tải...</div>
+      ) : logs.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '80px 0' }}>
+          <p style={{ fontSize: 32, margin: '0 0 8px' }}>📋</p>
+          <p style={{ fontSize: 13, color: D.inkMuted, margin: 0 }}>Chưa có lịch sử thay đổi nào.</p>
+        </div>
+      ) : (
+        <div>
+          {grouped.map(group => (
+            <div key={group.dateKey} style={{ marginBottom: 28 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                <div style={{ width: 10, height: 10, borderRadius: '50%', background: D.ink, flexShrink: 0 }} />
+                <span style={{ fontSize: 11, fontWeight: 800, color: D.ink, letterSpacing: '.06em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
+                  {group.label}
+                </span>
+                <div style={{ flex: 1, height: 1, background: '#e8e3d6' }} />
+              </div>
+
+              <div style={{ marginLeft: 4, borderLeft: '2px solid #e8e3d6', paddingLeft: 22, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {group.items.map(log => {
+                  const actionStyle = ACTION_STYLE[log.action] ?? ACTION_STYLE.Update
+                  const modStyle = MODULE_STYLE[log.module] ?? { bg: D.bg, color: D.inkMuted }
+                  return (
+                    <div key={log.id} style={{ position: 'relative' }}>
+                      <div style={{
+                        position: 'absolute',
+                        left: -29, top: '50%', transform: 'translateY(-50%)',
+                        width: 12, height: 12, borderRadius: '50%',
+                        background: actionStyle.color,
+                        border: `2.5px solid ${D.bg}`,
+                      }} />
+                      <div style={{
+                        background: D.card, borderRadius: 10, border: D.borderLight,
+                        padding: '10px 14px',
+                        display: 'flex', alignItems: 'center', gap: 10,
+                      }}>
+                        <Avatar name={log.userName} url={log.userAvatarUrl} />
+                        <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                          <span style={{ fontWeight: 700, color: D.ink, fontSize: 13, flexShrink: 0 }}>{log.userName}</span>
+                          <span style={{ display: 'inline-flex', padding: '2px 8px', borderRadius: 5, fontSize: 11, fontWeight: 700, background: actionStyle.bg, color: actionStyle.color, flexShrink: 0, whiteSpace: 'nowrap' }}>
+                            {actionStyle.label}
+                          </span>
+                          <span style={{ display: 'inline-flex', padding: '2px 8px', borderRadius: 5, fontSize: 11, fontWeight: 700, background: modStyle.bg, color: modStyle.color, flexShrink: 0, whiteSpace: 'nowrap' }}>
+                            {log.module}
+                          </span>
+                          {log.entityTitle && (
+                            <span style={{ fontSize: 13, color: D.inkDim, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 240 }}>
+                              "{log.entityTitle}"
+                            </span>
+                          )}
+                          {log.clubName && (
+                            <span style={{ fontSize: 12, fontWeight: 700, color: D.indigo, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 220 }}>
+                              {log.clubName}
+                            </span>
+                          )}
+                        </div>
+                        <span style={{ fontSize: 11, color: D.inkMuted, whiteSpace: 'nowrap', flexShrink: 0 }}>
+                          {new Date(log.timestamp).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
                     </div>
-                  </td>
-                  {/* Hành động */}
-                  <td style={{ padding: '11px 14px' }}>
-                    <span style={{
-                      display: 'inline-flex', padding: '3px 10px', borderRadius: 6,
-                      fontSize: 11, fontWeight: 700, whiteSpace: 'nowrap',
-                      background: action.bg, color: action.color,
-                    }}>
-                      {action.label}
-                    </span>
-                  </td>
-                  {/* Loại */}
-                  <td style={{ padding: '11px 14px' }}>
-                    <span style={{
-                      display: 'inline-flex', padding: '3px 10px', borderRadius: 6,
-                      fontSize: 11, fontWeight: 700, whiteSpace: 'nowrap',
-                      background: modStyle.bg, color: modStyle.color,
-                    }}>
-                      {log.module}
-                    </span>
-                  </td>
-                  {/* Đối tượng */}
-                  <td style={{ padding: '11px 14px', color: D.ink, fontWeight: 500, maxWidth: 200 }}>
-                    <span style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {log.entityTitle ?? <span style={{ color: D.inkMuted }}>—</span>}
-                    </span>
-                  </td>
-                  {/* CLB */}
-                  <td style={{ padding: '11px 14px' }}>
-                    {log.clubName
-                      ? <span style={{ fontSize: 12, fontWeight: 600, color: D.indigo }}>{log.clubName}</span>
-                      : <span style={{ color: D.inkMuted }}>—</span>
-                    }
-                  </td>
-                  {/* Thời gian */}
-                  <td style={{ padding: '11px 14px', textAlign: 'right', color: D.inkMuted, fontSize: 12, whiteSpace: 'nowrap' }}>
-                    {timeAgo(log.timestamp)}
-                  </td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
-      </div>
+                  )
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       <LoadMoreBar
         shown={logs.length}

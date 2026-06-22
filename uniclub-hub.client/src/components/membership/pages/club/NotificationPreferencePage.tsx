@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { toast } from 'sonner'
+import { ChevronDown } from 'lucide-react'
 import {
   getClubPreferences, updateClubPreference, resetClubPreference,
   type NotificationPreferenceItem, type UpdateNotificationPreferenceRequest,
@@ -257,6 +258,10 @@ export default function ClubNotificationPreferencePage() {
   const [prefs, setPrefs] = useState<NotificationPreferenceItem[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<Tab>('recipients')
+  const [collapsedCategories, setCollapsedCategories] = useState<Record<Tab, Record<string, boolean>>>({
+    recipients: {},
+    templates: {},
+  })
 
   useEffect(() => {
     getClubPreferences(clubId)
@@ -285,6 +290,16 @@ export default function ClubNotificationPreferencePage() {
     ;(acc[cat] ??= []).push(p)
     return acc
   }, {})
+
+  function toggleCategory(category: string) {
+    setCollapsedCategories(prev => ({
+      ...prev,
+      [activeTab]: {
+        ...prev[activeTab],
+        [category]: !prev[activeTab][category],
+      },
+    }))
+  }
 
   return (
     <div style={{ minHeight: '100%', background: D.bg, fontFamily: "'Be Vietnam Pro', sans-serif" }}>
@@ -318,21 +333,43 @@ export default function ClubNotificationPreferencePage() {
           {Object.entries(byCategory).map(([cat, items]) => {
             const color = CATEGORY_COLORS[cat] ?? '#6366f1'
             const triggers = groupByTrigger(items)
+            const collapsed = !!collapsedCategories[activeTab][cat]
             return (
               <div key={cat} style={{ border: D.border, borderRadius: D.radius, overflow: 'hidden', background: D.card, boxShadow: D.shadow() }}>
-                <div style={{ padding: '10px 16px', background: color }}>
-                  <span style={{ fontSize: 12, fontWeight: 800, color: '#fff', letterSpacing: '.08em', textTransform: 'uppercase' }}>{cat}</span>
-                </div>
-                {triggers.map(({ triggerKey, label, items: roleItems }, ti) => (
-                  <div key={triggerKey} style={{ borderTop: ti === 0 ? 'none' : D.borderLight }}>
-                    {activeTab === 'recipients' && (
-                      <ClubTriggerGroup label={label} items={roleItems} onSaveRole={save} onResetRole={reset} />
-                    )}
-                    {activeTab === 'templates' && (
-                      <TriggerTemplateEditor label={label} items={roleItems} onSave={save} />
-                    )}
+                <button
+                  type="button"
+                  onClick={() => toggleCategory(cat)}
+                  aria-expanded={!collapsed}
+                  style={{
+                    width: '100%', padding: '10px 16px', background: color,
+                    border: 'none', display: 'flex', alignItems: 'center', gap: 10,
+                    cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
+                  }}
+                >
+                  <span style={{ flex: 1, fontSize: 12, fontWeight: 800, color: '#fff', letterSpacing: '.08em', textTransform: 'uppercase' }}>{cat}</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,.78)' }}>
+                    {triggers.length} mục
+                  </span>
+                  <ChevronDown
+                    size={16}
+                    color="#fff"
+                    style={{ transition: 'transform .15s', transform: collapsed ? 'rotate(-90deg)' : 'rotate(0deg)' }}
+                  />
+                </button>
+                {!collapsed && (
+                  <div>
+                    {triggers.map(({ triggerKey, label, items: roleItems }, ti) => (
+                      <div key={triggerKey} style={{ borderTop: ti === 0 ? 'none' : D.borderLight }}>
+                        {activeTab === 'recipients' && (
+                          <ClubTriggerGroup label={label} items={roleItems} onSaveRole={save} onResetRole={reset} />
+                        )}
+                        {activeTab === 'templates' && (
+                          <TriggerTemplateEditor label={label} items={roleItems} onSave={save} />
+                        )}
+                      </div>
+                    ))}
                   </div>
-                ))}
+                )}
               </div>
             )
           })}
