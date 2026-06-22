@@ -10,14 +10,17 @@ namespace UniClub_Hub.Operations.Services.Implements
 {
     public class SprintService(UniClubDbContext db) : ISprintService
     {
-        public async Task<PagedResult<SprintDto>> GetByClubAsync(int clubId, int? eventId, int page, int pageSize)
+        public async Task<PagedResult<SprintDto>> GetByClubAsync(int clubId, int? departmentId, int? eventId, int page, int pageSize)
         {
             var query = db.Sprints
                 .AsNoTracking()
-                .Where(s => s.ClubId == clubId);
+                .Where(s => s.ClubId == clubId && s.IsDeleted == false);
 
             if (eventId.HasValue)
                 query = query.Where(s => s.EventId == eventId);
+
+            if (departmentId.HasValue)
+                query = query.Where(s => s.DepartmentId == departmentId || s.DepartmentId == null);
 
             var total = await query.CountAsync();
 
@@ -30,10 +33,11 @@ namespace UniClub_Hub.Operations.Services.Implements
                     Id = s.Id,
                     ClubId = s.ClubId,
                     EventId = s.EventId,
+                    DepartmentId = s.DepartmentId,
                     Name = s.Name,
                     Goal = s.Goal,
-                    StartDate = s.StartDate,
-                    EndDate = s.EndDate,
+                    StartDate = s.StartDate.ToUniversalTime(),
+                    EndDate = s.EndDate.ToUniversalTime()   ,
                     Status = s.Status,
                     CreatedAt = s.CreatedAt,
                     TaskCount = s.Tasks != null ? s.Tasks.Count : 0
@@ -60,18 +64,21 @@ namespace UniClub_Hub.Operations.Services.Implements
             return MapToDto(sprint);
         }
 
-        public async Task<SprintDto> CreateAsync(int clubId, CreateSprintDto dto, string createdBy)
+        public async Task<SprintDto> CreateAsync(int clubId, CreateSprintDto dto, string userId)
         {
+            await RequireManagerRoleAsync(userId, clubId);
+
             var sprint = new Sprint
             {
                 ClubId = clubId,
                 EventId = dto.EventId,
+                DepartmentId = dto.DepartmentId,
                 Name = dto.Name,
                 Goal = dto.Goal,
-                StartDate = dto.StartDate,
-                EndDate = dto.EndDate,
+                StartDate = dto.StartDate.ToUniversalTime(),
+                EndDate = dto.EndDate.ToUniversalTime(),
                 Status = SprintStatus.Planning,
-                CreatedBy = createdBy
+                CreatedBy = userId
             };
 
             db.Sprints.Add(sprint);
@@ -79,15 +86,17 @@ namespace UniClub_Hub.Operations.Services.Implements
             return MapToDto(sprint);
         }
 
-        public async Task<SprintDto> UpdateAsync(int id, UpdateSprintDto dto)
+        public async Task<SprintDto> UpdateAsync(int id, UpdateSprintDto dto, string userId)
         {
             var sprint = await db.Sprints.FindAsync(id)
                 ?? throw new KeyNotFoundException($"Sprint {id} not found.");
 
+            await RequireMemberAsync(userId, sprint.ClubId);
+
             sprint.Name = dto.Name;
             sprint.Goal = dto.Goal;
-            sprint.StartDate = dto.StartDate;
-            sprint.EndDate = dto.EndDate;
+            sprint.StartDate = dto.StartDate.ToUniversalTime();
+            sprint.EndDate = dto.EndDate.ToUniversalTime();
             sprint.Status = dto.Status;
             sprint.EventId = dto.EventId;
 
@@ -95,13 +104,46 @@ namespace UniClub_Hub.Operations.Services.Implements
             return MapToDto(sprint);
         }
 
-        public async Task DeleteAsync(int id)
+        public async Task DeleteAsync(int id, string userId)
         {
             var sprint = await db.Sprints.FindAsync(id)
                 ?? throw new KeyNotFoundException($"Sprint {id} not found.");
 
+            await RequireManagerRoleAsync(userId, sprint.ClubId);
+
             db.Sprints.Remove(sprint);
             await db.SaveChangesAsync();
+        }
+
+        // DEPT_LEAD or CLUB_ADMIN only.
+        private async Task RequireManagerRoleAsync(string userId, int clubId)
+        {
+            var membership = await db.ClubMemberships
+                .AsNoTracking()
+                .FirstOrDefaultAsync(m =>
+                    m.UserId == userId &&
+                    m.ClubId == clubId &&
+                    m.Status == MembershipStatus.Active);
+
+            if (membership == null ||
+                (membership.ClubRole != ClubRole.DEPT_LEAD && membership.ClubRole != ClubRole.CLUB_ADMIN))
+            {
+                throw new UnauthorizedAccessException("Chỉ Trưởng ban hoặc Quản lý CLB mới có quyền thực hiện thao tác này.");
+            }
+        }
+
+        // Any active club member (MEMBER, DEPT_LEAD, or CLUB_ADMIN).
+        private async Task RequireMemberAsync(string userId, int clubId)
+        {
+            var isMember = await db.ClubMemberships
+                .AsNoTracking()
+                .AnyAsync(m =>
+                    m.UserId == userId &&
+                    m.ClubId == clubId &&
+                    m.Status == MembershipStatus.Active);
+
+            if (!isMember)
+                throw new UnauthorizedAccessException("Bạn không phải thành viên hoạt động của câu lạc bộ này.");
         }
 
         private static SprintDto MapToDto(Sprint s) => new()
@@ -109,10 +151,11 @@ namespace UniClub_Hub.Operations.Services.Implements
             Id = s.Id,
             ClubId = s.ClubId,
             EventId = s.EventId,
+            DepartmentId = s.DepartmentId,
             Name = s.Name,
             Goal = s.Goal,
-            StartDate = s.StartDate,
-            EndDate = s.EndDate,
+            StartDate = s.StartDate.ToUniversalTime(),
+            EndDate = s.EndDate.ToUniversalTime(),
             Status = s.Status,
             CreatedAt = s.CreatedAt,
             TaskCount = s.Tasks?.Count ?? 0

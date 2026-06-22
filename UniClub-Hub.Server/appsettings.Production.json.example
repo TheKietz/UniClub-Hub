@@ -1,6 +1,6 @@
 {
   "ConnectionStrings": {
-    "DefaultConnection": "Host=ep-lingering-field-aoou842f-pooler.c-2.ap-southeast-1.aws.neon.tech;Database=neondb;Username=neondb_owner;Password=npg_AFRnE7ePQfi4;SSL Mode=Require;Trust Server Certificate=true"
+    "DefaultConnection": "Host=YOUR_NEON_HOST;Database=neondb;Username=YOUR_USERNAME;Password=YOUR_PASSWORD;SSL Mode=Require;Trust Server Certificate=true"
   },
   "Jwt": {
     "Issuer": "UniClubHub",
@@ -21,6 +21,11 @@
     "Password": "YOUR_APP_PASSWORD",
     "FromName": "UniClub Hub",
     "FromAddress": "your-email@gmail.com"
+  },
+  "SendGrid": {
+    "ApiKey": "SG.YOUR_API_KEY_HERE",
+    "FromName": "UniClub Hub",
+    "FromAddress": "noreply@yourdomain.com"
   },
   "AppUrl": "https://your-domain.com",
   "Logging": {

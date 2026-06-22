@@ -3,20 +3,34 @@ export type TaskPriority = 'Low' | 'Medium' | 'High'
 export type EventStatus = 'Draft' | 'InProgress' | 'Completed' | 'Cancelled'
 export type SprintStatus = 'Planning' | 'Active' | 'Completed' | 'Cancelled'
 
+export interface KanbanColumnItem {
+  id: number
+  clubId: number
+  sprintId?: number
+  departmentId?: number
+  name: string
+  color?: string
+  sortOrder: number
+  taskCount?: number
+}
+
 export interface TaskItem {
   id: number
   clubId: number
   parentId?: number
   sprintId?: number
   eventId?: number
+  eventName?: string
   departmentId?: number
   title: string
   description?: string
   priority: TaskPriority
+  startDate?: string
   deadline?: string
   estimatedHours?: number
   actualHours?: number
   status: TaskStatus
+  kanbanColumnId?: number
   progress: number
   completedAt?: string
   assignedTo?: string
@@ -26,6 +40,46 @@ export interface TaskItem {
   subTaskCount: number
   isBlocked: boolean
   blockingCount: number
+}
+
+export interface TaskAssigneeItem {
+  id: number
+  taskId: number
+  userId: string
+  fullName?: string
+  email?: string
+  avatarUrl?: string
+  assignedAt: string
+  assignedBy?: string
+}
+
+export interface AssignTaskDto {
+  userId: string
+}
+
+export interface TaskCommentItem {
+  id: number
+  taskId: number
+  userId: string
+  userName: string
+  userAvatarUrl?: string
+  content: string
+  createdAt: string
+  updatedAt?: string
+  isEdited: boolean
+}
+
+export interface TaskAttachmentItem {
+  id: number
+  taskId: number
+  fileUrl: string
+  fileName?: string
+  contentType?: string
+  fileSize?: number
+  note?: string
+  isLink: boolean
+  uploadedAt: string
+  userId: string
 }
 
 export interface TaskDependencyItem {
@@ -68,6 +122,7 @@ export interface EventItem {
   status: EventStatus
   budget?: number
   category?: string
+  summary?: string
   participantCount: number
   sessions: EventSessionItem[]
   staff: EventStaffItem[]
@@ -79,6 +134,7 @@ export interface SprintItem {
   id: number
   clubId: number
   eventId?: number
+  departmentId?: number
   name: string
   goal?: string
   startDate: string
@@ -110,12 +166,58 @@ export interface PagedResult<T> {
   totalPages: number
 }
 
+// ── KPI ───────────────────────────────────────────────────────────────────────
+
+export interface PersonalKpiData {
+  userId: string
+  fullName: string
+  totalTasks: number
+  completedTasks: number
+  overdueTasks: number
+  activeTasks: number
+  todoTasks: number
+  doingTasks: number
+  totalEstimatedHours?: number
+  totalActualHours?: number
+  completionRate: number
+  onTimeRate: number
+  productivityScore: number
+  highPriorityTasks: number
+  mediumPriorityTasks: number
+  lowPriorityTasks: number
+}
+
+export interface DepartmentMemberKpiRow {
+  userId: string
+  fullName: string
+  avatarUrl?: string
+  totalTasks: number
+  completedTasks: number
+  activeTasks: number
+  overdueTasks: number
+  totalEstimatedHours?: number
+  totalActualHours?: number
+  completionRate: number
+  onTimeRate: number
+  productivityScore: number
+}
+
+export interface DepartmentKpiData {
+  departmentId: number
+  departmentName: string
+  totalTasks: number
+  completedTasks: number
+  deptCompletionRate: number
+  members: DepartmentMemberKpiRow[]
+}
+
 // ── Request DTOs ──────────────────────────────────────────────────────────────
 
 export interface CreateTaskDto {
   title: string
   description?: string
   priority: TaskPriority
+  startDate?: string
   deadline?: string
   estimatedHours?: number
   assignedTo?: string
@@ -123,6 +225,7 @@ export interface CreateTaskDto {
   sprintId?: number
   departmentId?: number
   parentId?: number
+  kanbanColumnId?: number
 }
 
 export interface AddDependencyDto {
@@ -136,6 +239,7 @@ export interface UpdateTaskDto extends CreateTaskDto {
 export interface UpdateTaskStatusDto {
   status: TaskStatus
   progress: number
+  kanbanColumnId?: number
 }
 
 export interface CreateEventDto {
@@ -152,6 +256,7 @@ export interface CreateEventDto {
 
 export interface UpdateEventDto extends CreateEventDto {
   status: EventStatus
+  summary?: string
 }
 
 export interface CreateEventSessionDto {
@@ -174,8 +279,72 @@ export interface CreateSprintDto {
   startDate: string
   endDate: string
   eventId?: number
+  departmentId?: number
 }
 
 export interface UpdateSprintDto extends CreateSprintDto {
   status: SprintStatus
+}
+
+export interface CreateKanbanColumnDto {
+  name: string
+  color?: string
+  sprintId?: number
+  departmentId?: number
+  sortOrder?: number
+}
+
+export interface UpdateKanbanColumnDto {
+  name: string
+  color?: string
+  sortOrder: number
+}
+
+export interface CreateTaskCommentDto {
+  content: string
+}
+
+export interface AddTaskAttachmentLinkDto {
+  fileUrl: string
+  note?: string
+}
+
+// ── Registration / Attendance ─────────────────────────────────────────────────
+
+export type AttendanceStatus = 'Pending' | 'CheckedIn' | 'Absent'
+
+export interface EventRegistrationItem {
+  id: number
+  eventId: number
+  userId: string
+  userName: string
+  avatarUrl?: string
+  email?: string
+  registeredAt: string
+  attendance: AttendanceStatus
+  checkedInAt?: string
+  note?: string
+}
+
+export interface RegisterMemberForEventDto {
+  userId: string
+  note?: string
+}
+
+export interface EventAttachmentItem {
+  id: number
+  eventId: number
+  uploadedBy: string
+  uploaderName: string
+  fileUrl: string
+  fileName?: string
+  contentType?: string
+  fileSize?: number
+  note?: string
+  uploadedAt: string
+}
+
+export interface UpdateAttendanceDto {
+  attendance: AttendanceStatus
+  note?: string
 }

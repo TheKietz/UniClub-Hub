@@ -1,19 +1,37 @@
 import { useEffect, useState, useCallback, useMemo } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { toast } from 'sonner'
-import { RefreshCw, Plus, ArrowRightLeft, Trash2, Download, Search, ChevronDown } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { RefreshCw, Plus, ArrowRightLeft, Trash2, Download, Search } from 'lucide-react'
 import { getAuditLogs } from '../services/operationsApi'
 import type { AuditLogItem } from '../services/operations.types'
 
-/* ─── Config ──────────────────────────────────────────────────────────────── */
+/* ── Design tokens ─────────────────────────────────────────────────────────── */
+
+const D = {
+  border: '1.5px solid #15131a',
+  borderLight: '1px solid #e8e3d6',
+  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 #15131a`,
+  radius: 14,
+  pill: 999,
+  ink: '#15131a',
+  inkDim: '#4a4651',
+  inkMuted: '#918c99',
+  bg: '#f7f6f1',
+  card: '#ffffff',
+  indigo: '#4f46e5',
+  emerald: '#10b981',
+  amber: '#f59e0b',
+  red: '#ef4444',
+}
+
+/* ─── Config ───────────────────────────────────────────────────────────────── */
 
 type AuditAction = AuditLogItem['action']
 
-const ACTION_CONFIG: Record<AuditAction, { label: string; icon: React.ReactNode; iconBg: string; iconColor: string }> = {
-  Create: { label: 'tạo mới',    icon: <Plus size={14} />,           iconBg: 'bg-emerald-500', iconColor: 'text-white' },
-  Update: { label: 'cập nhật',   icon: <ArrowRightLeft size={14} />, iconBg: 'bg-blue-500',    iconColor: 'text-white' },
-  Delete: { label: 'xóa',        icon: <Trash2 size={14} />,         iconBg: 'bg-red-400',     iconColor: 'text-white' },
+const ACTION_CONFIG: Record<AuditAction, { label: string; icon: React.ReactNode; iconBg: string; color: string }> = {
+  Create: { label: 'tạo mới',  icon: <Plus size={14} />,           iconBg: '#d1fae5', color: D.emerald },
+  Update: { label: 'cập nhật', icon: <ArrowRightLeft size={14} />, iconBg: '#dbeafe', color: '#2563eb' },
+  Delete: { label: 'xóa',      icon: <Trash2 size={14} />,         iconBg: '#fee2e2', color: D.red },
 }
 
 const MODULE_LABELS: Record<string, string> = {
@@ -30,28 +48,23 @@ const STATUS_DISPLAY: Record<string, string> = {
   Done:  'Hoàn thành',
 }
 
-/* ─── Helpers ─────────────────────────────────────────────────────────────── */
+/* ─── Helpers ──────────────────────────────────────────────────────────────── */
 
 function formatRelative(iso: string): string {
   const date = new Date(iso)
-  const now = Date.now()
-  const diffMs = now - date.getTime()
-  const diffMin = Math.floor(diffMs / 60_000)
-
+  const diffMin = Math.floor((Date.now() - date.getTime()) / 60_000)
   if (diffMin < 1) return 'Vừa xong'
   if (diffMin < 60) return `${diffMin} phút trước`
   return date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
 }
 
 function isToday(iso: string): boolean {
-  const d = new Date(iso)
-  const t = new Date()
+  const d = new Date(iso); const t = new Date()
   return d.getDate() === t.getDate() && d.getMonth() === t.getMonth() && d.getFullYear() === t.getFullYear()
 }
 
 function isYesterday(iso: string): boolean {
-  const d = new Date(iso)
-  const y = new Date(); y.setDate(y.getDate() - 1)
+  const d = new Date(iso); const y = new Date(); y.setDate(y.getDate() - 1)
   return d.getDate() === y.getDate() && d.getMonth() === y.getMonth() && d.getFullYear() === y.getFullYear()
 }
 
@@ -66,37 +79,34 @@ function parseStatus(json?: string): string | undefined {
   try {
     const obj = JSON.parse(json) as Record<string, string>
     return obj['Status'] ?? obj['status']
-  } catch {
-    return undefined
-  }
+  } catch { return undefined }
 }
 
-function buildSubText(entry: AuditLogItem): { badge?: string; from?: string; to?: string; plain?: string } | null {
+function buildSubText(entry: AuditLogItem): { badge?: string; from?: string; to?: string } | null {
   const moduleLabel = MODULE_LABELS[entry.module] ?? entry.module
-
   if (entry.action === 'Update' && entry.module === 'Tasks') {
     const oldStatus = parseStatus(entry.oldValue)
     const newStatus = parseStatus(entry.newValue)
     if (oldStatus && newStatus && oldStatus !== newStatus) {
       return {
         from: STATUS_DISPLAY[oldStatus] ?? oldStatus,
-        to: STATUS_DISPLAY[newStatus] ?? newStatus,
+        to:   STATUS_DISPLAY[newStatus] ?? newStatus,
       }
     }
   }
-
   return { badge: `Module: ${moduleLabel}` }
 }
 
-const STATUS_PILL: Record<string, string> = {
-  'Cần làm':    'bg-gray-100 text-gray-600',
-  'Đang làm':   'bg-blue-100 text-blue-700',
-  'Hoàn thành': 'bg-emerald-100 text-emerald-700',
+const STATUS_PILL: Record<string, { bg: string; color: string }> = {
+  'Cần làm':    { bg: '#f3f4f6', color: D.inkDim },
+  'Đang làm':   { bg: '#dbeafe', color: '#1e40af' },
+  'Hoàn thành': { bg: '#d1fae5', color: '#065f46' },
 }
 
-/* ─── Entry card ──────────────────────────────────────────────────────────── */
+/* ─── Entry row ────────────────────────────────────────────────────────────── */
 
-function EntryCard({ entry }: { entry: AuditLogItem }) {
+function EntryRow({ entry }: { entry: AuditLogItem }) {
+  const [hovered, setHovered] = useState(false)
   const cfg    = ACTION_CONFIG[entry.action] ?? ACTION_CONFIG.Update
   const sub    = buildSubText(entry)
   const module = MODULE_LABELS[entry.module] ?? entry.module
@@ -107,78 +117,109 @@ function EntryCard({ entry }: { entry: AuditLogItem }) {
       : `đã chuyển trạng thái ${module}`
 
   return (
-    <div className="flex items-start gap-3 px-5 py-4 border-b last:border-0 hover:bg-gray-50/60 transition-colors">
+    <div
+      style={{
+        display: 'flex', alignItems: 'flex-start', gap: 12,
+        padding: '14px 20px', borderBottom: D.borderLight,
+        background: hovered ? D.bg : D.card, transition: 'background .1s',
+      }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
       {/* Action icon */}
-      <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${cfg.iconBg} ${cfg.iconColor}`}>
+      <div style={{
+        width: 34, height: 34, borderRadius: 8, flexShrink: 0,
+        background: cfg.iconBg, border: D.borderLight,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        color: cfg.color, marginTop: 2,
+      }}>
         {cfg.icon}
       </div>
 
       {/* Content */}
-      <div className="flex-1 min-w-0">
-        <p className="text-sm text-gray-800 leading-snug">
-          <span className="font-semibold">{entry.userName}</span>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <p style={{ fontSize: 13, color: D.inkDim, lineHeight: 1.5, margin: 0 }}>
+          <span style={{ fontWeight: 700, color: D.ink }}>{entry.userName}</span>
           {' '}{verb}{' '}
           {entry.entityTitle && (
-            <span className="font-semibold text-indigo-600">"{entry.entityTitle}"</span>
+            <span style={{ fontWeight: 700, color: D.indigo }}>"{entry.entityTitle}"</span>
           )}
         </p>
 
         {sub && (
-          <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+          <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
             {sub.badge && (
-              <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">{sub.badge}</span>
+              <span style={{
+                fontSize: 10, fontWeight: 700, padding: '2px 8px',
+                background: D.bg, color: D.inkMuted, border: D.borderLight,
+                borderRadius: 4,
+              }}>
+                {sub.badge}
+              </span>
             )}
             {sub.from && sub.to && (
               <>
-                <span className="text-xs text-gray-500">Từ</span>
-                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_PILL[sub.from] ?? 'bg-gray-100 text-gray-600'}`}>
+                <span style={{ fontSize: 11, color: D.inkMuted }}>Từ</span>
+                <span style={{
+                  fontSize: 10, fontWeight: 700, padding: '2px 8px',
+                  border: D.borderLight, borderRadius: 4,
+                  background: STATUS_PILL[sub.from]?.bg ?? D.bg,
+                  color: STATUS_PILL[sub.from]?.color ?? D.inkDim,
+                }}>
                   {sub.from}
                 </span>
-                <span className="text-xs text-gray-400">sang</span>
-                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_PILL[sub.to] ?? 'bg-gray-100 text-gray-600'}`}>
+                <span style={{ fontSize: 11, color: D.inkMuted }}>sang</span>
+                <span style={{
+                  fontSize: 10, fontWeight: 700, padding: '2px 8px',
+                  border: D.borderLight, borderRadius: 4,
+                  background: STATUS_PILL[sub.to]?.bg ?? D.bg,
+                  color: STATUS_PILL[sub.to]?.color ?? D.inkDim,
+                }}>
                   {sub.to}
                 </span>
               </>
             )}
-            {sub.plain && <span className="text-xs text-gray-500">{sub.plain}</span>}
           </div>
         )}
       </div>
 
       {/* Timestamp */}
-      <span className="text-xs text-gray-400 shrink-0 mt-0.5 whitespace-nowrap">
+      <span style={{ fontSize: 11, color: D.inkMuted, flexShrink: 0, marginTop: 2, whiteSpace: 'nowrap' }}>
         {formatRelative(entry.timestamp)}
       </span>
     </div>
   )
 }
 
-/* ─── Page ────────────────────────────────────────────────────────────────── */
+/* ─── Page ─────────────────────────────────────────────────────────────────── */
+
+const selectStyle: React.CSSProperties = {
+  height: 36, borderRadius: 8, border: '1px solid #e8e3d6',
+  padding: '0 12px', fontSize: 13, color: D.ink, outline: 'none',
+  background: D.bg, fontFamily: 'inherit', cursor: 'pointer',
+  appearance: 'none', paddingRight: 28,
+}
 
 export default function ActivityLogPage() {
-  const [searchParams] = useSearchParams()
-  const clubId = Number(searchParams.get('clubId') ?? 1)
+  const { clubId: clubIdParam } = useParams<{ clubId: string }>()
+  const clubId = Number(clubIdParam ?? 1)
 
-  const [logs, setLogs] = useState<AuditLogItem[]>([])
-  const [loading, setLoading] = useState(true)
+  const [logs, setLogs]               = useState<AuditLogItem[]>([])
+  const [loading, setLoading]         = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
-  const [page, setPage] = useState(1)
-  const [hasMore, setHasMore] = useState(false)
+  const [page, setPage]               = useState(1)
+  const [hasMore, setHasMore]         = useState(false)
   const [moduleFilter, setModuleFilter] = useState<string>('')
-  const [search, setSearch] = useState('')
+  const [search, setSearch]           = useState('')
 
   const PAGE_SIZE = 50
 
   const load = useCallback(async (nextPage: number, append: boolean) => {
     if (nextPage === 1) setLoading(true)
     else setLoadingMore(true)
-
     try {
       const result = await getAuditLogs({
-        clubId,
-        module: moduleFilter || undefined,
-        page: nextPage,
-        pageSize: PAGE_SIZE,
+        clubId, module: moduleFilter || undefined, page: nextPage, pageSize: PAGE_SIZE,
       })
       setLogs(prev => append ? [...prev, ...result.items] : result.items)
       setHasMore(nextPage < result.totalPages)
@@ -203,7 +244,6 @@ export default function ActivityLogPage() {
     )
   }, [logs, search])
 
-  // Group by date label
   const groups = useMemo(() => {
     const map = new Map<string, AuditLogItem[]>()
     for (const entry of displayed) {
@@ -215,89 +255,132 @@ export default function ActivityLogPage() {
   }, [displayed])
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-slate-50 to-indigo-50 p-6">
+    <div style={{ padding: '28px 32px', minHeight: '100%', background: D.bg, fontFamily: "'Be Vietnam Pro', sans-serif" }}>
+
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24, gap: 16 }}>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Nhật ký hoạt động</h1>
-          <p className="text-sm text-gray-500 mt-0.5">
+          <h1 style={{ fontSize: 24, fontWeight: 900, color: D.ink, letterSpacing: '-.025em', margin: 0 }}>
+            Nhật ký hoạt động
+          </h1>
+          <p style={{ fontSize: 13, color: D.inkMuted, marginTop: 4 }}>
             Theo dõi các thay đổi và thao tác trên toàn hệ thống.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
           {/* Module filter */}
-          <div className="relative">
+          <div style={{ position: 'relative' }}>
             <select
               aria-label="Lọc module"
               value={moduleFilter}
               onChange={e => setModuleFilter(e.target.value)}
-              className="appearance-none pl-3 pr-8 py-2 text-sm border border-gray-200 rounded-lg bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-indigo-300 cursor-pointer"
+              style={selectStyle}
             >
               <option value="">Tất cả Module</option>
-              {MODULES.map(m => (
-                <option key={m} value={m}>{MODULE_LABELS[m]}</option>
-              ))}
+              {MODULES.map(m => <option key={m} value={m}>{MODULE_LABELS[m]}</option>)}
             </select>
-            <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
           </div>
 
-          <Button variant="outline" size="sm" className="gap-1.5 text-gray-600">
-            <Download size={14} />
-            Export Log
-          </Button>
+          <button
+            type="button"
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              background: D.card, color: D.inkDim, border: D.border,
+              boxShadow: D.shadow(2, 2), padding: '8px 14px',
+              borderRadius: D.pill, fontSize: 12, fontWeight: 600,
+              cursor: 'pointer', fontFamily: 'inherit',
+            }}
+          >
+            <Download size={13} /> Export Log
+          </button>
 
-          <Button variant="outline" size="sm" onClick={() => load(1, false)} disabled={loading} title="Làm mới">
-            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-          </Button>
+          <button
+            type="button"
+            onClick={() => load(1, false)}
+            disabled={loading}
+            title="Làm mới"
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: D.card, color: D.inkDim, border: D.border,
+              boxShadow: D.shadow(2, 2), padding: '8px 12px',
+              borderRadius: D.pill, fontSize: 12, fontWeight: 600,
+              cursor: loading ? 'not-allowed' : 'pointer', fontFamily: 'inherit',
+              opacity: loading ? 0.6 : 1,
+            }}
+          >
+            <RefreshCw size={14} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
+          </button>
         </div>
       </div>
 
       {/* Search */}
-      <div className="relative mb-5">
-        <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+      <div style={{
+        padding: '10px 14px', borderRadius: D.radius,
+        background: D.card, border: D.border, boxShadow: D.shadow(),
+        display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20,
+      }}>
+        <Search size={15} style={{ color: D.inkMuted, flexShrink: 0 }} />
         <input
           type="text"
           placeholder="Tìm kiếm theo người dùng, đối tượng hoặc nội dung..."
           value={search}
           onChange={e => setSearch(e.target.value)}
-          className="w-full pl-10 pr-4 py-2.5 text-sm border border-gray-200 rounded-xl bg-white focus:outline-none focus:ring-1 focus:ring-indigo-300 placeholder:text-gray-400"
+          style={{
+            flex: 1, height: 32, border: 'none', outline: 'none',
+            fontSize: 13, color: D.ink, background: 'transparent',
+            fontFamily: 'inherit',
+          }}
         />
       </div>
 
       {/* Timeline */}
-      <div className="bg-white rounded-2xl border shadow-sm overflow-hidden">
+      <div style={{ background: D.card, border: D.border, borderRadius: D.radius, boxShadow: D.shadow(), overflow: 'hidden' }}>
         {loading ? (
-          <div className="flex items-center justify-center h-64 text-gray-400 text-sm">Đang tải...</div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 256, color: D.inkMuted, fontSize: 13 }}>
+            Đang tải...
+          </div>
         ) : groups.length === 0 ? (
-          <div className="flex items-center justify-center h-64 text-gray-400 text-sm">
-            {search ? 'Không tìm thấy kết quả' : 'Chưa có hoạt động nào'}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 256, color: D.inkMuted }}>
+            <p style={{ fontSize: 28, margin: '0 0 8px' }}>📋</p>
+            <p style={{ fontSize: 13, margin: 0 }}>{search ? 'Không tìm thấy kết quả' : 'Chưa có hoạt động nào'}</p>
           </div>
         ) : (
           <>
             {groups.map(([label, entries]) => (
               <div key={label}>
                 {/* Date group header */}
-                <div className="flex items-center gap-3 px-5 py-3 bg-gray-50/80 border-b">
-                  <span className="w-2 h-2 rounded-full bg-indigo-400 shrink-0" />
-                  <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">{label}</span>
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '10px 20px', background: D.bg, borderBottom: D.borderLight,
+                }}>
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: D.indigo, flexShrink: 0, display: 'inline-block' }} />
+                  <span style={{ fontSize: 11, fontWeight: 800, color: D.inkMuted, textTransform: 'uppercase', letterSpacing: '.08em' }}>
+                    {label}
+                  </span>
                 </div>
 
                 {/* Entries */}
                 {entries.map(entry => (
-                  <EntryCard key={entry.id} entry={entry} />
+                  <EntryRow key={entry.id} entry={entry} />
                 ))}
               </div>
             ))}
 
             {/* Load more */}
             {hasMore && (
-              <div className="flex justify-center py-5 border-t">
+              <div style={{ display: 'flex', justifyContent: 'center', padding: '20px 0', borderTop: D.borderLight }}>
                 <button
                   type="button"
                   onClick={() => load(page + 1, true)}
                   disabled={loadingMore}
-                  className="px-6 py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-full hover:bg-gray-50 transition-colors disabled:opacity-50"
+                  style={{
+                    background: D.card, color: D.inkDim, border: D.border,
+                    boxShadow: D.shadow(2, 2), padding: '8px 24px',
+                    borderRadius: D.pill, fontSize: 12, fontWeight: 600,
+                    cursor: loadingMore ? 'not-allowed' : 'pointer',
+                    fontFamily: 'inherit', opacity: loadingMore ? 0.6 : 1,
+                  }}
                 >
                   {loadingMore ? 'Đang tải...' : 'Tải thêm hoạt động'}
                 </button>

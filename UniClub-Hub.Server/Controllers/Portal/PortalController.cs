@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using UniClub_Hub.Membership.Services.Interfaces;
 using UniClub_Hub.Portal.DTOs;
 using UniClub_Hub.Portal.Services.Interfaces;
 using UniClub_Hub.Shared.Common;
@@ -11,7 +12,7 @@ namespace UniClub_Hub.Server.Controllers.Portal
     /// </summary>
     [ApiController]
     [Route("api/v1/portal")]
-    public class PortalController(IPortalService portalService) : ControllerBase
+    public class PortalController(IPortalService portalService, IAnalyticsService analytics) : ControllerBase
     {
         // GET /api/v1/portal/clubs?search=&categoryId=&page=1&pageSize=12
         [HttpGet("clubs")]
@@ -41,6 +42,23 @@ namespace UniClub_Hub.Server.Controllers.Portal
             {
                 return NotFound(ApiResponse<object>.Fail(ex.Message));
             }
+        }
+
+        // POST /api/v1/portal/clubs/:clubId/view — explicit tracking, called once by the public landing page
+        [HttpPost("clubs/{clubId:int}/view")]
+        public async Task<IActionResult> RecordView(int clubId)
+        {
+            try
+            {
+                await analytics.RecordViewAsync(
+                    clubId,
+                    HttpContext.Connection.RemoteIpAddress?.ToString(),
+                    Request.Headers.UserAgent.ToString(),
+                    Request.Path
+                );
+            }
+            catch { /* never fail the caller for analytics */ }
+            return Ok();
         }
     }
 }

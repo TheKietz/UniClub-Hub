@@ -131,6 +131,7 @@ namespace UniClub_Hub.Portal.Services.Implements
                 {
                     Id = p.Id,
                     Title = p.Title,
+                    Content = p.Content,
                     ThumbnailUrl = p.ThumbnailUrl,
                     Category = p.Category.ToString(),
                     CreatedAt = p.CreatedAt,

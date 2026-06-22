@@ -1,11 +1,24 @@
 import { useEffect, useState } from 'react'
 import api from '@/lib/axiosInstance'
-import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
-import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
-import { LifeBuoy, Clock, Loader2, CheckCircle2, Search, X } from 'lucide-react'
-import { Input } from '@/components/ui/input'
+
+const D = {
+  border: '1.5px solid #15131a',
+  borderLight: '1px solid #e8e3d6',
+  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 #15131a`,
+  radius: 14,
+  pill: 999,
+  ink: '#15131a',
+  inkDim: '#4a4651',
+  inkMuted: '#918c99',
+  bg: '#f7f6f1',
+  card: '#ffffff',
+  indigo: '#4f46e5',
+  emerald: '#10b981',
+  sky: '#38bdf8',
+  red: '#ef4444',
+}
 
 interface Ticket {
   id: number
@@ -20,10 +33,10 @@ interface Ticket {
   userEmail: string
 }
 
-const STATUS_CONFIG: Record<string, { label: string; bg: string; text: string; icon: React.ElementType }> = {
-  Open:       { label: 'Đang chờ',     bg: '#fef3c7', text: '#b45309', icon: Clock },
-  InProgress: { label: 'Đang xử lý',  bg: '#dbeafe', text: '#1d4ed8', icon: Loader2 },
-  Resolved:   { label: 'Đã giải quyết', bg: '#dcfce7', text: '#15803d', icon: CheckCircle2 },
+const STATUS_CONFIG: Record<string, { label: string; bg: string; text: string }> = {
+  Open:       { label: 'Đang chờ',      bg: '#fef3c7', text: '#b45309' },
+  InProgress: { label: 'Đang xử lý',   bg: '#dbeafe', text: '#1d4ed8' },
+  Resolved:   { label: 'Đã giải quyết', bg: '#d1fae5', text: '#065f46' },
 }
 
 const STATUS_TABS = [
@@ -41,6 +54,7 @@ export default function SupportAdminPage() {
   const [selected, setSelected] = useState<Ticket | null>(null)
   const [adminNote, setAdminNote] = useState('')
   const [saving, setSaving] = useState(false)
+  const [hoverTicket, setHoverTicket] = useState<number | null>(null)
 
   function load() {
     setLoading(true)
@@ -80,71 +94,93 @@ export default function SupportAdminPage() {
   const counts = tickets.reduce((acc, t) => { acc[t.status] = (acc[t.status] ?? 0) + 1; return acc }, {} as Record<string, number>)
 
   return (
-    <div className="px-6 pb-8 space-y-4">
-      <div>
-        <h1 className="text-xl font-bold text-gray-900">Yêu cầu hỗ trợ</h1>
-        <p className="text-sm text-gray-400 mt-0.5">{tickets.length} yêu cầu tổng cộng</p>
+    <div style={{ padding: '28px 32px', minHeight: '100%', background: D.bg, fontFamily: "'Be Vietnam Pro', sans-serif" }}>
+      {/* Header */}
+      <div style={{ marginBottom: 20 }}>
+        <h1 style={{ fontSize: 24, fontWeight: 900, color: D.ink, letterSpacing: '-.025em', margin: 0 }}>Yêu cầu hỗ trợ</h1>
+        <p style={{ fontSize: 13, color: D.inkMuted, marginTop: 4 }}>{tickets.length} yêu cầu tổng cộng</p>
       </div>
 
       {/* Status tabs */}
-      <div className="flex gap-1.5 flex-wrap">
-        {STATUS_TABS.map(tab => (
-          <button key={tab.value} onClick={() => setStatusFilter(tab.value)}
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 ${
-              statusFilter === tab.value
-                ? 'bg-indigo-600 text-white shadow-sm'
-                : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
-            }`}>
-            {tab.label}
-            {tab.value && counts[tab.value] ? (
-              <span className={`text-xs px-1.5 py-0.5 rounded-full font-semibold ${
-                statusFilter === tab.value ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500'
-              }`}>{counts[tab.value]}</span>
-            ) : null}
-          </button>
-        ))}
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
+        {STATUS_TABS.map(tab => {
+          const active = statusFilter === tab.value
+          return (
+            <button key={tab.value} onClick={() => setStatusFilter(tab.value)}
+              style={{
+                padding: '6px 14px', borderRadius: D.pill, fontSize: 12, fontWeight: 700,
+                border: D.border, cursor: 'pointer', fontFamily: 'inherit',
+                background: active ? D.indigo : D.card,
+                color: active ? '#fff' : D.inkDim,
+                boxShadow: active ? D.shadow(2,2) : 'none',
+                display: 'flex', alignItems: 'center', gap: 6,
+              }}>
+              {tab.label}
+              {tab.value && counts[tab.value] ? (
+                <span style={{
+                  fontSize: 10, padding: '1px 6px', borderRadius: D.pill, fontWeight: 700,
+                  background: active ? 'rgba(255,255,255,0.2)' : D.bg,
+                  color: active ? '#fff' : D.inkMuted,
+                }}>{counts[tab.value]}</span>
+              ) : null}
+            </button>
+          )
+        })}
       </div>
 
-      {/* Search */}
-      <div className="bg-white rounded-xl border border-gray-200 p-3 flex items-center gap-2">
-        <div className="relative flex-1">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <Input placeholder="Tìm theo tiêu đề, tên, email..." value={search}
-            onChange={e => setSearch(e.target.value)} className="pl-8 h-9 text-sm" />
-        </div>
+      {/* Search bar */}
+      <div style={{ padding: '10px 14px', borderRadius: D.radius, background: D.card, border: D.border, boxShadow: D.shadow(), display: 'flex', gap: 10, alignItems: 'center', marginBottom: 16 }}>
+        <input
+          placeholder="⌕  Tìm theo tiêu đề, tên, email..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          style={{ flex: 1, height: 36, borderRadius: 8, border: D.borderLight, padding: '0 12px', fontSize: 13, color: D.ink, outline: 'none', background: D.bg, fontFamily: 'inherit' }}
+        />
         {search && (
-          <button onClick={() => setSearch('')} className="p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100">
-            <X size={14} />
+          <button onClick={() => setSearch('')}
+            style={{ padding: '4px 8px', borderRadius: 6, border: D.borderLight, background: D.card, color: D.inkMuted, cursor: 'pointer', fontFamily: 'inherit', fontSize: 13 }}>
+            ✕
           </button>
         )}
-        <span className="text-sm text-gray-400 whitespace-nowrap">{filtered.length}/{tickets.length}</span>
+        <span style={{ fontSize: 12, color: D.inkMuted, whiteSpace: 'nowrap' }}>{filtered.length}/{tickets.length}</span>
       </div>
 
       {/* Ticket list */}
-      <div className="space-y-2">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {loading ? (
-          <p className="text-sm text-gray-400 text-center py-12">Đang tải...</p>
+          <p style={{ textAlign: 'center', color: D.inkMuted, padding: '48px 0', fontSize: 13 }}>Đang tải...</p>
         ) : filtered.length === 0 ? (
-          <div className="bg-white rounded-xl border border-gray-200 p-12 text-center text-gray-400">
-            <LifeBuoy size={32} className="mx-auto mb-2 text-gray-200" />
-            <p className="text-sm">Không có yêu cầu hỗ trợ nào.</p>
+          <div style={{ background: D.card, borderRadius: D.radius, border: D.border, boxShadow: D.shadow(), padding: '48px 0', textAlign: 'center' }}>
+            <p style={{ fontSize: 32, margin: '0 0 8px' }}>🎫</p>
+            <p style={{ fontSize: 13, color: D.inkMuted }}>Không có yêu cầu hỗ trợ nào.</p>
           </div>
         ) : filtered.map(t => {
           const cfg = STATUS_CONFIG[t.status] ?? STATUS_CONFIG.Open
-          const Icon = cfg.icon
+          const isHover = hoverTicket === t.id
           return (
             <button key={t.id} onClick={() => openTicket(t)}
-              className="w-full bg-white rounded-xl border border-gray-200 px-5 py-4 flex items-center gap-4 text-left hover:bg-gray-50 hover:border-indigo-200 transition-all">
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold flex-shrink-0"
-                style={{ background: cfg.bg, color: cfg.text }}>
-                <Icon size={11} />
+              onMouseEnter={() => setHoverTicket(t.id)}
+              onMouseLeave={() => setHoverTicket(null)}
+              style={{
+                width: '100%', background: isHover ? D.bg : D.card,
+                borderRadius: D.radius, border: isHover ? D.border : D.border,
+                boxShadow: isHover ? D.shadow() : D.shadow(2,2),
+                padding: '14px 18px', display: 'flex', alignItems: 'center',
+                gap: 14, textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit',
+                transition: 'box-shadow .1s',
+              }}>
+              <span style={{
+                display: 'inline-flex', padding: '2px 10px', borderRadius: 4, fontSize: 10,
+                fontWeight: 700, letterSpacing: '.04em', textTransform: 'uppercase',
+                background: cfg.bg, color: cfg.text, flexShrink: 0,
+              }}>
                 {cfg.label}
               </span>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-900 truncate">{t.subject}</p>
-                <p className="text-xs text-gray-400 mt-0.5 truncate">{t.userFullName} · {t.userEmail}</p>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ fontSize: 13, fontWeight: 700, color: D.ink, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.subject}</p>
+                <p style={{ fontSize: 11, color: D.inkMuted, margin: 0, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.userFullName} · {t.userEmail}</p>
               </div>
-              <p className="text-xs text-gray-400 flex-shrink-0">
+              <p style={{ fontSize: 11, color: D.inkMuted, flexShrink: 0 }}>
                 {new Date(t.createdAt).toLocaleDateString('vi-VN')}
               </p>
             </button>
@@ -154,68 +190,70 @@ export default function SupportAdminPage() {
 
       {/* Detail dialog */}
       <Dialog open={!!selected} onOpenChange={open => !open && setSelected(null)}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-lg" style={{ fontFamily: "'Be Vietnam Pro', sans-serif" }}>
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <LifeBuoy size={17} className="text-indigo-500" />
-              {selected?.subject}
+            <DialogTitle style={{ color: D.ink, fontWeight: 900, fontSize: 16 }}>
+              🎫 {selected?.subject}
             </DialogTitle>
           </DialogHeader>
 
           {selected && (
-            <div className="space-y-4 py-1">
-              {/* Info */}
-              <div className="flex items-center gap-3 text-sm text-gray-500">
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold"
-                  style={{ background: STATUS_CONFIG[selected.status]?.bg, color: STATUS_CONFIG[selected.status]?.text }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14, paddingTop: 4 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                <span style={{
+                  display: 'inline-flex', padding: '2px 10px', borderRadius: 4, fontSize: 10,
+                  fontWeight: 700, letterSpacing: '.04em', textTransform: 'uppercase',
+                  background: STATUS_CONFIG[selected.status]?.bg, color: STATUS_CONFIG[selected.status]?.text,
+                }}>
                   {STATUS_CONFIG[selected.status]?.label}
                 </span>
-                <span>{selected.userFullName} · {selected.userEmail}</span>
+                <span style={{ fontSize: 12, color: D.inkDim }}>{selected.userFullName} · {selected.userEmail}</span>
               </div>
 
-              {/* Message */}
-              <div className="bg-gray-50 rounded-lg p-4">
-                <p className="text-xs font-medium text-gray-500 mb-1.5">Nội dung yêu cầu</p>
-                <p className="text-sm text-gray-700 whitespace-pre-wrap">{selected.message}</p>
+              <div style={{ background: D.bg, borderRadius: 10, padding: '12px 16px', border: D.borderLight }}>
+                <p style={{ fontSize: 11, fontWeight: 700, color: D.inkMuted, margin: '0 0 6px', textTransform: 'uppercase', letterSpacing: '.04em' }}>Nội dung yêu cầu</p>
+                <p style={{ fontSize: 13, color: D.inkDim, whiteSpace: 'pre-wrap', margin: 0 }}>{selected.message}</p>
               </div>
 
-              {/* Admin note */}
-              <div className="space-y-1.5">
-                <Label>Ghi chú phản hồi</Label>
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 700, color: D.inkDim, display: 'block', marginBottom: 4 }}>Ghi chú phản hồi</label>
                 <textarea
                   value={adminNote}
                   onChange={e => setAdminNote(e.target.value)}
                   rows={3}
                   placeholder="Nhập phản hồi cho người dùng (tuỳ chọn)..."
-                  className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  style={{ width: '100%', border: D.borderLight, borderRadius: 8, padding: '8px 12px', fontSize: 13, color: D.ink, background: D.bg, resize: 'none', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }}
                 />
               </div>
 
-              {/* Actions */}
-              <div className="flex items-center gap-2 pt-1">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                 {selected.status !== 'InProgress' && selected.status !== 'Resolved' && (
-                  <Button variant="outline" onClick={() => handleUpdate('InProgress')} disabled={saving}
-                    className="gap-1.5 border-blue-200 text-blue-700 hover:bg-blue-50">
-                    <Loader2 size={13} /> Đang xử lý
-                  </Button>
+                  <button onClick={() => handleUpdate('InProgress')} disabled={saving}
+                    style={{ background: D.card, color: '#1d4ed8', border: '1.5px solid #bfdbfe', boxShadow: D.shadow(2,2), padding: '7px 14px', borderRadius: D.pill, fontSize: 12, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1, fontFamily: 'inherit' }}>
+                    ⟳ Đang xử lý
+                  </button>
                 )}
                 {selected.status !== 'Resolved' && (
-                  <Button onClick={() => handleUpdate('Resolved')} disabled={saving}
-                    className="gap-1.5 bg-emerald-600 hover:bg-emerald-700">
-                    <CheckCircle2 size={13} /> {saving ? 'Đang lưu...' : 'Đánh dấu đã giải quyết'}
-                  </Button>
+                  <button onClick={() => handleUpdate('Resolved')} disabled={saving}
+                    style={{ background: D.emerald, color: '#fff', border: D.border, boxShadow: D.shadow(2,2), padding: '7px 14px', borderRadius: D.pill, fontSize: 12, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1, fontFamily: 'inherit' }}>
+                    ✓ {saving ? 'Đang lưu...' : 'Đã giải quyết'}
+                  </button>
                 )}
                 {selected.status === 'Resolved' && (
-                  <Button variant="outline" onClick={() => handleUpdate('Open')} disabled={saving}>
+                  <button onClick={() => handleUpdate('Open')} disabled={saving}
+                    style={{ background: D.card, color: D.inkDim, border: D.border, boxShadow: D.shadow(2,2), padding: '7px 14px', borderRadius: D.pill, fontSize: 12, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}>
                     Mở lại
-                  </Button>
+                  </button>
                 )}
               </div>
             </div>
           )}
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setSelected(null)}>Đóng</Button>
+          <DialogFooter style={{ paddingTop: 8 }}>
+            <button onClick={() => setSelected(null)}
+              style={{ background: D.card, color: D.inkDim, border: D.border, boxShadow: D.shadow(2,2), padding: '8px 14px', borderRadius: D.pill, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+              Đóng
+            </button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

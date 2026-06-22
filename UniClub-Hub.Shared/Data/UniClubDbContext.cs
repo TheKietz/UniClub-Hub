@@ -20,6 +20,7 @@ namespace UniClub_Hub.Shared.Data
             typeof(Notification),
             typeof(EventSession),
             typeof(EventStaff),
+            typeof(PageView),
         ];
 
         public UniClubDbContext(
@@ -49,11 +50,18 @@ namespace UniClub_Hub.Shared.Data
         public DbSet<TaskComment> TaskComments { get; set; }
         public DbSet<Sprint> Sprints { get; set; }
         public DbSet<TaskDependency> TaskDependencies { get; set; }
+        public DbSet<KanbanColumn> KanbanColumns { get; set; }
         public DbSet<AuditLog> AuditLogs { get; set; }
         public DbSet<SupportTicket> SupportTickets { get; set; }
         public DbSet<ResignationRequest> ResignationRequests { get; set; }
         public DbSet<EventSession> EventSessions { get; set; }
         public DbSet<EventStaff> EventStaff { get; set; }
+        public DbSet<EventAttachment> EventAttachments { get; set; }
+        public DbSet<SystemSetting> SystemSettings { get; set; }
+        public DbSet<NotificationPreference> NotificationPreferences { get; set; }
+        public DbSet<ClubPipelineStage> ClubPipelineStages { get; set; }
+        public DbSet<TaskAssignee> TaskAssignees { get; set; }
+        public DbSet<PageView> PageViews { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
@@ -145,12 +153,65 @@ namespace UniClub_Hub.Shared.Data
                 .HasIndex(er => new { er.EventId, er.UserId })
                 .IsUnique();
 
+            // KanbanColumn — belongs to Club, optionally scoped to Sprint
+            builder
+                .Entity<KanbanColumn>()
+                .HasOne(c => c.Club)
+                .WithMany()
+                .HasForeignKey(c => c.ClubId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            builder
+                .Entity<KanbanColumn>()
+                .HasOne(c => c.Sprint)
+                .WithMany()
+                .HasForeignKey(c => c.SprintId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            // TaskAssignee — unique (TaskId, UserId), cascade on task delete
+            builder.Entity<TaskAssignee>()
+                .HasIndex(a => new { a.TaskId, a.UserId })
+                .IsUnique();
+
+            builder
+                .Entity<TaskAssignee>()
+                .HasOne(a => a.Task)
+                .WithMany(t => t.Assignees)
+                .HasForeignKey(a => a.TaskId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            builder
+                .Entity<TaskAssignee>()
+                .HasOne(a => a.User)
+                .WithMany()
+                .HasForeignKey(a => a.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
             // Indexes for common Operations queries
             builder.Entity<ClubTask>().HasIndex(t => new { t.ClubId, t.Status });
 
             builder.Entity<ClubTask>().HasIndex(t => t.AssignedTo);
 
             builder.Entity<Sprint>().HasIndex(s => new { s.ClubId, s.Status });
+
+            // EventAttachment — cascade delete when event is deleted
+            builder
+                .Entity<EventAttachment>()
+                .HasOne(a => a.Event)
+                .WithMany()
+                .HasForeignKey(a => a.EventId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            builder
+                .Entity<EventAttachment>()
+                .HasOne(a => a.UploadedByUser)
+                .WithMany()
+                .HasForeignKey(a => a.UploadedBy)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            builder
+                .Entity<EventAttachment>()
+                .HasQueryFilter(a => !a.IsDeleted);
 
             // EventSession — cascade delete when event is deleted
             builder
@@ -179,11 +240,44 @@ namespace UniClub_Hub.Shared.Data
                 .Entity<EventStaff>()
                 .HasIndex(es => new { es.EventId, es.UserId })
                 .IsUnique();
+
+            // NotificationPreference — unique per (ClubId, TriggerKey, RecipientRole)
+            builder.Entity<NotificationPreference>()
+                .HasIndex(np => new { np.ClubId, np.TriggerKey, np.RecipientRole })
+                .IsUnique();
+
+            builder.Entity<NotificationPreference>()
+                .HasOne(np => np.Club)
+                .WithMany()
+                .HasForeignKey(np => np.ClubId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // ClubPipelineStage — cascade when club deleted
+            builder.Entity<ClubPipelineStage>()
+                .HasOne(s => s.Club)
+                .WithMany(c => c.PipelineStages)
+                .HasForeignKey(s => s.ClubId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // ClubApplication.CurrentStage — set null when stage deleted
+            builder.Entity<ClubApplication>()
+                .HasOne(a => a.CurrentStage)
+                .WithMany(s => s.Applications)
+                .HasForeignKey(a => a.CurrentStageId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            // PageView — cascade on club delete, index for time-series queries
+            builder.Entity<PageView>()
+                .HasOne(pv => pv.Club)
+                .WithMany()
+                .HasForeignKey(pv => pv.ClubId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            builder.Entity<PageView>()
+                .HasIndex(pv => new { pv.ClubId, pv.VisitedAt });
         }
 
-        public override async Task<int> SaveChangesAsync(
-            CancellationToken cancellationToken = default
-        )
+        public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {
             var currentUserId = _httpContextAccessor
                 ?.HttpContext?.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)
@@ -209,10 +303,7 @@ namespace UniClub_Hub.Shared.Data
                     }
                 }
 
-                if (
-                    entry.Entity is ISoftDeletable softDeletable
-                    && entry.State == EntityState.Deleted
-                )
+                if (entry.Entity is ISoftDeletable softDeletable && entry.State == EntityState.Deleted)
                 {
                     entry.State = EntityState.Modified;
                     softDeletable.IsDeleted = true;
@@ -254,8 +345,7 @@ namespace UniClub_Hub.Shared.Data
                     }
 
                     // Ghi lại giá trị cũ trước khi save
-                    string? oldValue =
-                        e.State == EntityState.Modified ? SerializeValues(e.OriginalValues) : null;
+                    string? oldValue = e.State == EntityState.Modified ? SerializeValues(e.OriginalValues) : null;
 
                     return (Entry: e, Action: action, OldValue: oldValue);
                 })

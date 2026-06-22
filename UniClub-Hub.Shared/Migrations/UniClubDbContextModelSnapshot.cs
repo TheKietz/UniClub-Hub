@@ -356,6 +356,9 @@ namespace UniClub_Hub.Shared.Migrations
                     b.Property<string>("LogoUrl")
                         .HasColumnType("text");
 
+                    b.Property<string>("MemberFieldSchema")
+                        .HasColumnType("text");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(150)
@@ -401,11 +404,17 @@ namespace UniClub_Hub.Shared.Migrations
                     b.Property<int>("ClubId")
                         .HasColumnType("integer");
 
+                    b.Property<int?>("CurrentStageId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("MemberFieldData")
+                        .HasColumnType("text");
+
                     b.Property<string>("ReviewNote")
                         .HasColumnType("text");
 
                     b.Property<DateTime?>("ReviewedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<string>("ReviewerId")
                         .HasColumnType("text");
@@ -424,6 +433,8 @@ namespace UniClub_Hub.Shared.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("ClubId");
+
+                    b.HasIndex("CurrentStageId");
 
                     b.HasIndex("UserId");
 
@@ -490,6 +501,9 @@ namespace UniClub_Hub.Shared.Migrations
                         .HasColumnType("character varying(20)")
                         .HasDefaultValue("Draft");
 
+                    b.Property<string>("Summary")
+                        .HasColumnType("text");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamptz");
 
@@ -527,6 +541,9 @@ namespace UniClub_Hub.Shared.Migrations
                     b.Property<DateOnly>("JoinedDate")
                         .HasColumnType("date");
 
+                    b.Property<string>("MemberCustomData")
+                        .HasColumnType("text");
+
                     b.Property<DateOnly?>("ResignedDate")
                         .HasColumnType("date");
 
@@ -550,6 +567,34 @@ namespace UniClub_Hub.Shared.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("ClubMemberships");
+                });
+
+            modelBuilder.Entity("UniClub_Hub.Shared.Models.ClubPipelineStage", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ClubId")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("StageOrder")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClubId");
+
+                    b.ToTable("ClubPipelineStages");
                 });
 
             modelBuilder.Entity("UniClub_Hub.Shared.Models.ClubTask", b =>
@@ -599,6 +644,9 @@ namespace UniClub_Hub.Shared.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");
 
+                    b.Property<int?>("KanbanColumnId")
+                        .HasColumnType("integer");
+
                     b.Property<int?>("ParentId")
                         .HasColumnType("integer");
 
@@ -614,6 +662,9 @@ namespace UniClub_Hub.Shared.Migrations
 
                     b.Property<int?>("SprintId")
                         .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset?>("StartDate")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -641,6 +692,8 @@ namespace UniClub_Hub.Shared.Migrations
                     b.HasIndex("DepartmentId");
 
                     b.HasIndex("EventId");
+
+                    b.HasIndex("KanbanColumnId");
 
                     b.HasIndex("ParentId");
 
@@ -743,6 +796,55 @@ namespace UniClub_Hub.Shared.Migrations
                     b.ToTable("Departments");
                 });
 
+            modelBuilder.Entity("UniClub_Hub.Shared.Models.EventAttachment", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("ContentType")
+                        .HasColumnType("text");
+
+                    b.Property<string>("DeletedBy")
+                        .HasColumnType("text");
+
+                    b.Property<int>("EventId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("FileName")
+                        .HasColumnType("text");
+
+                    b.Property<long?>("FileSize")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("FileUrl")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Note")
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("UploadedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UploadedBy")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EventId");
+
+                    b.HasIndex("UploadedBy");
+
+                    b.ToTable("EventAttachments");
+                });
+
             modelBuilder.Entity("UniClub_Hub.Shared.Models.EventRegistration", b =>
                 {
                     b.Property<int>("Id")
@@ -793,7 +895,7 @@ namespace UniClub_Hub.Shared.Migrations
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<string>("Description")
                         .HasColumnType("text");
@@ -839,7 +941,7 @@ namespace UniClub_Hub.Shared.Migrations
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<DateTime>("AssignedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<int>("EventId")
                         .HasColumnType("integer");
@@ -861,6 +963,56 @@ namespace UniClub_Hub.Shared.Migrations
                         .IsUnique();
 
                     b.ToTable("EventStaff");
+                });
+
+            modelBuilder.Entity("UniClub_Hub.Shared.Models.KanbanColumn", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ClubId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Color")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<int?>("DepartmentId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("SprintId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClubId");
+
+                    b.HasIndex("DepartmentId");
+
+                    b.HasIndex("SprintId");
+
+                    b.ToTable("KanbanColumns");
                 });
 
             modelBuilder.Entity("UniClub_Hub.Shared.Models.LandingPage", b =>
@@ -978,6 +1130,80 @@ namespace UniClub_Hub.Shared.Migrations
                     b.ToTable("Notifications");
                 });
 
+            modelBuilder.Entity("UniClub_Hub.Shared.Models.NotificationPreference", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("ClubId")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("EmailEnabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("EmailSubject")
+                        .HasColumnType("text");
+
+                    b.Property<string>("EmailTemplate")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("InAppEnabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("InAppTemplate")
+                        .HasColumnType("text");
+
+                    b.Property<string>("RecipientRole")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("TriggerKey")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClubId", "TriggerKey", "RecipientRole")
+                        .IsUnique();
+
+                    b.ToTable("NotificationPreferences");
+                });
+
+            modelBuilder.Entity("UniClub_Hub.Shared.Models.PageView", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ClubId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Path")
+                        .HasColumnType("text");
+
+                    b.Property<string>("UserAgent")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("VisitedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("VisitorIp")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClubId", "VisitedAt");
+
+                    b.ToTable("PageViews");
+                });
+
             modelBuilder.Entity("UniClub_Hub.Shared.Models.Post", b =>
                 {
                     b.Property<int>("Id")
@@ -1041,13 +1267,13 @@ namespace UniClub_Hub.Shared.Migrations
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<DateTime>("ExpiresAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<DateTime?>("RevokedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<string>("Token")
                         .IsRequired()
@@ -1082,13 +1308,13 @@ namespace UniClub_Hub.Shared.Migrations
                         .HasColumnType("integer");
 
                     b.Property<DateTime>("RequestedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<string>("ReviewNote")
                         .HasColumnType("text");
 
                     b.Property<DateTime?>("ReviewedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<string>("ReviewerId")
                         .HasColumnType("text");
@@ -1131,6 +1357,9 @@ namespace UniClub_Hub.Shared.Migrations
                     b.Property<string>("DeletedBy")
                         .HasColumnType("text");
 
+                    b.Property<int?>("DepartmentId")
+                        .HasColumnType("integer");
+
                     b.Property<DateTimeOffset>("EndDate")
                         .HasColumnType("timestamptz");
 
@@ -1169,6 +1398,8 @@ namespace UniClub_Hub.Shared.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("DepartmentId");
+
                     b.HasIndex("EventId");
 
                     b.HasIndex("ClubId", "Status");
@@ -1188,14 +1419,14 @@ namespace UniClub_Hub.Shared.Migrations
                         .HasColumnType("text");
 
                     b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<string>("Message")
                         .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<DateTime?>("ResolvedAt")
-                        .HasColumnType("timestamp with time zone");
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -1214,6 +1445,79 @@ namespace UniClub_Hub.Shared.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("SupportTickets");
+                });
+
+            modelBuilder.Entity("UniClub_Hub.Shared.Models.SystemSetting", b =>
+                {
+                    b.Property<string>("Key")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text");
+
+                    b.Property<string>("InputType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<bool>("IsEnabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Label")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Value")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Key");
+
+                    b.ToTable("SystemSettings");
+                });
+
+            modelBuilder.Entity("UniClub_Hub.Shared.Models.TaskAssignee", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("AssignedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("AssignedBy")
+                        .HasColumnType("text");
+
+                    b.Property<int>("TaskId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("TaskId", "UserId")
+                        .IsUnique();
+
+                    b.ToTable("TaskAssignees");
                 });
 
             modelBuilder.Entity("UniClub_Hub.Shared.Models.TaskAttachment", b =>
@@ -1385,6 +1689,11 @@ namespace UniClub_Hub.Shared.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("UniClub_Hub.Shared.Models.ClubPipelineStage", "CurrentStage")
+                        .WithMany("Applications")
+                        .HasForeignKey("CurrentStageId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("UniClub_Hub.Shared.Models.ApplicationUser", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
@@ -1392,6 +1701,8 @@ namespace UniClub_Hub.Shared.Migrations
                         .IsRequired();
 
                     b.Navigation("Club");
+
+                    b.Navigation("CurrentStage");
 
                     b.Navigation("User");
                 });
@@ -1432,6 +1743,17 @@ namespace UniClub_Hub.Shared.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("UniClub_Hub.Shared.Models.ClubPipelineStage", b =>
+                {
+                    b.HasOne("UniClub_Hub.Shared.Models.Club", "Club")
+                        .WithMany("PipelineStages")
+                        .HasForeignKey("ClubId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Club");
+                });
+
             modelBuilder.Entity("UniClub_Hub.Shared.Models.ClubTask", b =>
                 {
                     b.HasOne("UniClub_Hub.Shared.Models.ApplicationUser", "Assignee")
@@ -1458,6 +1780,10 @@ namespace UniClub_Hub.Shared.Migrations
                         .WithMany("Tasks")
                         .HasForeignKey("EventId");
 
+                    b.HasOne("UniClub_Hub.Shared.Models.KanbanColumn", "KanbanColumn")
+                        .WithMany()
+                        .HasForeignKey("KanbanColumnId");
+
                     b.HasOne("UniClub_Hub.Shared.Models.ClubTask", "Parent")
                         .WithMany("SubTasks")
                         .HasForeignKey("ParentId");
@@ -1475,6 +1801,8 @@ namespace UniClub_Hub.Shared.Migrations
                     b.Navigation("Department");
 
                     b.Navigation("Event");
+
+                    b.Navigation("KanbanColumn");
 
                     b.Navigation("Parent");
 
@@ -1521,6 +1849,25 @@ namespace UniClub_Hub.Shared.Migrations
                         .IsRequired();
 
                     b.Navigation("Club");
+                });
+
+            modelBuilder.Entity("UniClub_Hub.Shared.Models.EventAttachment", b =>
+                {
+                    b.HasOne("UniClub_Hub.Shared.Models.ClubEvent", "Event")
+                        .WithMany()
+                        .HasForeignKey("EventId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("UniClub_Hub.Shared.Models.ApplicationUser", "UploadedByUser")
+                        .WithMany()
+                        .HasForeignKey("UploadedBy")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Event");
+
+                    b.Navigation("UploadedByUser");
                 });
 
             modelBuilder.Entity("UniClub_Hub.Shared.Models.EventRegistration", b =>
@@ -1572,6 +1919,30 @@ namespace UniClub_Hub.Shared.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("UniClub_Hub.Shared.Models.KanbanColumn", b =>
+                {
+                    b.HasOne("UniClub_Hub.Shared.Models.Club", "Club")
+                        .WithMany()
+                        .HasForeignKey("ClubId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("UniClub_Hub.Shared.Models.Department", "Department")
+                        .WithMany()
+                        .HasForeignKey("DepartmentId");
+
+                    b.HasOne("UniClub_Hub.Shared.Models.Sprint", "Sprint")
+                        .WithMany()
+                        .HasForeignKey("SprintId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Club");
+
+                    b.Navigation("Department");
+
+                    b.Navigation("Sprint");
+                });
+
             modelBuilder.Entity("UniClub_Hub.Shared.Models.LandingPage", b =>
                 {
                     b.HasOne("UniClub_Hub.Shared.Models.Club", "Club")
@@ -1609,6 +1980,27 @@ namespace UniClub_Hub.Shared.Migrations
                         .IsRequired();
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("UniClub_Hub.Shared.Models.NotificationPreference", b =>
+                {
+                    b.HasOne("UniClub_Hub.Shared.Models.Club", "Club")
+                        .WithMany()
+                        .HasForeignKey("ClubId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.Navigation("Club");
+                });
+
+            modelBuilder.Entity("UniClub_Hub.Shared.Models.PageView", b =>
+                {
+                    b.HasOne("UniClub_Hub.Shared.Models.Club", "Club")
+                        .WithMany()
+                        .HasForeignKey("ClubId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Club");
                 });
 
             modelBuilder.Entity("UniClub_Hub.Shared.Models.Post", b =>
@@ -1682,12 +2074,18 @@ namespace UniClub_Hub.Shared.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("UniClub_Hub.Shared.Models.Department", "Department")
+                        .WithMany()
+                        .HasForeignKey("DepartmentId");
+
                     b.HasOne("UniClub_Hub.Shared.Models.ClubEvent", "Event")
                         .WithMany("Sprints")
                         .HasForeignKey("EventId")
                         .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("Club");
+
+                    b.Navigation("Department");
 
                     b.Navigation("Event");
                 });
@@ -1699,6 +2097,25 @@ namespace UniClub_Hub.Shared.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("UniClub_Hub.Shared.Models.TaskAssignee", b =>
+                {
+                    b.HasOne("UniClub_Hub.Shared.Models.ClubTask", "Task")
+                        .WithMany("Assignees")
+                        .HasForeignKey("TaskId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("UniClub_Hub.Shared.Models.ApplicationUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Task");
 
                     b.Navigation("User");
                 });
@@ -1788,6 +2205,8 @@ namespace UniClub_Hub.Shared.Migrations
 
                     b.Navigation("MediaGalleries");
 
+                    b.Navigation("PipelineStages");
+
                     b.Navigation("Posts");
                 });
 
@@ -1808,8 +2227,15 @@ namespace UniClub_Hub.Shared.Migrations
                     b.Navigation("Tasks");
                 });
 
+            modelBuilder.Entity("UniClub_Hub.Shared.Models.ClubPipelineStage", b =>
+                {
+                    b.Navigation("Applications");
+                });
+
             modelBuilder.Entity("UniClub_Hub.Shared.Models.ClubTask", b =>
                 {
+                    b.Navigation("Assignees");
+
                     b.Navigation("Attachments");
 
                     b.Navigation("Comments");

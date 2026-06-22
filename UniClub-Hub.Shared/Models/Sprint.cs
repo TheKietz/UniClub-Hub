@@ -21,6 +21,11 @@ namespace UniClub_Hub.Shared.Models
         public DateTime? UpdatedAt { get; set; }
         public string? UpdatedBy { get; set; }
 
+        //Deparertment table
+        public int? DepartmentId { get; set; }
+        public Department? Department { get; set; }
+
+
         // ISoftDeletable
         public bool IsDeleted { get; set; }
         public string? DeletedBy { get; set; }

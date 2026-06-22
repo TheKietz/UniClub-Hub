@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using UniClub_Hub.Membership.DTOs.LandingPage;
 using UniClub_Hub.Membership.Services.Interfaces;
 using UniClub_Hub.Shared.Common;
+using UniClub_Hub.Shared.Common.Storage;
 using UniClub_Hub.Shared.Data;
 using UniClub_Hub.Shared.Models;
 

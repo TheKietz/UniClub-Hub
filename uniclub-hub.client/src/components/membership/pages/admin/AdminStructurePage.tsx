@@ -4,24 +4,44 @@ import { getDepartments } from '@/components/membership/services/clubApi'
 import type { ClubItem } from '@/components/membership/services/admin.types'
 import type { DepartmentItem } from '@/components/membership/services/club.types'
 import api from '@/lib/axiosInstance'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { toast } from 'sonner'
-import { Plus, Pencil, Trash2, Building2, Search } from 'lucide-react'
+import { Link } from 'react-router-dom'
 
-const CLUB_COLORS = [
-  { bg: '#ede9fe', icon: '#7c3aed', border: '#ddd6fe' },
-  { bg: '#dbeafe', icon: '#1d4ed8', border: '#bfdbfe' },
-  { bg: '#dcfce7', icon: '#16a34a', border: '#bbf7d0' },
-  { bg: '#fef9c3', icon: '#a16207', border: '#fef08a' },
-  { bg: '#fee2e2', icon: '#dc2626', border: '#fecaca' },
-  { bg: '#ffedd5', icon: '#c2410c', border: '#fed7aa' },
+const D = {
+  border: '1.5px solid #15131a',
+  borderLight: '1px solid #e8e3d6',
+  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 #15131a`,
+  radius: 14,
+  pill: 999,
+  ink: '#15131a',
+  inkDim: '#4a4651',
+  inkMuted: '#918c99',
+  bg: '#f7f6f1',
+  card: '#ffffff',
+  indigo: '#4f46e5',
+  violet: '#7c3aed',
+  red: '#ef4444',
+}
+
+const CLUB_PALETTES = [
+  { accent: '#4f46e5', light: '#ede9fe' },
+  { accent: '#0ea5e9', light: '#e0f2fe' },
+  { accent: '#10b981', light: '#d1fae5' },
+  { accent: '#f59e0b', light: '#fef9c3' },
+  { accent: '#ef4444', light: '#fee2e2' },
+  { accent: '#ec4899', light: '#fce7f3' },
 ]
 
 type DeptsByClub = Record<number, DepartmentItem[]>
+
+const inputStyle: React.CSSProperties = {
+  width: '100%', height: 36, borderRadius: 8, border: '1px solid #e8e3d6',
+  padding: '0 12px', fontSize: 13, color: '#15131a', outline: 'none',
+  background: '#f7f6f1', fontFamily: 'inherit', boxSizing: 'border-box',
+}
+const labelStyle: React.CSSProperties = { fontSize: 12, fontWeight: 700, color: '#4a4651', display: 'block', marginBottom: 4 }
 
 export default function AdminStructurePage() {
   const [clubs, setClubs] = useState<ClubItem[]>([])
@@ -107,7 +127,11 @@ export default function AdminStructurePage() {
     }
   }
 
-  if (loading) return <div className="p-8" style={{ color: '#6b7280' }}>Đang tải...</div>
+  if (loading) return (
+    <div style={{ padding: '28px 32px', minHeight: '100%', background: D.bg, fontFamily: "'Be Vietnam Pro', sans-serif", color: D.inkMuted, fontSize: 13 }}>
+      Đang tải...
+    </div>
+  )
 
   const hasFilter = searchName || searchCode
   const filteredClubs = clubs
@@ -115,77 +139,103 @@ export default function AdminStructurePage() {
     .filter(c => !searchCode || c.code.toLowerCase().includes(searchCode.toLowerCase()))
 
   return (
-    <div className="px-8 pt-3 pb-8 space-y-4">
-      <h1 className="text-xl font-bold leading-none" style={{ color: '#0f172a' }}>Cơ cấu tổ chức</h1>
+    <div style={{ padding: '28px 32px', minHeight: '100%', background: D.bg, fontFamily: "'Be Vietnam Pro', sans-serif" }}>
+      {/* Header */}
+      <div style={{ marginBottom: 20 }}>
+        <h1 style={{ fontSize: 24, fontWeight: 900, color: D.ink, letterSpacing: '-.025em', margin: 0 }}>Cơ cấu tổ chức</h1>
+        <p style={{ fontSize: 13, color: D.inkMuted, marginTop: 4 }}>{clubs.length} CLB · {Object.values(deptsByClub).flat().length} ban bộ phận</p>
+      </div>
 
-      {/* Search */}
-      <div className="bg-white rounded-xl border border-gray-200 p-3 flex flex-wrap gap-2 items-center">
-        <div className="relative flex-1 min-w-40">
-          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-          <Input placeholder="Tên CLB..." value={searchName} onChange={e => setSearchName(e.target.value)} className="pl-8 h-9 text-sm" />
-        </div>
-        <div className="relative w-32">
-          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-          <Input placeholder="Mã CLB..." value={searchCode} onChange={e => setSearchCode(e.target.value)} className="pl-8 h-9 text-sm" />
-        </div>
-        <div className="flex items-center gap-2 ml-auto">
+      {/* Search bar */}
+      <div style={{ padding: '10px 14px', borderRadius: D.radius, background: D.card, border: D.border, boxShadow: D.shadow(), display: 'flex', gap: 10, alignItems: 'center', marginBottom: 20, flexWrap: 'wrap' }}>
+        <input placeholder="⌕  Tên CLB..." value={searchName} onChange={e => setSearchName(e.target.value)}
+          style={{ ...inputStyle, flex: 1, minWidth: 160 }} />
+        <input placeholder="⌕  Mã CLB..." value={searchCode} onChange={e => setSearchCode(e.target.value)}
+          style={{ ...inputStyle, width: 130 }} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto' }}>
           {hasFilter && (
             <button onClick={() => { setSearchName(''); setSearchCode('') }}
-              className="text-xs text-indigo-500 hover:underline whitespace-nowrap">Xoá lọc</button>
+              style={{ fontSize: 12, color: D.indigo, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
+              Xoá lọc
+            </button>
           )}
-          <span className="text-sm text-gray-400 whitespace-nowrap">{filteredClubs.length}/{clubs.length}</span>
+          <span style={{ fontSize: 12, color: D.inkMuted, whiteSpace: 'nowrap' }}>{filteredClubs.length}/{clubs.length}</span>
         </div>
       </div>
 
-      <div className="space-y-4">
+      {/* Club cards */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         {filteredClubs.map((club, idx) => {
           const depts = deptsByClub[club.id] ?? []
-          const clr = CLUB_COLORS[idx % CLUB_COLORS.length]
+          const pal = CLUB_PALETTES[idx % CLUB_PALETTES.length]
           return (
-            <div key={club.id} className="bg-white rounded-xl border p-5" style={{ borderColor: clr.border }}>
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: clr.bg }}>
-                    <Building2 size={16} style={{ color: clr.icon }} />
+            <div key={club.id} style={{ background: D.card, borderRadius: D.radius, border: D.border, boxShadow: D.shadow(), padding: 20 }}>
+              {/* Club header */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, gap: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <div style={{
+                    width: 40, height: 40, borderRadius: 10, flexShrink: 0,
+                    background: pal.light, border: D.border,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 18, fontWeight: 900, color: pal.accent,
+                  }}>
+                    {club.name[0]}
                   </div>
                   <div>
-                    <p style={{ color: '#0f172a', fontWeight: 600, fontSize: '0.95rem' }}>{club.name}</p>
-                    <p style={{ color: '#9ca3af', fontSize: '0.75rem', fontFamily: 'monospace' }}>{club.code}</p>
+                    <p style={{ fontWeight: 800, fontSize: 15, color: D.ink, margin: 0 }}>{club.name}</p>
+                    <p style={{ fontSize: 11, color: D.inkMuted, fontFamily: 'monospace', margin: 0 }}>{club.code}</p>
                   </div>
                 </div>
-                <Button size="sm" className="gap-1.5" style={{ background: clr.icon, color: '#fff' }}
-                  onClick={() => openCreate(club)}>
-                  <Plus size={14} /> Thêm ban
-                </Button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Link to={`/clubs/${club.id}/manage/orgchart`}
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 4,
+                      padding: '5px 12px', borderRadius: D.pill, fontSize: 11, fontWeight: 700,
+                      border: D.border, background: D.card, color: pal.accent,
+                      textDecoration: 'none', boxShadow: D.shadow(2,2),
+                    }}>
+                    ⎇ Sơ đồ
+                  </Link>
+                  <button
+                    onClick={() => openCreate(club)}
+                    style={{ background: pal.accent, color: '#fff', border: D.border, boxShadow: D.shadow(2,2), padding: '5px 12px', borderRadius: D.pill, fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+                    + Thêm ban
+                  </button>
+                </div>
               </div>
 
+              {/* Departments */}
               {depts.length === 0 ? (
-                <p style={{ color: '#9ca3af', fontSize: '0.875rem' }}>Chưa có ban nào.</p>
+                <p style={{ fontSize: 13, color: D.inkMuted, margin: 0 }}>Chưa có ban nào.</p>
               ) : (
-                <div className="space-y-1.5">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                   {depts.map(dept => (
-                    <div key={dept.id} className="flex items-center justify-between py-2 px-3 rounded-lg"
-                      style={{ background: clr.bg + '60' }}>
-                      <div className="flex items-center gap-3">
-                        <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: clr.icon }} />
-                        <span style={{ color: '#374151', fontSize: '0.875rem', fontWeight: 500 }}>{dept.name}</span>
+                    <div key={dept.id} style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      padding: '9px 14px', borderRadius: 10,
+                      background: pal.light, border: '1px solid transparent',
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <span style={{ width: 6, height: 6, borderRadius: '50%', background: pal.accent, flexShrink: 0 }} />
+                        <span style={{ fontWeight: 600, fontSize: 13, color: D.ink }}>{dept.name}</span>
                         {dept.description && (
-                          <span style={{ color: '#9ca3af', fontSize: '0.8rem' }}>{dept.description}</span>
+                          <span style={{ fontSize: 12, color: D.inkMuted }}>{dept.description}</span>
                         )}
                       </div>
-                      <div className="flex items-center gap-3">
-                        <span className="text-xs px-2 py-0.5 rounded-full font-medium"
-                          style={{ background: clr.bg, color: clr.icon }}>
-                          {dept.memberCount} thành viên
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: D.pill, background: D.card, color: pal.accent, border: `1px solid ${pal.accent}30` }}>
+                          {dept.memberCount} TV
                         </span>
-                        <Button size="icon" variant="ghost" className="h-7 w-7 text-indigo-500 hover:text-indigo-700 hover:bg-indigo-50"
-                          onClick={() => openEdit(club, dept)}>
-                          <Pencil size={13} />
-                        </Button>
-                        <Button size="icon" variant="ghost" className="h-7 w-7 text-red-400 hover:text-red-600 hover:bg-red-50"
-                          onClick={() => setDeleteTarget({ clubId: club.id, dept })}>
-                          <Trash2 size={13} />
-                        </Button>
+                        <button
+                          onClick={() => openEdit(club, dept)}
+                          style={{ padding: '3px 8px', borderRadius: 6, fontSize: 11, fontWeight: 600, border: D.borderLight, background: D.card, color: D.indigo, cursor: 'pointer', fontFamily: 'inherit' }}>
+                          Sửa
+                        </button>
+                        <button
+                          onClick={() => setDeleteTarget({ clubId: club.id, dept })}
+                          style={{ padding: '3px 8px', borderRadius: 6, fontSize: 11, fontWeight: 600, border: D.borderLight, background: D.card, color: D.red, cursor: 'pointer', fontFamily: 'inherit' }}>
+                          Xoá
+                        </button>
                       </div>
                     </div>
                   ))}
@@ -198,33 +248,41 @@ export default function AdminStructurePage() {
 
       {/* Create/Edit dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="max-w-sm" style={{ fontFamily: "'Be Vietnam Pro', sans-serif" }}>
           <DialogHeader>
-            <DialogTitle style={{ color: '#0f172a', fontWeight: 700 }}>
+            <DialogTitle style={{ color: D.ink, fontWeight: 900, fontSize: 17 }}>
               {editingDept ? `Sửa ban — ${dialogClub?.name}` : `Thêm ban — ${dialogClub?.name}`}
             </DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleSave} className="space-y-4 py-2">
-            <div className="space-y-1.5">
-              <Label>Tên ban *</Label>
-              <Input
+          <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: 14, paddingTop: 8 }}>
+            <div>
+              <label style={labelStyle}>Tên ban *</label>
+              <input
                 value={form.name}
                 onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
                 required
                 placeholder="VD: Ban Học thuật"
+                style={inputStyle}
               />
             </div>
-            <div className="space-y-1.5">
-              <Label>Mô tả</Label>
-              <Input
+            <div>
+              <label style={labelStyle}>Mô tả</label>
+              <input
                 value={form.description}
                 onChange={e => setForm(p => ({ ...p, description: e.target.value }))}
                 placeholder="Mô tả ngắn về ban (tuỳ chọn)"
+                style={inputStyle}
               />
             </div>
-            <DialogFooter className="border-none bg-transparent">
-              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Huỷ</Button>
-              <Button type="submit" disabled={saving}>{saving ? 'Đang lưu...' : 'Lưu'}</Button>
+            <DialogFooter style={{ borderTop: 'none', background: 'transparent', paddingTop: 4 }}>
+              <button type="button" onClick={() => setDialogOpen(false)}
+                style={{ background: D.card, color: D.inkDim, border: D.border, boxShadow: D.shadow(2,2), padding: '8px 14px', borderRadius: D.pill, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                Huỷ
+              </button>
+              <button type="submit" disabled={saving}
+                style={{ background: D.indigo, color: '#fff', border: D.border, boxShadow: D.shadow(2,2), padding: '8px 16px', borderRadius: D.pill, fontSize: 12, fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1, fontFamily: 'inherit' }}>
+                {saving ? 'Đang lưu...' : 'Lưu'}
+              </button>
             </DialogFooter>
           </form>
         </DialogContent>
@@ -232,16 +290,19 @@ export default function AdminStructurePage() {
 
       {/* Confirm delete */}
       <AlertDialog open={!!deleteTarget} onOpenChange={open => !open && setDeleteTarget(null)}>
-        <AlertDialogContent>
+        <AlertDialogContent style={{ fontFamily: "'Be Vietnam Pro', sans-serif" }}>
           <AlertDialogHeader>
-            <AlertDialogTitle>Xoá ban?</AlertDialogTitle>
-            <AlertDialogDescription>
+            <AlertDialogTitle style={{ color: D.ink, fontWeight: 900 }}>Xoá ban?</AlertDialogTitle>
+            <AlertDialogDescription style={{ color: D.inkDim }}>
               Ban <strong>{deleteTarget?.dept.name}</strong> sẽ bị xoá khỏi hệ thống.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Huỷ</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">Xoá</AlertDialogAction>
+            <AlertDialogCancel style={{ fontFamily: 'inherit' }}>Huỷ</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete}
+              style={{ background: D.red, color: '#fff', border: D.border, fontFamily: 'inherit' }}>
+              Xoá
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

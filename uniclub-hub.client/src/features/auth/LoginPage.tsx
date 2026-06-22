@@ -2,11 +2,41 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useGoogleLogin } from '@react-oauth/google'
 import { useAuth } from '@/contexts/AuthContext'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Eye, EyeOff, Mail, Lock, Users, Calendar, Award } from 'lucide-react'
+import { C, Rv, PublicFooter } from '@/components/public/publicComponents'
+import PublicHeader from '@/components/layouts/PublicHeader'
 import { toast } from 'sonner'
+import api from '@/lib/axiosInstance'
+import { Eye, EyeOff } from 'lucide-react'
+import type { UserInfo } from '@/types/auth'
+
+function redirectAfterLogin(me: UserInfo): string {
+  if (me.roles.includes('SUPER_ADMIN')) return '/admin'
+  const active = me.memberships.filter(m => m.status === 'Active')
+  const hasManageRole = active.some(m => m.clubRole === 'CLUB_ADMIN' || m.clubRole === 'DEPT_LEAD')
+  if (hasManageRole || active.length > 0) return '/dashboard'
+  return '/clubs'
+}
+
+const CLUB_SQUARES = [
+  { short: 'UEC', color: C.indigo },
+  { short: 'MKC', color: C.violet },
+  { short: 'ITS', color: C.sky },
+  { short: 'VLC', color: C.mint },
+  { short: 'DCU', color: C.pink },
+  { short: 'PHC', color: C.coral },
+]
+
+const inputStyle: React.CSSProperties = {
+  width: '100%', height: 40, borderRadius: C.radiusPill,
+  border: C.border, background: C.bg,
+  padding: '0 14px', fontSize: 13.5, color: C.ink, outline: 'none',
+  marginBottom: 8, fontWeight: 500, boxSizing: 'border-box',
+  fontFamily: "'Be Vietnam Pro', sans-serif",
+}
+const labelStyle: React.CSSProperties = {
+  display: 'block', fontSize: 11, fontWeight: 700, color: C.inkDim,
+  marginBottom: 4, letterSpacing: '.04em', textTransform: 'uppercase',
+}
 
 export default function LoginPage() {
   const { login, googleLogin } = useAuth()
@@ -14,10 +44,12 @@ export default function LoginPage() {
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [showPassword, setShowPassword] = useState(false)
   const [rememberMe, setRememberMe] = useState(true)
-  const [errs, setErrs] = useState<{ email?: string; password?: string }>({})
   const [loading, setLoading] = useState(false)
+  const [unconfirmedEmail, setUnconfirmedEmail] = useState('')
+  const [resendLoading, setResendLoading] = useState(false)
+  const [errs, setErrs] = useState<{ email?: string; password?: string }>({})
+  const [showPassword, setShowPassword] = useState(false)
 
   function validate() {
     const e: { email?: string; password?: string } = {}
@@ -27,11 +59,6 @@ export default function LoginPage() {
     return e
   }
 
-  function onBlur(field: 'email' | 'password') {
-    const fieldErr = validate()[field]
-    setErrs(prev => ({ ...prev, [field]: fieldErr ?? '' }))
-  }
-
   async function handleSubmit(e: { preventDefault(): void }) {
     e.preventDefault()
     const fieldErrs = validate()
@@ -39,11 +66,28 @@ export default function LoginPage() {
     setLoading(true)
     try {
       const me = await login(email, password, rememberMe)
-      navigate(me.roles.includes('SUPER_ADMIN') ? '/admin' : '/dashboard', { replace: true })
+      navigate(redirectAfterLogin(me), { replace: true })
     } catch (err: any) {
-      toast.error(err.response?.data?.message ?? 'Email hoặc mật khẩu không đúng.')
+      const msg = err.response?.data?.message ?? ''
+      if (msg === 'EMAIL_NOT_CONFIRMED') {
+        setUnconfirmedEmail(email)
+      } else {
+        toast.error(msg || 'Email hoặc mật khẩu không đúng.')
+      }
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function handleResend() {
+    setResendLoading(true)
+    try {
+      await api.post('/auth/resend-confirmation', { email: unconfirmedEmail })
+      toast.success('Email xác thực đã được gửi lại.')
+    } catch {
+      toast.error('Gửi lại thất bại. Vui lòng thử lại sau.')
+    } finally {
+      setResendLoading(false)
     }
   }
 
@@ -53,7 +97,7 @@ export default function LoginPage() {
       setLoading(true)
       try {
         const me = await googleLogin(tokenResponse.access_token)
-        navigate(me.roles.includes('SUPER_ADMIN') ? '/admin' : '/dashboard', { replace: true })
+        navigate(redirectAfterLogin(me), { replace: true })
       } catch (err: any) {
         toast.error(err.response?.data?.message ?? 'Đăng nhập Google thất bại.')
       } finally {
@@ -64,183 +108,196 @@ export default function LoginPage() {
   })
 
   return (
-    // Lớp 1 — full-screen purple gradient background
-    <div
-      className="min-h-screen flex items-center justify-center p-6"
-      style={{ background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 30%, #4c1d95 60%, #6d28d9 100%)' }}
-    >
-      {/* Background orbs */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -left-40 w-[500px] h-[500px] rounded-full opacity-20"
-          style={{ background: 'radial-gradient(circle, #a78bfa, transparent)' }} />
-        <div className="absolute -bottom-20 -right-20 w-96 h-96 rounded-full opacity-15"
-          style={{ background: 'radial-gradient(circle, #818cf8, transparent)' }} />
-        <div className="absolute top-1/3 right-1/4 w-72 h-72 rounded-full opacity-10"
-          style={{ background: 'radial-gradient(circle, #c4b5fd, transparent)' }} />
-      </div>
+    <div className="v3-page v3-enter">
+      <PublicHeader />
+      <div style={{
+        flex: 1, background: C.bg, display: 'flex', alignItems: 'center',
+        justifyContent: 'center', padding: '20px 28px',
+        fontFamily: "'Be Vietnam Pro', sans-serif",
+      }}>
+        <div style={{
+          display: 'grid', gridTemplateColumns: '1fr 440px', gap: 56,
+          maxWidth: 980, width: '100%', alignItems: 'center',
+        }}>
+          {/* ── Left panel ── */}
+          <div style={{ position: 'relative' }}>
+            {/* Decoration */}
+            <div aria-hidden style={{
+              position: 'absolute', top: -10, right: 20, width: 60, height: 60,
+              borderRadius: C.radiusPill, background: C.coral, border: C.border,
+              transform: 'rotate(8deg)', animation: 'float 4s ease-in-out infinite',
+              display: 'grid', placeItems: 'center', color: C.bg,
+              fontWeight: 900, fontSize: 10, textAlign: 'center', lineHeight: 1.1,
+            } as React.CSSProperties}>WB!<br />UEF</div>
 
-      {/* Lớp 2 — floating card */}
-      <div
-        className="relative z-10 w-full max-w-4xl rounded-3xl overflow-hidden shadow-2xl flex"
-        style={{ minHeight: '560px' }}
-      >
-        {/* Nửa trái — glass trên nền tím */}
-        <div
-          className="hidden lg:flex lg:w-[45%] flex-col justify-between p-10"
-          style={{
-            background: 'rgba(255,255,255,0.08)',
-            backdropFilter: 'blur(20px)',
-            borderRight: '1px solid rgba(255,255,255,0.12)',
-          }}
-        >
-          {/* Logo */}
-          <div className="flex items-center gap-3">
-            <div
-              className="w-9 h-9 rounded-xl flex items-center justify-center font-bold text-white text-base"
-              style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.2)' }}
-            >
-              U
-            </div>
-            <span className="text-white font-semibold">UniClub Hub</span>
-          </div>
+            <Rv>
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', gap: 4,
+                fontSize: 10.5, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase',
+                padding: '3px 10px', borderRadius: 4, background: C.lemon, color: C.ink,
+                border: C.border, marginBottom: 16,
+              }}>★ Đăng nhập</span>
+            </Rv>
 
-          {/* Content */}
-          <div className="space-y-7">
-            <div>
-              <h2 className="text-3xl font-bold text-white leading-tight mb-3"
-                style={{ letterSpacing: '-0.5px' }}>
-                Quản lý câu lạc bộ <br />
-                <span style={{ color: '#c4b5fd' }}>thông minh hơn</span>
-              </h2>
-              <p className="text-purple-200 text-sm leading-relaxed">
-                Nền tảng quản lý toàn diện cho các câu lạc bộ sinh viên — từ nhân sự đến hoạt động.
-              </p>
-            </div>
-
-            <div className="space-y-3">
-              {[
-                { icon: Users, text: 'Quản lý thành viên & phân quyền vai trò' },
-                { icon: Calendar, text: 'Theo dõi sự kiện và hoạt động nội bộ' },
-                { icon: Award, text: 'Hệ thống KPI và đánh giá đóng góp' },
-              ].map(({ icon: Icon, text }) => (
-                <div key={text} className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-                    style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)' }}>
-                    <Icon size={14} className="text-purple-200" />
-                  </div>
-                  <span className="text-purple-100 text-sm">{text}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <p className="text-purple-400 text-xs">© 2026 UniClub Hub</p>
-        </div>
-
-        {/* Nửa phải — form trắng */}
-        <div className="flex-1 bg-white flex items-center justify-center p-10">
-          <div className="w-full max-w-sm space-y-5">
-            {/* Mobile logo */}
-            <div className="lg:hidden text-center mb-2">
-              <div className="inline-flex w-10 h-10 rounded-xl items-center justify-center text-white font-bold mb-2"
-                style={{ background: 'linear-gradient(135deg, #4f46e5, #7c3aed)' }}>U</div>
-              <p className="text-lg font-bold text-gray-900">UniClub Hub</p>
-            </div>
-
-            <div>
-              <h1 style={{ fontSize: '1.75rem', fontWeight: 800, letterSpacing: '-0.5px', margin: '0 0 4px 0', color: '#0f172a' }}>
-                Chào mừng trở lại
+            <Rv delay={60}>
+              <h1 style={{
+                fontSize: 'clamp(36px, 5.5vw, 64px)', fontWeight: 900, color: C.ink,
+                letterSpacing: '-.045em', lineHeight: 0.95, margin: 0,
+              }}>
+                Hey, you're<br />
+                <span style={{ fontFamily: "'Instrument Serif', serif", fontStyle: 'italic', fontWeight: 400 }}>
+                  back!
+                </span>{' '}👋
               </h1>
-              <p className="text-sm text-gray-400">Đăng nhập để tiếp tục</p>
-            </div>
+            </Rv>
 
-            <form onSubmit={handleSubmit} noValidate className="space-y-4">
-              <div className="space-y-1">
-                <Label htmlFor="email" className="text-sm font-medium text-gray-700">Email</Label>
-                <div className="relative">
-                  <Mail size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                  <Input id="email" type="email" value={email}
-                    onChange={e => { setEmail(e.target.value); if (errs.email) setErrs(p => ({ ...p, email: '' })) }}
-                    onBlur={() => onBlur('email')}
-                    placeholder="example@student.edu.vn"
-                    className={`pl-9${errs.email ? ' border-red-400 focus-visible:ring-red-300' : ''}`}
-                    style={{ height: '42px' }} />
+            <Rv delay={120}>
+              <p style={{ fontSize: 16, color: C.inkDim, lineHeight: 1.5, margin: '20px 0 0', maxWidth: 400, fontWeight: 500 }}>
+                42 CLB, sự kiện, hoạt động đang chờ bạn. Đăng nhập để tiếp tục.
+              </p>
+            </Rv>
+
+            {/* Club avatars decoration */}
+            <Rv delay={180}>
+              <div style={{ marginTop: 32 }}>
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                  {CLUB_SQUARES.map((club, i) => (
+                    <div key={club.short} style={{
+                      width: 52, height: 52, borderRadius: 14,
+                      background: club.color, border: C.border,
+                      display: 'grid', placeItems: 'center',
+                      color: C.bg,
+                      fontWeight: 900, fontSize: 13, letterSpacing: '-.02em',
+                      transform: `rotate(${(i % 2 === 0 ? -1 : 1) * (3 + i)}deg)`,
+                      boxShadow: C.shadow(3, 3),
+                      animation: `float ${3 + i * 0.5}s ease-in-out infinite ${i * 0.3}s`,
+                    } as React.CSSProperties}>{club.short}</div>
+                  ))}
                 </div>
-                <p className="min-h-4 text-xs text-red-500">{errs.email}</p>
+                <div style={{ fontSize: 13, color: C.inkMuted, fontWeight: 500, marginTop: 12 }}>
+                  42 CLB đang hoạt động tại UEF
+                </div>
               </div>
+            </Rv>
+          </div>
 
-              <div className="space-y-1">
-                <Label htmlFor="password" className="text-sm font-medium text-gray-700">Mật khẩu</Label>
-                <div className="relative">
-                  <Lock size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                  <Input id="password" type={showPassword ? 'text' : 'password'} value={password}
-                    onChange={e => { setPassword(e.target.value); if (errs.password) setErrs(p => ({ ...p, password: '' })) }}
-                    onBlur={() => onBlur('password')}
-                    placeholder="••••••••"
-                    className={`pl-9 pr-10${errs.password ? ' border-red-400 focus-visible:ring-red-300' : ''}`}
-                    style={{ height: '42px' }} />
-                  <button type="button" onClick={() => setShowPassword(v => !v)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors">
-                    {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+          {/* ── Form card ── */}
+          <Rv delay={100}>
+            <div style={{
+              background: C.card, border: C.border, borderRadius: 20,
+              boxShadow: C.shadow(6, 6), padding: '24px 24px 20px',
+            }}>
+              {/* Email not confirmed banner */}
+              {unconfirmedEmail && (
+                <div style={{
+                  background: '#fef3c7', border: '1.5px solid #fde68a',
+                  borderRadius: 10, padding: '12px 14px', marginBottom: 16,
+                }}>
+                  <p style={{ fontSize: 13, fontWeight: 600, color: '#92400e', margin: '0 0 6px' }}>
+                    Email chưa được xác thực
+                  </p>
+                  <p style={{ fontSize: 12, color: '#92400e', margin: '0 0 8px' }}>
+                    Kiểm tra hộp thư của <strong>{unconfirmedEmail}</strong>.
+                  </p>
+                  <button onClick={handleResend} disabled={resendLoading} style={{
+                    fontSize: 12, fontWeight: 700, color: '#b45309', background: 'none',
+                    border: 'none', cursor: 'pointer', textDecoration: 'underline',
+                    fontFamily: 'inherit',
+                  }}>
+                    {resendLoading ? 'Đang gửi...' : 'Gửi lại email xác thực'}
                   </button>
                 </div>
-                <p className="min-h-4 text-xs text-red-500">{errs.password}</p>
-              </div>
+              )}
 
-              <div className="flex items-center justify-between">
-                <label className="flex items-center gap-2 cursor-pointer select-none">
-                  <input type="checkbox" checked={rememberMe} onChange={e => setRememberMe(e.target.checked)}
-                    className="w-4 h-4 rounded accent-indigo-600 cursor-pointer" />
-                  <span className="text-sm text-gray-600">Ghi nhớ đăng nhập</span>
-                </label>
-                <Link to="/forgot-password" className="text-sm font-medium" style={{ color: '#4f46e5' }}>
-                  Quên mật khẩu?
-                </Link>
-              </div>
-
-              <Button type="submit" disabled={loading} className="w-full h-11 font-semibold text-sm"
-                style={{
-                  background: loading ? '#9ca3af' : 'linear-gradient(135deg, #4f46e5, #7c3aed)',
-                  border: 'none',
-                  boxShadow: loading ? 'none' : '0 4px 15px rgba(79,70,229,0.35)',
-                }}>
-                {loading ? (
-                  <span className="flex items-center gap-2">
-                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-                    </svg>
-                    Đang đăng nhập...
-                  </span>
-                ) : 'Đăng nhập'}
-              </Button>
-
-              <div className="flex items-center gap-3">
-                <div style={{ flex: 1, height: '1px', background: '#e5e7eb' }} />
-                <span className="text-xs text-gray-400 whitespace-nowrap">hoặc tiếp tục với</span>
-                <div style={{ flex: 1, height: '1px', background: '#e5e7eb' }} />
-              </div>
-
-              <button type="button" onClick={() => handleGoogleLogin()}
-                className="w-full flex items-center justify-center gap-3 h-11 rounded-lg font-medium text-sm transition-all hover:bg-gray-50 active:scale-95"
-                style={{ border: '1px solid #d1d5db', background: '#fff', color: '#374151', cursor: 'pointer' }}>
+              {/* Google */}
+              <button onClick={() => handleGoogleLogin()} style={{
+                width: '100%', height: 42, borderRadius: C.radiusPill,
+                border: C.border, background: C.card,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+                fontSize: 13.5, fontWeight: 600, color: C.ink,
+                boxShadow: C.shadow(2, 2), marginBottom: 14, cursor: 'pointer',
+                fontFamily: 'inherit',
+              }}>
                 <svg width="18" height="18" viewBox="0 0 18 18">
                   <path fill="#4285F4" d="M16.51 8H8.98v3h4.3c-.18 1-.74 1.48-1.6 2.04v2.01h2.6a7.8 7.8 0 002.38-5.88c0-.57-.05-.66-.15-1.18z" />
                   <path fill="#34A853" d="M8.98 17c2.16 0 3.97-.72 5.3-1.94l-2.6-2a4.8 4.8 0 01-7.18-2.54H1.83v2.07A8 8 0 008.98 17z" />
                   <path fill="#FBBC05" d="M4.5 10.52a4.8 4.8 0 010-3.04V5.41H1.83a8 8 0 000 7.18l2.67-2.07z" />
                   <path fill="#EA4335" d="M8.98 4.18c1.17 0 2.23.4 3.06 1.2l2.3-2.3A8 8 0 001.83 5.4L4.5 7.49a4.77 4.77 0 014.48-3.31z" />
                 </svg>
-                Đăng nhập với Google
+                Tiếp tục với Google
               </button>
-            </form>
 
-            <p className="text-center text-sm text-gray-500">
-              Chưa có tài khoản?{' '}
-              <Link to="/register" className="font-semibold" style={{ color: '#4f46e5' }}>Đăng ký ngay</Link>
-            </p>
-          </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+                <div style={{ flex: 1, height: 1.5, background: C.rule }} />
+                <span style={{ fontSize: 11, color: C.inkMuted, fontWeight: 600 }}>hoặc</span>
+                <div style={{ flex: 1, height: 1.5, background: C.rule }} />
+              </div>
+
+              <form onSubmit={handleSubmit} noValidate>
+                <label style={labelStyle}>Email</label>
+                <input
+                  type="email" value={email}
+                  onChange={e => { setEmail(e.target.value); if (errs.email) setErrs(p => ({ ...p, email: '' })) }}
+                  placeholder="example@email.com"
+                  style={{ ...inputStyle, borderColor: errs.email ? '#ef4444' : C.ink }}
+                />
+                {errs.email && <p style={{ fontSize: 11, color: '#ef4444', margin: '-4px 0 8px', paddingLeft: 14 }}>{errs.email}</p>}
+
+                <label style={labelStyle}>Mật khẩu</label>
+                <div style={{ position: 'relative', marginBottom: 0 }}>
+                  <input
+                    type={showPassword ? 'text' : 'password'} value={password}
+                    onChange={e => { setPassword(e.target.value); if (errs.password) setErrs(p => ({ ...p, password: '' })) }}
+                    placeholder="••••••••"
+                    style={{ ...inputStyle, marginBottom: 0, paddingRight: 40, borderColor: errs.password ? '#ef4444' : C.ink }}
+                  />
+                  <button type="button" onClick={() => setShowPassword(v => !v)} style={{
+                    position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)',
+                    background: 'none', border: 'none', cursor: 'pointer', color: C.inkMuted, padding: 0,
+                  }}>{showPassword ? <EyeOff size={15} /> : <Eye size={15} />}</button>
+                </div>
+                {errs.password && <p style={{ fontSize: 11, color: '#ef4444', margin: '4px 0 8px', paddingLeft: 14 }}>{errs.password}</p>}
+
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 10, marginBottom: 16 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <input type="checkbox" checked={rememberMe} onChange={e => setRememberMe(e.target.checked)}
+                      id="rm" style={{ accentColor: C.coral, cursor: 'pointer' }} />
+                    <label htmlFor="rm" style={{ fontSize: 12.5, color: C.inkDim, cursor: 'pointer' }}>Ghi nhớ đăng nhập</label>
+                  </div>
+                  <Link to="/forgot-password" style={{ fontSize: 12, color: C.coral, fontWeight: 700, textDecoration: 'none' }}>Quên mật khẩu?</Link>
+                </div>
+
+                <button type="submit" disabled={loading} style={{
+                  width: '100%', height: 46, borderRadius: C.radiusPill,
+                  background: loading ? '#9ca3af' : C.coral, color: C.bg, border: C.border,
+                  boxShadow: loading ? 'none' : C.shadow(),
+                  fontSize: 15, fontWeight: 800,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                  cursor: loading ? 'not-allowed' : 'pointer', fontFamily: 'inherit',
+                }}>
+                  {loading ? (
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <svg style={{ animation: 'spin 1s linear infinite', width: 16, height: 16 }} viewBox="0 0 24 24" fill="none">
+                        <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" opacity=".25" />
+                        <path fill="currentColor" d="M4 12a8 8 0 018-8v8z" opacity=".75" />
+                      </svg>
+                      Đang đăng nhập...
+                    </span>
+                  ) : "Let's go! →"}
+                </button>
+              </form>
+
+              <p style={{ marginTop: 12, textAlign: 'center', fontSize: 13, color: C.inkMuted }}>
+                Chưa có tài khoản?{' '}
+                <Link to="/register" style={{ color: C.ink, fontWeight: 700, borderBottom: `2px solid ${C.coral}`, textDecoration: 'none' }}>
+                  Đăng ký
+                </Link>
+              </p>
+            </div>
+          </Rv>
         </div>
       </div>
+      <PublicFooter />
     </div>
   )
 }

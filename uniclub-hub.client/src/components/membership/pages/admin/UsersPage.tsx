@@ -1,15 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
 import { getUsers, lockUser, unlockUser, deleteUser, createUser, changeUserRole } from '@/components/membership/services/adminApi'
 import type { UserItem } from '@/components/membership/services/admin.types'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { toast } from 'sonner'
-import { Plus, Search, Trash2, LockKeyhole, LockKeyholeOpen, ShieldCheck, ShieldOff, ArrowUpDown, FileDown, Upload, Download, FileSpreadsheet, CheckCircle2, XCircle, AlertCircle } from 'lucide-react'
+import { Trash2, LockKeyhole, LockKeyholeOpen, ShieldCheck, ShieldOff, Upload, Download, FileSpreadsheet, CheckCircle2, XCircle, AlertCircle } from 'lucide-react'
+import { FilterSelect } from '@/components/shared/FilterSelect'
 import api from '@/lib/axiosInstance'
+import { LoadMoreBar } from '@/components/shared/LoadMoreBar'
 
 const PAGE_SIZE = 20
 
@@ -31,8 +32,9 @@ const EMPTY_FORM: CreateForm = { email: '', password: '', fullName: '', studentI
 
 export default function UsersPage() {
   const [users, setUsers] = useState<UserItem[]>([])
-  const [totalPages, setTotalPages] = useState(1)
+  const [totalUsers, setTotalUsers] = useState(0)
   const [page, setPage] = useState(1)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [searchName, setSearchName] = useState('')
   const [searchEmail, setSearchEmail] = useState('')
   const [searchStudentId, setSearchStudentId] = useState('')
@@ -98,11 +100,22 @@ export default function UsersPage() {
 
   useEffect(() => {
     setLoading(true)
-    getUsers({ page, pageSize: PAGE_SIZE })
-      .then(r => { setUsers(r.items); setTotalPages(r.totalPages) })
+    setUsers([])
+    setPage(1)
+    getUsers({ page: 1, pageSize: PAGE_SIZE })
+      .then(r => { setUsers(r.items); setTotalUsers(r.totalCount) })
       .catch(() => toast.error('Không thể tải danh sách người dùng.'))
       .finally(() => setLoading(false))
-  }, [page, refreshKey])
+  }, [refreshKey])
+
+  function loadMore() {
+    const nextPage = page + 1
+    setLoadingMore(true)
+    getUsers({ page: nextPage, pageSize: PAGE_SIZE })
+      .then(r => { setUsers(prev => [...prev, ...r.items]); setPage(nextPage) })
+      .catch(() => toast.error('Tải thêm thất bại.'))
+      .finally(() => setLoadingMore(false))
+  }
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault()
@@ -181,177 +194,159 @@ export default function UsersPage() {
   const field = (key: keyof CreateForm) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm(p => ({ ...p, [key]: e.target.value }))
 
+  const D = {
+    border: '1.5px solid #15131a', borderLight: '1px solid #e8e3d6',
+    shadow: (x = 3, y = 3) => `${x}px ${y}px 0 #15131a`,
+    radius: 14, pill: 999,
+    ink: '#15131a', inkDim: '#4a4651', inkMuted: '#918c99',
+    bg: '#f7f6f1', card: '#ffffff',
+    indigo: '#4f46e5', violet: '#7c3aed', emerald: '#10b981', amber: '#f59e0b', red: '#ef4444',
+  }
+  const thS: React.CSSProperties = { padding: '10px 14px', textAlign: 'left', fontSize: 12, fontWeight: 700, color: D.inkMuted, letterSpacing: '.02em', whiteSpace: 'nowrap' }
+  const tdS: React.CSSProperties = { padding: '12px 14px', fontSize: 13 }
+
   return (
-    <div className="px-6 pt-3 pb-8 space-y-4">
+    <div style={{ padding: '28px 32px', minHeight: '100%', background: D.bg, fontFamily: "'Be Vietnam Pro', sans-serif" }}>
       {/* Header */}
-      <div className="flex items-center justify-between gap-4">
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20, gap: 16 }}>
         <div>
-          <h1 className="text-xl font-bold text-gray-900">Người dùng</h1>
-          <p className="text-sm text-gray-400 mt-0.5">Quản lý tài khoản hệ thống</p>
+          <h1 style={{ fontSize: 24, fontWeight: 900, color: D.ink, letterSpacing: '-.025em', margin: 0 }}>Người dùng</h1>
+          <p style={{ fontSize: 13, color: D.inkMuted, marginTop: 4 }}>Quản lý tài khoản hệ thống</p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" className="gap-1.5 text-gray-600"
-            onClick={async () => {
-              const res = await api.get('/admin/export/users?format=xlsx', { responseType: 'blob' })
-              const url = URL.createObjectURL(res.data)
-              const a = document.createElement('a'); a.href = url; a.download = 'users.xlsx'; a.click()
-              URL.revokeObjectURL(url)
-            }}>
-            <FileDown size={14} /> Excel
-          </Button>
-          <Button variant="outline" size="sm" className="gap-1.5 text-gray-600"
-            onClick={async () => {
-              const res = await api.get('/admin/export/users?format=csv', { responseType: 'blob' })
-              const url = URL.createObjectURL(res.data)
-              const a = document.createElement('a'); a.href = url; a.download = 'users.csv'; a.click()
-              URL.revokeObjectURL(url)
-            }}>
-            <FileDown size={14} /> CSV
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}
-            className="gap-1.5 text-emerald-700 border-emerald-200 hover:bg-emerald-50">
-            <Upload size={14} /> Import
-          </Button>
-          <Button onClick={() => setAddOpen(true)} className="gap-1.5 bg-indigo-600 hover:bg-indigo-700">
-            <Plus size={16} /> Thêm người dùng
-          </Button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {[
+            { label: '↓ Excel', action: async () => { const res = await api.get('/admin/export/users?format=xlsx', { responseType: 'blob' }); const url = URL.createObjectURL(res.data); const a = document.createElement('a'); a.href = url; a.download = 'users.xlsx'; a.click(); URL.revokeObjectURL(url) }, color: D.inkDim },
+            { label: '↓ CSV', action: async () => { const res = await api.get('/admin/export/users?format=csv', { responseType: 'blob' }); const url = URL.createObjectURL(res.data); const a = document.createElement('a'); a.href = url; a.download = 'users.csv'; a.click(); URL.revokeObjectURL(url) }, color: D.inkDim },
+          ].map(btn => (
+            <button key={btn.label} onClick={btn.action} style={{
+              padding: '8px 14px', borderRadius: D.pill, background: D.card, border: D.border,
+              boxShadow: D.shadow(2, 2), fontSize: 12, fontWeight: 600, color: btn.color,
+              cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 6,
+            }}>{btn.label}</button>
+          ))}
+          <button onClick={() => setImportOpen(true)} style={{
+            padding: '8px 14px', borderRadius: D.pill, background: D.card, border: D.border,
+            boxShadow: D.shadow(2, 2), fontSize: 12, fontWeight: 600, color: D.emerald,
+            cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 6,
+          }}>↑ Import</button>
+          <button onClick={() => setAddOpen(true)} style={{
+            padding: '8px 16px', borderRadius: D.pill, background: D.indigo, color: '#fff',
+            border: D.border, boxShadow: D.shadow(2, 2), fontSize: 12, fontWeight: 700,
+            cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 6,
+          }}>+ Thêm người dùng</button>
         </div>
       </div>
 
       {/* Filter bar */}
-      <div className="bg-white rounded-xl border border-gray-200 p-3 space-y-2">
-        <div className="flex flex-wrap gap-2">
-          <div className="relative flex-1 min-w-40">
-            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-            <Input placeholder="Họ tên..." value={searchName}
-              onChange={e => setSearchName(e.target.value)} className="pl-8 h-9 text-sm" />
-          </div>
-          <div className="relative flex-1 min-w-44">
-            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-            <Input placeholder="Email..." value={searchEmail}
-              onChange={e => setSearchEmail(e.target.value)} className="pl-8 h-9 text-sm" />
-          </div>
-          <div className="relative w-36">
-            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-            <Input placeholder="MSSV..." value={searchStudentId}
-              onChange={e => setSearchStudentId(e.target.value)} className="pl-8 h-9 text-sm" />
-          </div>
-          <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
-            className="h-9 border border-input rounded-lg px-3 text-sm bg-white">
-            <option value="">Tất cả trạng thái</option>
-            <option value="active">Hoạt động</option>
-            <option value="locked">Đã khoá</option>
-          </select>
-          <div className="flex items-center gap-2 ml-auto">
-            {hasFilter && (
-              <button onClick={() => { setSearchName(''); setSearchEmail(''); setSearchStudentId(''); setStatusFilter('') }}
-                className="text-xs text-indigo-500 hover:underline whitespace-nowrap">
-                Xoá lọc
-              </button>
-            )}
-            <span className="text-sm text-gray-400 whitespace-nowrap">{filtered.length}/{users.length}</span>
-          </div>
-        </div>
+      <div style={{
+        padding: '10px 14px', borderRadius: D.radius, background: D.card,
+        border: D.border, boxShadow: D.shadow(), display: 'flex', gap: 10,
+        alignItems: 'center', marginBottom: 16, flexWrap: 'wrap',
+      }}>
+        {[
+          { ph: '⌕  Họ tên...', val: searchName, set: setSearchName },
+          { ph: '⌕  Email...', val: searchEmail, set: setSearchEmail },
+          { ph: '⌕  MSSV...', val: searchStudentId, set: setSearchStudentId },
+        ].map(f => (
+          <input key={f.ph} value={f.val} onChange={e => f.set(e.target.value)} placeholder={f.ph} style={{
+            flex: 1, minWidth: 120, height: 36, borderRadius: 8, border: D.borderLight,
+            padding: '0 12px', fontSize: 13, color: D.ink, outline: 'none', background: D.bg,
+            fontFamily: 'inherit',
+          }} />
+        ))}
+        <FilterSelect
+          value={statusFilter}
+          onChange={setStatusFilter}
+          options={[
+            { value: '', label: 'Tất cả trạng thái' },
+            { value: 'active', label: 'Hoạt động' },
+            { value: 'locked', label: 'Đã khoá' },
+          ]}
+          style={{ width: 160 }}
+        />
+        {hasFilter && (
+          <button onClick={() => { setSearchName(''); setSearchEmail(''); setSearchStudentId(''); setStatusFilter('') }}
+            style={{ fontSize: 12, color: D.indigo, fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
+            Xoá lọc
+          </button>
+        )}
+        <span style={{ fontSize: 12, color: D.inkMuted, whiteSpace: 'nowrap', marginLeft: 'auto' }}>{filtered.length}/{users.length}</span>
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-gray-50/80">
-              <TableHead>
-                <button onClick={() => toggleSort('name')} className="flex items-center gap-1 hover:text-gray-900 font-medium">
-                  Họ tên <ArrowUpDown size={12} className={sortBy === 'name' ? 'text-indigo-500' : 'text-gray-300'} />
-                </button>
-              </TableHead>
-              <TableHead>
-                <button onClick={() => toggleSort('email')} className="flex items-center gap-1 hover:text-gray-900 font-medium">
-                  Email <ArrowUpDown size={12} className={sortBy === 'email' ? 'text-indigo-500' : 'text-gray-300'} />
-                </button>
-              </TableHead>
-              <TableHead>MSSV</TableHead>
-              <TableHead>Ngành</TableHead>
-              <TableHead>
-                <button onClick={() => toggleSort('role')} className="flex items-center gap-1 hover:text-gray-900 font-medium">
-                  Quyền <ArrowUpDown size={12} className={sortBy === 'role' ? 'text-indigo-500' : 'text-gray-300'} />
-                </button>
-              </TableHead>
-              <TableHead>Trạng thái</TableHead>
-              <TableHead className="text-center">Hành động</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
+      <div style={{ borderRadius: D.radius, overflow: 'hidden', background: D.card, border: D.border, boxShadow: D.shadow() }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+          <thead>
+            <tr style={{ background: D.bg, borderBottom: D.borderLight }}>
+              <th style={thS}><button onClick={() => toggleSort('name')} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', fontFamily: 'inherit', fontSize: 12, fontWeight: 700, color: D.inkMuted }}>Người dùng <span style={{ color: sortBy === 'name' ? D.indigo : '#ccc' }}>↕</span></button></th>
+              <th style={thS}>MSSV</th>
+              <th style={thS}>Ngành</th>
+              <th style={thS}><button onClick={() => toggleSort('role')} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', fontFamily: 'inherit', fontSize: 12, fontWeight: 700, color: D.inkMuted }}>Quyền <span style={{ color: sortBy === 'role' ? D.indigo : '#ccc' }}>↕</span></button></th>
+              <th style={thS}>Trạng thái</th>
+              <th style={{ ...thS, textAlign: 'center' }}>Hành động</th>
+            </tr>
+          </thead>
+          <tbody>
             {loading ? (
-              <TableRow><TableCell colSpan={7} className="text-center text-gray-400 py-16">Đang tải...</TableCell></TableRow>
+              <tr><td colSpan={6} style={{ padding: '48px 20px', textAlign: 'center', color: D.inkMuted }}>Đang tải...</td></tr>
             ) : filtered.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={7} className="py-16">
-                  <div className="flex flex-col items-center gap-2 text-gray-400">
-                    <Search size={32} className="text-gray-200" />
-                    <p className="text-sm">Không tìm thấy người dùng nào.</p>
-                  </div>
-                </TableCell>
-              </TableRow>
+              <tr><td colSpan={6} style={{ padding: '48px 20px', textAlign: 'center', color: D.inkMuted }}>Không tìm thấy người dùng nào.</td></tr>
             ) : filtered.map(user => {
               const isSuperAdmin = user.roles?.includes('SUPER_ADMIN')
               return (
-              <TableRow key={user.id} className="hover:bg-gray-50/60 transition-colors">
-                <TableCell>
-                  <div className="flex items-center gap-2.5">
-                    <Avatar name={user.fullName} email={user.email} />
-                    <div>
-                      <p className="font-medium text-sm text-gray-900">{user.fullName ?? '—'}</p>
-                      {user.studentId && <p className="text-xs text-gray-400">{user.studentId}</p>}
+                <tr key={user.id} style={{ borderBottom: D.borderLight, transition: 'background .1s' }}
+                  onMouseEnter={e => (e.currentTarget.style.background = D.bg)}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                  <td style={tdS}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <Avatar name={user.fullName} email={user.email} />
+                      <div>
+                        <div style={{ fontWeight: 600, color: D.ink }}>{user.fullName ?? '—'}</div>
+                        <div style={{ fontSize: 12, color: D.inkMuted, marginTop: 1 }}>{user.email}</div>
+                      </div>
                     </div>
-                  </div>
-                </TableCell>
-                <TableCell className="text-sm text-gray-500">{user.email}</TableCell>
-                <TableCell className="text-sm text-gray-400">{user.studentId ?? '—'}</TableCell>
-                <TableCell className="text-sm text-gray-500 max-w-36 truncate">{user.major ?? '—'}</TableCell>
-                <TableCell>
-                  <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold"
-                    style={{ background: isSuperAdmin ? '#ede9fe' : '#f3f4f6', color: isSuperAdmin ? '#6d28d9' : '#374151' }}>
-                    {isSuperAdmin ? 'Super Admin' : 'Người dùng'}
-                  </span>
-                </TableCell>
-                <TableCell>
-                  <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold"
-                    style={{ background: user.isLocked ? '#fee2e2' : '#dcfce7', color: user.isLocked ? '#dc2626' : '#16a34a' }}>
-                    {user.isLocked ? 'Đã khoá' : 'Hoạt động'}
-                  </span>
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center justify-center gap-0.5">
-                    <button title={isSuperAdmin ? 'Hạ về Người dùng' : 'Nâng lên Super Admin'}
-                      onClick={() => handleChangeRole(user)}
-                      className={`p-1.5 rounded-md transition-colors ${isSuperAdmin ? 'text-gray-400 hover:bg-gray-100' : 'text-violet-500 hover:bg-violet-50'}`}>
-                      {isSuperAdmin ? <ShieldOff size={14} /> : <ShieldCheck size={14} />}
-                    </button>
-                    <button title={user.isLocked ? 'Mở khoá' : 'Khoá tài khoản'}
-                      onClick={() => handleLock(user)}
-                      className={`p-1.5 rounded-md transition-colors ${user.isLocked ? 'text-emerald-500 hover:bg-emerald-50' : 'text-amber-500 hover:bg-amber-50'}`}>
-                      {user.isLocked ? <LockKeyholeOpen size={14} /> : <LockKeyhole size={14} />}
-                    </button>
-                    <button title="Xoá tài khoản" onClick={() => setDeleteTarget(user)}
-                      className="p-1.5 rounded-md text-red-400 hover:bg-red-50 transition-colors">
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                </TableCell>
-              </TableRow>
+                  </td>
+                  <td style={{ ...tdS, color: D.inkMuted }}>{user.studentId ?? '—'}</td>
+                  <td style={{ ...tdS, color: D.inkDim, maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.major ?? '—'}</td>
+                  <td style={tdS}>
+                    <span style={{
+                      display: 'inline-flex', padding: '2px 10px', borderRadius: 4, fontSize: 10, fontWeight: 700, letterSpacing: '.04em', textTransform: 'uppercase',
+                      background: isSuperAdmin ? D.violet : D.bg, color: isSuperAdmin ? '#fff' : D.ink,
+                    }}>{isSuperAdmin ? 'Super Admin' : 'Người dùng'}</span>
+                  </td>
+                  <td style={tdS}>
+                    <span style={{
+                      display: 'inline-flex', padding: '2px 10px', borderRadius: 4, fontSize: 10, fontWeight: 700, letterSpacing: '.04em', textTransform: 'uppercase',
+                      background: user.isLocked ? '#fee2e2' : '#dcfce7', color: user.isLocked ? D.red : D.emerald,
+                    }}>{user.isLocked ? 'Đã khoá' : 'Hoạt động'}</span>
+                  </td>
+                  <td style={{ ...tdS, textAlign: 'center' }}>
+                    <div style={{ display: 'flex', justifyContent: 'center', gap: 4 }}>
+                      <button title={isSuperAdmin ? 'Hạ về Người dùng' : 'Nâng lên Super Admin'} onClick={() => handleChangeRole(user)} style={{ width: 28, height: 28, borderRadius: 6, display: 'grid', placeItems: 'center', background: 'transparent', border: 'none', cursor: 'pointer', color: isSuperAdmin ? D.inkMuted : D.violet }}>
+                        {isSuperAdmin ? <ShieldOff size={14} /> : <ShieldCheck size={14} />}
+                      </button>
+                      <button title={user.isLocked ? 'Mở khoá' : 'Khoá'} onClick={() => handleLock(user)} style={{ width: 28, height: 28, borderRadius: 6, display: 'grid', placeItems: 'center', background: 'transparent', border: 'none', cursor: 'pointer', color: user.isLocked ? D.emerald : D.amber }}>
+                        {user.isLocked ? <LockKeyholeOpen size={14} /> : <LockKeyhole size={14} />}
+                      </button>
+                      <button title="Xoá" onClick={() => setDeleteTarget(user)} style={{ width: 28, height: 28, borderRadius: 6, display: 'grid', placeItems: 'center', background: 'transparent', border: 'none', cursor: 'pointer', color: D.red }}>
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
               )
             })}
-          </TableBody>
-        </Table>
+          </tbody>
+        </table>
       </div>
 
-      {totalPages > 1 && (
-        <div className="flex items-center justify-end gap-2">
-          <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setPage(p => p - 1)}>Trước</Button>
-          <span className="text-sm" style={{ color: '#6b7280' }}>Trang {page} / {totalPages}</span>
-          <Button variant="outline" size="sm" disabled={page === totalPages} onClick={() => setPage(p => p + 1)}>Sau</Button>
-        </div>
-      )}
+      <LoadMoreBar
+        shown={users.length}
+        total={totalUsers}
+        loading={loadingMore}
+        onLoadMore={loadMore}
+        label="người dùng"
+      />
 
       {/* Create dialog */}
       <Dialog open={addOpen} onOpenChange={setAddOpen}>

@@ -4,6 +4,7 @@ import type {
   ApplicationItem, AddMemberDto, UpdateMemberDto, ReviewApplicationDto,
   FormSchema, SubmitApplicationDto,
   ResignationRequestItem, SubmitResignationDto, ReviewResignationDto,
+  ClubAuditLogPage, MemberFieldDef, PipelineStage,
 } from '@/components/membership/services/club.types'
 import type { LayoutSettings } from '@/components/portal/services/portal.types'
 
@@ -50,7 +51,7 @@ export const submitApplication = (clubId: number, dto: SubmitApplicationDto) =>
 
 // ── Members ────────────────────────────────────────────────────────────────
 
-export const getClubMembers = (clubId: number, params?: { status?: string; role?: string }) =>
+export const getClubMembers = (clubId: number, params?: { status?: string; role?: string; departmentId?: number }) =>
   api.get<{ data: MemberItem[] }>(`${base(clubId)}/members`, { params }).then(r => r.data.data)
 
 export const addMember = (clubId: number, dto: AddMemberDto) =>
@@ -72,6 +73,27 @@ export const getApplications = (clubId: number, params?: { status?: string }) =>
 
 export const reviewApplication = (clubId: number, applicationId: number, dto: ReviewApplicationDto) =>
   api.put(`${base(clubId)}/applications/${applicationId}/review`, dto)
+
+export const advanceApplicationStage = (clubId: number, appId: number, reviewNote?: string) =>
+  api.post<{ data: ApplicationItem }>(`${base(clubId)}/applications/${appId}/advance`, { reviewNote })
+    .then(r => r.data.data)
+
+// ── Pipeline ───────────────────────────────────────────────────────────────
+
+export const getPipelineStages = (clubId: number) =>
+  api.get<{ data: PipelineStage[] }>(`${base(clubId)}/pipeline/stages`).then(r => r.data.data)
+
+export const createPipelineStage = (clubId: number, data: { name: string; stageOrder: number }) =>
+  api.post<{ data: PipelineStage }>(`${base(clubId)}/pipeline/stages`, data).then(r => r.data.data)
+
+export const updatePipelineStage = (clubId: number, stageId: number, data: { name?: string; stageOrder?: number; isActive?: boolean }) =>
+  api.put<{ data: PipelineStage }>(`${base(clubId)}/pipeline/stages/${stageId}`, data).then(r => r.data.data)
+
+export const deletePipelineStage = (clubId: number, stageId: number) =>
+  api.delete(`${base(clubId)}/pipeline/stages/${stageId}`)
+
+export const reorderPipelineStages = (clubId: number, stageIds: number[]) =>
+  api.put(`${base(clubId)}/pipeline/stages/reorder`, { stageIds })
 
 // ── Departments ────────────────────────────────────────────────────────────
 
@@ -106,6 +128,24 @@ export const getUserResignations = (userId: string) =>
 // Public endpoint — không cần SUPER_ADMIN
 export const getPublicCategories = () =>
   api.get<{ data: { id: number; name: string; description?: string }[] }>('/categories').then(r => r.data.data)
+
+// ── Audit Log ───────────────────────────────────────────────────────────────
+export const getClubAuditLogs = (clubId: number, params?: { module?: string; search?: string; action?: string; dateFrom?: string; dateTo?: string; page?: number; pageSize?: number }) =>
+  api.get<{ data: ClubAuditLogPage }>(`${base(clubId)}/audit-logs`, { params }).then(r => r.data.data)
+
+export const suggestClubMembers = (clubId: number, q: string) =>
+  api.get<{ data: { userId: string; name: string; avatarUrl?: string }[] }>(`${base(clubId)}/members/suggest`, { params: { q } })
+    .then(r => r.data.data.map(u => ({ id: u.userId, name: u.name, avatarUrl: u.avatarUrl })))
+
+// ── Member custom fields ────────────────────────────────────────────────────
+export const getMemberFieldSchema = (clubId: number) =>
+  api.get<{ data: MemberFieldDef[] }>(`${base(clubId)}/members/field-schema`).then(r => r.data.data)
+
+export const updateMemberFieldSchema = (clubId: number, fields: MemberFieldDef[]) =>
+  api.put<{ data: MemberFieldDef[] }>(`${base(clubId)}/members/field-schema`, fields).then(r => r.data.data)
+
+export const updateMemberCustomData = (clubId: number, membershipId: number, data: Record<string, string | null>) =>
+  api.patch<{ data: MemberItem }>(`${base(clubId)}/members/${membershipId}/custom-data`, data).then(r => r.data.data)
 
 // ── Landing Page ──────────────────────────────────────────────────────────
 

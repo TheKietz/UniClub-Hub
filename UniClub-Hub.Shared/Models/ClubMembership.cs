@@ -14,6 +14,7 @@ namespace UniClub_Hub.Shared.Models
         public DateOnly JoinedDate { get; set; }
         public DateOnly? ResignedDate { get; set; }
         public MembershipStatus Status { get; set; } = MembershipStatus.Active;
+        public string? MemberCustomData { get; set; } // JSON — values for club's custom fields
 
         public ApplicationUser User { get; set; } = null!;
         public Club Club { get; set; } = null!;

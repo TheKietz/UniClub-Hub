@@ -6,5 +6,6 @@ namespace UniClub_Hub.Operations.DTOs.Task
     {
         public ClubTaskStatus Status { get; set; }
         public int Progress { get; set; }
+        public int? KanbanColumnId { get; set; }
     }
 }

@@ -15,5 +15,6 @@ namespace UniClub_Hub.Membership.DTOs.Membership
         public string? DepartmentName { get; set; }
         public DateOnly JoinedDate { get; set; }
         public MembershipStatus Status { get; set; }
+        public Dictionary<string, string?>? CustomData { get; set; }
     }
 }

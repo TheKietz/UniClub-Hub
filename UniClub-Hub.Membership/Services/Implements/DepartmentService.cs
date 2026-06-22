@@ -11,11 +11,13 @@ namespace UniClub_Hub.Membership.Services.Implements
     {
         private readonly UniClubDbContext _db;
         private readonly INotificationService _notifications;
+        private readonly ISystemSettingService _settings;
 
-        public DepartmentService(UniClubDbContext db, INotificationService notifications)
+        public DepartmentService(UniClubDbContext db, INotificationService notifications, ISystemSettingService settings)
         {
             _db = db;
             _notifications = notifications;
+            _settings = settings;
         }
 
         public async Task<IEnumerable<DepartmentDto>> GetAllAsync(int clubId)
@@ -44,6 +46,15 @@ namespace UniClub_Hub.Membership.Services.Implements
         public async Task<AdminDepartmentDto> CreateAsync(int clubId, CreateDepartmentDto dto)
         {
             await EnsureClubExistsAsync(clubId);
+
+            // Kiểm tra giới hạn số ban
+            var maxDeptsVal = await _settings.GetValueAsync("club.max_departments");
+            if (int.TryParse(maxDeptsVal, out var maxDepts) && maxDepts > 0)
+            {
+                var currentCount = await _db.Departments.CountAsync(d => d.ClubId == clubId);
+                if (currentCount >= maxDepts)
+                    throw new InvalidOperationException($"CLB đã đạt giới hạn {maxDepts} ban.");
+            }
 
             var nameTaken = await _db.Departments
                 .AnyAsync(d => d.ClubId == clubId && d.Name == dto.Name);
@@ -105,15 +116,10 @@ namespace UniClub_Hub.Membership.Services.Implements
             await _db.SaveChangesAsync();
 
             // Thông báo cho từng người bị ảnh hưởng
-            foreach (var m in affected)
-            {
-                await _notifications.SendAsync(
-                    m.UserId,
-                    "Ban bộ phận đã bị giải thể",
-                    $"Ban \"{department.Name}\" đã bị xóa. Bạn vẫn là thành viên của CLB và có thể được gán vào ban khác.",
-                    NotificationType.System
-                );
-            }
+            var deptDeletedMsg = await _settings.GetNotificationTextAsync("notification.msg.dept_deleted", new() { ["deptName"] = department.Name });
+            if (!string.IsNullOrEmpty(deptDeletedMsg))
+                foreach (var m in affected)
+                    await _notifications.SendAsync(m.UserId, "Ban bộ phận đã bị giải thể", deptDeletedMsg, NotificationType.System);
         }
 
         public async Task SetLeadAsync(int clubId, int deptId, int? membershipId)

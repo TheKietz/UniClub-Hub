@@ -1,9 +1,28 @@
 import { useEffect, useState, useCallback } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { ChevronLeft, ChevronRight, Bell } from 'lucide-react'
 import { getEvents, getTasks } from '../services/operationsApi'
+import { useTasks } from '../context/TasksContext'
 import type { EventItem, TaskItem, TaskPriority } from '../services/operations.types'
+
+/* ─── Design tokens ──────────────────────────────────────────────────────── */
+
+const D = {
+  border: '1.5px solid #15131a',
+  borderLight: '1px solid #e8e3d6',
+  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 #15131a`,
+  radius: 14,
+  ink: '#15131a',
+  inkDim: '#4a4651',
+  inkMuted: '#918c99',
+  bg: '#f7f6f1',
+  card: '#ffffff',
+  indigo: '#4f46e5',
+  emerald: '#10b981',
+  amber: '#f59e0b',
+  red: '#ef4444',
+}
 
 /* ─── Constants ──────────────────────────────────────────────────────────── */
 
@@ -14,66 +33,46 @@ const MONTH_NAMES = [
   'Tháng 7', 'Tháng 8', 'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12',
 ]
 
-const PRIORITY_PILL: Record<TaskPriority, string> = {
-  High:   'bg-red-50 text-red-600 border-red-300',
-  Medium: 'bg-amber-50 text-amber-700 border-amber-300',
-  Low:    'bg-emerald-50 text-emerald-600 border-emerald-300',
+const PRIORITY_COLORS: Record<TaskPriority, { bg: string; text: string; border: string }> = {
+  High:   { bg: '#fee2e2', text: '#991b1b', border: '#fca5a5' },
+  Medium: { bg: '#fef3c7', text: '#92400e', border: '#fcd34d' },
+  Low:    { bg: '#d1fae5', text: '#065f46', border: '#6ee7b7' },
 }
 
-const PRIORITY_LABEL: Record<TaskPriority, string> = {
-  High: 'Cao', Medium: 'Vừa', Low: 'Thấp',
-}
+const PRIORITY_LABEL: Record<TaskPriority, string> = { High: 'Cao', Medium: 'Vừa', Low: 'Thấp' }
 
 /* ─── Helpers ─────────────────────────────────────────────────────────────── */
 
 function toDateStr(d: Date): string {
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${day}`
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
 function getMonthGrid(date: Date): Date[][] {
-  const year = date.getFullYear()
-  const month = date.getMonth()
-
+  const year = date.getFullYear(); const month = date.getMonth()
   const firstDay = new Date(year, month, 1)
   const dow = firstDay.getDay()
   const startDate = new Date(year, month, 1 - (dow === 0 ? 6 : dow - 1))
-
   const lastDay = new Date(year, month + 1, 0)
   const lastDow = lastDay.getDay()
   const endDate = new Date(year, month + 1, 0 + (lastDow === 0 ? 0 : 7 - lastDow))
-
   const weeks: Date[][] = []
   const cur = new Date(startDate)
-
   while (cur <= endDate) {
     const week: Date[] = []
-    for (let d = 0; d < 7; d++) {
-      week.push(new Date(cur))
-      cur.setDate(cur.getDate() + 1)
-    }
+    for (let d = 0; d < 7; d++) { week.push(new Date(cur)); cur.setDate(cur.getDate() + 1) }
     weeks.push(week)
   }
   return weeks
 }
 
 function startOfWeek(d: Date): Date {
-  const result = new Date(d)
-  const dow = d.getDay()
-  result.setDate(d.getDate() - (dow === 0 ? 6 : dow - 1))
-  result.setHours(0, 0, 0, 0)
-  return result
+  const result = new Date(d); const dow = d.getDay()
+  result.setDate(d.getDate() - (dow === 0 ? 6 : dow - 1)); result.setHours(0, 0, 0, 0); return result
 }
 
 function getWeekDays(date: Date): Date[] {
   const monday = startOfWeek(date)
-  return Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(monday)
-    d.setDate(d.getDate() + i)
-    return d
-  })
+  return Array.from({ length: 7 }, (_, i) => { const d = new Date(monday); d.setDate(d.getDate() + i); return d })
 }
 
 function formatTime(iso: string): string {
@@ -87,19 +86,18 @@ interface CalEntry {
   label: string
   sub?: string
   time?: string
-  pillClass: string
+  priority?: TaskPriority
 }
 
 /* ─── Component ───────────────────────────────────────────────────────────── */
 
 export default function CalendarPage() {
-  const [searchParams] = useSearchParams()
-  const clubId = Number(searchParams.get('clubId') ?? 1)
+  const { clubId: clubIdParam } = useParams<{ clubId: string }>()
+  const clubId = Number(clubIdParam ?? 1)
+  const { departmentId } = useTasks()
 
   const [view, setView] = useState<'month' | 'week'>('month')
-  const [currentDate, setCurrentDate] = useState(() => {
-    const d = new Date(); d.setHours(0, 0, 0, 0); return d
-  })
+  const [currentDate, setCurrentDate] = useState(() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d })
   const [events, setEvents] = useState<EventItem[]>([])
   const [tasks, setTasks] = useState<TaskItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -111,20 +109,14 @@ export default function CalendarPage() {
     try {
       const [evResult, tkResult] = await Promise.all([
         getEvents({ clubId, pageSize: 200 }),
-        getTasks({ clubId, pageSize: 500 }),
+        getTasks({ clubId, departmentId, pageSize: 500 }),
       ])
-      setEvents(evResult.items)
-      setTasks(tkResult.items)
-    } catch {
-      toast.error('Không thể tải dữ liệu lịch')
-    } finally {
-      setLoading(false)
-    }
-  }, [clubId])
+      setEvents(evResult.items); setTasks(tkResult.items)
+    } catch { toast.error('Không thể tải dữ liệu lịch') }
+    finally { setLoading(false) }
+  }, [clubId, departmentId])
 
   useEffect(() => { load() }, [load])
-
-  /* ─── Derived ─────────────────────────────────────────────────────────── */
 
   const today = new Date(); today.setHours(0, 0, 0, 0)
   const todayStr = toDateStr(today)
@@ -143,25 +135,14 @@ export default function CalendarPage() {
     if (showEvents) {
       for (const ev of events) {
         if (ev.startTime?.slice(0, 10) === dateStr) {
-          result.push({
-            type: 'event',
-            label: ev.name,
-            sub: ev.location,
-            time: ev.startTime ? formatTime(ev.startTime) : undefined,
-            pillClass: '',
-          })
+          result.push({ type: 'event', label: ev.name, sub: ev.location, time: ev.startTime ? formatTime(ev.startTime) : undefined })
         }
       }
     }
     if (showDeadlines) {
       for (const t of tasks) {
         if (t.deadline?.slice(0, 10) === dateStr && t.status !== 'Done') {
-          result.push({
-            type: 'deadline',
-            label: t.title,
-            sub: t.assigneeName,
-            pillClass: PRIORITY_PILL[t.priority],
-          })
+          result.push({ type: 'deadline', label: t.title, sub: t.assigneeName, priority: t.priority })
         }
       }
     }
@@ -170,7 +151,6 @@ export default function CalendarPage() {
 
   const todayEvents    = events.filter(ev => ev.startTime?.slice(0, 10) === todayStr)
   const todayDeadlines = tasks.filter(t  => t.deadline?.slice(0, 10) === todayStr && t.status !== 'Done')
-
   const monthGrid = getMonthGrid(currentDate)
   const weekDays  = getWeekDays(currentDate)
 
@@ -182,259 +162,247 @@ export default function CalendarPage() {
         return `${s.getDate()}/${s.getMonth() + 1} – ${e.getDate()}/${e.getMonth() + 1}/${e.getFullYear()}`
       })()
 
-  /* ─── Render ──────────────────────────────────────────────────────────── */
+  const navBtnStyle: React.CSSProperties = {
+    width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center',
+    border: D.borderLight, borderRadius: 8, background: D.card,
+    cursor: 'pointer', color: D.inkDim,
+  }
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-slate-50 to-indigo-50 p-6">
-      <div className="flex items-start gap-4">
+    <div style={{ padding: '28px 32px', minHeight: '100%', background: D.bg, fontFamily: "'Be Vietnam Pro', sans-serif", display: 'flex', gap: 20, alignItems: 'flex-start' }}>
 
-        {/* ── Calendar panel ──────────────────────────────────────────── */}
-        <div className="flex-1 bg-white rounded-2xl border shadow-sm overflow-hidden">
+      {/* ── Calendar panel ───────────────────────────────────────────────── */}
+      <div style={{ flex: 1, background: D.card, border: D.border, borderRadius: D.radius, boxShadow: D.shadow(), overflow: 'hidden' }}>
 
-          {/* Header bar */}
-          <div className="flex items-center justify-between px-5 py-4 border-b">
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                title="Tháng/Tuần trước"
-                onClick={() => navigate(-1)}
-                className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-500 transition-colors"
-              >
-                <ChevronLeft size={18} />
-              </button>
-
-              <h2 className="text-base font-bold text-gray-800 min-w-[180px] text-center select-none">
-                {title}
-              </h2>
-
-              <button
-                type="button"
-                title="Tháng/Tuần sau"
-                onClick={() => navigate(1)}
-                className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-500 transition-colors"
-              >
-                <ChevronRight size={18} />
-              </button>
-
-              <button
-                type="button"
-                onClick={() => { const d = new Date(); d.setHours(0,0,0,0); setCurrentDate(d) }}
-                className="ml-1 px-3 py-1 text-sm border rounded-lg hover:bg-gray-50 text-gray-600 transition-colors"
-              >
-                Hôm nay
-              </button>
-            </div>
-
-            {/* View toggle */}
-            <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
-              {(['month', 'week'] as const).map(v => (
-                <button
-                  key={v}
-                  type="button"
-                  onClick={() => setView(v)}
-                  className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
-                    view === v ? 'bg-white shadow-sm text-gray-800' : 'text-gray-500 hover:text-gray-700'
-                  }`}
-                >
-                  {v === 'month' ? 'Tháng' : 'Tuần'}
-                </button>
-              ))}
-            </div>
+        {/* Header bar */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: D.borderLight }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <button type="button" title="Trước" onClick={() => navigate(-1)} style={navBtnStyle}>
+              <ChevronLeft size={16} />
+            </button>
+            <h2 style={{ fontSize: 14, fontWeight: 800, color: D.ink, minWidth: 180, textAlign: 'center', userSelect: 'none', margin: 0 }}>
+              {title}
+            </h2>
+            <button type="button" title="Sau" onClick={() => navigate(1)} style={navBtnStyle}>
+              <ChevronRight size={16} />
+            </button>
+            <button
+              type="button"
+              onClick={() => { const d = new Date(); d.setHours(0, 0, 0, 0); setCurrentDate(d) }}
+              style={{
+                marginLeft: 4, padding: '4px 12px', fontSize: 12, fontWeight: 700,
+                border: D.borderLight, borderRadius: 6, background: D.bg,
+                color: D.inkDim, cursor: 'pointer',
+              }}
+            >
+              Hôm nay
+            </button>
           </div>
 
-          {/* Day-of-week headers */}
-          <div className="grid grid-cols-7 border-b bg-gray-50">
-            {DAY_LABELS.map(label => (
-              <div key={label} className="py-2.5 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                {label}
+          {/* View toggle */}
+          <div style={{ display: 'flex', background: D.bg, border: D.borderLight, borderRadius: 8, padding: 3, gap: 2 }}>
+            {(['month', 'week'] as const).map(v => (
+              <button
+                key={v} type="button" onClick={() => setView(v)}
+                style={{
+                  padding: '4px 12px', fontSize: 12, fontWeight: 700, borderRadius: 6,
+                  border: view === v ? D.border : 'none',
+                  background: view === v ? D.card : 'transparent',
+                  boxShadow: view === v ? '2px 2px 0 #15131a' : 'none',
+                  color: view === v ? D.ink : D.inkMuted, cursor: 'pointer',
+                }}
+              >
+                {v === 'month' ? 'Tháng' : 'Tuần'}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Day-of-week headers */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', background: D.bg, borderBottom: D.borderLight }}>
+          {DAY_LABELS.map(label => (
+            <div key={label} style={{ padding: '10px 0', textAlign: 'center', fontSize: 10, fontWeight: 800, color: D.inkMuted, textTransform: 'uppercase', letterSpacing: '.06em' }}>
+              {label}
+            </div>
+          ))}
+        </div>
+
+        {loading ? (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 256, color: D.inkMuted, fontSize: 13 }}>Đang tải...</div>
+        ) : view === 'month' ? (
+
+          /* Month view */
+          <div>
+            {monthGrid.map((week, wi) => (
+              <div key={wi} style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', borderBottom: wi < monthGrid.length - 1 ? D.borderLight : 'none' }}>
+                {week.map((day, di) => {
+                  const ds = toDateStr(day)
+                  const isToday = ds === todayStr
+                  const isCurrentMonth = day.getMonth() === currentDate.getMonth()
+                  const entries = getEntriesForDate(ds)
+                  const MAX_SHOW = 3
+                  const shown = entries.slice(0, MAX_SHOW)
+                  const extra = entries.length - MAX_SHOW
+
+                  return (
+                    <div
+                      key={di}
+                      style={{
+                        minHeight: 96, padding: 6,
+                        borderRight: di < 6 ? D.borderLight : 'none',
+                        background: isCurrentMonth ? D.card : D.bg,
+                      }}
+                    >
+                      <div style={{ marginBottom: 4 }}>
+                        <span style={{
+                          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                          width: 26, height: 26, fontSize: 12, fontWeight: 700,
+                          borderRadius: '50%',
+                          background: isToday ? D.indigo : 'transparent',
+                          color: isToday ? '#fff' : isCurrentMonth ? D.inkDim : D.inkMuted,
+                          border: isToday ? 'none' : 'none',
+                        }}>
+                          {day.getDate()}
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                        {shown.map((entry, ei) => (
+                          <div
+                            key={ei}
+                            title={entry.label}
+                            style={{
+                              fontSize: 10, padding: '1px 5px', borderRadius: 4,
+                              fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                              background: entry.type === 'event' ? D.indigo : (entry.priority ? PRIORITY_COLORS[entry.priority].bg : D.bg),
+                              color: entry.type === 'event' ? '#fff' : (entry.priority ? PRIORITY_COLORS[entry.priority].text : D.inkDim),
+                              border: entry.type === 'event' ? 'none' : `1px solid ${entry.priority ? PRIORITY_COLORS[entry.priority].border : D.borderLight}`,
+                            }}
+                          >
+                            {entry.label}
+                          </div>
+                        ))}
+                        {extra > 0 && (
+                          <div style={{ fontSize: 10, color: D.inkMuted, fontWeight: 600, paddingLeft: 4 }}>+{extra} thêm</div>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
             ))}
           </div>
 
-          {loading ? (
-            <div className="flex items-center justify-center h-64 text-gray-400 text-sm">Đang tải...</div>
-          ) : view === 'month' ? (
+        ) : (
 
-            /* ── Month view ────────────────────────────────────────────── */
-            <div>
-              {monthGrid.map((week, wi) => (
-                <div key={wi} className="grid grid-cols-7 border-b last:border-0">
-                  {week.map((day, di) => {
-                    const ds = toDateStr(day)
-                    const isToday = ds === todayStr
-                    const isCurrentMonth = day.getMonth() === currentDate.getMonth()
-                    const entries = getEntriesForDate(ds)
-                    const MAX_SHOW = 3
-                    const shown = entries.slice(0, MAX_SHOW)
-                    const extra = entries.length - MAX_SHOW
+          /* Week view */
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)' }}>
+            {weekDays.map((day, di) => {
+              const ds = toDateStr(day)
+              const isToday = ds === todayStr
+              const entries = getEntriesForDate(ds)
 
-                    return (
+              return (
+                <div key={di} style={{ borderRight: di < 6 ? D.borderLight : 'none', background: isToday ? '#f5f3ff' : D.card }}>
+                  <div style={{
+                    padding: '12px 0', textAlign: 'center', borderBottom: D.borderLight,
+                    background: isToday ? '#ede9fe' : D.bg,
+                  }}>
+                    <p style={{ fontSize: 22, fontWeight: 900, lineHeight: 1, margin: 0, color: isToday ? D.indigo : D.ink }}>{day.getDate()}</p>
+                    <p style={{ fontSize: 10, marginTop: 2, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.06em', color: isToday ? '#7c3aed' : D.inkMuted }}>
+                      {DAY_LABELS[di]}
+                    </p>
+                  </div>
+                  <div style={{ padding: 8, minHeight: 440, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {entries.map((entry, ei) => (
                       <div
-                        key={di}
-                        className={`min-h-[96px] p-1.5 border-r last:border-0 ${
-                          !isCurrentMonth ? 'bg-gray-50/60' : ''
-                        }`}
+                        key={ei}
+                        style={{
+                          fontSize: 11, padding: '6px 8px', borderRadius: 8, lineHeight: 1.4,
+                          background: entry.type === 'event' ? D.indigo : (entry.priority ? PRIORITY_COLORS[entry.priority].bg : D.bg),
+                          color: entry.type === 'event' ? '#fff' : (entry.priority ? PRIORITY_COLORS[entry.priority].text : D.inkDim),
+                          border: entry.type === 'event' ? D.border : `1px solid ${entry.priority ? PRIORITY_COLORS[entry.priority].border : D.borderLight}`,
+                        }}
                       >
-                        <div className="flex justify-start mb-1">
-                          <span className={`text-sm font-medium w-7 h-7 flex items-center justify-center rounded-full transition-colors ${
-                            isToday
-                              ? 'bg-indigo-600 text-white font-bold'
-                              : isCurrentMonth ? 'text-gray-700' : 'text-gray-300'
-                          }`}>
-                            {day.getDate()}
-                          </span>
-                        </div>
-
-                        <div className="space-y-0.5">
-                          {shown.map((entry, ei) => (
-                            <div
-                              key={ei}
-                              title={entry.label}
-                              className={`text-[11px] px-1.5 py-0.5 rounded truncate leading-tight font-medium ${
-                                entry.type === 'event'
-                                  ? 'bg-indigo-600 text-white'
-                                  : `border ${entry.pillClass}`
-                              }`}
-                            >
-                              {entry.label}
-                            </div>
-                          ))}
-                          {extra > 0 && (
-                            <div className="text-[10px] text-gray-400 font-medium pl-1">+{extra} thêm</div>
-                          )}
-                        </div>
+                        {entry.time && (
+                          <p style={{ fontSize: 9, opacity: .8, marginBottom: 2, fontWeight: 700, margin: '0 0 2px' }}>{entry.time}</p>
+                        )}
+                        <p style={{ fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', margin: 0 }}>{entry.label}</p>
+                        {entry.sub && (
+                          <p style={{ fontSize: 10, opacity: .7, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 2, margin: '2px 0 0' }}>{entry.sub}</p>
+                        )}
                       </div>
-                    )
-                  })}
+                    ))}
+                  </div>
                 </div>
-              ))}
-            </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
 
+      {/* ── Right sidebar ─────────────────────────────────────────────────── */}
+      <div style={{ width: 240, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+        {/* Legend & filter */}
+        <div style={{ background: D.card, border: D.border, borderRadius: D.radius, boxShadow: D.shadow(), padding: 16 }}>
+          <h3 style={{ fontSize: 11, fontWeight: 800, color: D.inkMuted, textTransform: 'uppercase', letterSpacing: '.08em', margin: '0 0 12px' }}>Chú giải & Bộ lọc</h3>
+
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', marginBottom: 10 }}>
+            <input type="checkbox" checked={showEvents} onChange={e => setShowEvents(e.target.checked)} style={{ width: 14, height: 14, accentColor: D.indigo }} />
+            <span style={{ width: 14, height: 14, borderRadius: 3, background: D.indigo, flexShrink: 0, display: 'inline-block' }} />
+            <span style={{ fontSize: 12, color: D.inkDim, fontWeight: 600 }}>Sự kiện</span>
+          </label>
+
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+            <input type="checkbox" checked={showDeadlines} onChange={e => setShowDeadlines(e.target.checked)} style={{ width: 14, height: 14, accentColor: D.emerald }} />
+            <span style={{ width: 14, height: 14, borderRadius: '50%', border: `2px solid ${D.emerald}`, flexShrink: 0, display: 'inline-block' }} />
+            <span style={{ fontSize: 12, color: D.inkDim, fontWeight: 600 }}>Deadlines</span>
+          </label>
+        </div>
+
+        {/* Today's highlights */}
+        <div style={{ background: D.card, border: D.border, borderRadius: D.radius, boxShadow: D.shadow(), padding: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+            <Bell size={14} style={{ color: D.indigo }} />
+            <h3 style={{ fontSize: 11, fontWeight: 800, color: D.inkDim, textTransform: 'uppercase', letterSpacing: '.08em', margin: 0 }}>Tiêu điểm hôm nay</h3>
+          </div>
+
+          {todayEvents.length === 0 && todayDeadlines.length === 0 ? (
+            <p style={{ fontSize: 11, color: D.inkMuted, fontStyle: 'italic', textAlign: 'center', padding: '20px 0', margin: 0 }}>
+              Không có sự kiện hay hạn chót hôm nay
+            </p>
           ) : (
-
-            /* ── Week view ─────────────────────────────────────────────── */
-            <div className="grid grid-cols-7">
-              {weekDays.map((day, di) => {
-                const ds = toDateStr(day)
-                const isToday = ds === todayStr
-                const entries = getEntriesForDate(ds)
-
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {todayEvents.map(ev => {
+                const startStr = ev.startTime ? formatTime(ev.startTime) : null
+                const endStr   = ev.endTime   ? formatTime(ev.endTime)   : null
+                const timeStr  = startStr && endStr ? `${startStr} - ${endStr}` : (startStr ?? '')
                 return (
-                  <div key={di} className={`border-r last:border-0 ${isToday ? 'bg-indigo-50/30' : ''}`}>
-                    {/* Day number */}
-                    <div className={`py-3 text-center border-b ${isToday ? 'bg-indigo-50' : 'bg-gray-50'}`}>
-                      <p className={`text-2xl font-bold leading-none ${isToday ? 'text-indigo-600' : 'text-gray-700'}`}>
-                        {day.getDate()}
-                      </p>
-                      <p className={`text-[11px] mt-0.5 font-semibold uppercase ${isToday ? 'text-indigo-400' : 'text-gray-400'}`}>
-                        {DAY_LABELS[di]}
-                      </p>
-                    </div>
-
-                    {/* Entries */}
-                    <div className="p-2 space-y-1.5 min-h-[440px]">
-                      {entries.map((entry, ei) => (
-                        <div
-                          key={ei}
-                          className={`text-xs px-2 py-1.5 rounded-lg leading-tight ${
-                            entry.type === 'event'
-                              ? 'bg-indigo-600 text-white'
-                              : `border ${entry.pillClass}`
-                          }`}
-                        >
-                          {entry.time && (
-                            <p className="text-[10px] opacity-75 mb-0.5 font-medium">{entry.time}</p>
-                          )}
-                          <p className="font-semibold truncate">{entry.label}</p>
-                          {entry.sub && (
-                            <p className="text-[10px] opacity-70 truncate mt-0.5">{entry.sub}</p>
-                          )}
-                        </div>
-                      ))}
-                    </div>
+                  <div key={ev.id} style={{ borderRadius: 8, borderLeft: `4px solid ${D.indigo}`, background: '#ede9fe', padding: '8px 10px' }}>
+                    {timeStr && <p style={{ fontSize: 10, fontWeight: 800, color: D.indigo, margin: '0 0 2px' }}>{timeStr}</p>}
+                    <p style={{ fontSize: 12, fontWeight: 700, color: D.ink, margin: 0 }}>{ev.name}</p>
+                    {ev.location && <p style={{ fontSize: 11, color: D.inkMuted, margin: '2px 0 0' }}>{ev.location}</p>}
                   </div>
                 )
               })}
+
+              {todayDeadlines.map(t => (
+                <div key={t.id} style={{ borderRadius: 8, borderLeft: `4px solid ${D.emerald}`, background: '#d1fae5', padding: '8px 10px' }}>
+                  <span style={{
+                    display: 'inline-block', fontSize: 9, fontWeight: 800,
+                    padding: '1px 6px', borderRadius: 4, marginBottom: 4,
+                    background: PRIORITY_COLORS[t.priority].bg,
+                    color: PRIORITY_COLORS[t.priority].text,
+                    border: `1px solid ${PRIORITY_COLORS[t.priority].border}`,
+                  }}>
+                    {PRIORITY_LABEL[t.priority]}
+                  </span>
+                  <p style={{ fontSize: 12, fontWeight: 700, color: D.ink, margin: 0 }}>{t.title}</p>
+                  {t.assigneeName && <p style={{ fontSize: 11, color: D.inkMuted, margin: '2px 0 0' }}>{t.assigneeName}</p>}
+                </div>
+              ))}
             </div>
           )}
-        </div>
-
-        {/* ── Right sidebar ────────────────────────────────────────────── */}
-        <div className="w-64 shrink-0 flex flex-col gap-4">
-
-          {/* Legend & filter */}
-          <div className="bg-white rounded-2xl border shadow-sm p-4">
-            <h3 className="text-sm font-bold text-gray-700 mb-3">Chú giải & Bộ lọc</h3>
-
-            <label className="flex items-center gap-2.5 cursor-pointer mb-2.5">
-              <input
-                type="checkbox"
-                checked={showEvents}
-                onChange={e => setShowEvents(e.target.checked)}
-                className="w-4 h-4 rounded accent-indigo-600"
-              />
-              <span className="w-3.5 h-3.5 rounded-sm bg-indigo-600 shrink-0" />
-              <span className="text-sm text-gray-700">Sự kiện (Events)</span>
-            </label>
-
-            <label className="flex items-center gap-2.5 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={showDeadlines}
-                onChange={e => setShowDeadlines(e.target.checked)}
-                className="w-4 h-4 rounded accent-emerald-600"
-              />
-              <span className="w-3.5 h-3.5 rounded-full border-2 border-emerald-500 shrink-0" />
-              <span className="text-sm text-gray-700">Hạn chót (Deadlines)</span>
-            </label>
-          </div>
-
-          {/* Today's highlights */}
-          <div className="bg-white rounded-2xl border shadow-sm p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <Bell size={15} className="text-indigo-500" />
-              <h3 className="text-sm font-bold text-gray-700">Tiêu điểm hôm nay</h3>
-            </div>
-
-            {todayEvents.length === 0 && todayDeadlines.length === 0 ? (
-              <p className="text-xs text-gray-400 italic text-center py-6">
-                Không có sự kiện hay hạn chót hôm nay
-              </p>
-            ) : (
-              <div className="flex flex-col gap-2">
-                {todayEvents.map(ev => {
-                  const startStr = ev.startTime ? formatTime(ev.startTime) : null
-                  const endStr   = ev.endTime   ? formatTime(ev.endTime)   : null
-                  const timeStr  = startStr && endStr ? `${startStr} - ${endStr}` : (startStr ?? '')
-
-                  return (
-                    <div key={ev.id} className="rounded-xl border-l-4 border-l-indigo-500 bg-indigo-50/60 px-3 py-2.5">
-                      {timeStr && (
-                        <p className="text-[11px] font-bold text-indigo-500 mb-0.5">{timeStr}</p>
-                      )}
-                      <p className="text-sm font-semibold text-gray-800 leading-snug">{ev.name}</p>
-                      {ev.location && (
-                        <p className="text-xs text-gray-500 mt-0.5">{ev.location}</p>
-                      )}
-                    </div>
-                  )
-                })}
-
-                {todayDeadlines.map(t => (
-                  <div key={t.id} className="rounded-xl border-l-4 border-l-emerald-500 bg-emerald-50/60 px-3 py-2.5">
-                    <span className={`inline-block text-[10px] font-bold px-1.5 py-0.5 rounded border mb-1 ${PRIORITY_PILL[t.priority]}`}>
-                      {PRIORITY_LABEL[t.priority]}
-                    </span>
-                    <p className="text-sm font-semibold text-gray-800 leading-snug">{t.title}</p>
-                    {t.assigneeName && (
-                      <p className="text-xs text-gray-500 mt-0.5">{t.assigneeName}</p>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
         </div>
       </div>
     </div>

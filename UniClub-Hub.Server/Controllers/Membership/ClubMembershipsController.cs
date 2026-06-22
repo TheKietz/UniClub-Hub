@@ -23,12 +23,30 @@ namespace UniClub_Hub.Server.Controllers.Membership
             _db = db;
         }
 
+        // CLUB_ADMIN/SUPER_ADMIN/DEPT_LEAD xem toàn bộ thành viên active để hỗ trợ gán task
         [HttpGet]
-        public async Task<IActionResult> GetAll(int clubId, [FromQuery] string? status)
+        [Authorize]
+        public async Task<IActionResult> GetAll(int clubId, [FromQuery] string? status, [FromQuery] int? departmentId)
         {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+            var isSuperAdmin = User.IsInRole("SUPER_ADMIN");
+
+            if (!isSuperAdmin)
+            {
+                var membership = await _db.ClubMemberships.AsNoTracking()
+                    .FirstOrDefaultAsync(m =>
+                        m.ClubId == clubId && m.UserId == userId &&
+                        m.Status == MembershipStatus.Active);
+
+                if (membership == null) return Forbid();
+
+                if (membership.ClubRole != ClubRole.CLUB_ADMIN && membership.ClubRole != ClubRole.DEPT_LEAD)
+                    return Forbid();
+            }
+
             try
             {
-                var result = await _membershipService.GetAllAsync(clubId, status);
+                var result = await _membershipService.GetAllAsync(clubId, status, departmentId);
                 return Ok(ApiResponse<IEnumerable<MemberDto>>.Ok(result));
             }
             catch (KeyNotFoundException ex)
@@ -37,9 +55,37 @@ namespace UniClub_Hub.Server.Controllers.Membership
             }
         }
 
+        [HttpGet("suggest")]
+        [Authorize]
+        public async Task<IActionResult> SuggestMembers(int clubId, [FromQuery] string q = "")
+        {
+            var lowerQ = q.ToLower();
+            var results = await _db.ClubMemberships
+                .Where(m => m.ClubId == clubId && m.Status == MembershipStatus.Active)
+                .Where(m => string.IsNullOrEmpty(q) ||
+                            (m.User.FullName ?? "").ToLower().Contains(lowerQ) ||
+                            m.User.Email.ToLower().Contains(lowerQ))
+                .OrderBy(m => m.User.FullName)
+                .Take(8)
+                .Select(m => new { UserId = m.UserId, Name = m.User.FullName ?? m.User.Email, AvatarUrl = m.User.AvatarUrl })
+                .ToListAsync();
+            return Ok(ApiResponse<object>.Ok(results));
+        }
+
         [HttpGet("{membershipId}")]
+        [Authorize]
         public async Task<IActionResult> GetById(int clubId, int membershipId)
         {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+            var isSuperAdmin = User.IsInRole("SUPER_ADMIN");
+            if (!isSuperAdmin)
+            {
+                var isClubAdmin = await _db.ClubMemberships.AnyAsync(m =>
+                    m.ClubId == clubId && m.UserId == userId &&
+                    m.ClubRole == ClubRole.CLUB_ADMIN && m.Status == MembershipStatus.Active);
+                if (!isClubAdmin) return Forbid();
+            }
+
             try
             {
                 var result = await _membershipService.GetByIdAsync(clubId, membershipId);
@@ -146,6 +192,46 @@ namespace UniClub_Hub.Server.Controllers.Membership
             }
             catch (KeyNotFoundException ex) { return NotFound(ApiResponse<object>.Fail(ex.Message)); }
             catch (InvalidOperationException ex) { return Conflict(ApiResponse<object>.Fail(ex.Message)); }
+        }
+
+        // ── Custom member fields ──────────────────────────────────────────
+
+        [HttpGet("field-schema")]
+        [Authorize]
+        public async Task<IActionResult> GetMemberFieldSchema(int clubId)
+        {
+            var result = await _membershipService.GetMemberFieldSchemaAsync(clubId);
+            return Ok(ApiResponse<object>.Ok(result));
+        }
+
+        [HttpPut("field-schema")]
+        [Authorize]
+        public async Task<IActionResult> UpdateMemberFieldSchema(
+            int clubId, [FromBody] List<UniClub_Hub.Membership.DTOs.Membership.MemberFieldDef> fields)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+            try
+            {
+                var result = await _membershipService.UpdateMemberFieldSchemaAsync(clubId, fields, userId);
+                return Ok(ApiResponse<object>.Ok(result, "Đã lưu cấu hình trường thông tin."));
+            }
+            catch (UnauthorizedAccessException) { return Forbid(); }
+            catch (KeyNotFoundException ex) { return NotFound(ApiResponse<object>.Fail(ex.Message)); }
+        }
+
+        [HttpPatch("{membershipId}/custom-data")]
+        [Authorize]
+        public async Task<IActionResult> UpdateMemberCustomData(
+            int clubId, int membershipId, [FromBody] Dictionary<string, string?> data)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+            try
+            {
+                var result = await _membershipService.UpdateMemberCustomDataAsync(clubId, membershipId, data, userId);
+                return Ok(ApiResponse<MemberDto>.Ok(result, "Đã cập nhật thông tin thành viên."));
+            }
+            catch (UnauthorizedAccessException) { return Forbid(); }
+            catch (KeyNotFoundException ex) { return NotFound(ApiResponse<object>.Fail(ex.Message)); }
         }
 
         [HttpPatch("{membershipId}/promote")]

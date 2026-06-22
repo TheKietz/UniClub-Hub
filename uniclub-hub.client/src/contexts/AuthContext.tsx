@@ -32,12 +32,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const token = localStorage.getItem('accessToken')
+
     if (!token) { setIsLoading(false); return }
+
     api.get('/users/me')
       .then((res: { data: { data: UserInfo } }) => setUser(res.data.data))
-      .catch(() => {
-        localStorage.removeItem('accessToken')
-        localStorage.removeItem('refreshToken')
+      .catch((error) => {
+        // Only clear token on auth failures; keep it on network/server errors
+        if (error.response?.status === 401)
+          localStorage.removeItem('accessToken')
       })
       .finally(() => setIsLoading(false))
   }, [])
@@ -72,7 +75,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   function logout() {
-    // Backend xoá HttpOnly cookie, frontend chỉ xoá accessToken
     api.post('/auth/revoke').catch(() => { })
     localStorage.removeItem('accessToken')
     setUser(null)

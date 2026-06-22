@@ -1,7 +1,6 @@
 using UniClub_Hub.Shared.Common;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using UniClub_Hub.Shared.Common;
 using UniClub_Hub.Shared.Enums;
 
 namespace UniClub_Hub.Shared.Models
@@ -26,6 +25,9 @@ namespace UniClub_Hub.Shared.Models
         public int Progress { get; set; } = 0; // 0–100
         public DateTimeOffset? CompletedAt { get; set; }
         public string? AssignedTo { get; set; } // FK UserId
+        public DateTimeOffset? StartDate { get; set; }
+        public int? KanbanColumnId { get; set; }
+        public KanbanColumn? KanbanColumn { get; set; }
 
         // IAuditable — CreatedBy doubles as Creator FK
         public DateTime CreatedAt { get; set; }
@@ -49,5 +51,6 @@ namespace UniClub_Hub.Shared.Models
         public ICollection<Contribution>? Contributions { get; set; }
         public ICollection<ClubTask>? SubTasks { get; set; }
         public ICollection<TaskDependency>? Dependencies { get; set; }
+        public ICollection<TaskAssignee> Assignees { get; set; } = [];
     }
 }

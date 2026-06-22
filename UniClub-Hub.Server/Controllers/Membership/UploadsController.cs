@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 using UniClub_Hub.Shared.Common;
+using UniClub_Hub.Shared.Common.Storage;
 using UniClub_Hub.Shared.Data;
 
 namespace UniClub_Hub.Server.Controllers.Membership
@@ -36,6 +37,21 @@ namespace UniClub_Hub.Server.Controllers.Membership
                 await _db.SaveChangesAsync();
 
                 return Ok(ApiResponse<object>.Ok(new { logoUrl = club.LogoUrl }, "Upload logo thành công."));
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ApiResponse<object>.Fail(ex.Message));
+            }
+        }
+
+        // Upload file đính kèm đơn ứng tuyển — any authenticated user
+        [HttpPost("uploads/application-file")]
+        public async Task<IActionResult> UploadApplicationFile(IFormFile file)
+        {
+            try
+            {
+                var url = await _storage.UploadAsync(file, "applications/files");
+                return Ok(ApiResponse<object>.Ok(new { url }, "Upload thành công."));
             }
             catch (InvalidOperationException ex)
             {

@@ -1,524 +1,417 @@
-import { useState, useMemo } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useState, useMemo, useEffect } from "react";
 import {
-  ListTodo,
-  Clock,
-  CheckSquare,
-  AlertTriangle,
-  Calendar,
-  Link2,
-  MoreHorizontal,
+  ListTodo, Clock, CheckSquare, AlertTriangle,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTasks } from "../context/TasksContext";
 import StatCard from "../components/StatCard";
-import FilterBar from "../../shared/FilterBar";
-import AvatarGroup from "../../shared/AvatarGroup";
-import TaskModal from "../components/task/TaskModal";
-import type { TaskStatus, TaskPriority } from "../services/operations.types";
+import TaskDetailModal from "../components/task/TaskDetailModal";
+import { getKanbanColumns } from "../services/operationsApi";
+import type { TaskItem, KanbanColumnItem } from "../services/operations.types";
 
-/* ── Mock data ─────────────────────────────────────────────────────────────── */
+/* ── Design tokens ─────────────────────────────────────────────────────────── */
 
-interface MyTask {
-  id: number;
-  title: string;
-  status: TaskStatus;
-  priority: TaskPriority;
-  tags: string[];
-  progress: number;
-  deadline?: string;
-  sprintName: string;
-  subTaskCount: number;
-  assignees: Array<{ name: string }>;
+const D = {
+  border: '1.5px solid #15131a',
+  borderLight: '1px solid #e8e3d6',
+  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 #15131a`,
+  radius: 14,
+  pill: 999,
+  ink: '#15131a',
+  inkDim: '#4a4651',
+  inkMuted: '#918c99',
+  bg: '#f7f6f1',
+  card: '#ffffff',
+  indigo: '#4f46e5',
+  emerald: '#10b981',
+  amber: '#f59e0b',
+  red: '#ef4444',
 }
-
-const MOCK_MY_TASKS: MyTask[] = [
-  {
-    id: 101,
-    title: "Finalize Sponsorship Proposal",
-    status: "Doing",
-    priority: "High",
-    tags: ["Marketing", "Q4 Budget"],
-    progress: 65,
-    deadline: "2024-10-25",
-    sprintName: "Sprint 12",
-    subTaskCount: 3,
-    assignees: [{ name: "Minh Thư" }, { name: "Hoàng Nam" }],
-  },
-  {
-    id: 102,
-    title: "Speaker Outreach Create",
-    status: "Doing",
-    priority: "Medium",
-    tags: ["Event", "PR"],
-    progress: 30,
-    deadline: "2024-10-27",
-    sprintName: "Sprint 12",
-    subTaskCount: 2,
-    assignees: [{ name: "Minh Thư" }],
-  },
-  {
-    id: 103,
-    title: "Quarterly Financial Review",
-    status: "Todo",
-    priority: "Low",
-    tags: ["Finance", "Review"],
-    progress: 20,
-    deadline: "2024-11-05",
-    sprintName: "Sprint 13",
-    subTaskCount: 0,
-    assignees: [{ name: "Minh Thư" }, { name: "Kim Chi" }],
-  },
-  {
-    id: 104,
-    title: "Thiết kế banner chào mừng CLB",
-    status: "Done",
-    priority: "Medium",
-    tags: ["Design", "Branding"],
-    progress: 100,
-    deadline: "2024-10-20",
-    sprintName: "Sprint 11",
-    subTaskCount: 1,
-    assignees: [{ name: "Minh Thư" }],
-  },
-  {
-    id: 105,
-    title: "Chuẩn bị tài liệu tổng kết Q3",
-    status: "Done",
-    priority: "High",
-    tags: ["Report", "Q3"],
-    progress: 100,
-    deadline: "2024-09-30",
-    sprintName: "Sprint 11",
-    subTaskCount: 0,
-    assignees: [{ name: "Minh Thư" }, { name: "Anh Tuấn" }],
-  },
-  {
-    id: 106,
-    title: "Lập kế hoạch tuyển thành viên Gen 10",
-    status: "Todo",
-    priority: "High",
-    tags: ["Planning", "HR"],
-    progress: 0,
-    deadline: "2024-11-10",
-    sprintName: "Sprint 13",
-    subTaskCount: 4,
-    assignees: [{ name: "Minh Thư" }],
-  },
-];
 
 /* ── Config maps ───────────────────────────────────────────────────────────── */
 
-const PRIORITY_CONFIG: Record<
-  TaskPriority,
-  {
-    barClass: string;
-    progressClass: string;
-    textClass: string;
-    badge: string;
-    label: string;
-  }
-> = {
-  High: {
-    barClass: "bg-red-500",
-    progressClass: "bg-red-500",
-    textClass: "text-red-500",
-    badge: "bg-red-50 text-red-600",
-    label: "Cao",
-  },
-  Medium: {
-    barClass: "bg-amber-400",
-    progressClass: "bg-amber-400",
-    textClass: "text-amber-500",
-    badge: "bg-amber-50 text-amber-600",
-    label: "Vừa",
-  },
-  Low: {
-    barClass: "bg-emerald-500",
-    progressClass: "bg-emerald-500",
-    textClass: "text-emerald-500",
-    badge: "bg-emerald-50 text-emerald-600",
-    label: "Thấp",
-  },
-};
+const PRIORITY_CONFIG = {
+  High:   { color: D.red,     label: "Cao"  },
+  Medium: { color: D.amber,   label: "Vừa"  },
+  Low:    { color: D.emerald, label: "Thấp" },
+} as const
 
 const STATUS_TABS = [
-  { key: "all", label: "Tất cả" },
-  { key: "Todo", label: "Chưa làm" },
-  { key: "Doing", label: "Đang làm" },
-  { key: "Done", label: "Hoàn thành" },
-];
+  { key: "all",   label: "Tất cả"     },
+  { key: "Todo",  label: "Chưa làm"   },
+  { key: "Doing", label: "Đang làm"   },
+  { key: "Done",  label: "Hoàn thành" },
+]
 
-/* ── Sub-components ────────────────────────────────────────────────────────── */
+/* ── TaskListCard ──────────────────────────────────────────────────────────── */
 
-function TaskListCard({ task }: { task: MyTask }) {
-  const p = PRIORITY_CONFIG[task.priority];
-  const isOverdue =
-    task.deadline &&
-    new Date(task.deadline) < new Date() &&
-    task.status !== "Done";
-
+function TaskListCard({ task, onClick }: { task: TaskItem; onClick: () => void }) {
+  const [hovered, setHovered] = useState(false)
+  const p = PRIORITY_CONFIG[task.priority] ?? PRIORITY_CONFIG.Medium
+  const isOverdue = task.deadline && new Date(task.deadline) < new Date() && task.status !== "Done"
   const deadlineStr = task.deadline
-    ? new Date(task.deadline).toLocaleDateString("vi-VN", {
-        day: "2-digit",
-        month: "2-digit",
-      })
-    : null;
+    ? new Date(task.deadline).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" })
+    : null
+
+  const statusBadge = {
+    Todo:  { bg: '#f3f4f6', color: D.inkDim, label: 'Chưa làm' },
+    Doing: { bg: '#dbeafe', color: '#1e40af', label: 'Đang làm' },
+    Done:  { bg: '#d1fae5', color: '#065f46', label: 'Hoàn thành' },
+  }[task.status] ?? { bg: '#f3f4f6', color: D.inkDim, label: task.status }
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all overflow-hidden flex group cursor-pointer">
-      {/* Priority bar */}
-      <div className={`w-1.5 shrink-0 ${p.barClass}`} />
-
-      <div className="flex-1 p-4">
-        {/* Top row */}
-        <div className="flex items-start justify-between gap-2 mb-2">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-xs font-medium text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">
-              {task.sprintName}
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onClick}
+      onKeyDown={e => e.key === "Enter" && onClick()}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        background: D.card,
+        border: D.border,
+        borderLeft: `4px solid ${p.color}`,
+        borderRadius: D.radius,
+        boxShadow: hovered ? D.shadow(5, 5) : D.shadow(3, 3),
+        transform: hovered ? 'translate(-1px,-1px)' : 'none',
+        transition: 'transform .12s, box-shadow .12s',
+        padding: '14px 16px',
+        cursor: 'pointer',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 10,
+        fontFamily: "'Be Vietnam Pro', sans-serif",
+      }}
+    >
+      {/* Top row */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+        <span style={{
+          fontSize: 10, fontWeight: 800, padding: '2px 8px',
+          border: '1.5px solid #0a0a0a', borderRadius: 0,
+          background: 'white', color: p.color,
+          textTransform: 'uppercase', letterSpacing: '.05em',
+        }}>
+          {p.label}
+        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          {task.sprintId && (
+            <span style={{
+              fontSize: 10, fontWeight: 700, padding: '2px 8px',
+              borderRadius: 0, border: '1px solid #c7d2fe',
+              background: '#eef2ff', color: D.indigo,
+            }}>
+              Sprint #{task.sprintId}
             </span>
-            <span
-              className={`text-xs font-medium px-2 py-0.5 rounded-full ${p.badge}`}
-            >
-              {p.label}
-            </span>
-          </div>
-          <button
-            type="button"
-            title="Tùy chọn"
-            className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-lg hover:bg-gray-100 shrink-0"
-          >
-            <MoreHorizontal size={15} className="text-gray-400" />
-          </button>
+          )}
+          <span style={{
+            fontSize: 10, fontWeight: 700, padding: '2px 8px',
+            borderRadius: 0, border: D.borderLight,
+            background: statusBadge.bg, color: statusBadge.color,
+            textTransform: 'uppercase', letterSpacing: '.04em',
+          }}>
+            {statusBadge.label}
+          </span>
         </div>
+      </div>
 
-        {/* Title */}
-        <h3 className="text-sm font-semibold text-gray-800 mb-2 line-clamp-1">
-          {task.title}
-        </h3>
+      {/* Title */}
+      <p style={{
+        fontSize: 13, fontWeight: 700, color: D.ink, margin: 0,
+        lineHeight: 1.4, display: '-webkit-box',
+        WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+      }}>
+        {task.title}
+      </p>
 
-        {/* Tags */}
-        {task.tags.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 mb-3">
-            {task.tags.map((tag) => (
-              <span
-                key={tag}
-                className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-md"
-              >
-                {tag}
-              </span>
-            ))}
-          </div>
-        )}
-
-        {/* Progress */}
-        <div className="mb-3">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-xs text-gray-400">Tiến độ</span>
-            <span className={`text-xs font-semibold ${p.textClass}`}>
-              {task.progress}%
-            </span>
-          </div>
-          <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-            <div
-              className={`h-full rounded-full transition-all duration-500 ${p.progressClass}`}
-              style={{ width: `${task.progress}%` }}
-            />
-          </div>
+      {/* Progress */}
+      <div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+          <span style={{ fontSize: 11, color: D.inkMuted, fontWeight: 600 }}>Tiến độ</span>
+          <span style={{ fontSize: 11, fontWeight: 800, color: p.color }}>{task.progress}%</span>
         </div>
+        <div style={{ height: 6, background: '#e8e3d6', borderRadius: 2, overflow: 'hidden', border: '1px solid #ccc' }}>
+          <div style={{ height: '100%', background: p.color, width: `${task.progress}%`, transition: 'width .4s' }} />
+        </div>
+      </div>
 
-        {/* Bottom row */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <AvatarGroup avatars={task.assignees} max={3} size="sm" />
-            {task.subTaskCount > 0 && (
-              <div className="flex items-center gap-1 text-xs text-gray-400">
-                <Link2 size={11} />
-                <span>{task.subTaskCount}</span>
-              </div>
-            )}
-          </div>
-          {deadlineStr && (
-            <span
-              className={`flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-lg ${
-                isOverdue
-                  ? "bg-red-50 text-red-500"
-                  : "bg-gray-50 text-gray-500"
-              }`}
-            >
-              <Calendar size={11} />
-              {deadlineStr}
+      {/* Bottom */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {task.subTaskCount > 0 && (
+            <span style={{ fontSize: 11, color: D.inkMuted, fontWeight: 600 }}>
+              {task.subTaskCount} sub
             </span>
           )}
         </div>
+        {deadlineStr && (
+          <span style={{
+            fontSize: 11, fontWeight: 700, padding: '2px 8px',
+            borderRadius: 0, border: D.borderLight,
+            background: isOverdue ? '#fee2e2' : '#f7f6f1',
+            color: isOverdue ? D.red : D.inkMuted,
+          }}>
+            {deadlineStr}
+          </span>
+        )}
       </div>
     </div>
-  );
+  )
 }
 
-function CircularProgress({
-  value,
-  size = 88,
-}: {
-  value: number;
-  size?: number;
-}) {
-  const r = (size - 16) / 2;
-  const circ = 2 * Math.PI * r;
-  const dash = circ * (1 - value / 100);
+function CircularProgress({ value, size = 88 }: { value: number; size?: number }) {
+  const r = (size - 16) / 2
+  const circ = 2 * Math.PI * r
+  const dash = circ * (1 - value / 100)
   return (
-    <svg
-      width={size}
-      height={size}
-      viewBox={`0 0 ${size} ${size}`}
-      className="-rotate-90"
-    >
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ transform: 'rotate(-90deg)' }}>
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#e8e3d6" strokeWidth={8} />
       <circle
-        cx={size / 2}
-        cy={size / 2}
-        r={r}
-        fill="none"
-        stroke="#f0f0f0"
-        strokeWidth={8}
-      />
-      <circle
-        cx={size / 2}
-        cy={size / 2}
-        r={r}
-        fill="none"
-        stroke="#4f46e5"
-        strokeWidth={8}
-        strokeDasharray={circ}
-        strokeDashoffset={dash}
-        strokeLinecap="round"
-        className="[transition:stroke-dashoffset_0.6s_ease]"
+        cx={size / 2} cy={size / 2} r={r}
+        fill="none" stroke={D.indigo} strokeWidth={8}
+        strokeDasharray={circ} strokeDashoffset={dash} strokeLinecap="round"
+        style={{ transition: 'stroke-dashoffset 0.6s ease' }}
       />
     </svg>
-  );
+  )
 }
 
 /* ── Page ──────────────────────────────────────────────────────────────────── */
 
 export default function MyTasksPage() {
-  const [searchParams] = useSearchParams();
-  const clubId = Number(searchParams.get("clubId") ?? 1);
-  const { user } = useAuth();
+  const { user } = useAuth()
+  const { tasks, tasksLoading, reloadTasks, departmentId } = useTasks()
 
-  const [activeTab, setActiveTab] = useState("all");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [modalOpen, setModalOpen] = useState(false);
+  const myTasks = useMemo(
+    () => tasks.filter(t => t.assignedTo === user?.id),
+    [tasks, user?.id],
+  )
+
+  const [activeTab, setActiveTab]     = useState("all")
+  const [searchQuery, setSearchQuery] = useState("")
+  const [selectedTask, setSelectedTask] = useState<TaskItem | null>(null)
+  const [modalOpen, setModalOpen]     = useState(false)
+  const [columns, setColumns]         = useState<KanbanColumnItem[]>([])
+
+  const clubId = myTasks[0]?.clubId ?? tasks[0]?.clubId ?? 0
+  useEffect(() => {
+    if (!clubId) return
+    getKanbanColumns(clubId, undefined, departmentId).then(setColumns).catch(() => {})
+  }, [clubId, departmentId])
 
   const stats = useMemo(() => {
-    const t = MOCK_MY_TASKS;
-    const now = new Date();
+    const now = new Date()
     return {
-      total: t.length,
-      doing: t.filter((x) => x.status === "Doing").length,
-      done: t.filter((x) => x.status === "Done").length,
-      overdue: t.filter(
-        (x) => x.deadline && new Date(x.deadline) < now && x.status !== "Done",
-      ).length,
-    };
-  }, []);
+      total:   myTasks.length,
+      doing:   myTasks.filter(t => t.status === "Doing").length,
+      done:    myTasks.filter(t => t.status === "Done").length,
+      overdue: myTasks.filter(t => t.deadline && new Date(t.deadline) < now && t.status !== "Done").length,
+    }
+  }, [myTasks])
 
-  const filteredTasks = useMemo(() => {
-    return MOCK_MY_TASKS.filter((t) => {
-      const matchTab = activeTab === "all" || t.status === activeTab;
-      const matchSearch = t.title
-        .toLowerCase()
-        .includes(searchQuery.toLowerCase());
-      return matchTab && matchSearch;
-    });
-  }, [activeTab, searchQuery]);
+  const filteredTasks = useMemo(() => myTasks.filter(t => {
+    const matchTab    = activeTab === "all" || t.status === activeTab
+    const matchSearch = t.title.toLowerCase().includes(searchQuery.toLowerCase())
+    return matchTab && matchSearch
+  }), [myTasks, activeTab, searchQuery])
 
-  const upcomingDeadline = useMemo(() => {
-    return MOCK_MY_TASKS.filter((t) => t.deadline && t.status !== "Done").sort(
-      (a, b) =>
-        new Date(a.deadline!).getTime() - new Date(b.deadline!).getTime(),
-    )[0];
-  }, []);
-
-  const weeklyHours = 3.2;
-  const weeklyProgress = 82;
-
-  const hour = new Date().getHours();
-  const timeGreet =
-    hour < 12 ? "buổi sáng" : hour < 18 ? "buổi chiều" : "buổi tối";
-  const firstName = user?.fullName?.trim().split(" ").pop() ?? "bạn";
+  const upcomingDeadline = useMemo(() =>
+    myTasks
+      .filter(t => t.deadline && t.status !== "Done")
+      .sort((a, b) => new Date(a.deadline!).getTime() - new Date(b.deadline!).getTime())[0],
+    [myTasks],
+  )
 
   const tabCounts: Record<string, number> = {
-    all: stats.total,
-    Todo: MOCK_MY_TASKS.filter((t) => t.status === "Todo").length,
+    all:   stats.total,
+    Todo:  myTasks.filter(t => t.status === "Todo").length,
     Doing: stats.doing,
-    Done: stats.done,
-  };
+    Done:  stats.done,
+  }
+
+  const hour = new Date().getHours()
+  const timeGreet = hour < 12 ? "buổi sáng" : hour < 18 ? "buổi chiều" : "buổi tối"
+  const firstName = user?.fullName?.trim().split(" ").pop() ?? "bạn"
+
+  function openTask(task: TaskItem) {
+    setSelectedTask(task)
+    setModalOpen(true)
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50/30 p-6 lg:p-8">
-      {/* ── Header ───────────────────────────────────────────────── */}
-      <div className="flex items-start justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">
-            Chào {timeGreet}, {firstName}!
-          </h1>
-          <p className="text-sm text-gray-400 mt-1">
-            Hãy bắt đầu một ngày làm việc hiệu quả.
-          </p>
+    <div style={{ padding: '28px 32px', minHeight: '100%', background: D.bg, fontFamily: "'Be Vietnam Pro', sans-serif" }}>
+
+      {/* ── Header ─────────────────────────────────────────────────── */}
+      <div style={{ marginBottom: 24 }}>
+        <h1 style={{ fontSize: 24, fontWeight: 900, color: D.ink, letterSpacing: '-.025em', margin: 0 }}>
+          Chào {timeGreet}, {firstName}!
+        </h1>
+        <p style={{ fontSize: 13, color: D.inkMuted, marginTop: 4 }}>
+          {tasksLoading ? "Đang tải công việc..." : "Hãy bắt đầu một ngày làm việc hiệu quả."}
+        </p>
+      </div>
+
+      {/* ── Stats ──────────────────────────────────────────────────── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 24 }}>
+        <StatCard icon={ListTodo}      iconBg="#eef2ff" iconColor={D.indigo}   value={stats.total}  label="Tổng công việc" />
+        <StatCard icon={Clock}         iconBg="#fef3c7" iconColor={D.amber}    value={stats.doing}  label="Đang thực hiện" />
+        <StatCard
+          icon={AlertTriangle} iconBg="#fee2e2" iconColor={D.red}
+          value={stats.overdue} label="Quá hạn"
+          trend={stats.overdue > 0 ? { value: "Cần chú ý", positive: false } : undefined}
+        />
+        <StatCard
+          icon={CheckSquare} iconBg="#d1fae5" iconColor={D.emerald}
+          value={stats.done} label="Hoàn thành"
+          trend={stats.total > 0 ? { value: `${Math.round((stats.done / stats.total) * 100)}%`, positive: true } : undefined}
+        />
+      </div>
+
+      {/* ── Filter bar ─────────────────────────────────────────────── */}
+      <div style={{
+        padding: '10px 14px', borderRadius: D.radius,
+        background: D.card, border: D.border, boxShadow: D.shadow(),
+        display: 'flex', gap: 10, alignItems: 'center', marginBottom: 20, flexWrap: 'wrap',
+      }}>
+        <input
+          placeholder="⌕  Tìm công việc..."
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+          style={{
+            flex: 1, minWidth: 200, height: 36, borderRadius: 8,
+            border: '1px solid #e8e3d6', padding: '0 12px', fontSize: 13,
+            color: D.ink, outline: 'none', background: D.bg,
+            fontFamily: 'inherit', boxSizing: 'border-box',
+          }}
+        />
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {STATUS_TABS.map(tab => {
+            const isActive = activeTab === tab.key
+            return (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => setActiveTab(tab.key)}
+                style={{
+                  padding: '6px 12px', borderRadius: D.pill, fontSize: 12, fontWeight: 700,
+                  cursor: 'pointer', fontFamily: 'inherit', border: D.border,
+                  background: isActive ? D.ink : D.card,
+                  color: isActive ? '#fff' : D.inkDim,
+                  boxShadow: isActive ? 'none' : D.shadow(2, 2),
+                }}
+              >
+                {tab.label} ({tabCounts[tab.key]})
+              </button>
+            )
+          })}
         </div>
       </div>
 
-      {/* ── Stats ────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <StatCard
-          icon={ListTodo}
-          iconBg="#eef2ff"
-          iconColor="#4f46e5"
-          value={stats.total}
-          label="Tổng công việc"
-        />
-        <StatCard
-          icon={Clock}
-          iconBg="#fef3c7"
-          iconColor="#d97706"
-          value={stats.doing}
-          label="Đang thực hiện"
-        />
-        <StatCard
-          icon={AlertTriangle}
-          iconBg="#fee2e2"
-          iconColor="#dc2626"
-          value={stats.overdue}
-          label="Quá hạn"
-          trend={
-            stats.overdue > 0
-              ? { value: "Cần chú ý", positive: false }
-              : undefined
-          }
-        />
-        <StatCard
-          icon={CheckSquare}
-          iconBg="#d1fae5"
-          iconColor="#059669"
-          value={stats.done}
-          label="Hoàn thành"
-          trend={
-            stats.total > 0
-              ? {
-                  value: `${Math.round((stats.done / stats.total) * 100)}%`,
-                  positive: true,
-                }
-              : undefined
-          }
-        />
-      </div>
-
-      {/* ── Filter tabs ──────────────────────────────────────────── */}
-      <div className="mb-5">
-        <FilterBar
-          searchValue={searchQuery}
-          onSearchChange={setSearchQuery}
-          searchPlaceholder="Tìm công việc..."
-          statusOptions={STATUS_TABS.map((t) => ({
-            key: t.key,
-            label: `${t.label} (${tabCounts[t.key]})`,
-          }))}
-          activeStatus={activeTab}
-          onStatusChange={setActiveTab}
-        />
-      </div>
-
-      {/* ── Main grid ────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        {/* Task list — 2 cols */}
-        <div className="lg:col-span-2 space-y-3">
-          {filteredTasks.length === 0 ? (
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-14 text-center">
-              <p className="text-gray-400 text-sm">
-                Không có công việc nào phù hợp
-              </p>
+      {/* ── Main grid ──────────────────────────────────────────────── */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 20 }}>
+        {/* Task list */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {tasksLoading ? (
+            <div style={{ background: D.card, border: D.border, borderRadius: D.radius, boxShadow: D.shadow(), padding: '56px 0', textAlign: 'center', color: D.inkMuted, fontSize: 13 }}>
+              Đang tải...
+            </div>
+          ) : filteredTasks.length === 0 ? (
+            <div style={{ background: D.card, border: D.border, borderRadius: D.radius, boxShadow: D.shadow(), padding: '56px 0', textAlign: 'center', color: D.inkMuted }}>
+              <p style={{ fontSize: 28, margin: '0 0 8px' }}>🔍</p>
+              <p style={{ fontSize: 13, margin: 0 }}>Không có công việc nào phù hợp</p>
             </div>
           ) : (
-            filteredTasks.map((task) => (
-              <TaskListCard key={task.id} task={task} />
+            filteredTasks.map(task => (
+              <TaskListCard key={task.id} task={task} onClick={() => openTask(task)} />
             ))
           )}
         </div>
 
-        {/* Sidebar — 1 col */}
-        <div className="space-y-4">
-          {/* Upcoming deadline */}
+        {/* Sidebar */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           {upcomingDeadline && (
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-              <h3 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
-                <AlertTriangle size={14} className="text-amber-500" />
+            <div style={{ background: D.card, border: D.border, borderRadius: D.radius, boxShadow: D.shadow(), padding: '18px 20px' }}>
+              <h3 style={{ fontSize: 12, fontWeight: 800, color: D.inkDim, letterSpacing: '.06em', textTransform: 'uppercase', margin: '0 0 14px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <AlertTriangle size={13} style={{ color: D.amber }} />
                 Sắp đến hạn
               </h3>
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-xl bg-red-50 flex flex-col items-center justify-center shrink-0">
-                  <span className="text-xl font-bold text-red-500 leading-none">
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => openTask(upcomingDeadline)}
+                onKeyDown={e => e.key === "Enter" && openTask(upcomingDeadline)}
+                style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}
+              >
+                <div style={{
+                  width: 48, height: 48, borderRadius: 8, background: '#fee2e2',
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                  flexShrink: 0, border: '1px solid #fecaca',
+                }}>
+                  <span style={{ fontSize: 18, fontWeight: 900, color: D.red, lineHeight: 1 }}>
                     {new Date(upcomingDeadline.deadline!).getDate()}
                   </span>
-                  <span className="text-[10px] font-medium text-red-400">
+                  <span style={{ fontSize: 10, fontWeight: 700, color: '#f87171' }}>
                     Th{new Date(upcomingDeadline.deadline!).getMonth() + 1}
                   </span>
                 </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-gray-800 line-clamp-2 leading-snug">
+                <div style={{ minWidth: 0 }}>
+                  <p style={{ fontSize: 13, fontWeight: 700, color: D.ink, margin: '0 0 4px', lineHeight: 1.3 }}>
                     {upcomingDeadline.title}
                   </p>
-                  <span
-                    className={`text-xs font-medium px-2 py-0.5 rounded-full mt-1.5 inline-block ${
-                      PRIORITY_CONFIG[upcomingDeadline.priority].badge
-                    }`}
-                  >
-                    {PRIORITY_CONFIG[upcomingDeadline.priority].label}
+                  <span style={{
+                    fontSize: 10, fontWeight: 700, padding: '2px 8px',
+                    background: '#fee2e2', color: D.red,
+                    border: '1px solid #fecaca', borderRadius: 4,
+                  }}>
+                    {PRIORITY_CONFIG[upcomingDeadline.priority]?.label ?? 'Medium'}
                   </span>
                 </div>
               </div>
             </div>
           )}
 
-          {/* Weekly Focus */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-            <h3 className="text-sm font-bold text-gray-800 mb-4 flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-indigo-500" />
-              Weekly Focus
-            </h3>
-            <div className="flex items-center gap-4">
-              <div className="relative shrink-0">
-                <CircularProgress value={weeklyProgress} size={88} />
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-base font-bold text-gray-900">
-                    {weeklyProgress}%
-                  </span>
+          {/* Progress ring */}
+          {stats.total > 0 && (
+            <div style={{ background: D.card, border: D.border, borderRadius: D.radius, boxShadow: D.shadow(), padding: '18px 20px' }}>
+              <h3 style={{ fontSize: 12, fontWeight: 800, color: D.inkDim, letterSpacing: '.06em', textTransform: 'uppercase', margin: '0 0 16px' }}>
+                Tiến độ cá nhân
+              </h3>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                <div style={{ position: 'relative', flexShrink: 0 }}>
+                  <CircularProgress value={Math.round((stats.done / stats.total) * 100)} size={88} />
+                  <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <span style={{ fontSize: 15, fontWeight: 900, color: D.ink }}>
+                      {Math.round((stats.done / stats.total) * 100)}%
+                    </span>
+                  </div>
                 </div>
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-gray-900">
-                  {weeklyHours}h
-                </p>
-                <p className="text-xs text-gray-400 mt-0.5">
-                  Giờ đã làm tuần này
-                </p>
-                <div className="mt-2 flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-indigo-400" />
-                  <span className="text-xs text-gray-500">
-                    Đang tiến triển tốt
-                  </span>
+                <div>
+                  <p style={{ fontSize: 26, fontWeight: 900, color: D.ink, margin: 0, letterSpacing: '-.02em' }}>
+                    {stats.done}/{stats.total}
+                  </p>
+                  <p style={{ fontSize: 11, color: D.inkMuted, margin: '2px 0 0' }}>Công việc hoàn thành</p>
+                  <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: D.indigo, display: 'inline-block' }} />
+                    <span style={{ fontSize: 11, color: D.inkDim }}>{stats.doing} đang thực hiện</span>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
 
-      {/* ── Modal ────────────────────────────────────────────────── */}
-      <TaskModal
-        clubId={clubId}
-        task={null}
-        open={modalOpen}
-        onClose={() => setModalOpen(false)}
-        onSaved={() => setModalOpen(false)}
-      />
+      {/* ── Task detail modal ───────────────────────────────────────── */}
+      {selectedTask && (
+        <TaskDetailModal
+          clubId={selectedTask.clubId}
+          task={selectedTask}
+          open={modalOpen}
+          departmentId={departmentId}
+          columns={columns}
+          onClose={() => setModalOpen(false)}
+          onSaved={async () => { setModalOpen(false); await reloadTasks() }}
+        />
+      )}
     </div>
-  );
+  )
 }

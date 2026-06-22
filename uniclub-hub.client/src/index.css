@@ -1,7 +1,14 @@
+@import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,400&family=Instrument+Serif:ital@0;1&display=swap');
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/geist";
+
+/* Sidebar nav scrollbar — trùng màu background */
+.sidebar-nav::-webkit-scrollbar { width: 4px; }
+.sidebar-nav::-webkit-scrollbar-track { background: white; }
+.sidebar-nav::-webkit-scrollbar-thumb { background: #e5e7eb; border-radius: 4px; }
+.sidebar-nav::-webkit-scrollbar-thumb:hover { background: #d1d5db; }
 
 @custom-variant dark (&:is(.dark *));
 
@@ -232,3 +239,120 @@ code {
     @apply bg-background text-foreground;}
   html {
     @apply font-sans;}}
+
+/* ─── v3 Public Pages Design System — UEF Theme ─────────────────── */
+
+:root {
+  --v3-bg: #EBF3FF;
+  --v3-card: #ffffff;
+  --v3-ink: #003087;
+  --v3-ink-dim: #1A4A8A;
+  --v3-ink-muted: #5E7AA8;
+  --v3-rule: #C5D8F0;
+  --v3-indigo: #0055B8;
+  --v3-violet: #7c3aed;
+  --v3-coral: #C8102E;
+  --v3-lemon: #ffffff;
+  --v3-mint: #14b8a6;
+  --v3-sky: #38bdf8;
+  --v3-pink: #ec4899;
+  --v3-navy: #001A5E;
+  --v3-border: 1.5px solid #003087;
+  --v3-shadow: 4px 4px 0 #003087;
+  --v3-shadow-sm: 2px 2px 0 #003087;
+  --v3-shadow-lg: 6px 6px 0 #003087;
+}
+
+/* ─── Portal Landing Page — Override Tailwind black → UEF navy ───── */
+.portal-page .border-black,
+.portal-page [class*="border-black"] { border-color: #003087 !important; }
+.portal-page .text-black { color: #003087 !important; }
+.portal-page .bg-black { background-color: #003087 !important; }
+.portal-page .divide-black > * + * { border-color: #003087 !important; }
+.portal-page .bg-zinc-950 { background-color: #001A5E !important; }
+.portal-page .bg-zinc-50  { background-color: #EBF3FF !important; }
+.portal-page .bg-zinc-800 { background-color: #002D6B !important; }
+.portal-page .bg-zinc-900 { background-color: #001A5E !important; }
+.portal-page .bg-zinc-200 { background-color: #C5D8F0 !important; }
+.portal-page .bg-zinc-100 { background-color: #EBF3FF !important; }
+.portal-page .hover\:bg-zinc-50:hover { background-color: #E0ECFF !important; }
+.portal-page .bg-gray-200 { background-color: #C5D8F0 !important; }
+.portal-page .divide-x-2 > * + * { border-left-color: #003087 !important; }
+.portal-page .divide-y-2 > * + * { border-top-color: #003087 !important; }
+.portal-page .sticky.border-b-2 { border-bottom-color: #003087 !important; }
+
+/* ── Public page wrapper ── */
+.v3-page {
+  background: var(--v3-bg);
+  font-family: 'Be Vietnam Pro', system-ui, sans-serif;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Portal landing page wrapper ── */
+.portal-page {
+  background: #EBF3FF;
+  font-family: 'Be Vietnam Pro', system-ui, sans-serif;
+  min-height: 100vh;
+}
+
+/* ── Scroll reveal ── */
+.rv {
+  opacity: 0;
+  transform: translateY(18px);
+  transition: opacity 0.55s ease, transform 0.55s ease;
+}
+.rv.seen {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ── Card hover lift ── */
+.card-lift {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.card-lift:hover {
+  transform: translateY(-4px);
+}
+
+/* ── Page transition ── */
+.v3-enter {
+  animation: v3PageIn 0.4s ease forwards;
+}
+@keyframes v3PageIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Marquee ── */
+@keyframes marqueeScroll {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-25%); }
+}
+
+/* ── Float decoration ── */
+@keyframes float {
+  0%, 100% { transform: rotate(var(--rot, 0deg)) translateY(0); }
+  50%       { transform: rotate(var(--rot, 0deg)) translateY(-8px); }
+}
+
+/* ── Hide scrollbar ── */
+.scroll-x {
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scroll-x::-webkit-scrollbar { display: none; }
+
+/* ── Pulse dot ── */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.35; }
+}
+
+/* ── Skeleton shimmer ── */
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}

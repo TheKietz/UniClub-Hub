@@ -17,29 +17,37 @@ interface CreateSprintModalProps {
   }
 }
 
-const EMPTY: CreateSprintDto = {
-  name: '',
-  goal: '',
-  startDate: '',
-  endDate: '',
-  eventId: undefined,
+const EMPTY: CreateSprintDto = { name: '', goal: '', startDate: '', endDate: '', eventId: undefined }
+
+const D = {
+  border: '1.5px solid #15131a',
+  borderLight: '1px solid #e8e3d6',
+  radius: 14,
+  ink: '#15131a',
+  inkDim: '#4a4651',
+  inkMuted: '#918c99',
+  bg: '#f7f6f1',
+  card: '#ffffff',
+  indigo: '#4f46e5',
+  red: '#ef4444',
 }
 
-export default function CreateSprintModal({
-  open,
-  onClose,
-  onSubmit,
-  editData,
-}: CreateSprintModalProps) {
+const inputStyle = (hasErr?: boolean): React.CSSProperties => ({
+  width: '100%', padding: '9px 12px', fontSize: 13, fontWeight: 500,
+  border: `1.5px solid ${hasErr ? D.red : '#c4bfb0'}`,
+  borderRadius: 8, outline: 'none', background: D.card, color: D.ink,
+  fontFamily: "'Be Vietnam Pro', sans-serif", boxSizing: 'border-box',
+})
+
+const labelStyle: React.CSSProperties = {
+  display: 'block', fontSize: 11, fontWeight: 800, color: D.inkDim,
+  marginBottom: 6, textTransform: 'uppercase', letterSpacing: '.06em',
+}
+
+export default function CreateSprintModal({ open, onClose, onSubmit, editData }: CreateSprintModalProps) {
   const [form, setForm] = useState<CreateSprintDto>(
     editData
-      ? {
-          name: editData.name,
-          goal: editData.goal ?? '',
-          startDate: editData.startDate.slice(0, 10),
-          endDate: editData.endDate.slice(0, 10),
-          eventId: editData.eventId,
-        }
+      ? { name: editData.name, goal: editData.goal ?? '', startDate: editData.startDate.slice(0, 10), endDate: editData.endDate.slice(0, 10), eventId: editData.eventId }
       : EMPTY
   )
   const [saving, setSaving] = useState(false)
@@ -50,9 +58,7 @@ export default function CreateSprintModal({
     if (!form.name.trim()) e.name = 'Tên sprint không được để trống'
     if (!form.startDate) e.startDate = 'Vui lòng chọn ngày bắt đầu'
     if (!form.endDate) e.endDate = 'Vui lòng chọn ngày kết thúc'
-    if (form.startDate && form.endDate && form.startDate > form.endDate) {
-      e.endDate = 'Ngày kết thúc phải sau ngày bắt đầu'
-    }
+    if (form.startDate && form.endDate && form.startDate > form.endDate) e.endDate = 'Ngày kết thúc phải sau ngày bắt đầu'
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -60,13 +66,8 @@ export default function CreateSprintModal({
   const handleSubmit = async () => {
     if (!validate()) return
     setSaving(true)
-    try {
-      await onSubmit(form)
-      setForm(EMPTY)
-      onClose()
-    } finally {
-      setSaving(false)
-    }
+    try { await onSubmit(form); setForm(EMPTY); onClose() }
+    finally { setSaving(false) }
   }
 
   const set = (field: keyof CreateSprintDto, value: unknown) =>
@@ -75,135 +76,123 @@ export default function CreateSprintModal({
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-end">
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/20 backdrop-blur-[2px]"
-        onClick={onClose}
-      />
+    <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end' }}>
+      <div style={{ position: 'absolute', inset: 0, background: 'rgba(21,19,26,0.35)', backdropFilter: 'blur(2px)' }} onClick={onClose} />
 
-      {/* Panel - slides in from right like Figma */}
-      <div className="relative w-full max-w-md h-full bg-white shadow-2xl animate-in slide-in-from-right duration-300 overflow-y-auto">
+      <div style={{
+        position: 'relative', width: '100%', maxWidth: 440, height: '100%',
+        background: D.card, border: D.border,
+        boxShadow: '-6px 0 0 #15131a',
+        display: 'flex', flexDirection: 'column', overflowY: 'auto',
+        fontFamily: "'Be Vietnam Pro', sans-serif",
+      }}>
         {/* Header */}
-        <div className="sticky top-0 bg-white z-10 px-6 py-5 border-b border-gray-100">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold text-gray-900">
-              {editData ? 'Chỉnh sửa Sprint' : 'Thiết lập Sprint mới'}
-            </h2>
-            <button
-              type="button"
-              onClick={onClose}
-              className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
-            >
-              <X size={18} />
-            </button>
-          </div>
+        <div style={{
+          position: 'sticky', top: 0, background: D.ink, zIndex: 10,
+          padding: '16px 20px', borderBottom: D.border, flexShrink: 0,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        }}>
+          <h2 style={{ margin: 0, fontSize: 15, fontWeight: 900, color: '#facc15', letterSpacing: '.04em', textTransform: 'uppercase' }}>
+            {editData ? 'Chỉnh sửa Sprint' : 'Tạo Sprint mới'}
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            style={{
+              width: 28, height: 28, border: '1.5px solid #facc15', borderRadius: 6,
+              background: 'transparent', color: '#facc15',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+            }}
+          >
+            <X size={14} />
+          </button>
         </div>
 
-        {/* Form body */}
-        <div className="px-6 py-5 space-y-5">
-          {/* Sprint Name */}
+        {/* Body */}
+        <div style={{ padding: '24px 20px', flex: 1, display: 'flex', flexDirection: 'column', gap: 20 }}>
+          {/* Sprint name */}
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-              Sprint Name <span className="text-red-500">*</span>
-            </label>
+            <label style={labelStyle}>Sprint Name <span style={{ color: D.red }}>*</span></label>
             <input
-              id="sprint-name"
               type="text"
               value={form.name}
               onChange={e => set('name', e.target.value)}
-              placeholder="e.g., Q3 Launch Prep"
-              className={`w-full px-3.5 py-2.5 text-sm border rounded-xl bg-white
-                focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400
-                transition-all placeholder:text-gray-400
-                ${errors.name ? 'border-red-300 ring-1 ring-red-100' : 'border-gray-200'}`}
+              placeholder="VD: Sprint Q3 Launch"
+              style={inputStyle(!!errors.name)}
             />
-            {errors.name && (
-              <p className="text-xs text-red-500 mt-1">{errors.name}</p>
-            )}
+            {errors.name && <p style={{ margin: '4px 0 0', fontSize: 11, color: D.red, fontWeight: 700 }}>{errors.name}</p>}
           </div>
 
           {/* Date range */}
-          <div className="grid grid-cols-2 gap-3">
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-                Start Date <span className="text-red-500">*</span>
-              </label>
+              <label style={labelStyle}>Bắt đầu <span style={{ color: D.red }}>*</span></label>
               <input
-                id="sprint-start-date"
                 type="date"
                 value={form.startDate}
                 onChange={e => set('startDate', e.target.value)}
-                className={`w-full px-3.5 py-2.5 text-sm border rounded-xl bg-white
-                  focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400
-                  transition-all
-                  ${errors.startDate ? 'border-red-300 ring-1 ring-red-100' : 'border-gray-200'}`}
+                style={inputStyle(!!errors.startDate)}
               />
-              {errors.startDate && (
-                <p className="text-xs text-red-500 mt-1">{errors.startDate}</p>
-              )}
+              {errors.startDate && <p style={{ margin: '4px 0 0', fontSize: 11, color: D.red, fontWeight: 700 }}>{errors.startDate}</p>}
             </div>
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-                End Date <span className="text-red-500">*</span>
-              </label>
+              <label style={labelStyle}>Kết thúc <span style={{ color: D.red }}>*</span></label>
               <input
-                id="sprint-end-date"
                 type="date"
                 value={form.endDate}
                 onChange={e => set('endDate', e.target.value)}
-                className={`w-full px-3.5 py-2.5 text-sm border rounded-xl bg-white
-                  focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400
-                  transition-all
-                  ${errors.endDate ? 'border-red-300 ring-1 ring-red-100' : 'border-gray-200'}`}
+                style={inputStyle(!!errors.endDate)}
               />
-              {errors.endDate && (
-                <p className="text-xs text-red-500 mt-1">{errors.endDate}</p>
-              )}
+              {errors.endDate && <p style={{ margin: '4px 0 0', fontSize: 11, color: D.red, fontWeight: 700 }}>{errors.endDate}</p>}
             </div>
           </div>
 
-          {/* Sprint Goal */}
+          {/* Sprint goal */}
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-              Sprint Goal
-            </label>
+            <label style={{ ...labelStyle, color: D.inkMuted }}>Sprint Goal</label>
             <textarea
-              id="sprint-goal"
               value={form.goal ?? ''}
               onChange={e => set('goal', e.target.value)}
-              placeholder="Describe the primary objective for this sprint..."
+              placeholder="Mô tả mục tiêu chính của sprint này..."
               rows={4}
-              className="w-full px-3.5 py-2.5 text-sm border border-gray-200 rounded-xl bg-white
-                resize-none focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400
-                transition-all placeholder:text-gray-400"
+              style={{ ...inputStyle(), resize: 'vertical', minHeight: 96 }}
             />
           </div>
         </div>
 
         {/* Footer */}
-        <div className="sticky bottom-0 bg-white border-t border-gray-100 px-6 py-4 flex items-center justify-end gap-3">
+        <div style={{
+          position: 'sticky', bottom: 0, background: D.bg, borderTop: D.border,
+          padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10,
+          flexShrink: 0,
+        }}>
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-gray-600 bg-white border border-gray-200 rounded-xl
-              hover:bg-gray-50 transition-colors"
+            style={{
+              padding: '8px 18px', fontSize: 13, fontWeight: 700,
+              border: D.border, borderRadius: D.radius,
+              background: D.card, color: D.inkDim, cursor: 'pointer',
+              fontFamily: 'inherit',
+            }}
           >
-            Cancel
+            Hủy
           </button>
           <button
             type="button"
             onClick={handleSubmit}
             disabled={saving}
-            className="px-5 py-2 text-sm font-semibold text-white bg-[#0A2540] rounded-xl
-              hover:bg-[#0d2f4f] transition-colors disabled:opacity-50 disabled:cursor-not-allowed
-              shadow-sm"
+            style={{
+              padding: '8px 22px', fontSize: 13, fontWeight: 900,
+              border: D.border, borderRadius: D.radius,
+              background: saving ? '#6b7280' : D.ink, color: '#facc15',
+              cursor: saving ? 'not-allowed' : 'pointer',
+              boxShadow: saving ? 'none' : '3px 3px 0 #4f46e5',
+              letterSpacing: '.04em', textTransform: 'uppercase',
+              fontFamily: 'inherit',
+            }}
           >
-            {saving
-              ? 'Đang lưu...'
-              : editData
-                ? 'Lưu thay đổi'
-                : 'Create Sprint'}
+            {saving ? 'Đang lưu...' : editData ? 'Lưu thay đổi' : 'Tạo Sprint'}
           </button>
         </div>
       </div>

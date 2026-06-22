@@ -385,9 +385,15 @@ Thumbs.db
 # VS Code
 .vscode/
 
+# Design handoff files (local reference only)
+design_handoff_public_redesign/
+*.zip
+
 # ASP.NET SPA build artifacts (auto-generated, do not commit)
 uniclub-hub.client/obj/
 uniclub-hub.client/bin/
 /uniclub-hub.client/.env
 CLAUDE.md
 TODO.md
+
+/design

@@ -15,7 +15,9 @@ namespace UniClub_Hub.Server.Controllers.Operations
     [Authorize]
     public class TasksController(
         ITaskService taskService,
-        IHubContext<KanbanHub> hubContext) : ControllerBase
+        IHubContext<KanbanHub> hubContext,
+        ITaskCommentService commentService,
+        ITaskAttachmentService attachmentService) : ControllerBase
     {
         [HttpGet]
         [AllowAnonymous]
@@ -26,10 +28,11 @@ namespace UniClub_Hub.Server.Controllers.Operations
             [FromQuery] int? eventId,
             [FromQuery] string? assignedTo,
             [FromQuery] int? parentId,
+            [FromQuery] int? departmentId,
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 50)
         {
-            var result = await taskService.GetByClubAsync(clubId, status, sprintId, eventId, assignedTo, parentId, page, pageSize);
+            var result = await taskService.GetByClubAsync(clubId, status, sprintId, eventId, assignedTo, parentId, departmentId, page, pageSize);
             return Ok(ApiResponse<object>.Ok(result));
         }
 
@@ -103,17 +106,22 @@ namespace UniClub_Hub.Server.Controllers.Operations
         }
 
         [HttpDelete("{id:int}")]
-        [Authorize(Roles = "CLUB_ADMIN,SUPER_ADMIN")]
+        [Authorize]
         public async Task<IActionResult> Delete(int id)
         {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
             try
             {
                 var task = await taskService.GetByIdAsync(id);
-                await taskService.DeleteAsync(id);
+                await taskService.DeleteAsync(id, userId);
                 await hubContext.Clients
                     .Group(SignalRGroups.Club(task.ClubId))
                     .SendAsync(SignalREvents.TaskDeleted, id);
                 return Ok(ApiResponse<object>.Ok(null!, "Xóa công việc thành công."));
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Forbid(ex.Message);
             }
             catch (KeyNotFoundException ex)
             {
@@ -168,6 +176,103 @@ namespace UniClub_Hub.Server.Controllers.Operations
             {
                 return NotFound(ApiResponse<object>.Fail(ex.Message));
             }
+        }
+
+        // ── Comments ──────────────────────────────────────────────────────────────
+
+        [HttpGet("{id:int}/comments")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetComments(int id)
+        {
+            var result = await commentService.GetByTaskAsync(id);
+            return Ok(ApiResponse<object>.Ok(result));
+        }
+
+        [HttpPost("{id:int}/comments")]
+        public async Task<IActionResult> AddComment(int id, [FromBody] CreateTaskCommentDto dto)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+            try
+            {
+                var result = await commentService.AddAsync(id, userId, dto);
+                return Ok(ApiResponse<TaskCommentDto>.Ok(result, "Thêm bình luận thành công."));
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(ApiResponse<object>.Fail(ex.Message));
+            }
+        }
+
+        [HttpPut("{id:int}/comments/{commentId:int}")]
+        public async Task<IActionResult> UpdateComment(int id, int commentId, [FromBody] UpdateTaskCommentDto dto)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+            try
+            {
+                var result = await commentService.UpdateAsync(commentId, userId, dto);
+                return Ok(ApiResponse<TaskCommentDto>.Ok(result));
+            }
+            catch (KeyNotFoundException ex) { return NotFound(ApiResponse<object>.Fail(ex.Message)); }
+            catch (UnauthorizedAccessException ex) { return Forbid(ex.Message); }
+        }
+
+        [HttpDelete("{id:int}/comments/{commentId:int}")]
+        public async Task<IActionResult> DeleteComment(int id, int commentId)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+            try
+            {
+                await commentService.DeleteAsync(commentId, userId);
+                return Ok(ApiResponse<object>.Ok(null!, "Đã xóa bình luận."));
+            }
+            catch (KeyNotFoundException ex) { return NotFound(ApiResponse<object>.Fail(ex.Message)); }
+            catch (UnauthorizedAccessException ex) { return Forbid(ex.Message); }
+        }
+
+        // ── Attachments ───────────────────────────────────────────────────────────
+
+        [HttpGet("{id:int}/attachments")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetAttachments(int id)
+        {
+            var result = await attachmentService.GetByTaskAsync(id);
+            return Ok(ApiResponse<object>.Ok(result));
+        }
+
+        [HttpPost("{id:int}/attachments/link")]
+        public async Task<IActionResult> AddLink(int id, [FromBody] AddTaskAttachmentLinkDto dto)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+            var result = await attachmentService.AddLinkAsync(id, userId, dto);
+            return Ok(ApiResponse<TaskAttachmentDto>.Ok(result, "Thêm liên kết thành công."));
+        }
+
+        [HttpPost("{id:int}/attachments/file")]
+        public async Task<IActionResult> UploadFile(int id, IFormFile file, [FromForm] string? note)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+            try
+            {
+                var result = await attachmentService.UploadFileAsync(id, userId, file, note);
+                return Ok(ApiResponse<TaskAttachmentDto>.Ok(result, "Tải lên thành công."));
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ApiResponse<object>.Fail(ex.Message));
+            }
+        }
+
+        [HttpDelete("{id:int}/attachments/{attachmentId:int}")]
+        public async Task<IActionResult> DeleteAttachment(int id, int attachmentId)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+            try
+            {
+                await attachmentService.DeleteAsync(attachmentId, userId);
+                return Ok(ApiResponse<object>.Ok(null!, "Đã xóa đính kèm."));
+            }
+            catch (KeyNotFoundException ex) { return NotFound(ApiResponse<object>.Fail(ex.Message)); }
+            catch (UnauthorizedAccessException ex) { return Forbid(ex.Message); }
         }
     }
 }

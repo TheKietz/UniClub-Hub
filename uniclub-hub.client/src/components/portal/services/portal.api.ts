@@ -8,6 +8,10 @@ export async function getClubLandingPage(clubId: number): Promise<ClubLandingDat
   return data.data
 }
 
+export async function recordClubView(clubId: number): Promise<void> {
+  await axios.post(`${BASE}/clubs/${clubId}/view`)
+}
+
 export async function getExploreClubs(params?: {
   search?: string
   categoryId?: number

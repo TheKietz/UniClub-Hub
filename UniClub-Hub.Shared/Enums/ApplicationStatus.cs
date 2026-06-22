@@ -4,6 +4,7 @@ namespace UniClub_Hub.Shared.Enums
     {
         Pending,
         Interview,
+        Reviewing,
         Accepted,
         Rejected,
     }
