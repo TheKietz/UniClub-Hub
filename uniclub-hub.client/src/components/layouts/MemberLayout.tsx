@@ -1,6 +1,7 @@
 import { Outlet } from 'react-router-dom'
 import { useParams } from 'react-router-dom'
 import DashboardSidebar from './DashboardSidebar'
+import ThemeSwitcher from '@/components/shared/ThemeSwitcher'
 
 /* ─── MemberLayout ──────────────────────────────────────────────────── */
 export default function MemberLayout() {
@@ -8,9 +9,10 @@ export default function MemberLayout() {
   return (
     <div style={{ display: 'flex', height: '100vh', overflow: 'hidden', fontFamily: "'Be Vietnam Pro', sans-serif" }}>
       <DashboardSidebar mode="member" clubId={clubId} />
-      <main style={{ flex: 1, overflow: 'auto', background: '#f7f6f1' }}>
+      <main style={{ flex: 1, overflow: 'auto', background: 'var(--c-bg)' }}>
         <Outlet />
       </main>
+      <ThemeSwitcher />
     </div>
   )
 }

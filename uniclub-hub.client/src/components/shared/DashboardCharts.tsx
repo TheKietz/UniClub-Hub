@@ -1,13 +1,13 @@
 // Shared SVG chart components for dashboard pages — Campus neo-brutalist style.
 
-const INK = '#15131a'
+const INK = 'var(--c-ink)'
 const INK_MUTED = '#918c99'
-const BORDER = '1.5px solid #15131a'
+const BORDER = '1.5px solid var(--c-ink)'
 const BORDER_LIGHT = '1px solid #e8e3d6'
-const BG = '#f7f6f1'
+const BG = 'var(--c-bg)'
 const RADIUS = 14
 
-function shadow(x = 3, y = 3) { return `${x}px ${y}px 0 #15131a` }
+function shadow(x = 3, y = 3) { return `${x}px ${y}px 0 var(--c-ink)` }
 
 // ── MiniAreaChart ────────────────────────────────────────────────
 export function MiniAreaChart({ data, color, height = 100 }: {
@@ -153,7 +153,7 @@ export function ChartCard({ title, sub, rightLabel, children, style: sx }: {
 }
 
 // ── DTag ─────────────────────────────────────────────────────────
-export function DTag({ children, bg = INK, color = '#f7f6f1', style: sx }: {
+export function DTag({ children, bg = INK, color = 'var(--c-bg)', style: sx }: {
   children: React.ReactNode; bg?: string; color?: string; style?: React.CSSProperties
 }) {
   return (

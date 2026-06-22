@@ -19,15 +19,15 @@ export default function AddSprintCard({ onClick }: AddSprintCardProps) {
         background: hovered ? '#ffffff' : 'rgba(255,255,255,0.6)',
         border: `2px dashed ${hovered ? '#4f46e5' : '#c4bfb0'}`,
         borderRadius: 14,
-        boxShadow: hovered ? '3px 3px 0 #15131a' : 'none',
+        boxShadow: hovered ? '3px 3px 0 var(--c-ink)' : 'none',
         transition: 'all .15s', fontFamily: "'Be Vietnam Pro', sans-serif",
       }}
     >
       <div style={{
         width: 48, height: 48, borderRadius: 10,
-        background: hovered ? '#ede9fe' : '#f7f6f1',
+        background: hovered ? '#ede9fe' : 'var(--c-bg)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        border: '1.5px solid #15131a', transition: 'background .15s',
+        border: '1.5px solid var(--c-ink)', transition: 'background .15s',
       }}>
         <Plus size={24} style={{ color: hovered ? '#4f46e5' : '#918c99' }} />
       </div>

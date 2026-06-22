@@ -19,17 +19,17 @@ const MONTH_OPTIONS = [
 const ROLE_LABELS: Record<string, string> = {
   CLUB_ADMIN: 'Ban chủ nhiệm', DEPT_LEAD: 'Trưởng ban', MEMBER: 'Thành viên',
 }
-const ROLE_COLORS = ['#ff5a3c', '#f59e0b', '#4f46e5']
+const ROLE_COLORS = ['var(--c-accent)', '#f59e0b', '#4f46e5']
 const DEPT_COLORS = ['#4f46e5', '#7c3aed', '#ec4899', '#14b8a6', '#38bdf8']
 
 const D = {
-  border: '1.5px solid #15131a',
+  border: '1.5px solid var(--c-ink)',
   borderLight: '1px solid #e8e3d6',
-  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 #15131a`,
+  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 var(--c-ink)`,
   radius: 14,
-  ink: '#15131a',
+  ink: 'var(--c-ink)',
   inkMuted: '#918c99',
-  bg: '#f7f6f1',
+  bg: 'var(--c-bg)',
   amber: '#f59e0b',
   emerald: '#10b981',
   red: '#ef4444',
@@ -205,8 +205,8 @@ export default function ClubManageDashboard() {
             flexShrink: 0, padding: '8px 16px', borderRadius: 999,
             background: exporting ? D.bg : D.ink,
             color: exporting ? D.inkMuted : '#facc15',
-            border: '1.5px solid #15131a',
-            boxShadow: exporting ? 'none' : '3px 3px 0 #15131a',
+            border: '1.5px solid var(--c-ink)',
+            boxShadow: exporting ? 'none' : '3px 3px 0 var(--c-ink)',
             fontSize: 12, fontWeight: 700, cursor: exporting ? 'not-allowed' : 'pointer',
             fontFamily: 'inherit', transition: 'all .15s',
           }}
@@ -240,8 +240,8 @@ export default function ClubManageDashboard() {
                   padding: '3px 9px', borderRadius: 999, fontSize: 11, fontWeight: 700, cursor: 'pointer',
                   background: months === o.value ? D.ink : D.bg,
                   color: months === o.value ? '#facc15' : D.inkMuted,
-                  border: '1.5px solid #15131a',
-                  boxShadow: months === o.value ? 'none' : '2px 2px 0 #15131a',
+                  border: '1.5px solid var(--c-ink)',
+                  boxShadow: months === o.value ? 'none' : '2px 2px 0 var(--c-ink)',
                   transform: months === o.value ? 'translate(2px,2px)' : 'none',
                   transition: 'all .1s', fontFamily: 'inherit',
                 }}>{o.label}</button>

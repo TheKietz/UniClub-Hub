@@ -6,11 +6,11 @@ import { Save, X, Power, ChevronDown } from 'lucide-react'
 import { SliderItemsEditor } from './SliderItemsEditor'
 
 const D = {
-  border: '1.5px solid #15131a', borderLight: '1px solid #e8e3d6',
-  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 #15131a`,
+  border: '1.5px solid var(--c-ink)', borderLight: '1px solid #e8e3d6',
+  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 var(--c-ink)`,
   radius: 14, pill: 999,
-  ink: '#15131a', inkDim: '#4a4651', inkMuted: '#918c99',
-  bg: '#f7f6f1', card: '#ffffff', indigo: '#4f46e5',
+  ink: 'var(--c-ink)', inkDim: '#4a4651', inkMuted: '#918c99',
+  bg: 'var(--c-bg)', card: '#ffffff', indigo: '#4f46e5',
 }
 
 const CATEGORY_LABELS: Record<string, { label: string; color: string }> = {

@@ -149,14 +149,14 @@ export default function NotificationBell() {
             background: '#fff',
             borderRadius: 16,
             boxShadow: '10px 10px 26px rgba(0,0,0,.13)',
-            border: '2px solid #15131a',
+            border: '2px solid var(--c-ink)',
             zIndex: 9999,
             overflow: 'hidden',
             fontFamily: "'Be Vietnam Pro', sans-serif",
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px 13px', borderBottom: '1px solid #e8e3d6' }}>
-            <span style={{ fontWeight: 900, fontSize: 16, color: '#15131a', letterSpacing: '-.02em' }}>Thông báo</span>
+            <span style={{ fontWeight: 900, fontSize: 16, color: 'var(--c-ink)', letterSpacing: '-.02em' }}>Thông báo</span>
             <button
               onClick={markAllRead}
               disabled={items.length === 0}
@@ -187,7 +187,7 @@ export default function NotificationBell() {
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
                   <div style={{
                     width: 38, height: 38, borderRadius: 10,
-                    border: '2px solid #15131a',
+                    border: '2px solid var(--c-ink)',
                     background: notificationColor(n.type),
                     display: 'grid', placeItems: 'center',
                     flexShrink: 0,
@@ -196,7 +196,7 @@ export default function NotificationBell() {
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <p style={{
-                      fontSize: 14, fontWeight: 900, color: '#15131a',
+                      fontSize: 14, fontWeight: 900, color: 'var(--c-ink)',
                       margin: 0, lineHeight: 1.28, letterSpacing: '-.02em',
                       overflow: 'hidden', display: '-webkit-box',
                       WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any,

@@ -15,15 +15,15 @@ import type { EventItem, CreateEventDto, UpdateEventDto, EventStatus } from '../
 /* ─── Design tokens ──────────────────────────────────────────────────────── */
 
 const D = {
-  border: '1.5px solid #15131a',
+  border: '1.5px solid var(--c-ink)',
   borderLight: '1px solid #e8e3d6',
-  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 #15131a`,
+  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 var(--c-ink)`,
   radius: 14,
   pill: 999,
-  ink: '#15131a',
+  ink: 'var(--c-ink)',
   inkDim: '#4a4651',
   inkMuted: '#918c99',
-  bg: '#f7f6f1',
+  bg: 'var(--c-bg)',
   card: '#ffffff',
   indigo: '#4f46e5',
   red: '#ef4444',
@@ -47,7 +47,7 @@ const EMPTY_FORM: CreateEventDto = { name: '', description: '', location: '', st
 const inputStyle: React.CSSProperties = {
   width: '100%', padding: '8px 12px', fontSize: 13, fontWeight: 500,
   border: '1.5px solid #c4bfb0', borderRadius: 8, outline: 'none',
-  background: '#fff', color: '#15131a', fontFamily: "'Be Vietnam Pro', sans-serif",
+  background: '#fff', color: 'var(--c-ink)', fontFamily: "'Be Vietnam Pro', sans-serif",
   boxSizing: 'border-box',
 }
 

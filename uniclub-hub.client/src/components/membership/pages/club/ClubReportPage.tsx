@@ -19,9 +19,9 @@ const STATUS_LABELS: Record<string, string> = {
 }
 
 const D = {
-  ink: '#15131a',
+  ink: 'var(--c-ink)',
   inkMuted: '#918c99',
-  border: '1.5px solid #15131a',
+  border: '1.5px solid var(--c-ink)',
   borderLight: '1px solid #e8e3d6',
 }
 
@@ -42,7 +42,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   return (
     <section style={{ marginBottom: 28 }}>
       <div style={{
-        borderBottom: '2px solid #15131a', marginBottom: 14, paddingBottom: 6,
+        borderBottom: '2px solid var(--c-ink)', marginBottom: 14, paddingBottom: 6,
       }}>
         <span style={{ fontSize: 15, fontWeight: 900, color: D.ink, letterSpacing: '-.02em' }}>{title}</span>
       </div>
@@ -55,7 +55,7 @@ function ReportTable({ headers, rows }: { headers: string[]; rows: (string | num
   return (
     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
       <thead>
-        <tr style={{ background: '#f7f6f1' }}>
+        <tr style={{ background: 'var(--c-bg)' }}>
           {headers.map((h, i) => (
             <th key={i} style={{
               padding: '7px 10px', textAlign: 'left',
@@ -126,7 +126,7 @@ export default function ClubReportPage() {
   ])
 
   return (
-    <div style={{ padding: '28px 32px', minHeight: '100%', background: '#f7f6f1', fontFamily: "'Be Vietnam Pro', sans-serif" }}>
+    <div style={{ padding: '28px 32px', minHeight: '100%', background: 'var(--c-bg)', fontFamily: "'Be Vietnam Pro', sans-serif" }}>
       <style>{`
         @media print {
           body * { visibility: hidden; }
@@ -157,7 +157,7 @@ export default function ClubReportPage() {
           style={{
             flexShrink: 0, padding: '10px 22px', borderRadius: 999,
             background: D.ink, color: '#facc15',
-            border: D.border, boxShadow: '3px 3px 0 #15131a',
+            border: D.border, boxShadow: '3px 3px 0 var(--c-ink)',
             fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
           }}
         >
@@ -168,13 +168,13 @@ export default function ClubReportPage() {
       {/* Report body */}
       <div id="club-report-printable" style={{
         background: '#fff', border: D.border, borderRadius: 16,
-        boxShadow: '4px 4px 0 #15131a', padding: '36px 44px',
+        boxShadow: '4px 4px 0 var(--c-ink)', padding: '36px 44px',
         maxWidth: 880, margin: '0 auto',
       }}>
         {/* Document header */}
         <div style={{
           display: 'flex', alignItems: 'flex-start', gap: 20,
-          marginBottom: 30, paddingBottom: 24, borderBottom: '2px solid #15131a',
+          marginBottom: 30, paddingBottom: 24, borderBottom: '2px solid var(--c-ink)',
         }}>
           {detail.logoUrl ? (
             <img src={detail.logoUrl} alt="" style={{ width: 60, height: 60, borderRadius: 12, objectFit: 'cover', border: D.border, flexShrink: 0 }} />
@@ -216,7 +216,7 @@ export default function ClubReportPage() {
           {detail.description && (
             <div style={{
               marginTop: 12, fontSize: 12, color: '#4a4651', lineHeight: 1.7,
-              padding: '10px 14px', background: '#f7f6f1', borderRadius: 8,
+              padding: '10px 14px', background: 'var(--c-bg)', borderRadius: 8,
             }}>
               {detail.description}
             </div>
@@ -234,7 +234,7 @@ export default function ClubReportPage() {
             ].map(item => (
               <div key={item.label} style={{
                 padding: '12px 14px', borderRadius: 10, textAlign: 'center',
-                border: '1px solid #e8e3d6', background: '#f7f6f1',
+                border: '1px solid #e8e3d6', background: 'var(--c-bg)',
               }}>
                 <div style={{ fontSize: 26, fontWeight: 900, color: item.color, letterSpacing: '-.04em' }}>{item.value}</div>
                 <div style={{ fontSize: 10, color: D.inkMuted, marginTop: 4, lineHeight: 1.3 }}>{item.label}</div>

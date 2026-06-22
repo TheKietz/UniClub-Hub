@@ -13,6 +13,14 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
+  /* Internal app theme tokens — overridden at runtime by ThemeProvider.
+     Defaults = "Xanh UEF" theme. See src/contexts/ThemeContext.tsx */
+  --c-bg: #e9f1fc;
+  --c-ink: #0a2f6e;
+  --c-accent: #e11d2a;
+  --c-chrome: #0a1c42;
+  --c-chrome-2: #0c2a63;
+
   --text: #6b6375;
   --text-h: #08060d;
   --bg: #fff;
@@ -256,7 +264,7 @@ code {
   --v3-mint: #14b8a6;
   --v3-sky: #38bdf8;
   --v3-pink: #ec4899;
-  --v3-navy: #0f172a;
+  --v3-navy: #0a2f6e;
   --v3-border: 1.5px solid #1e293b;
   --v3-shadow: 4px 4px 0 #1e293b;
   --v3-shadow-sm: 2px 2px 0 #1e293b;

@@ -4,16 +4,16 @@ import type { SystemStats, MonthlyGrowth, ClubItem } from '@/components/membersh
 import { toast } from 'sonner'
 
 const D = {
-  ink: '#15131a',
+  ink: 'var(--c-ink)',
   inkMuted: '#918c99',
-  border: '1.5px solid #15131a',
+  border: '1.5px solid var(--c-ink)',
   borderLight: '1px solid #e8e3d6',
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section style={{ marginBottom: 28 }}>
-      <div style={{ borderBottom: '2px solid #15131a', marginBottom: 14, paddingBottom: 6 }}>
+      <div style={{ borderBottom: '2px solid var(--c-ink)', marginBottom: 14, paddingBottom: 6 }}>
         <span style={{ fontSize: 15, fontWeight: 900, color: D.ink, letterSpacing: '-.02em' }}>{title}</span>
       </div>
       {children}
@@ -25,7 +25,7 @@ function ReportTable({ headers, rows }: { headers: string[]; rows: (string | num
   return (
     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
       <thead>
-        <tr style={{ background: '#f7f6f1' }}>
+        <tr style={{ background: 'var(--c-bg)' }}>
           {headers.map((h, i) => (
             <th key={i} style={{
               padding: '7px 10px', textAlign: 'left', border: '1px solid #d1cec8',
@@ -83,7 +83,7 @@ export default function AdminReportPage() {
   const inactiveClubs = clubs.filter(c => c.status !== 'Active')
 
   return (
-    <div style={{ padding: '28px 32px', minHeight: '100%', background: '#f7f6f1', fontFamily: "'Be Vietnam Pro', sans-serif" }}>
+    <div style={{ padding: '28px 32px', minHeight: '100%', background: 'var(--c-bg)', fontFamily: "'Be Vietnam Pro', sans-serif" }}>
       <style>{`
         @media print {
           body * { visibility: hidden; }
@@ -114,7 +114,7 @@ export default function AdminReportPage() {
           style={{
             flexShrink: 0, padding: '10px 22px', borderRadius: 999,
             background: D.ink, color: '#facc15',
-            border: D.border, boxShadow: '3px 3px 0 #15131a',
+            border: D.border, boxShadow: '3px 3px 0 var(--c-ink)',
             fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
           }}
         >
@@ -125,13 +125,13 @@ export default function AdminReportPage() {
       {/* Report body */}
       <div id="admin-report-printable" style={{
         background: '#fff', border: D.border, borderRadius: 16,
-        boxShadow: '4px 4px 0 #15131a', padding: '36px 44px',
+        boxShadow: '4px 4px 0 var(--c-ink)', padding: '36px 44px',
         maxWidth: 880, margin: '0 auto',
       }}>
         {/* Document header */}
         <div style={{
           display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
-          marginBottom: 30, paddingBottom: 24, borderBottom: '2px solid #15131a',
+          marginBottom: 30, paddingBottom: 24, borderBottom: '2px solid var(--c-ink)',
         }}>
           <div>
             <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.1em', color: D.inkMuted, textTransform: 'uppercase', marginBottom: 4 }}>
@@ -159,7 +159,7 @@ export default function AdminReportPage() {
             ].map(item => (
               <div key={item.label} style={{
                 padding: '12px 14px', borderRadius: 10, textAlign: 'center',
-                border: '1px solid #e8e3d6', background: '#f7f6f1',
+                border: '1px solid #e8e3d6', background: 'var(--c-bg)',
               }}>
                 <div style={{ fontSize: 24, fontWeight: 900, color: item.color, letterSpacing: '-.04em' }}>{item.value}</div>
                 <div style={{ fontSize: 10, color: D.inkMuted, marginTop: 4, lineHeight: 1.3 }}>{item.label}</div>

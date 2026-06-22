@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, useParams } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { ThemeProvider } from "@/contexts/ThemeContext";
 import ProtectedRoute from "@/components/shared/ProtectedRoute";
 import ClubProtectedRoute from "@/components/shared/ClubProtectedRoute";
 import PermissionProtectedRoute from "@/components/shared/PermissionProtectedRoute";
@@ -58,9 +59,7 @@ import ClubDetailPage from "@/components/membership/pages/ClubDetailPage";
 import ProfilePage from "@/components/membership/pages/ProfilePage";
 import MemberHistoryPage from "@/components/membership/pages/MemberHistoryPage";
 import NotificationsPage from "@/components/membership/pages/NotificationsPage";
-import MyKpiPage from "@/components/membership/pages/MyKpiPage";
 
-import MyTasksPage from "@/components/operations/pages/MyTasksPage";
 import EventDetailPage from "@/components/operations/pages/EventDetailPage";
 import EventListPage from "@/components/operations/pages/EventListPage";
 import GanttPage from "@/components/operations/pages/GanttPage";
@@ -89,6 +88,7 @@ const Soon = ({ label }: { label: string }) => (
 export default function App() {
   return (
     <BrowserRouter>
+      <ThemeProvider>
       <AuthProvider>
         <Routes>
           {/* Landing */}
@@ -142,11 +142,9 @@ export default function App() {
               <Route path="/my-history" element={<MemberHistoryPage />} />
               <Route path="/my-activity" element={<MyActivityPage />} />
               <Route path="/support" element={<SupportPage />} />
-              <Route path="/my-tasks" element={<TasksProvider clubId={0}><MyTasksPage /></TasksProvider>} />
               <Route path="/clubs/:clubId/operations" element={<ClubOperationsPage />} />
               <Route path="/clubs/:clubId/events/:id" element={<EventDetailPage />} />
               <Route path="/events/university/:id" element={<UniversityEventDetailPage />} />
-              <Route path="/my-kpi" element={<Soon label="KPI của tôi" />} />
               <Route
                 element={
                   <ClubProtectedRoute
@@ -358,6 +356,7 @@ export default function App() {
         </Routes>
         <Toaster richColors position="top-right" />
       </AuthProvider>
+      </ThemeProvider>
     </BrowserRouter>
   );
 }

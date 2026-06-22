@@ -11,10 +11,10 @@ const AVATAR_COLORS = ['#4f46e5', '#7c3aed', '#ec4899', '#f59e0b', '#10b981', '#
 const DEPT_COLORS  = ['#4f46e5', '#7c3aed', '#ec4899', '#14b8a6', '#38bdf8', '#f59e0b']
 
 const D = {
-  border: '1.5px solid #15131a', borderLight: '1px solid #e8e3d6',
-  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 #15131a`,
-  radius: 14, ink: '#15131a', inkDim: '#4a4651', inkMuted: '#918c99',
-  bg: '#f7f6f1', card: '#ffffff',
+  border: '1.5px solid var(--c-ink)', borderLight: '1px solid #e8e3d6',
+  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 var(--c-ink)`,
+  radius: 14, ink: 'var(--c-ink)', inkDim: '#4a4651', inkMuted: '#918c99',
+  bg: 'var(--c-bg)', card: '#ffffff',
 }
 
 /* ── Node components ──────────────────────────────────────────────── */
@@ -25,13 +25,13 @@ function ClubNode({ club }: { club: ClubDetail }) {
     <div style={{
       display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: 6,
       background: '#fff', borderRadius: 16, padding: '12px 20px', minWidth: 150,
-      boxShadow: '4px 4px 0 #15131a', border: '1.5px solid #15131a',
+      boxShadow: '4px 4px 0 var(--c-ink)', border: '1.5px solid var(--c-ink)',
     }}>
       {club.logoUrl
-        ? <img src={club.logoUrl} style={{ width: 44, height: 44, borderRadius: '50%', objectFit: 'cover', border: '1.5px solid #15131a' }} alt="" />
-        : <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#4f46e5', display: 'grid', placeItems: 'center', fontWeight: 900, fontSize: 20, color: '#fff', border: '1.5px solid #15131a' }}>{letter}</div>
+        ? <img src={club.logoUrl} style={{ width: 44, height: 44, borderRadius: '50%', objectFit: 'cover', border: '1.5px solid var(--c-ink)' }} alt="" />
+        : <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#4f46e5', display: 'grid', placeItems: 'center', fontWeight: 900, fontSize: 20, color: '#fff', border: '1.5px solid var(--c-ink)' }}>{letter}</div>
       }
-      <p style={{ fontWeight: 900, fontSize: 13, color: '#15131a', margin: 0, textAlign: 'center' }}>{club.name}</p>
+      <p style={{ fontWeight: 900, fontSize: 13, color: 'var(--c-ink)', margin: 0, textAlign: 'center' }}>{club.name}</p>
       <p style={{ fontSize: 11, color: '#918c99', margin: 0 }}>{club.memberCount} thành viên</p>
     </div>
   )
@@ -82,7 +82,7 @@ function MemberNode({ member, highlighted }: { member: MemberItem; highlighted: 
         : isAdmin ? '1.5px solid #4f46e5' : isLead ? '1.5px solid #7c3aed' : D.borderLight,
       borderRadius: 12, padding: '8px 12px', minWidth: 104,
       boxShadow: highlighted
-        ? '0 0 0 3px #fde68a, 2px 2px 0 #15131a'
+        ? '0 0 0 3px #fde68a, 2px 2px 0 var(--c-ink)'
         : isAdmin ? '2px 2px 0 #4f46e5' : isLead ? '2px 2px 0 #7c3aed' : '2px 2px 0 #e8e3d6',
       transition: 'box-shadow .15s',
     }}>

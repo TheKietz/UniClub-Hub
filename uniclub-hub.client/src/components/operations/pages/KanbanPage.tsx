@@ -40,9 +40,9 @@ const BG_PRESETS: BgPreset[] = [
     id: "ocean",
     label: "Đại dương",
     type: "gradient",
-    value: "linear-gradient(135deg,#0f172a 0%,#1e3a5f 50%,#0e7490 100%)",
+    value: "linear-gradient(135deg,var(--c-ink) 0%,#1e3a5f 50%,#0e7490 100%)",
     isDark: true,
-    thumbnail: "linear-gradient(135deg,#0f172a 0%,#1e3a5f 50%,#0e7490 100%)",
+    thumbnail: "linear-gradient(135deg,var(--c-ink) 0%,#1e3a5f 50%,#0e7490 100%)",
   },
   {
     id: "forest",
@@ -427,12 +427,12 @@ export default function KanbanPage() {
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           marginBottom: 16, padding: '12px 18px',
-          background: '#ffffff', border: '1.5px solid #15131a',
-          borderRadius: 14, boxShadow: '3px 3px 0 #15131a',
+          background: '#ffffff', border: '1.5px solid var(--c-ink)',
+          borderRadius: 14, boxShadow: '3px 3px 0 var(--c-ink)',
           fontFamily: "'Be Vietnam Pro', sans-serif",
         }}>
           <div>
-            <h1 style={{ fontSize: 18, fontWeight: 900, color: '#15131a', margin: 0, letterSpacing: '-.02em' }}>
+            <h1 style={{ fontSize: 18, fontWeight: 900, color: 'var(--c-ink)', margin: 0, letterSpacing: '-.02em' }}>
               Quản Lý Công Việc
             </h1>
             <p style={{ fontSize: 12, color: '#918c99', marginTop: 2 }}>
@@ -447,8 +447,8 @@ export default function KanbanPage() {
               disabled={loading}
               style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                background: '#f7f6f1', color: '#4a4651', border: '1.5px solid #15131a',
-                boxShadow: '2px 2px 0 #15131a', padding: '7px 10px',
+                background: 'var(--c-bg)', color: '#4a4651', border: '1.5px solid var(--c-ink)',
+                boxShadow: '2px 2px 0 var(--c-ink)', padding: '7px 10px',
                 borderRadius: 999, cursor: loading ? 'not-allowed' : 'pointer',
                 opacity: loading ? 0.6 : 1,
               }}
@@ -471,8 +471,8 @@ export default function KanbanPage() {
                 }}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 6,
-                  background: '#f7f6f1', color: '#4a4651', border: '1.5px solid #15131a',
-                  boxShadow: '2px 2px 0 #15131a', padding: '7px 12px',
+                  background: 'var(--c-bg)', color: '#4a4651', border: '1.5px solid var(--c-ink)',
+                  boxShadow: '2px 2px 0 var(--c-ink)', padding: '7px 12px',
                   borderRadius: 999, fontSize: 12, fontWeight: 600, cursor: 'pointer',
                   fontFamily: 'inherit',
                 }}
@@ -594,8 +594,8 @@ export default function KanbanPage() {
               type="button"
               onClick={() => openCreate()}
               style={{
-                background: '#4f46e5', color: '#fff', border: '1.5px solid #15131a',
-                boxShadow: '2px 2px 0 #15131a', padding: '8px 16px',
+                background: '#4f46e5', color: '#fff', border: '1.5px solid var(--c-ink)',
+                boxShadow: '2px 2px 0 var(--c-ink)', padding: '8px 16px',
                 borderRadius: 999, fontSize: 12, fontWeight: 700,
                 cursor: 'pointer', fontFamily: 'inherit',
               }}
@@ -612,10 +612,10 @@ export default function KanbanPage() {
             onClick={() => setSelectedSprintId(null)}
             style={{
               padding: '6px 14px', borderRadius: 999, fontSize: 12, fontWeight: 700,
-              cursor: 'pointer', fontFamily: 'inherit', border: '1.5px solid #15131a',
-              background: selectedSprintId === null ? '#15131a' : '#ffffff',
+              cursor: 'pointer', fontFamily: 'inherit', border: '1.5px solid var(--c-ink)',
+              background: selectedSprintId === null ? 'var(--c-ink)' : '#ffffff',
               color: selectedSprintId === null ? '#fff' : '#4a4651',
-              boxShadow: selectedSprintId === null ? 'none' : '2px 2px 0 #15131a',
+              boxShadow: selectedSprintId === null ? 'none' : '2px 2px 0 var(--c-ink)',
               transition: 'background .1s, color .1s',
             }}
           >
@@ -628,10 +628,10 @@ export default function KanbanPage() {
               onClick={() => setSelectedSprintId(sprint.id)}
               style={{
                 padding: '6px 14px', borderRadius: 999, fontSize: 12, fontWeight: 700,
-                cursor: 'pointer', fontFamily: 'inherit', border: '1.5px solid #15131a',
-                background: selectedSprintId === sprint.id ? '#15131a' : '#ffffff',
+                cursor: 'pointer', fontFamily: 'inherit', border: '1.5px solid var(--c-ink)',
+                background: selectedSprintId === sprint.id ? 'var(--c-ink)' : '#ffffff',
                 color: selectedSprintId === sprint.id ? '#fff' : '#4a4651',
-                boxShadow: selectedSprintId === sprint.id ? 'none' : '2px 2px 0 #15131a',
+                boxShadow: selectedSprintId === sprint.id ? 'none' : '2px 2px 0 var(--c-ink)',
               }}
             >
               {sprint.name}
@@ -648,12 +648,12 @@ export default function KanbanPage() {
         {selectedSprint && (
           <div style={{
             marginBottom: 16, padding: '10px 16px',
-            background: '#ffffff', border: '1.5px solid #15131a',
-            borderRadius: 10, boxShadow: '2px 2px 0 #15131a',
+            background: '#ffffff', border: '1.5px solid var(--c-ink)',
+            borderRadius: 10, boxShadow: '2px 2px 0 var(--c-ink)',
             display: 'flex', alignItems: 'center', gap: 12,
             fontSize: 13, fontFamily: "'Be Vietnam Pro', sans-serif",
           }}>
-            <span style={{ fontWeight: 800, color: '#15131a' }}>{selectedSprint.name}</span>
+            <span style={{ fontWeight: 800, color: 'var(--c-ink)' }}>{selectedSprint.name}</span>
             {selectedSprint.goal && (
               <span style={{ color: '#918c99', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
                 {selectedSprint.goal}

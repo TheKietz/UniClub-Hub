@@ -8,15 +8,15 @@ import { getKpiResults, type KpiResults, type MemberKpiResult } from '@/componen
 import { FilterSelect } from '@/components/shared/FilterSelect'
 
 const D = {
-  border: '1.5px solid #15131a',
+  border: '1.5px solid var(--c-ink)',
   borderLight: '1px solid #e8e3d6',
-  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 #15131a`,
+  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 var(--c-ink)`,
   radius: 14,
   pill: 999,
-  ink: '#15131a',
+  ink: 'var(--c-ink)',
   inkDim: '#4a4651',
   inkMuted: '#918c99',
-  bg: '#f7f6f1',
+  bg: 'var(--c-bg)',
   card: '#ffffff',
   indigo: '#4f46e5',
 }

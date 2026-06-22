@@ -42,9 +42,10 @@ export default function AuthShell({ eyebrow, title, accent, description, childre
           box-shadow: 0 30px 70px rgba(10, 47, 110, .22);
           position: relative;
           z-index: 1;
-          background: rgba(255, 255, 255, .72);
-          backdrop-filter: blur(20px) saturate(140%);
-          -webkit-backdrop-filter: blur(20px) saturate(140%);
+          /* Solid panel (no backdrop-filter): a large backdrop-blur over the
+             animated SkyBackground forces a full-panel re-blur every frame and
+             tanks performance. Children cover this fill, so nothing is lost. */
+          background: #ffffff;
         }
         .auth-brand {
           position: relative;

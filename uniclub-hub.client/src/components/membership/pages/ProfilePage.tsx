@@ -14,11 +14,11 @@ const GENDER_OPTIONS = [
 ]
 
 const D = {
-  border: '1.5px solid #15131a', borderLight: '1px solid #e8e3d6',
-  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 #15131a`,
+  border: '1.5px solid var(--c-ink)', borderLight: '1px solid #e8e3d6',
+  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 var(--c-ink)`,
   radius: 14, pill: 999,
-  ink: '#15131a', inkDim: '#4a4651', inkMuted: '#918c99',
-  bg: '#f7f6f1', card: '#ffffff', indigo: '#4f46e5',
+  ink: 'var(--c-ink)', inkDim: '#4a4651', inkMuted: '#918c99',
+  bg: 'var(--c-bg)', card: '#ffffff', indigo: '#4f46e5',
 }
 
 const inputS: React.CSSProperties = {
@@ -32,10 +32,10 @@ const ROLE_LABELS: Record<string, string> = {
   CLUB_ADMIN: 'Ban chủ nhiệm', DEPT_LEAD: 'Trưởng ban', MEMBER: 'Thành viên',
 }
 const ROLE_COLORS: Record<string, string> = {
-  CLUB_ADMIN: '#ff5a3c', DEPT_LEAD: '#f59e0b', MEMBER: '#14b8a6',
+  CLUB_ADMIN: 'var(--c-accent)', DEPT_LEAD: '#f59e0b', MEMBER: '#14b8a6',
 }
 const AVATAR_COLORS = ['#4f46e5', '#10b981', '#7c3aed', '#ef4444', '#f59e0b', '#06b6d4']
-const CLUB_BG_COLORS = ['#4f46e5', '#7c3aed', '#ff5a3c', '#14b8a6', '#38bdf8', '#ec4899', '#f59e0b', '#10b981']
+const CLUB_BG_COLORS = ['#4f46e5', '#7c3aed', 'var(--c-accent)', '#14b8a6', '#38bdf8', '#ec4899', '#f59e0b', '#10b981']
 
 function getClubShort(name: string) {
   return name.split(' ').filter(Boolean).map(w => w[0]).slice(0, 3).join('').toUpperCase()
@@ -252,7 +252,7 @@ export default function ProfilePage() {
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <button type="submit" disabled={saving} style={{ background: '#ff5a3c', color: '#fff', border: D.border, boxShadow: D.shadow(2, 2), padding: '10px 22px', borderRadius: D.pill, fontSize: 13, fontWeight: 800, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1, fontFamily: 'inherit' }}>
+              <button type="submit" disabled={saving} style={{ background: 'var(--c-accent)', color: '#fff', border: D.border, boxShadow: D.shadow(2, 2), padding: '10px 22px', borderRadius: D.pill, fontSize: 13, fontWeight: 800, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1, fontFamily: 'inherit' }}>
                 {saving ? 'Đang lưu...' : 'Lưu thay đổi →'}
               </button>
             </div>

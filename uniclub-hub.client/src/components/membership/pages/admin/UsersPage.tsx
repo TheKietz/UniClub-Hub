@@ -188,11 +188,11 @@ export default function UsersPage() {
     setForm(p => ({ ...p, [key]: e.target.value }))
 
   const D = {
-    border: '1.5px solid #15131a', borderLight: '1px solid #e8e3d6',
-    shadow: (x = 3, y = 3) => `${x}px ${y}px 0 #15131a`,
+    border: '1.5px solid var(--c-ink)', borderLight: '1px solid #e8e3d6',
+    shadow: (x = 3, y = 3) => `${x}px ${y}px 0 var(--c-ink)`,
     radius: 14, pill: 999,
-    ink: '#15131a', inkDim: '#4a4651', inkMuted: '#918c99',
-    bg: '#f7f6f1', card: '#ffffff',
+    ink: 'var(--c-ink)', inkDim: '#4a4651', inkMuted: '#918c99',
+    bg: 'var(--c-bg)', card: '#ffffff',
     indigo: '#4f46e5', violet: '#7c3aed', emerald: '#10b981', amber: '#f59e0b', red: '#ef4444',
   }
   const thS: React.CSSProperties = { padding: '10px 14px', textAlign: 'left', fontSize: 12, fontWeight: 700, color: D.inkMuted, letterSpacing: '.02em', whiteSpace: 'nowrap' }
@@ -345,7 +345,7 @@ export default function UsersPage() {
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle style={{ color: '#0f172a', fontWeight: 700 }}>Thêm người dùng</DialogTitle>
+            <DialogTitle style={{ color: 'var(--c-ink)', fontWeight: 700 }}>Thêm người dùng</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleCreate} className="space-y-3 py-2">
             <div className="grid grid-cols-2 gap-3">
@@ -519,7 +519,7 @@ export default function UsersPage() {
       <AlertDialog open={!!deleteTarget} onOpenChange={open => !open && setDeleteTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle style={{ color: '#0f172a' }}>Xoá tài khoản?</AlertDialogTitle>
+            <AlertDialogTitle style={{ color: 'var(--c-ink)' }}>Xoá tài khoản?</AlertDialogTitle>
             <AlertDialogDescription>
               Tài khoản <strong>{deleteTarget?.email}</strong> sẽ bị xoá. Hành động này không thể hoàn tác.
             </AlertDialogDescription>

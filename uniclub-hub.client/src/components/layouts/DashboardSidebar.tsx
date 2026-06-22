@@ -20,7 +20,7 @@ interface Props {
   clubId?: string
 }
 
-const CLUB_COLORS = ['#4f46e5', '#7c3aed', '#ff5a3c', '#14b8a6', '#38bdf8', '#ec4899', '#f59e0b', '#10b981']
+const CLUB_COLORS = ['#4f46e5', '#7c3aed', '#ef4444', '#14b8a6', '#38bdf8', '#ec4899', '#f59e0b', '#10b981']
 const ROLE_LABELS: Record<string, string> = {
   CLUB_ADMIN: 'Ban chủ nhiệm', DEPT_LEAD: 'Trưởng ban', MEMBER: 'Thành viên',
 }
@@ -41,8 +41,6 @@ const MEMBER_NAV: NavItem[] = [
   { to: '/profile', icon: '◐', label: 'Hồ sơ cá nhân', dividerAfter: true },
   { to: '/my-activity', icon: '↗', label: 'Hoạt động của tôi' },
   { to: '/my-history', icon: '◎', label: 'Lịch sử thành viên', dividerAfter: true },
-  { to: '/my-tasks', icon: '✦', label: 'Task được giao' },
-  { to: '/my-kpi', icon: '▦', label: 'KPI của tôi' },
   { to: '/support', icon: '◉', label: 'Hỗ trợ' },
 ]
 
@@ -152,6 +150,10 @@ export default function DashboardSidebar({ mode, clubId }: Props) {
   const manageableClubs = uniqueActiveMemberships.filter(
     m => m.clubRole === CLUB_ROLES.CLUB_ADMIN || m.clubRole === CLUB_ROLES.DEPT_LEAD
   )
+  // The SV/CLB switcher only distinguishes CLB for users who are CLUB_ADMIN of a club
+  const adminClubs = uniqueActiveMemberships.filter(
+    m => m.clubRole === CLUB_ROLES.CLUB_ADMIN
+  )
   const activeClub = clubId
     ? user?.memberships.find(m => m.clubId === Number(clubId))
     : manageableClubs[0]
@@ -177,7 +179,7 @@ export default function DashboardSidebar({ mode, clubId }: Props) {
     }
   }, [activeClub?.clubRole, clubPermissionCodes, isSuperAdmin])
 
-  const modeColor = mode === 'admin' ? '#e11d48' : mode === 'club' ? '#2563eb' : '#facc15'
+  const modeColor = mode === 'admin' ? '#e11d48' : mode === 'club' ? '#2563eb' : '#38bdf8'
   const navItems = mode === 'admin' ? ADMIN_NAV
     : mode === 'club' && clubId ? clubNav(clubId, activeClub?.clubRole, isSuperAdmin, clubPerms)
     : MEMBER_NAV
@@ -218,7 +220,7 @@ export default function DashboardSidebar({ mode, clubId }: Props) {
   function switchMode(m: Mode) {
     if (m === 'admin') navigate('/admin')
     else if (m === 'club') {
-      const first = manageableClubs[0]
+      const first = adminClubs[0] ?? manageableClubs[0]
       if (first) navigate(getClubManageEntry(first))
     } else {
       navigate('/dashboard')
@@ -241,7 +243,7 @@ export default function DashboardSidebar({ mode, clubId }: Props) {
 
   return (
     <aside style={{
-      width: collapsed ? 60 : 250, height: '100vh', background: '#0f172a',
+      width: collapsed ? 60 : 250, height: '100vh', background: 'var(--c-chrome)',
       display: 'flex', flexDirection: 'column', flexShrink: 0,
       borderRight: '1.5px solid rgba(255,255,255,.05)',
       fontFamily: "'Be Vietnam Pro', sans-serif",
@@ -258,9 +260,9 @@ export default function DashboardSidebar({ mode, clubId }: Props) {
             onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
           >
             <div style={{
-              width: 32, height: 32, borderRadius: 8, background: '#facc15',
+              width: 32, height: 32, borderRadius: 8, background: '#ffffff',
               display: 'grid', placeItems: 'center', fontWeight: 900, fontSize: 13,
-              color: '#0f172a', transform: 'rotate(-3deg)', boxShadow: '2px 2px 0 #e11d48',
+              color: 'var(--c-ink)', transform: 'rotate(-3deg)', boxShadow: '2px 2px 0 #e11d48',
             }}>U!</div>
           </button>
           <button
@@ -285,9 +287,9 @@ export default function DashboardSidebar({ mode, clubId }: Props) {
             onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
           >
             <div style={{
-              width: 30, height: 30, borderRadius: 8, background: '#facc15',
+              width: 30, height: 30, borderRadius: 8, background: '#ffffff',
               display: 'grid', placeItems: 'center', fontWeight: 900, fontSize: 13,
-              color: '#0f172a', transform: 'rotate(-3deg)', boxShadow: '2px 2px 0 #e11d48', flexShrink: 0,
+              color: 'var(--c-ink)', transform: 'rotate(-3deg)', boxShadow: '2px 2px 0 #e11d48', flexShrink: 0,
             }}>U!</div>
             <div>
               <div style={{ fontSize: 14, fontWeight: 800, color: '#fff', letterSpacing: '-.02em', lineHeight: 1 }}>UniClub</div>
@@ -314,12 +316,12 @@ export default function DashboardSidebar({ mode, clubId }: Props) {
         <div style={{ display: 'flex', gap: 2, padding: 3, borderRadius: 10, background: 'rgba(255,255,255,.06)' }}>
           {([['member', 'SV'], ['admin', 'Admin'], ['club', 'CLB']] as [Mode, string][])
             .filter(([m]) => m !== 'admin' || isSuperAdmin)
-            .filter(([m]) => m !== 'club' || manageableClubs.length > 0)
+            .filter(([m]) => m !== 'club' || adminClubs.length > 0)
             .map(([m, label]) => (
               <button key={m} onClick={() => switchMode(m)} style={{
                 flex: 1, padding: '6px 0', borderRadius: 8, border: 'none', cursor: 'pointer',
                 background: mode === m ? modeColor : 'transparent',
-                color: mode === m ? (m === 'member' ? '#0f172a' : '#fff') : 'rgba(255,255,255,.5)',
+                color: mode === m ? (m === 'member' ? 'var(--c-ink)' : '#fff') : 'rgba(255,255,255,.5)',
                 fontSize: 11, fontWeight: 700, transition: 'all .15s', fontFamily: 'inherit',
               }}>{label}</button>
             ))}
@@ -364,7 +366,7 @@ export default function DashboardSidebar({ mode, clubId }: Props) {
           {clubPickerOpen && (
             <div style={{
               position: 'absolute', top: 'calc(100% + 4px)', left: 10, right: 10, zIndex: 30,
-              background: '#1e1c24', border: '1px solid rgba(255,255,255,.12)',
+              background: 'var(--c-chrome-2)', border: '1px solid rgba(255,255,255,.12)',
               borderRadius: 12, padding: 6, boxShadow: '0 8px 32px rgba(0,0,0,.5)',
             }}>
               <div style={{ padding: '6px 10px 6px', fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,.3)', letterSpacing: '.08em', textTransform: 'uppercase' }}>
@@ -398,99 +400,7 @@ export default function DashboardSidebar({ mode, clubId }: Props) {
                         background: ROLE_COLORS[club.clubRole] ?? '#2563eb', color: '#fff',
                       }}>{ROLE_LABELS[club.clubRole] ?? club.clubRole}</span>
                     </div>
-                    {isActive && <span style={{ color: '#facc15', fontSize: 12 }}>✓</span>}
-                  </button>
-                )
-              })}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Club picker (member/SV mode) */}
-      {!collapsed && mode === 'member' && uniqueActiveMemberships.length > 0 && (
-        <div ref={pickerRef} style={{ padding: '0 10px 8px', position: 'relative' }}>
-          <button onClick={() => setClubPickerOpen(v => !v)} style={{
-            width: '100%', display: 'flex', alignItems: 'center', gap: 10,
-            padding: '10px 12px', borderRadius: 12, border: '1px solid rgba(255,255,255,.10)',
-            background: 'rgba(255,255,255,.06)', textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit',
-          }}>
-            {activeClub ? (
-              <>
-                <div style={{
-                  width: 34, height: 34, borderRadius: 9, flexShrink: 0,
-                  background: getClubColor(activeClub.clubId),
-                  display: 'grid', placeItems: 'center',
-                  color: '#fff', fontWeight: 900, fontSize: 12, transform: 'rotate(-2deg)',
-                }}>{activeClub.clubLogoUrl
-                    ? <img src={activeClub.clubLogoUrl} alt="" style={{ width: '100%', height: '100%', borderRadius: 9, objectFit: 'cover' }} />
-                    : getClubShort(activeClub.clubName)
-                  }</div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{
-                    fontSize: 12.5, fontWeight: 700, color: '#fff', lineHeight: 1.2,
-                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                  }}>{activeClub.clubName}</div>
-                  <div style={{ marginTop: 2 }}>
-                    <span style={{
-                      fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 3,
-                      background: ROLE_COLORS[activeClub.clubRole] ?? '#2563eb', color: '#fff',
-                    }}>{ROLE_LABELS[activeClub.clubRole] ?? activeClub.clubRole}</span>
-                  </div>
-                </div>
-              </>
-            ) : (
-              <div style={{ flex: 1, fontSize: 12.5, fontWeight: 700, color: 'rgba(255,255,255,.4)' }}>
-                Chọn câu lạc bộ
-              </div>
-            )}
-            <span style={{
-              color: 'rgba(255,255,255,.35)', fontSize: 11, display: 'inline-block',
-              transform: clubPickerOpen ? 'rotate(180deg)' : 'none', transition: 'transform .15s',
-            }}>▾</span>
-          </button>
-
-          {clubPickerOpen && (
-            <div style={{
-              position: 'absolute', top: 'calc(100% + 4px)', left: 10, right: 10, zIndex: 30,
-              background: '#1e1c24', border: '1px solid rgba(255,255,255,.12)',
-              borderRadius: 12, padding: 6, boxShadow: '0 8px 32px rgba(0,0,0,.5)',
-            }}>
-              <div style={{ padding: '6px 10px 6px', fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,.3)', letterSpacing: '.08em', textTransform: 'uppercase' }}>
-                CLB của bạn ({uniqueActiveMemberships.length})
-              </div>
-              {uniqueActiveMemberships.map(m => {
-                const isActive = m.clubId === Number(clubId)
-                return (
-                  <button key={m.clubId}
-                    onClick={() => { navigate(`/clubs/${m.clubId}/operations`); setClubPickerOpen(false) }}
-                    style={{
-                      width: '100%', display: 'flex', alignItems: 'center', gap: 10,
-                      padding: '9px 10px', borderRadius: 8, marginBottom: 2, border: 'none',
-                      background: isActive ? 'rgba(255,255,255,.08)' : 'transparent',
-                      textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit',
-                    }}>
-                    <div style={{
-                      width: 30, height: 30, borderRadius: 8, flexShrink: 0,
-                      background: getClubColor(m.clubId),
-                      display: 'grid', placeItems: 'center',
-                      color: '#fff', fontWeight: 900, fontSize: 11, transform: 'rotate(-2deg)',
-                    }}>{m.clubLogoUrl
-                        ? <img src={m.clubLogoUrl} alt="" style={{ width: '100%', height: '100%', borderRadius: 8, objectFit: 'cover' }} />
-                        : getClubShort(m.clubName)
-                      }</div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{
-                        fontSize: 12, fontWeight: 600, lineHeight: 1.2,
-                        color: isActive ? '#fff' : 'rgba(255,255,255,.7)',
-                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                      }}>{m.clubName}</div>
-                      <span style={{
-                        fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 3,
-                        background: ROLE_COLORS[m.clubRole] ?? '#2563eb', color: '#fff',
-                      }}>{ROLE_LABELS[m.clubRole] ?? m.clubRole}</span>
-                    </div>
-                    {isActive && <span style={{ color: '#facc15', fontSize: 12 }}>✓</span>}
+                    {isActive && <span style={{ color: '#38bdf8', fontSize: 12 }}>✓</span>}
                   </button>
                 )
               })}
@@ -529,7 +439,7 @@ export default function DashboardSidebar({ mode, clubId }: Props) {
                     width: 24, height: 24, borderRadius: 6, flexShrink: 0,
                     background: isActive ? modeColor : 'rgba(255,255,255,.06)',
                     display: 'grid', placeItems: 'center', fontSize: 11,
-                    color: isActive ? (mode === 'member' ? '#0f172a' : '#fff') : 'rgba(255,255,255,.4)',
+                    color: isActive ? (mode === 'member' ? 'var(--c-ink)' : '#fff') : 'rgba(255,255,255,.4)',
                     transition: 'all .12s',
                   }}>{item.icon}</span>
                   {!collapsed && item.label}
@@ -542,6 +452,48 @@ export default function DashboardSidebar({ mode, clubId }: Props) {
           </div>
         ))}
 
+        {/* Clubs list (member/SV mode) — flat list at the bottom */}
+        {mode === 'member' && uniqueActiveMemberships.length > 0 && (
+          <>
+            <div style={{ height: 1, background: 'rgba(255,255,255,.06)', margin: '6px 12px' }} />
+            {!collapsed && (
+              <div style={{ padding: '6px 12px 4px', fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,.28)', letterSpacing: '.08em', textTransform: 'uppercase' }}>
+                Câu lạc bộ
+              </div>
+            )}
+            {uniqueActiveMemberships.map(m => (
+              <NavLink key={m.clubId} to={`/clubs/${m.clubId}/operations`} style={{ textDecoration: 'none', display: 'block' }}>
+                {({ isActive }) => (
+                  <div title={collapsed ? m.clubName : undefined} style={{
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    padding: collapsed ? '8px 0' : '8px 12px',
+                    justifyContent: collapsed ? 'center' : 'flex-start',
+                    borderRadius: 10, marginBottom: 2,
+                    background: isActive ? 'rgba(255,255,255,.10)' : 'transparent',
+                    color: isActive ? '#fff' : 'rgba(255,255,255,.55)',
+                    fontSize: 13, fontWeight: isActive ? 700 : 500,
+                    cursor: 'pointer', transition: 'all .12s',
+                  }}>
+                    <div style={{
+                      width: 24, height: 24, borderRadius: 6, flexShrink: 0,
+                      background: getClubColor(m.clubId),
+                      display: 'grid', placeItems: 'center',
+                      color: '#fff', fontWeight: 900, fontSize: 9,
+                    }}>{m.clubLogoUrl
+                        ? <img src={m.clubLogoUrl} alt="" style={{ width: '100%', height: '100%', borderRadius: 6, objectFit: 'cover' }} />
+                        : getClubShort(m.clubName)
+                      }</div>
+                    {!collapsed && (
+                      <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {m.clubName}
+                      </span>
+                    )}
+                  </div>
+                )}
+              </NavLink>
+            ))}
+          </>
+        )}
       </nav>
 
       {/* User footer */}

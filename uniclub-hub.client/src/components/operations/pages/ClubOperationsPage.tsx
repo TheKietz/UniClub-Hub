@@ -102,22 +102,21 @@ export default function ClubOperationsPage() {
   }, [view, visibleTabs]);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: '#FAFAF0' }}>
-      {/* ── Neo-Brutalism tab bar ───────────────────────────────────────── */}
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--c-bg)' }}>
+      {/* ── Top tab bar ─────────────────────────────────────────────────── */}
       <div style={{
         display: 'flex',
         alignItems: 'stretch',
-        background: '#0A0A0A',
-        borderBottom: '4px solid #FFE500',
+        background: 'var(--c-chrome)',
+        borderBottom: '3px solid var(--c-accent)',
         flexShrink: 0,
-        overflowX: 'auto',
         padding: '0 24px',
       }}>
         {/* Department selector / label */}
         <div style={{
           paddingRight: 20,
           marginRight: 8,
-          borderRight: '2px solid rgba(255,229,0,0.3)',
+          borderRight: '2px solid rgba(255,255,255,0.18)',
           display: 'flex',
           alignItems: 'center',
           flexShrink: 0,
@@ -144,6 +143,7 @@ export default function ClubOperationsPage() {
           )}
         </div>
 
+        <div style={{ display: 'flex', alignItems: 'stretch', overflowX: 'auto', flex: 1, minWidth: 0 }}>
         {visibleTabs.map(tab => {
           const isActive = view === tab.id;
           return (
@@ -156,13 +156,13 @@ export default function ClubOperationsPage() {
                 gap: 6,
                 padding: isActive ? '14px 18px' : '12px 14px',
                 border: 'none',
-                background: isActive ? '#FFE500' : 'transparent',
+                background: isActive ? '#ffffff' : 'transparent',
                 cursor: 'pointer',
                 whiteSpace: 'nowrap',
                 flexShrink: 0,
                 fontSize: 12,
                 fontWeight: isActive ? 900 : 700,
-                color: isActive ? '#0A0A0A' : 'rgba(255,255,255,0.6)',
+                color: isActive ? 'var(--c-ink)' : 'rgba(255,255,255,0.6)',
                 letterSpacing: '.06em',
                 textTransform: 'uppercase',
                 transition: 'background .1s, color .1s',
@@ -170,7 +170,7 @@ export default function ClubOperationsPage() {
               }}
               onMouseEnter={e => {
                 if (!isActive) {
-                  (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,229,0,0.1)';
+                  (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.12)';
                   (e.currentTarget as HTMLButtonElement).style.color = 'white';
                 }
               }}
@@ -186,10 +186,11 @@ export default function ClubOperationsPage() {
             </button>
           );
         })}
+        </div>
       </div>
 
       {/* ── Content area ─────────────────────────────────────────────── */}
-      <div style={{ flex: 1, overflow: 'auto', minHeight: 0, background: '#FAFAF0' }}>
+      <div style={{ flex: 1, overflow: 'auto', minHeight: 0, background: 'var(--c-bg)' }}>
         {!deptLoaded ? (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
             <span style={{ color: '#999', fontSize: 13 }}>Đang tải...</span>
