@@ -8,11 +8,11 @@ import {
 import {
   getSprints, createSprint, updateSprint, deleteSprint,
   createTask, updateTask, updateTaskStatus,
-  getKanbanColumns,
+  getKanbanColumns, getUrgentTasks,
 } from "../services/operationsApi";
 import type {
   SprintItem, TaskItem, TaskStatus, SprintStatus,
-  UpdateSprintDto, KanbanColumnItem,
+  UpdateSprintDto, KanbanColumnItem, UrgentTaskItem,
 } from "../services/operations.types";
 import { useTasks } from "../context/TasksContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -83,6 +83,16 @@ function isOverdue(iso?: string) {
   return new Date(iso) < new Date();
 }
 
+// Feature 2: client-side deadline risk computation
+function computeRisk(task: TaskItem): 'high' | 'none' {
+  if (task.status === 'Done') return 'none'
+  if (!task.deadline || !task.estimatedHours) return 'none'
+  const now = Date.now()
+  const timeLeftHours = (new Date(task.deadline).getTime() - now) / 3_600_000
+  const timeNeededHours = task.estimatedHours * (100 - task.progress) / 100
+  return timeLeftHours < timeNeededHours ? 'high' : 'none'
+}
+
 const SPRINT_STATUS_BADGE: Record<SprintStatus, { bg: string; color: string; label: string }> = {
   Planning:  { bg: '#E0E7FF', color: '#4338CA', label: 'Lên kế hoạch' },
   Active:    { bg: '#DCFCE7', color: '#15803D', label: 'Đang chạy' },
@@ -93,6 +103,55 @@ const SPRINT_STATUS_BADGE: Record<SprintStatus, { bg: string; color: string; lab
 const PRIORITY_COLOR: Record<string, string> = {
   High: '#FF3B3B', Medium: '#FF9500', Low: '#3B4EFF',
 };
+
+
+const SPRINT_LAYOUT = {
+  pageX: 32,
+  sectionGap: 18,
+  rowPadY: 9,
+  rowPadX: 12,
+  leftSpacer: 100,
+  statusW: 142,
+  assigneeW: 100,
+  deadlineW: 86,
+  headerPad: '12px 16px',
+} as const;
+
+const tableHeaderTextStyle: React.CSSProperties = {
+  fontSize: 10,
+  fontWeight: 900,
+  color: '#8A8A8A',
+  textTransform: 'uppercase',
+  letterSpacing: '.07em',
+};
+
+function SprintColumnHeader() {
+  return (
+    <div style={{
+      display: 'flex',
+      alignItems: 'center',
+      padding: `7px ${SPRINT_LAYOUT.rowPadX}px`,
+      background: '#F5F5F0',
+      borderBottom: '1.5px solid #D0D0C8',
+    }}>
+      <div style={{ width: SPRINT_LAYOUT.leftSpacer, flexShrink: 0 }} />
+      <div style={{ flex: 1, minWidth: 0, paddingRight: 16 }}>
+        <span style={tableHeaderTextStyle}>Tên công việc</span>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+        <div style={{ width: SPRINT_LAYOUT.statusW, textAlign: 'center' }}>
+          <span style={tableHeaderTextStyle}>Trạng thái</span>
+        </div>
+        <div style={{ width: SPRINT_LAYOUT.assigneeW, textAlign: 'center' }}>
+          <span style={tableHeaderTextStyle}>Người làm</span>
+        </div>
+        <div style={{ width: SPRINT_LAYOUT.deadlineW, textAlign: 'center' }}>
+          <span style={tableHeaderTextStyle}>Hạn chót</span>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ── Task row ──────────────────────────────────────────────────────────────────
 
@@ -107,6 +166,7 @@ function TaskRow({ task, columns, canManage, dragHandleProps, onOpen, onStatusCh
   const [statusOpen, setStatusOpen] = useState(false);
   const [hovered, setHovered] = useState(false);
   const overdue = isOverdue(task.deadline) && task.status !== 'Done';
+  const risk = computeRisk(task);
   const sc = sortedCols(columns);
   const cur = currentColumn(task, columns);
 
@@ -115,11 +175,12 @@ function TaskRow({ task, columns, canManage, dragHandleProps, onOpen, onStatusCh
       style={{
         display: 'flex',
         alignItems: 'center',
-        gap: 8,
-        padding: '7px 12px 7px 4px',
+        gap: 0,
+        padding: `${SPRINT_LAYOUT.rowPadY}px ${SPRINT_LAYOUT.rowPadX}px`,
         borderBottom: '1.5px solid #0A0A0A',
-        background: hovered ? '#FFFBE0' : 'white',
-        minHeight: 38,
+        borderLeft: risk === 'high' ? '4px solid #f59e0b' : '4px solid transparent',
+        background: hovered ? '#FFFBE0' : risk === 'high' ? '#fffbeb' : 'white',
+        minHeight: 48,
         transition: 'background .1s',
       }}
       onMouseEnter={() => setHovered(true)}
@@ -130,156 +191,213 @@ function TaskRow({ task, columns, canManage, dragHandleProps, onOpen, onStatusCh
         <div
           {...(dragHandleProps ?? {})}
           style={{
-            cursor: 'grab',
-            flexShrink: 0,
-            display: 'flex',
-            alignItems: 'center',
-            padding: '0 4px',
-            color: hovered ? '#888' : 'transparent',
-            transition: 'color .1s',
+            cursor: 'grab', flexShrink: 0, display: 'flex', alignItems: 'center',
+            padding: '0 6px 0 0', width: 30,
+            color: hovered ? '#888' : 'transparent', transition: 'color .1s',
           }}
         >
           <GripVertical size={13} />
         </div>
       ) : (
-        <div style={{ width: 21, flexShrink: 0 }} />
+        <div style={{ width: 30, flexShrink: 0 }} />
       )}
 
       {/* Priority dot */}
-      <span style={{
-        width: 8, height: 8, borderRadius: 0, flexShrink: 0,
-        background: PRIORITY_COLOR[task.priority] ?? '#94a3b8',
-      }} />
+      <div style={{ width: 22, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <span style={{
+          width: 8, height: 8, borderRadius: 0, display: 'block',
+          background: PRIORITY_COLOR[task.priority] ?? '#94a3b8',
+        }} />
+      </div>
 
-      {/* Title */}
-      <button
-        type="button"
-        onClick={() => onOpen(task)}
-        style={{
-          flex: 1, textAlign: 'left', color: '#0A0A0A', fontWeight: 700, fontSize: 13,
-          background: 'none', border: 'none', cursor: 'pointer',
-          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-          maxWidth: 480, padding: 0, transition: 'color .1s',
-        }}
-        onMouseEnter={e => (e.currentTarget.style.color = '#3B4EFF')}
-        onMouseLeave={e => (e.currentTarget.style.color = '#0A0A0A')}
-      >
-        {task.title}
-      </button>
+      {/* Title + inline badges */}
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 8, paddingRight: 16 }}>
+        <button
+          type="button"
+          onClick={() => onOpen(task)}
+          style={{
+            flexShrink: 1, textAlign: 'left', color: '#0A0A0A', fontWeight: 700, fontSize: 13,
+            background: 'none', border: 'none', cursor: 'pointer',
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            padding: 0, transition: 'color .1s', minWidth: 0,
+          }}
+          onMouseEnter={e => (e.currentTarget.style.color = '#3B4EFF')}
+          onMouseLeave={e => (e.currentTarget.style.color = '#0A0A0A')}
+        >
+          {task.title}
+        </button>
 
-      {task.subTaskCount > 0 && (
-        <span style={{ fontSize: 11, color: '#AAA', flexShrink: 0, fontWeight: 700 }}>{task.subTaskCount} sub</span>
-      )}
-      {task.isBlocked && (
-        <span style={{ fontSize: 11, color: '#FF3B3B', fontWeight: 800, flexShrink: 0 }}>Bị chặn</span>
-      )}
-
-      {/* Status badge — interactive for managers, read-only for members */}
-      <div style={{ position: 'relative', flexShrink: 0 }}>
-        {canManage ? (
-          <>
-            <button
-              type="button"
-              onClick={() => setStatusOpen(v => !v)}
+        {task.subTaskCount > 0 && (
+          <span style={{ fontSize: 10, color: '#AAA', flexShrink: 0, fontWeight: 700, whiteSpace: 'nowrap' }}>
+            {task.subTaskCount} sub
+          </span>
+        )}
+        {task.isBlocked && (
+          <span style={{ fontSize: 10, color: '#FF3B3B', fontWeight: 800, flexShrink: 0, whiteSpace: 'nowrap' }}>
+            Bị chặn
+          </span>
+        )}
+        {risk === 'high' && (
+          <span title="Nguy cơ trễ deadline" style={{ fontSize: 10, color: '#d97706', fontWeight: 800, flexShrink: 0, whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 2, padding: '2px 6px', border: '1.5px solid #f59e0b', borderRadius: 4, background: '#fef3c7' }}>
+            ⚠️ Trễ hạn
+          </span>
+        )}
+        {task.eventId && (
+          <span
+            title={task.eventName ?? `Sự kiện #${task.eventId}`}
+            style={{
+              flexShrink: 0,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 5,
+              maxWidth: 150,
+              padding: '3px 9px',
+              border: '1.5px solid #7C3AED',
+              borderRadius: 999,
+              background: '#F3E8FF',
+              color: '#5B21B6',
+              fontSize: 10,
+              fontWeight: 900,
+              lineHeight: 1,
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              boxShadow: '2px 2px 0 #0A0A0A18',
+            }}
+          >
+            <span
+              aria-hidden="true"
               style={{
-                display: 'flex', alignItems: 'center', gap: 4,
-                padding: '2px 7px',
-                border: '1.5px solid #0A0A0A', borderRadius: 0,
-                fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.05em',
-                background: cur ? colBg(cur, columns) : '#F5F5F5',
-                color: cur ? colFg(cur, columns) : '#0A0A0A',
-                cursor: 'pointer',
-                whiteSpace: 'nowrap',
-                maxWidth: 120,
+                width: 6,
+                height: 6,
+                borderRadius: 999,
+                background: '#7C3AED',
+                flexShrink: 0,
+              }}
+            />
+            <span
+              style={{
+                minWidth: 0,
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
               }}
             >
-              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                {cur?.name ?? task.status}
-              </span>
-              <ChevronDown size={10} style={{ flexShrink: 0 }} />
-            </button>
-            {statusOpen && (
-              <>
-                <div style={{ position: 'fixed', inset: 0, zIndex: 30 }} onClick={() => setStatusOpen(false)} />
-                <div style={{
-                  position: 'absolute', right: 0, top: '100%', marginTop: 2, zIndex: 40,
-                  background: 'white', border: '2px solid #0A0A0A',
-                  boxShadow: '4px 4px 0 #0A0A0A', borderRadius: 0, padding: '4px 0', minWidth: 160,
-                }}>
-                  {sc.map(col => {
-                    const isCurrent = cur?.id === col.id;
-                    return (
-                      <button
-                        key={col.id}
-                        type="button"
-                        style={{
-                          width: '100%', display: 'flex', alignItems: 'center', gap: 8,
-                          padding: '8px 12px', fontSize: 12, fontWeight: 700,
-                          textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', color: '#0A0A0A',
-                        }}
-                        onMouseEnter={e => (e.currentTarget.style.background = '#FFFBE0')}
-                        onMouseLeave={e => (e.currentTarget.style.background = 'none')}
-                        onClick={() => {
-                          onStatusChange(task.id, col.id, inferStatus(col.id, columns));
-                          setStatusOpen(false);
-                        }}
-                      >
-                        <span style={{
-                          width: 10, height: 10, borderRadius: 0, flexShrink: 0,
-                          background: colBg(col, columns), border: '1.5px solid #0A0A0A',
-                        }} />
-                        {col.name}
-                        {isCurrent && <span style={{ marginLeft: 'auto', color: '#3B4EFF', fontWeight: 900 }}>✓</span>}
-                      </button>
-                    );
-                  })}
-                </div>
-              </>
-            )}
-          </>
-        ) : (
-          <span style={{
-            display: 'inline-flex', alignItems: 'center',
-            padding: '2px 7px',
-            border: '1.5px solid #0A0A0A', borderRadius: 0,
-            fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.05em',
-            background: cur ? colBg(cur, columns) : '#F5F5F5',
-            color: cur ? colFg(cur, columns) : '#0A0A0A',
-            whiteSpace: 'nowrap', maxWidth: 120,
-            overflow: 'hidden', textOverflow: 'ellipsis',
-          }}>
-            {cur?.name ?? task.status}
+              {task.eventName ?? `Sự kiện #${task.eventId}`}
+            </span>
           </span>
         )}
       </div>
 
-      {/* Assignee */}
-      {task.assigneeName ? (
-        <span style={{
-          flexShrink: 0, width: 24, height: 24, borderRadius: 0,
-          border: '2px solid #0A0A0A', background: '#FFE500', color: '#0A0A0A',
-          fontSize: 10, fontWeight: 900, display: 'grid', placeItems: 'center',
-        }} title={task.assigneeName}>
-          {task.assigneeName.split(' ').at(-1)?.[0]?.toUpperCase() ?? '?'}
-        </span>
-      ) : (
-        <span style={{
-          flexShrink: 0, width: 24, height: 24, borderRadius: 0,
-          border: '2px solid #CCC', background: '#F5F5F5', color: '#AAA',
-          fontSize: 10, fontWeight: 700, display: 'grid', placeItems: 'center',
-        }} title="Chưa giao">?</span>
-      )}
+      {/* Right columns — fixed widths for alignment */}
+      <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
 
-      {/* Deadline */}
-      <span style={{
-        flexShrink: 0, fontSize: 11, fontWeight: overdue ? 800 : 700,
-        fontFamily: 'monospace', color: overdue ? '#FF3B3B' : '#888',
-        minWidth: 52, textAlign: 'right',
-      }}>
-        {task.deadline ? fmtDate(task.deadline) : '—'}
-      </span>
+        {/* Status — 140px */}
+        <div style={{ width: SPRINT_LAYOUT.statusW, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+          {canManage ? (
+            <>
+              <button
+                type="button"
+                onClick={() => setStatusOpen(v => !v)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 4,
+                  padding: '3px 8px', width: '100%', justifyContent: 'center',
+                  border: '1.5px solid #0A0A0A', borderRadius: 0,
+                  fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.05em',
+                  background: cur ? colBg(cur, columns) : '#F5F5F5',
+                  color: cur ? colFg(cur, columns) : '#0A0A0A',
+                  cursor: 'pointer', overflow: 'hidden',
+                }}
+              >
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {cur?.name ?? task.status}
+                </span>
+                <ChevronDown size={10} style={{ flexShrink: 0 }} />
+              </button>
+              {statusOpen && (
+                <>
+                  <div style={{ position: 'fixed', inset: 0, zIndex: 30 }} onClick={() => setStatusOpen(false)} />
+                  <div style={{
+                    position: 'absolute', right: 0, top: '100%', marginTop: 2, zIndex: 40,
+                    background: 'white', border: '2px solid #0A0A0A',
+                    boxShadow: '4px 4px 0 #0A0A0A', borderRadius: 0, padding: '4px 0', minWidth: 160,
+                  }}>
+                    {sc.map(col => {
+                      const isCurrent = cur?.id === col.id;
+                      return (
+                        <button
+                          key={col.id}
+                          type="button"
+                          style={{
+                            width: '100%', display: 'flex', alignItems: 'center', gap: 8,
+                            padding: '8px 12px', fontSize: 12, fontWeight: 700,
+                            textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', color: '#0A0A0A',
+                          }}
+                          onMouseEnter={e => (e.currentTarget.style.background = '#FFFBE0')}
+                          onMouseLeave={e => (e.currentTarget.style.background = 'none')}
+                          onClick={() => {
+                            onStatusChange(task.id, col.id, inferStatus(col.id, columns));
+                            setStatusOpen(false);
+                          }}
+                        >
+                          <span style={{
+                            width: 10, height: 10, borderRadius: 0, flexShrink: 0,
+                            background: colBg(col, columns), border: '1.5px solid #0A0A0A',
+                          }} />
+                          {col.name}
+                          {isCurrent && <span style={{ marginLeft: 'auto', color: '#3B4EFF', fontWeight: 900 }}>✓</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+            </>
+          ) : (
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              padding: '3px 8px', maxWidth: '100%',
+              border: '1.5px solid #0A0A0A', borderRadius: 0,
+              fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.05em',
+              background: cur ? colBg(cur, columns) : '#F5F5F5',
+              color: cur ? colFg(cur, columns) : '#0A0A0A',
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            }}>
+              {cur?.name ?? task.status}
+            </span>
+          )}
+        </div>
+
+        {/* Assignee — 52px */}
+        <div style={{ width: SPRINT_LAYOUT.assigneeW, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          {task.assigneeName ? (
+            <span style={{
+              width: 26, height: 26, borderRadius: 0,
+              border: '2px solid #0A0A0A', background: '#FFE500', color: '#0A0A0A',
+              fontSize: 10, fontWeight: 900, display: 'grid', placeItems: 'center',
+            }} title={task.assigneeName}>
+              {task.assigneeName.split(' ').at(-1)?.[0]?.toUpperCase() ?? '?'}
+            </span>
+          ) : (
+            <span style={{
+              width: 26, height: 26, borderRadius: 0,
+              border: '2px solid #CCC', background: '#F5F5F5', color: '#AAA',
+              fontSize: 10, fontWeight: 700, display: 'grid', placeItems: 'center',
+            }} title="Chưa giao">?</span>
+          )}
+        </div>
+
+        {/* Deadline — 72px */}
+        <div style={{ width: SPRINT_LAYOUT.deadlineW, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <span style={{
+            fontSize: 11, fontWeight: overdue ? 800 : 600,
+            fontFamily: 'monospace', color: overdue ? '#FF3B3B' : '#888',
+            whiteSpace: 'nowrap',
+          }}>
+            {task.deadline ? fmtDate(task.deadline) : '—'}
+          </span>
+        </div>
+
+      </div>
     </div>
   );
 }
@@ -364,9 +482,9 @@ function SprintSection({
   const headerShadow = sprint.status === 'Active' ? '4px 4px 0 #0A0A0A' : sprint.status === 'Planning' ? '3px 3px 0 #0A0A0A' : 'none';
 
   return (
-    <div style={{ marginBottom: 16 }}>
+    <div style={{ marginBottom: SPRINT_LAYOUT.sectionGap }}>
       <div style={{
-        display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px',
+        display: 'flex', alignItems: 'center', gap: 10, padding: SPRINT_LAYOUT.headerPad,
         background: headerBg, border: '2px solid #0A0A0A', boxShadow: headerShadow, borderRadius: 0,
       }}>
         <button type="button" onClick={() => setCollapsed(v => !v)} style={{
@@ -472,9 +590,12 @@ function SprintSection({
                 outline: snapshot.isDraggingOver ? '2px dashed #FFE500' : 'none',
                 outlineOffset: -2,
                 transition: 'background .1s',
-                minHeight: 38,
+                minHeight: 44,
               }}
             >
+              {/* Column header */}
+              <SprintColumnHeader />
+
               {tasks.length === 0 && !creating && !snapshot.isDraggingOver && (
                 <div style={{ padding: '12px 16px', fontSize: 13, color: '#AAA', fontStyle: 'italic', fontWeight: 700 }}>
                   Chưa có công việc trong sprint này.
@@ -547,9 +668,9 @@ function BacklogSection({
   const [creating, setCreating] = useState(false);
 
   return (
-    <div style={{ marginBottom: 16 }}>
+    <div style={{ marginBottom: SPRINT_LAYOUT.sectionGap }}>
       <div style={{
-        display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px',
+        display: 'flex', alignItems: 'center', gap: 10, padding: SPRINT_LAYOUT.headerPad,
         background: '#E8E8E8', border: '2px solid #0A0A0A', borderRadius: 0,
       }}>
         <button type="button" onClick={() => setCollapsed(v => !v)} style={{
@@ -586,9 +707,12 @@ function BacklogSection({
                 outline: snapshot.isDraggingOver ? '2px dashed #FFE500' : 'none',
                 outlineOffset: -2,
                 transition: 'background .1s',
-                minHeight: 38,
+                minHeight: 44,
               }}
             >
+              {/* Column header */}
+              <SprintColumnHeader />
+
               {tasks.length === 0 && !creating && !snapshot.isDraggingOver && (
                 <div style={{ padding: '12px 16px', fontSize: 13, color: '#AAA', fontStyle: 'italic', fontWeight: 700 }}>
                   Backlog trống. Thêm công việc chưa được lên sprint.
@@ -671,6 +795,20 @@ export default function SprintsPage() {
 
   const [createBtnHovered, setCreateBtnHovered] = useState(false);
   const [creating, setCreating] = useState(false);
+
+  // Feature 3: Urgent tasks widget
+  const [urgentTasks,    setUrgentTasks]    = useState<UrgentTaskItem[]>([]);
+  const [urgentLoading,  setUrgentLoading]  = useState(false);
+  const [urgentExpanded, setUrgentExpanded] = useState(true);
+
+  useEffect(() => {
+    if (!departmentId) return;
+    setUrgentLoading(true);
+    getUrgentTasks({ clubId, departmentId })
+      .then(setUrgentTasks)
+      .catch(() => {})
+      .finally(() => setUrgentLoading(false));
+  }, [clubId, departmentId]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -860,7 +998,7 @@ export default function SprintsPage() {
 
   return (
     <DragDropContext onDragEnd={onDragEnd}>
-      <div style={{ padding: '20px 28px', background: '#FAFAF0', minHeight: '100%' }}>
+      <div style={{ padding: `24px ${SPRINT_LAYOUT.pageX}px 32px`, background: '#FAFAF0', minHeight: '100%', boxSizing: 'border-box' }}>
         {/* ── Header ──────────────────────────────────────────────── */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
           <div>
@@ -893,7 +1031,7 @@ export default function SprintsPage() {
         </div>
 
         {/* ── Legend ──────────────────────────────────────────────── */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, rowGap: 8, flexWrap: 'wrap', marginBottom: 18 }}>
           {sortedCols(columns).map((col) => (
             <div key={col.id} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 700, color: '#555' }}>
               <span style={{ padding: '1px 8px', border: '2px solid #0A0A0A', background: colBg(col, columns), color: colFg(col, columns), fontWeight: 900, fontSize: 10, borderRadius: 0 }}>0</span>
@@ -901,6 +1039,54 @@ export default function SprintsPage() {
             </div>
           ))}
         </div>
+
+        {/* ── Feature 3: Urgent task widget ───────────────────────── */}
+        {(urgentTasks.length > 0 || urgentLoading) && (
+          <div style={{ marginBottom: 20, border: '2.5px solid #0A0A0A', borderRadius: 0, background: 'white', boxShadow: '4px 4px 0 #0A0A0A', overflow: 'hidden' }}>
+            <button
+              type="button"
+              onClick={() => setUrgentExpanded(v => !v)}
+              style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '10px 16px', background: '#0A0A0A', border: 'none', cursor: 'pointer', textAlign: 'left' }}
+            >
+              <span style={{ fontSize: 14 }}>🔥</span>
+              <span style={{ fontSize: 13, fontWeight: 900, color: '#FFE500', letterSpacing: '.04em', flex: 1 }}>VIỆC CẦN LÀM NGAY HÔM NAY</span>
+              <span style={{ fontSize: 10, fontWeight: 700, color: '#FFE500', opacity: 0.7 }}>{urgentExpanded ? '▲ Thu gọn' : '▼ Mở rộng'}</span>
+            </button>
+            {urgentExpanded && (
+              urgentLoading ? (
+                <div style={{ padding: '12px 16px', fontSize: 12, color: '#888', fontWeight: 700 }}>Đang tính toán...</div>
+              ) : (
+                <div>
+                  {urgentTasks.map((ut, i) => {
+                    const priorityColor: Record<string, string> = { High: '#FF3B3B', Medium: '#FF9500', Low: '#3B4EFF' };
+                    const deadlineStr = ut.deadline
+                      ? (ut.hoursToDeadline >= 0 && ut.hoursToDeadline < 24
+                          ? `Còn ${Math.floor(ut.hoursToDeadline)}h`
+                          : new Date(ut.deadline).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }))
+                      : '—';
+                    return (
+                      <div key={ut.taskId} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', borderBottom: i < urgentTasks.length - 1 ? '1.5px solid #E8E8E0' : 'none', background: i === 0 ? '#FFFBE0' : 'white' }}>
+                        <span style={{ width: 22, height: 22, borderRadius: 0, border: '2px solid #0A0A0A', background: '#FFE500', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 900, color: '#0A0A0A', flexShrink: 0 }}>
+                          {i + 1}
+                        </span>
+                        <span style={{ width: 8, height: 8, borderRadius: 0, background: priorityColor[ut.priority] ?? '#888', flexShrink: 0 }} />
+                        <span style={{ flex: 1, fontSize: 13, fontWeight: 700, color: '#0A0A0A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {ut.title}
+                        </span>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: ut.hoursToDeadline >= 0 && ut.hoursToDeadline < 24 ? '#FF3B3B' : '#888', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                          {deadlineStr}
+                        </span>
+                        <span style={{ fontSize: 10, color: '#888', fontWeight: 600, flexShrink: 0, maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {ut.urgencyReason}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )
+            )}
+          </div>
+        )}
 
         {/* ── Sprint sections ──────────────────────────────────────── */}
         {sortedSprints.map(sprint => (

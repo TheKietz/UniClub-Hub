@@ -1,9 +1,14 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
+using UniClub_Hub.Membership.Services.Interfaces;
+using UniClub_Hub.Operations.DTOs.Intelligence;
 using UniClub_Hub.Operations.DTOs.Task;
 using UniClub_Hub.Operations.Services.Interfaces;
+using UniClub_Hub.Shared.Data;
+using UniClub_Hub.Shared.Enums;
 using UniClub_Hub.Server.Hubs;
 using UniClub_Hub.Shared.Common;
 using UniClub_Hub.Shared.Constants;
@@ -17,22 +22,26 @@ namespace UniClub_Hub.Server.Controllers.Operations
         ITaskService taskService,
         IHubContext<KanbanHub> hubContext,
         ITaskCommentService commentService,
-        ITaskAttachmentService attachmentService) : ControllerBase
+        ITaskAttachmentService attachmentService,
+        ITaskIntelligenceService intelligenceService,
+        INotificationService notificationService,
+        UniClubDbContext db) : ControllerBase
     {
         [HttpGet]
         [AllowAnonymous]
         public async Task<IActionResult> GetAll(
-            [FromQuery] int clubId,
+            [FromQuery] int? clubId,
             [FromQuery] string? status,
             [FromQuery] int? sprintId,
             [FromQuery] int? eventId,
             [FromQuery] string? assignedTo,
             [FromQuery] int? parentId,
             [FromQuery] int? departmentId,
+            [FromQuery] bool? unassigned,
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 50)
         {
-            var result = await taskService.GetByClubAsync(clubId, status, sprintId, eventId, assignedTo, parentId, departmentId, page, pageSize);
+            var result = await taskService.GetByClubAsync(clubId, status, sprintId, eventId, assignedTo, parentId, departmentId, page, pageSize, unassigned);
             return Ok(ApiResponse<object>.Ok(result));
         }
 
@@ -61,6 +70,11 @@ namespace UniClub_Hub.Server.Controllers.Operations
                 await hubContext.Clients
                     .Group(SignalRGroups.Club(result.ClubId))
                     .SendAsync(SignalREvents.TaskCreated, result);
+
+                // Notify dept lead when task is sent to a department
+                if (result.DepartmentId.HasValue)
+                    await NotifyDeptLeadAsync(result.DepartmentId.Value, result.ClubId, result.Id, result.Title, result.EventId);
+
                 return CreatedAtAction(nameof(GetById), new { id = result.Id },
                     ApiResponse<TaskDto>.Ok(result, "Tạo công việc thành công."));
             }
@@ -68,6 +82,27 @@ namespace UniClub_Hub.Server.Controllers.Operations
             {
                 return NotFound(ApiResponse<object>.Fail(ex.Message));
             }
+        }
+
+        private async Task NotifyDeptLeadAsync(int departmentId, int clubId, int taskId, string taskTitle, int? eventId)
+        {
+            var lead = await db.ClubMemberships
+                .AsNoTracking()
+                .Where(m => m.DepartmentId == departmentId
+                         && m.ClubId == clubId
+                         && m.ClubRole == ClubRole.DEPT_LEAD
+                         && m.Status == MembershipStatus.Active)
+                .Select(m => m.UserId)
+                .FirstOrDefaultAsync();
+
+            if (lead == null) return;
+
+            var eventSuffix = eventId.HasValue ? $" (thuộc sự kiện #{eventId})" : string.Empty;
+            await notificationService.SendAsync(
+                lead,
+                "Công việc mới được giao về Ban",
+                $"Bạn có công việc mới cần xử lý: \"{taskTitle}\"{eventSuffix}.",
+                NotificationType.Task);
         }
 
         [HttpPut("{id:int}")]
@@ -176,6 +211,38 @@ namespace UniClub_Hub.Server.Controllers.Operations
             {
                 return NotFound(ApiResponse<object>.Fail(ex.Message));
             }
+        }
+
+        // ── Intelligence ──────────────────────────────────────────────────────────
+
+        /// <summary>Feature 1 – Gợi ý phân công: top 3 thành viên phù hợp nhất.</summary>
+        [HttpGet("suggest-assignees")]
+        [AllowAnonymous]
+        public async Task<IActionResult> SuggestAssignees(
+            [FromQuery] int clubId,
+            [FromQuery] int departmentId,
+            [FromQuery] float? estimatedHours,
+            [FromQuery] string priority = "Medium",
+            [FromQuery] int? sprintId = null)
+        {
+            if (!Enum.TryParse<TaskPriority>(priority, true, out var parsedPriority))
+                parsedPriority = TaskPriority.Medium;
+
+            var result = await intelligenceService.SuggestAssigneesAsync(
+                clubId, departmentId, estimatedHours, parsedPriority, sprintId);
+            return Ok(ApiResponse<List<AssignmentSuggestionResponse>>.Ok(result));
+        }
+
+        /// <summary>Feature 3 – Đề xuất ưu tiên: top 3 công việc khẩn cấp nhất của thành viên.</summary>
+        [HttpGet("urgent-tasks")]
+        public async Task<IActionResult> GetUrgentTasks(
+            [FromQuery] int clubId,
+            [FromQuery] int? departmentId = null,
+            [FromQuery] int? sprintId = null)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+            var result = await intelligenceService.GetUrgentTasksAsync(userId, clubId, departmentId, sprintId);
+            return Ok(ApiResponse<List<UrgentTaskResponse>>.Ok(result));
         }
 
         // ── Comments ──────────────────────────────────────────────────────────────

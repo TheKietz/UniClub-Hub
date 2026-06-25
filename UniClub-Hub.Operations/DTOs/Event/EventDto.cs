@@ -5,7 +5,7 @@ namespace UniClub_Hub.Operations.DTOs.Event
     public class EventDto
     {
         public int Id { get; set; }
-        public int ClubId { get; set; }
+        public int? ClubId { get; set; }
         public string Name { get; set; } = null!;
         public string? Description { get; set; }
         public string? Location { get; set; }

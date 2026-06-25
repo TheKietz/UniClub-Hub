@@ -397,5 +397,6 @@ uniclub-hub.client/bin/
 CLAUDE.md
 AGENTS.md
 TODO.md
+/.claude/
 
 /design

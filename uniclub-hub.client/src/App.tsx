@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, useParams } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { ThemeProvider } from "@/contexts/ThemeContext";
 import ProtectedRoute from "@/components/shared/ProtectedRoute";
 import ClubProtectedRoute from "@/components/shared/ClubProtectedRoute";
 import PermissionProtectedRoute from "@/components/shared/PermissionProtectedRoute";
@@ -59,14 +60,15 @@ import ClubDetailPage from "@/components/membership/pages/ClubDetailPage";
 import ProfilePage from "@/components/membership/pages/ProfilePage";
 import MemberHistoryPage from "@/components/membership/pages/MemberHistoryPage";
 import NotificationsPage from "@/components/membership/pages/NotificationsPage";
-import MyKpiPage from "@/components/membership/pages/MyKpiPage";
 
-import MyTasksPage from "@/components/operations/pages/MyTasksPage";
 import EventDetailPage from "@/components/operations/pages/EventDetailPage";
 import EventListPage from "@/components/operations/pages/EventListPage";
 import GanttPage from "@/components/operations/pages/GanttPage";
 import CalendarPage from "@/components/operations/pages/CalendarPage";
 import ClubOperationsPage from "@/components/operations/pages/ClubOperationsPage";
+import UniversityEventsPage from "@/components/operations/pages/UniversityEventsPage";
+import UniversityEventDetailPage from "@/components/operations/pages/UniversityEventDetailPage";
+import InboxPage from "@/components/operations/pages/InboxPage";
 import { TasksProvider } from "@/components/operations/context/TasksContext";
 
 function WithTasksProvider({ children }: { children: React.ReactNode }) {
@@ -87,6 +89,7 @@ const Soon = ({ label }: { label: string }) => (
 export default function App() {
   return (
     <BrowserRouter>
+      <ThemeProvider>
       <AuthProvider>
         <Routes>
           {/* Landing */}
@@ -119,6 +122,8 @@ export default function App() {
               <Route path="/admin/settings" element={<SystemSettingsPage />} />
               <Route path="/admin/notification-preferences" element={<AdminNotificationPreferencePage />} />
               <Route path="/admin/report" element={<AdminReportPage />} />
+              <Route path="/admin/events" element={<UniversityEventsPage />} />
+              <Route path="/admin/events/:id" element={<UniversityEventDetailPage />} />
             </Route>
           </Route>
 
@@ -139,10 +144,9 @@ export default function App() {
               <Route path="/my-history" element={<MemberHistoryPage />} />
               <Route path="/my-activity" element={<MyActivityPage />} />
               <Route path="/support" element={<SupportPage />} />
-              <Route path="/my-tasks" element={<TasksProvider clubId={0}><MyTasksPage /></TasksProvider>} />
               <Route path="/clubs/:clubId/operations" element={<ClubOperationsPage />} />
               <Route path="/clubs/:clubId/events/:id" element={<EventDetailPage />} />
-              <Route path="/my-kpi" element={<MyKpiPage />} />
+              <Route path="/events/university/:id" element={<UniversityEventDetailPage />} />
               <Route
                 element={
                   <ClubProtectedRoute
@@ -347,6 +351,7 @@ export default function App() {
                   <Route path="manage/pipeline" element={<PipelineSettingsPage />} />
                   <Route path="manage/events" element={<EventListPage />} />
                   <Route path="manage/events/:id" element={<EventDetailPage />} />
+                  <Route path="manage/inbox" element={<InboxPage />} />
                   <Route path="manage/gantt" element={<WithTasksProvider><GanttPage /></WithTasksProvider>} />
                   <Route path="manage/calendar" element={<WithTasksProvider><CalendarPage /></WithTasksProvider>} />
                   <Route path="manage/audit-log" element={<AuditLogPage />} />
@@ -363,6 +368,7 @@ export default function App() {
         </Routes>
         <Toaster richColors position="top-right" />
       </AuthProvider>
+      </ThemeProvider>
     </BrowserRouter>
   );
 }

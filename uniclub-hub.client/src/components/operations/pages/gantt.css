@@ -1,7 +1,7 @@
 /* Dynamic layout driven by CSS custom properties set in JSX */
 
 .gantt-area       { width: var(--chart-w, 100%); min-width: 100%; }
-.gantt-week-cell  { width: calc(var(--days, 7) * 36px); }
+.gantt-week-cell  { width: calc(var(--days, 7) * var(--day-px, 36px)); }
 
 /* Overall progress bar */
 .gantt-progress-fill {

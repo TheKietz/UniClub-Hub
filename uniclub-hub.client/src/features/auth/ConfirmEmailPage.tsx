@@ -9,7 +9,7 @@ import AuthShell from './AuthShell'
 type Status = 'loading' | 'success' | 'already' | 'error'
 
 const STATE: Record<Status, { icon: string; title: string; desc: (msg: string) => string; color: string; bg: string }> = {
-  loading: { icon: '⟳',  title: 'Đang xác thực...',     desc: () => 'Vui lòng chờ trong giây lát.',                                               color: C.inkMuted,  bg: '#f7f6f1' },
+  loading: { icon: '⟳',  title: 'Đang xác thực...',     desc: () => 'Vui lòng chờ trong giây lát.',                                               color: C.inkMuted,  bg: '#e9f1fc' },
   success: { icon: '✓',  title: 'Xác thực thành công!',  desc: () => 'Email đã được xác thực. Bạn có thể đăng nhập ngay bây giờ.',                 color: '#16a34a',   bg: '#dcfce7' },
   already: { icon: '✓',  title: 'Email đã xác thực',     desc: () => 'Tài khoản này đã được xác thực trước đó. Bạn có thể đăng nhập bình thường.', color: C.indigo,    bg: '#ede9fe' },
   error:   { icon: '✕',  title: 'Xác thực thất bại',     desc: (m) => m || 'Liên kết không hợp lệ hoặc đã hết hạn.',                              color: '#ef4444',   bg: '#fef2f2' },

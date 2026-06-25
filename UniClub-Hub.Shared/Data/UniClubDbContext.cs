@@ -66,6 +66,7 @@ namespace UniClub_Hub.Shared.Data
         public DbSet<KpiConfig> KpiConfigs { get; set; }
         public DbSet<KpiCriteria> KpiCriteria { get; set; }
         public DbSet<KpiGradeConfig> KpiGradeConfigs { get; set; }
+        public DbSet<EventClubAssignment> EventClubAssignments { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
@@ -272,6 +273,22 @@ namespace UniClub_Hub.Shared.Data
                 .WithMany(s => s.Applications)
                 .HasForeignKey(a => a.CurrentStageId)
                 .OnDelete(DeleteBehavior.SetNull);
+
+            // ClubEvent → Club: nullable FK (university events have ClubId = null)
+            // Cascade: deleting a club deletes its events; university events unaffected
+            builder.Entity<ClubEvent>()
+                .HasOne(e => e.Club)
+                .WithMany()
+                .HasForeignKey(e => e.ClubId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // EventClubAssignment — briefs from SUPER_ADMIN to clubs (not real tasks)
+            builder.Entity<EventClubAssignment>()
+                .HasIndex(a => new { a.EventId, a.ClubId });
+
+            builder.Entity<EventClubAssignment>()
+                .HasIndex(a => a.ClubId);
         }
 
         public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

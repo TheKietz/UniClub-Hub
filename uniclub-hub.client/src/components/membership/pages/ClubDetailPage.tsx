@@ -235,7 +235,7 @@ export default function ClubDetailPage() {
                     </div>
                   )}
                   <div className="min-w-0 flex-1 pt-0.5">
-                    <h1 className="text-xl font-bold leading-snug" style={{ color: '#0f172a', margin: 0 }}>{club.name}</h1>
+                    <h1 className="text-xl font-bold leading-snug" style={{ color: 'var(--c-ink)', margin: 0 }}>{club.name}</h1>
                     <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                       <span className="text-xs font-mono px-2 py-0.5 rounded-md bg-gray-100 text-gray-500">{club.code}</span>
                       {club.categoryName && (
