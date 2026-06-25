@@ -9,6 +9,7 @@ import { CLUB_PERMISSIONS } from "@/constants/clubPermissions";
 
 import LandingPage from "@/features/landing/LandingPage";
 import ContactPage from "@/features/contact/ContactPage";
+import AboutPage from "@/features/about/AboutPage";
 import NotFoundPage from "@/features/errors/NotFoundPage";
 import LoginPage from "@/features/auth/LoginPage";
 import RegisterPage from "@/features/auth/RegisterPage";
@@ -123,6 +124,7 @@ export default function App() {
 
           {/* Public pages */}
           <Route path="/contact" element={<ContactPage />} />
+          <Route path="/about" element={<AboutPage />} />
 
           {/* Public club pages — không cần đăng nhập */}
           <Route path="/clubs" element={<ClubListPage />} />

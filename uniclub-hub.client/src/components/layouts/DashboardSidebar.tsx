@@ -141,6 +141,7 @@ export default function DashboardSidebar({ mode, clubId }: Props) {
   const [collapsed, setCollapsed] = useState(false)
   const [clubPickerOpen, setClubPickerOpen] = useState(false)
   const pickerRef = useRef<HTMLDivElement>(null)
+  const navRef = useRef<HTMLElement>(null)
 
   function guardedNavigate(to: string) {
     if (location.pathname === to) return
@@ -195,6 +196,7 @@ export default function DashboardSidebar({ mode, clubId }: Props) {
   const navItems = mode === 'admin' ? ADMIN_NAV
     : mode === 'club' && clubId ? clubNav(clubId, activeClub?.clubRole, isSuperAdmin, clubPerms)
     : MEMBER_NAV
+  const navSignature = navItems.map(item => item.to).join('|')
 
   const initials = user?.fullName
     ? user.fullName.trim().split(' ').slice(-2).map(w => w[0]).join('').toUpperCase()
@@ -209,6 +211,15 @@ export default function DashboardSidebar({ mode, clubId }: Props) {
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
   }, [clubPickerOpen])
+
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => {
+      const activeItems = navRef.current?.querySelectorAll<HTMLElement>('[data-sidebar-active="true"]')
+      const activeItem = activeItems?.[activeItems.length - 1]
+      activeItem?.scrollIntoView({ block: 'center', inline: 'nearest' })
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [location.pathname, collapsed, navSignature])
 
   function switchMode(m: Mode) {
     if (m === mode) return
@@ -508,7 +519,7 @@ export default function DashboardSidebar({ mode, clubId }: Props) {
       )}
 
       {/* Nav */}
-      <nav style={{ flex: 1, padding: '0 8px', overflowY: 'auto' }}>
+      <nav ref={navRef} style={{ flex: 1, padding: '0 8px', overflowY: 'auto' }}>
         {navItems.map((item) => (
           <div key={item.to}>
             <NavLink
@@ -523,7 +534,7 @@ export default function DashboardSidebar({ mode, clubId }: Props) {
               }}
             >
               {({ isActive }) => (
-                <div title={collapsed ? item.label : undefined} style={{
+                <div data-sidebar-active={isActive ? 'true' : undefined} title={collapsed ? item.label : undefined} style={{
                   display: 'flex', alignItems: 'center', gap: 10,
                   padding: collapsed ? '9px 0' : '9px 12px',
                   justifyContent: collapsed ? 'center' : 'flex-start',

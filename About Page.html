@@ -1,0 +1,681 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Về UniClub Hub · UEF</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,400&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
+<style>
+/* ── Reset ─────────────────────────────────────────────────── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-font-smoothing:antialiased;font-size:15px}
+body{font-family:'Be Vietnam Pro',system-ui,sans-serif;background:#f0f6ff;color:#0a2f6e}
+a,button{font-family:inherit;cursor:pointer}
+::selection{background:rgba(29,78,216,.18)}
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-thumb{background:#b6ccec;border-radius:3px}
+
+/* ── Tokens ─────────────────────────────────────────────────── */
+:root{
+  --ink:#0a2f6e; --ink-dim:#3a5a8c; --ink-muted:#8aa0c4;
+  --red:#e11d2a; --blue:#1d4ed8; --sky:#38bdf8;
+  --bg:#f0f6ff; --card:#fff; --rule:#dce6f4;
+  --border:1.5px solid #0a2f6e;
+  --shadow:4px 4px 0 #0a2f6e;
+  --shadow-sm:2px 2px 0 #0a2f6e;
+  --r:14px; --pill:999px;
+}
+
+/* ── Memphis background ─────────────────────────────────────── */
+.memphis-bg{
+  position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden;
+  background:#f0f6ff;
+}
+.memphis-bg::before{
+  content:'';position:absolute;inset:0;
+  background-image:radial-gradient(circle,rgba(10,47,110,.07) 1px,transparent 1px);
+  background-size:28px 28px;
+}
+.memphis-bg::after{
+  content:'';position:absolute;inset:0;
+  background:
+    radial-gradient(ellipse 55% 38% at 8% 12%,rgba(29,78,216,.06) 0%,transparent 65%),
+    radial-gradient(ellipse 42% 30% at 94% 88%,rgba(225,29,42,.05) 0%,transparent 60%),
+    radial-gradient(ellipse 35% 25% at 50% 50%,rgba(255,255,255,.4) 0%,transparent 70%);
+}
+.shape{position:absolute;pointer-events:none;animation:mfloat 8s ease-in-out infinite}
+@keyframes mfloat{0%,100%{transform:translateY(0) rotate(var(--r,0deg))}50%{transform:translateY(-9px) rotate(calc(var(--r,0deg) + 3deg))}}
+@media(prefers-reduced-motion:reduce){.shape{animation:none!important}}
+
+/* ── Header ─────────────────────────────────────────────────── */
+.pub-header{
+  position:sticky;top:0;z-index:20;
+  background:rgba(240,246,255,.92);backdrop-filter:blur(14px);
+  border-bottom:var(--border);
+}
+.pub-header-inner{
+  max-width:1280px;margin:0 auto;padding:0 28px;height:64px;
+  display:flex;align-items:center;gap:16px;
+}
+.logo{display:flex;align-items:center;gap:10px;background:none;border:none;padding:0}
+.logo-mark{
+  width:34px;height:34px;border-radius:10px;
+  background:var(--ink);color:#fff;
+  display:grid;place-items:center;font-weight:900;font-size:15px;
+  transform:rotate(-3deg);border:var(--border);
+  box-shadow:2px 2px 0 var(--red);flex-shrink:0;
+}
+.logo-sub{font-size:9.5px;font-weight:700;color:var(--red);letter-spacing:.08em;text-transform:uppercase;margin-top:1px}
+.nav-link{
+  padding:7px 16px;border-radius:var(--pill);border:none;background:transparent;
+  color:var(--ink);font-weight:600;font-size:13.5px;transition:all .15s;
+}
+.nav-link.active,.nav-link:hover{background:var(--ink);color:#fff}
+.btn-login{
+  padding:8px 18px;border-radius:var(--pill);
+  background:var(--card);color:var(--ink);border:var(--border);
+  font-size:13px;font-weight:700;box-shadow:var(--shadow-sm);
+}
+.btn-register{
+  padding:8px 18px;border-radius:var(--pill);
+  background:var(--red);color:#fff;border:var(--border);
+  font-size:13px;font-weight:800;box-shadow:var(--shadow-sm);
+}
+
+/* ── Scroll reveal ──────────────────────────────────────────── */
+.rv{opacity:0;transform:translateY(16px);transition:opacity .55s ease,transform .55s ease}
+.rv.seen{opacity:1;transform:translateY(0)}
+
+/* ── Tag chip ───────────────────────────────────────────────── */
+.tag{
+  display:inline-flex;align-items:center;gap:4px;
+  font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+  padding:3px 10px;border-radius:4px;
+}
+
+/* ── Card base ──────────────────────────────────────────────── */
+.card{
+  border-radius:var(--r);background:var(--card);
+  border:var(--border);box-shadow:var(--shadow);overflow:hidden;
+}
+.card-lift{transition:transform .18s,box-shadow .18s}
+.card-lift:hover{transform:translateY(-4px);box-shadow:6px 6px 0 var(--ink)}
+
+/* ── Marquee ────────────────────────────────────────────────── */
+.marquee-strip{
+  overflow:hidden;border-top:var(--border);border-bottom:var(--border);
+  padding:12px 0;
+}
+.marquee-inner{
+  display:flex;white-space:nowrap;gap:28px;width:max-content;
+  animation:marq 32s linear infinite;
+}
+@keyframes marq{from{transform:translateX(0)}to{transform:translateX(-25%)}}
+.marquee-item{font-size:15px;font-weight:800;letter-spacing:-.01em;display:inline-flex;align-items:center;gap:28px}
+.marquee-sep{font-size:11px;opacity:.5}
+
+/* ── Section ────────────────────────────────────────────────── */
+section{padding:64px 28px}
+.inner{max-width:1120px;margin:0 auto}
+
+/* ── Hero ───────────────────────────────────────────────────── */
+.hero{padding:96px 28px 64px;text-align:center}
+.hero-eyebrow{
+  display:inline-flex;align-items:center;gap:8px;
+  background:var(--card);border:var(--border);border-radius:var(--pill);
+  padding:6px 16px;margin-bottom:24px;
+  font-size:12px;font-weight:700;color:var(--ink-dim);box-shadow:var(--shadow-sm);
+}
+.hero-title{
+  font-size:clamp(42px,6.5vw,80px);font-weight:900;color:var(--ink);
+  letter-spacing:-.045em;line-height:.95;margin-bottom:24px;
+}
+.hero-title .red-badge{
+  display:inline-block;background:var(--red);color:#fff;
+  padding:0 16px;border:var(--border);border-radius:12px;transform:rotate(-1.2deg);
+}
+.hero-title .serif{font-family:'Instrument Serif',serif;font-style:italic;font-weight:400}
+.hero-desc{
+  font-size:18px;color:var(--ink-dim);line-height:1.6;
+  max-width:580px;margin:0 auto 36px;font-weight:500;
+}
+
+/* ── What section ───────────────────────────────────────────── */
+.what-grid{display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center}
+.what-visual{
+  border-radius:var(--r);border:var(--border);box-shadow:var(--shadow);
+  overflow:hidden;background:var(--ink);aspect-ratio:4/3;
+  display:flex;flex-direction:column;justify-content:space-between;padding:28px;
+  background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.04) 0 1px,transparent 1px 20px);
+}
+.what-visual-logo{
+  width:56px;height:56px;border-radius:14px;
+  background:#fff;color:var(--ink);
+  display:grid;place-items:center;font-weight:900;font-size:22px;
+  transform:rotate(-4deg);border:var(--border);box-shadow:2px 2px 0 var(--red);
+}
+.what-visual-title{
+  font-size:clamp(28px,3.5vw,44px);font-weight:900;color:#fff;
+  letter-spacing:-.04em;line-height:1;
+}
+.what-visual-title span{color:var(--sky)}
+
+/* ── Roles section ──────────────────────────────────────────── */
+.roles-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.role-card{}
+.role-header{
+  padding:20px;border-bottom:var(--border);
+  display:flex;align-items:center;gap:14px;
+}
+.role-icon{
+  width:48px;height:48px;border-radius:12px;border:var(--border);
+  display:grid;place-items:center;font-size:20px;flex-shrink:0;
+}
+.role-body{padding:20px}
+.role-feature{
+  display:flex;align-items:flex-start;gap:10px;
+  padding:8px 0;border-bottom:1px dashed var(--rule);
+}
+.role-feature:last-child{border-bottom:none}
+.role-dot{
+  width:18px;height:18px;border-radius:5px;flex-shrink:0;margin-top:1px;
+  display:grid;place-items:center;font-size:9px;font-weight:900;color:#fff;
+}
+
+/* ── Features section ───────────────────────────────────────── */
+.features-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:36px}
+.feat-card{padding:24px}
+.feat-icon{
+  width:44px;height:44px;border-radius:12px;border:var(--border);
+  display:grid;place-items:center;font-size:18px;margin-bottom:16px;
+}
+.feat-title{font-size:16px;font-weight:800;color:var(--ink);margin-bottom:8px;letter-spacing:-.01em}
+.feat-desc{font-size:13px;color:var(--ink-dim);line-height:1.6}
+
+/* ── Stats ──────────────────────────────────────────────────── */
+.stats-section{background:var(--ink);border-top:var(--border);border-bottom:var(--border)}
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:0}
+.stat-item{padding:40px 28px;border-right:1px solid rgba(255,255,255,.1)}
+.stat-item:last-child{border-right:none}
+.stat-num{font-size:clamp(40px,5vw,64px);font-weight:900;line-height:1;letter-spacing:-.04em}
+.stat-label{font-size:13px;color:rgba(255,255,255,.6);font-weight:500;margin-top:6px}
+
+/* ── Vision ─────────────────────────────────────────────────── */
+.vision-panel{
+  border-radius:24px;padding:52px;
+  background:var(--red);border:var(--border);box-shadow:var(--shadow);
+  display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center;
+  background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.04) 0 1px,transparent 1px 20px);
+}
+.vision-quote{
+  font-size:clamp(22px,3vw,36px);font-weight:900;color:#fff;
+  letter-spacing:-.03em;line-height:1.1;
+}
+.vision-quote .serif{font-family:'Instrument Serif',serif;font-style:italic;font-weight:400}
+.vision-desc{font-size:15px;color:rgba(255,255,255,.8);line-height:1.7;font-weight:450}
+
+/* ── Footer ─────────────────────────────────────────────────── */
+footer{
+  background:var(--ink);border-top:var(--border);
+  padding:24px 28px;
+  display:flex;justify-content:space-between;align-items:center;
+}
+
+/* ── Responsive ─────────────────────────────────────────────── */
+@media(max-width:860px){
+  .what-grid,.roles-grid,.features-grid{grid-template-columns:1fr}
+  .stats-grid{grid-template-columns:repeat(2,1fr)}
+  .stat-item:nth-child(2){border-right:none}
+  .stat-item:nth-child(3){border-top:1px solid rgba(255,255,255,.1)}
+  .vision-panel{grid-template-columns:1fr;padding:32px 24px;gap:24px}
+  section{padding:48px 20px}
+  .hero{padding:72px 20px 48px}
+  .pub-header-inner{padding:0 16px}
+}
+</style>
+</head>
+<body>
+
+<!-- Memphis background -->
+<div class="memphis-bg" aria-hidden>
+  <!-- left -->
+  <div class="shape" style="--r:-12deg;top:6%;left:3%;width:32px;height:32px;border-radius:50%;background:#e11d2a;border:1.5px solid #0a2f6e;box-shadow:1px 1px 0 #0a2f6e;animation-delay:0s"></div>
+  <div class="shape" style="--r:0deg;top:22%;left:10%;width:44px;height:44px;border-radius:50%;background:transparent;border:2.5px solid #1d4ed8;animation-delay:.6s"></div>
+  <svg class="shape" style="--r:-6deg;top:40%;left:2%;animation-delay:1.1s" width="52" height="21" viewBox="0 0 60 24" fill="none"><path d="M2 12 Q10 2 18 12 T34 12 T50 12 T58 12" stroke="#e11d2a" stroke-width="3.5" stroke-linecap="round"/></svg>
+  <div class="shape" style="--r:14deg;top:64%;left:5%;font-size:28px;color:#0a2f6e;font-weight:900;line-height:1;animation-delay:.4s">+</div>
+  <svg class="shape" style="--r:0deg;top:78%;left:12%;animation-delay:.9s" width="28" height="28" viewBox="0 0 40 40"><path d="M20 4 L36 34 L4 34 Z" fill="#dbeafe" stroke="#0a2f6e" stroke-width="2" stroke-linejoin="round"/></svg>
+  <!-- top -->
+  <div class="shape" style="--r:18deg;top:3%;left:32%;font-size:24px;color:#38bdf8;-webkit-text-stroke:1px #0a2f6e;line-height:1;animation-delay:.3s">✦</div>
+  <div class="shape" style="--r:0deg;top:1%;left:52%;width:38px;height:38px;border-radius:50%;background:transparent;border:2.5px solid #e11d2a;animation-delay:.7s"></div>
+  <div class="shape" style="--r:-4deg;top:8%;left:71%;width:18px;height:18px;border-radius:50%;background:#1d4ed8;border:1.5px solid #0a2f6e;box-shadow:1px 1px 0 #0a2f6e;animation-delay:1.2s"></div>
+  <!-- right -->
+  <div class="shape" style="--r:0deg;top:5%;left:91%;width:50px;height:50px;border-radius:50%;background:transparent;border:2.5px solid #e11d2a;animation-delay:.5s"></div>
+  <svg class="shape" style="--r:10deg;top:26%;left:84%;animation-delay:1.0s" width="48" height="20" viewBox="0 0 60 24" fill="none"><path d="M2 12 Q10 2 18 12 T34 12 T50 12 T58 12" stroke="#1d4ed8" stroke-width="3.5" stroke-linecap="round"/></svg>
+  <div class="shape" style="--r:-16deg;top:56%;left:93%;font-size:26px;color:#38bdf8;-webkit-text-stroke:1px #0a2f6e;line-height:1;animation-delay:.8s">✦</div>
+  <div class="shape" style="--r:12deg;top:74%;left:87%;width:20px;height:20px;border-radius:5px;background:#0a2f6e;border:1.5px solid #0a2f6e;animation-delay:1.3s"></div>
+  <!-- bottom -->
+  <div class="shape" style="--r:0deg;top:90%;left:68%;font-size:26px;color:#e11d2a;font-weight:900;line-height:1;animation-delay:.6s">+</div>
+  <svg class="shape" style="--r:-8deg;top:93%;left:46%;animation-delay:1.0s" width="24" height="24" viewBox="0 0 40 40"><path d="M20 4 L36 34 L4 34 Z" fill="#38bdf8" stroke="#0a2f6e" stroke-width="2" stroke-linejoin="round"/></svg>
+</div>
+
+<!-- Header -->
+<header class="pub-header">
+  <div class="pub-header-inner">
+    <button class="logo">
+      <div class="logo-mark">U</div>
+      <div>
+        <div style="font-size:15px;font-weight:800;color:var(--ink);letter-spacing:-.02em;line-height:1">UniClub</div>
+        <div class="logo-sub">★ UEF · HUB</div>
+      </div>
+    </button>
+    <nav style="display:flex;gap:3px;margin-left:8px">
+      <button class="nav-link">Trang chủ</button>
+      <button class="nav-link">Câu lạc bộ</button>
+      <button class="nav-link active">Về chúng tôi</button>
+      <button class="nav-link">Liên hệ</button>
+    </nav>
+    <div style="flex:1"></div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button class="btn-login">Đăng nhập</button>
+      <button class="btn-register">Đăng ký</button>
+    </div>
+  </div>
+</header>
+
+<!-- Hero -->
+<section class="hero">
+  <div class="rv">
+    <div class="hero-eyebrow">
+      <span style="width:6px;height:6px;border-radius:3px;background:#16a34a;animation:pulse 2s infinite"></span>
+      Nền tảng chính thức · UEF Campus
+    </div>
+  </div>
+  <div class="rv" style="transition-delay:.08s">
+    <h1 class="hero-title">
+      Về<br>
+      <span class="serif">UniClub</span> <span class="red-badge">Hub.</span>
+    </h1>
+  </div>
+  <div class="rv" style="transition-delay:.16s">
+    <p class="hero-desc">
+      Hệ thống quản lý câu lạc bộ sinh viên tập trung — nơi mọi CLB, mọi sự kiện và mọi sinh viên UEF kết nối với nhau trong một nơi duy nhất.
+    </p>
+  </div>
+  <div class="rv" style="transition-delay:.24s">
+    <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+      <button style="height:52px;padding:0 24px;border-radius:var(--r);background:var(--ink);color:#fff;border:var(--border);font-size:15px;font-weight:800;box-shadow:var(--shadow)">Khám phá CLB →</button>
+      <button style="height:52px;padding:0 24px;border-radius:var(--r);background:var(--card);color:var(--ink);border:var(--border);font-size:15px;font-weight:700;box-shadow:var(--shadow)">Đăng ký tài khoản</button>
+    </div>
+  </div>
+</section>
+
+<!-- Marquee -->
+<div class="marquee-strip" style="background:var(--ink);color:#fff">
+  <div class="marquee-inner">
+    <div class="marquee-item">UniClub Hub <span class="marquee-sep">✦</span></div>
+    <div class="marquee-item">42 Câu lạc bộ <span class="marquee-sep">✦</span></div>
+    <div class="marquee-item">3,800+ Sinh viên <span class="marquee-sep">✦</span></div>
+    <div class="marquee-item">Quản lý tuyển thành viên <span class="marquee-sep">✦</span></div>
+    <div class="marquee-item">Sự kiện · Workshop · Gala <span class="marquee-sep">✦</span></div>
+    <div class="marquee-item">UniClub Hub <span class="marquee-sep">✦</span></div>
+    <div class="marquee-item">42 Câu lạc bộ <span class="marquee-sep">✦</span></div>
+    <div class="marquee-item">3,800+ Sinh viên <span class="marquee-sep">✦</span></div>
+    <div class="marquee-item">Quản lý tuyển thành viên <span class="marquee-sep">✦</span></div>
+    <div class="marquee-item">Sự kiện · Workshop · Gala <span class="marquee-sep">✦</span></div>
+    <div class="marquee-item">UniClub Hub <span class="marquee-sep">✦</span></div>
+    <div class="marquee-item">42 Câu lạc bộ <span class="marquee-sep">✦</span></div>
+    <div class="marquee-item">3,800+ Sinh viên <span class="marquee-sep">✦</span></div>
+    <div class="marquee-item">Sự kiện · Workshop · Gala <span class="marquee-sep">✦</span></div>
+    <div class="marquee-item">UniClub Hub <span class="marquee-sep">✦</span></div>
+    <div class="marquee-item">42 Câu lạc bộ <span class="marquee-sep">✦</span></div>
+  </div>
+</div>
+
+<!-- What is UniClub Hub -->
+<section>
+  <div class="inner">
+    <div class="what-grid">
+      <div>
+        <div class="rv">
+          <span class="tag" style="background:var(--ink);color:#fff;margin-bottom:16px">★ Giới thiệu</span>
+          <h2 style="font-size:clamp(28px,4vw,46px);font-weight:900;color:var(--ink);letter-spacing:-.04em;line-height:1;margin-bottom:20px">
+            Một nơi cho tất cả<br>
+            <span style="font-family:'Instrument Serif',serif;font-style:italic;font-weight:400;color:var(--blue)">câu lạc bộ UEF.</span>
+          </h2>
+          <p style="font-size:15px;color:var(--ink-dim);line-height:1.75;margin-bottom:16px;font-weight:450">
+            UniClub Hub là nền tảng quản lý và kết nối câu lạc bộ sinh viên tại Trường Đại học Kinh tế – Tài chính TP.HCM (UEF). Thay vì mỗi CLB tự vận hành bằng form giấy, nhóm chat rời rạc hay bảng tính — tất cả được tập trung vào một hệ thống thống nhất.
+          </p>
+          <p style="font-size:15px;color:var(--ink-dim);line-height:1.75;font-weight:450">
+            Sinh viên tìm CLB, nộp đơn ứng tuyển và theo dõi hoạt động ngay trên web. Ban chủ nhiệm quản lý thành viên, duyệt đơn và tổ chức sự kiện trong một dashboard riêng. Nhà trường có cái nhìn tổng thể về toàn bộ hệ sinh thái CLB.
+          </p>
+        </div>
+        <div class="rv" style="margin-top:28px;display:flex;gap:12px;flex-wrap:wrap;transition-delay:.1s">
+          <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:10px;background:var(--card);border:var(--border);box-shadow:var(--shadow-sm);font-size:13px;font-weight:700">
+            <span style="width:8px;height:8px;border-radius:4px;background:#16a34a"></span> Miễn phí hoàn toàn
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:10px;background:var(--card);border:var(--border);box-shadow:var(--shadow-sm);font-size:13px;font-weight:700">
+            <span style="width:8px;height:8px;border-radius:4px;background:var(--blue)"></span> Dành riêng cho UEF
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:10px;background:var(--card);border:var(--border);box-shadow:var(--shadow-sm);font-size:13px;font-weight:700">
+            <span style="width:8px;height:8px;border-radius:4px;background:var(--red)"></span> Cập nhật liên tục
+          </div>
+        </div>
+      </div>
+
+      <!-- Visual card -->
+      <div class="rv what-visual" style="transition-delay:.12s">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+          <div class="what-visual-logo">U</div>
+          <span class="tag" style="background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.2)">★ UEF Campus</span>
+        </div>
+        <div>
+          <div style="font-size:13px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.6);margin-bottom:10px">Hệ thống CLB sinh viên</div>
+          <div class="what-visual-title">42 CLB<br><span>·</span> 1 nền tảng<span>.</span></div>
+        </div>
+        <!-- mini stats row -->
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:rgba(255,255,255,.12);border-radius:10px;overflow:hidden;border:1px solid rgba(255,255,255,.12)">
+          <div style="padding:12px;background:rgba(255,255,255,.05);text-align:center">
+            <div style="font-size:22px;font-weight:900;color:#fff;line-height:1">42</div>
+            <div style="font-size:10px;color:rgba(255,255,255,.55);margin-top:3px">CLB</div>
+          </div>
+          <div style="padding:12px;background:rgba(255,255,255,.05);text-align:center">
+            <div style="font-size:22px;font-weight:900;color:#fff;line-height:1">3.8K</div>
+            <div style="font-size:10px;color:rgba(255,255,255,.55);margin-top:3px">Sinh viên</div>
+          </div>
+          <div style="padding:12px;background:rgba(255,255,255,.05);text-align:center">
+            <div style="font-size:22px;font-weight:900;color:#93c5fd;line-height:1">120+</div>
+            <div style="font-size:10px;color:rgba(255,255,255,.55);margin-top:3px">Sự kiện/năm</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Stats bar -->
+<div class="stats-section">
+  <div class="inner">
+    <div class="stats-grid">
+      <div class="stat-item rv">
+        <div class="stat-num" style="color:#93c5fd">42</div>
+        <div class="stat-label">Câu lạc bộ đang hoạt động</div>
+      </div>
+      <div class="stat-item rv" style="transition-delay:.08s">
+        <div class="stat-num" style="color:#fca5a5">3,800+</div>
+        <div class="stat-label">Sinh viên đã tham gia</div>
+      </div>
+      <div class="stat-item rv" style="transition-delay:.16s">
+        <div class="stat-num" style="color:#86efac">120+</div>
+        <div class="stat-label">Sự kiện được tổ chức mỗi năm</div>
+      </div>
+      <div class="stat-item rv" style="transition-delay:.24s">
+        <div class="stat-num" style="color:#7dd3fc">6</div>
+        <div class="stat-label">Lĩnh vực: Học thuật, Văn nghệ, Công nghệ...</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 3 roles -->
+<section>
+  <div class="inner">
+    <div class="rv" style="margin-bottom:40px">
+      <span class="tag" style="background:var(--red);color:#fff;margin-bottom:14px">★ Ai dùng được?</span>
+      <h2 style="font-size:clamp(26px,4vw,44px);font-weight:900;color:var(--ink);letter-spacing:-.04em;line-height:1">
+        Thiết kế cho <span style="font-family:'Instrument Serif',serif;font-style:italic;font-weight:400">mọi sinh viên.</span>
+      </h2>
+    </div>
+    <div class="roles-grid">
+
+      <!-- Sinh viên -->
+      <div class="card card-lift rv">
+        <div class="role-header" style="background:#eff6ff">
+          <div class="role-icon" style="background:var(--blue);color:#fff">👤</div>
+          <div>
+            <div style="font-size:16px;font-weight:800;color:var(--ink)">Sinh viên</div>
+            <div style="font-size:12px;color:var(--ink-dim);margin-top:2px">Người dùng phổ thông</div>
+          </div>
+        </div>
+        <div class="role-body">
+          <div class="role-feature">
+            <div class="role-dot" style="background:var(--blue)">✓</div>
+            <div>
+              <div style="font-size:13.5px;font-weight:700;color:var(--ink);margin-bottom:2px">Khám phá 42 CLB</div>
+              <div style="font-size:12px;color:var(--ink-dim)">Tìm CLB theo lĩnh vực, xem thông tin và lịch hoạt động</div>
+            </div>
+          </div>
+          <div class="role-feature">
+            <div class="role-dot" style="background:var(--blue)">✓</div>
+            <div>
+              <div style="font-size:13.5px;font-weight:700;color:var(--ink);margin-bottom:2px">Nộp đơn ứng tuyển online</div>
+              <div style="font-size:12px;color:var(--ink-dim)">Điền form, theo dõi trạng thái đơn ngay trên dashboard</div>
+            </div>
+          </div>
+          <div class="role-feature">
+            <div class="role-dot" style="background:var(--blue)">✓</div>
+            <div>
+              <div style="font-size:13.5px;font-weight:700;color:var(--ink);margin-bottom:2px">Quản lý hoạt động cá nhân</div>
+              <div style="font-size:12px;color:var(--ink-dim)">Lịch sử tham gia, task được giao, KPI cá nhân</div>
+            </div>
+          </div>
+          <div class="role-feature">
+            <div class="role-dot" style="background:var(--blue)">✓</div>
+            <div>
+              <div style="font-size:13.5px;font-weight:700;color:var(--ink);margin-bottom:2px">Nhận thông báo thời gian thực</div>
+              <div style="font-size:12px;color:var(--ink-dim)">Cập nhật từ CLB và sự kiện sắp tới</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Ban chủ nhiệm -->
+      <div class="card card-lift rv" style="transition-delay:.08s">
+        <div class="role-header" style="background:#fff0f0">
+          <div class="role-icon" style="background:var(--red);color:#fff">⚙</div>
+          <div>
+            <div style="font-size:16px;font-weight:800;color:var(--ink)">Ban chủ nhiệm</div>
+            <div style="font-size:12px;color:var(--ink-dim);margin-top:2px">Quản lý CLB</div>
+          </div>
+        </div>
+        <div class="role-body">
+          <div class="role-feature">
+            <div class="role-dot" style="background:var(--red)">✓</div>
+            <div>
+              <div style="font-size:13.5px;font-weight:700;color:var(--ink);margin-bottom:2px">Duyệt đơn ứng tuyển</div>
+              <div style="font-size:12px;color:var(--ink-dim)">Pipeline tuyển thành viên nhiều vòng, phân quyền duyệt</div>
+            </div>
+          </div>
+          <div class="role-feature">
+            <div class="role-dot" style="background:var(--red)">✓</div>
+            <div>
+              <div style="font-size:13.5px;font-weight:700;color:var(--ink);margin-bottom:2px">Quản lý thành viên & phòng ban</div>
+              <div style="font-size:12px;color:var(--ink-dim)">Sơ đồ tổ chức, vị trí, phân quyền từng ban</div>
+            </div>
+          </div>
+          <div class="role-feature">
+            <div class="role-dot" style="background:var(--red)">✓</div>
+            <div>
+              <div style="font-size:13.5px;font-weight:700;color:var(--ink);margin-bottom:2px">Tổ chức sự kiện & task</div>
+              <div style="font-size:12px;color:var(--ink-dim)">Gantt, Kanban, lịch sự kiện, báo cáo hoạt động</div>
+            </div>
+          </div>
+          <div class="role-feature">
+            <div class="role-dot" style="background:var(--red)">✓</div>
+            <div>
+              <div style="font-size:13.5px;font-weight:700;color:var(--ink);margin-bottom:2px">Theo dõi KPI thành viên</div>
+              <div style="font-size:12px;color:var(--ink-dim)">Đặt mục tiêu, chấm điểm, xuất báo cáo</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Admin nhà trường -->
+      <div class="card card-lift rv" style="transition-delay:.16s">
+        <div class="role-header" style="background:#f0fdf4">
+          <div class="role-icon" style="background:#16a34a;color:#fff">🏫</div>
+          <div>
+            <div style="font-size:16px;font-weight:800;color:var(--ink)">Admin nhà trường</div>
+            <div style="font-size:12px;color:var(--ink-dim);margin-top:2px">Quản trị hệ thống</div>
+          </div>
+        </div>
+        <div class="role-body">
+          <div class="role-feature">
+            <div class="role-dot" style="background:#16a34a">✓</div>
+            <div>
+              <div style="font-size:13.5px;font-weight:700;color:var(--ink);margin-bottom:2px">Tổng quan toàn hệ thống</div>
+              <div style="font-size:12px;color:var(--ink-dim)">Dashboard thống kê tất cả CLB, thành viên, đơn đăng ký</div>
+            </div>
+          </div>
+          <div class="role-feature">
+            <div class="role-dot" style="background:#16a34a">✓</div>
+            <div>
+              <div style="font-size:13.5px;font-weight:700;color:var(--ink);margin-bottom:2px">Quản lý CLB & người dùng</div>
+              <div style="font-size:12px;color:var(--ink-dim)">Tạo CLB, phân quyền, quản lý tài khoản toàn trường</div>
+            </div>
+          </div>
+          <div class="role-feature">
+            <div class="role-dot" style="background:#16a34a">✓</div>
+            <div>
+              <div style="font-size:13.5px;font-weight:700;color:var(--ink);margin-bottom:2px">Cấu hình trang chủ</div>
+              <div style="font-size:12px;color:var(--ink-dim)">Slider banner, thông báo toàn trường, lĩnh vực CLB</div>
+            </div>
+          </div>
+          <div class="role-feature">
+            <div class="role-dot" style="background:#16a34a">✓</div>
+            <div>
+              <div style="font-size:13.5px;font-weight:700;color:var(--ink);margin-bottom:2px">Nhật ký & báo cáo</div>
+              <div style="font-size:12px;color:var(--ink-dim)">Audit log toàn hệ thống, xuất báo cáo theo kỳ</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- Features -->
+<section style="padding-top:0">
+  <div class="inner">
+    <div class="rv" style="margin-bottom:8px">
+      <span class="tag" style="background:var(--blue);color:#fff;margin-bottom:14px">★ Tính năng</span>
+      <h2 style="font-size:clamp(26px,4vw,44px);font-weight:900;color:var(--ink);letter-spacing:-.04em;line-height:1">
+        Đầy đủ công cụ <span style="font-family:'Instrument Serif',serif;font-style:italic;font-weight:400">để vận hành CLB.</span>
+      </h2>
+    </div>
+    <div class="features-grid">
+
+      <div class="card feat-card rv card-lift">
+        <div class="feat-icon" style="background:#eff6ff;color:var(--blue)">📋</div>
+        <div class="feat-title">Tuyển thành viên tự động</div>
+        <div class="feat-desc">Form đăng ký tùy chỉnh, pipeline nhiều vòng, thông báo kết quả tự động — không cần quản lý bằng Excel.</div>
+      </div>
+
+      <div class="card feat-card rv card-lift" style="transition-delay:.06s">
+        <div class="feat-icon" style="background:#fff0f0;color:var(--red)">📊</div>
+        <div class="feat-title">KPI & đánh giá thành viên</div>
+        <div class="feat-desc">Đặt mục tiêu theo kỳ, chấm điểm hoạt động, xem báo cáo đóng góp từng thành viên.</div>
+      </div>
+
+      <div class="card feat-card rv card-lift" style="transition-delay:.12s">
+        <div class="feat-icon" style="background:#f0fdf4;color:#16a34a">📅</div>
+        <div class="feat-title">Quản lý sự kiện & lịch</div>
+        <div class="feat-desc">Tạo sự kiện, theo dõi đăng ký tham dự, xem lịch tổng hợp theo tháng.</div>
+      </div>
+
+      <div class="card feat-card rv card-lift" style="transition-delay:.18s">
+        <div class="feat-icon" style="background:#eff6ff;color:var(--blue)">✅</div>
+        <div class="feat-title">Kanban & Gantt tasks</div>
+        <div class="feat-desc">Giao task, theo dõi tiến độ dự án, phân công công việc trong ban theo thời gian thực.</div>
+      </div>
+
+      <div class="card feat-card rv card-lift" style="transition-delay:.24s">
+        <div class="feat-icon" style="background:#fefce8;color:#ca8a04">🔔</div>
+        <div class="feat-title">Thông báo thời gian thực</div>
+        <div class="feat-desc">Cập nhật ngay khi có đơn mới, task được giao, sự kiện sắp tới hoặc thay đổi trong CLB.</div>
+      </div>
+
+      <div class="card feat-card rv card-lift" style="transition-delay:.30s">
+        <div class="feat-icon" style="background:#fdf2f8;color:#9d174d">🏛</div>
+        <div class="feat-title">Sơ đồ tổ chức</div>
+        <div class="feat-desc">Cấu trúc CLB rõ ràng — ban bộ phận, vị trí, quyền hạn từng thành viên trong hệ thống phân cấp.</div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- Vision -->
+<section>
+  <div class="inner">
+    <div class="vision-panel rv">
+      <div>
+        <span class="tag" style="background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.25);margin-bottom:20px">★ Tầm nhìn</span>
+        <div class="vision-quote">
+          Xây dựng cộng đồng CLB<br>
+          <span class="serif">sinh viên UEF</span><br>
+          vững mạnh và bền vững.
+        </div>
+      </div>
+      <div>
+        <p class="vision-desc" style="margin-bottom:20px">
+          UniClub Hub hướng đến việc số hóa toàn bộ hoạt động câu lạc bộ sinh viên — từ tuyển thành viên, vận hành nội bộ đến báo cáo lên nhà trường — giúp sinh viên có nhiều thời gian hơn để tập trung vào điều thực sự quan trọng: <strong style="color:#fff">trải nghiệm và phát triển bản thân.</strong>
+        </p>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <button style="height:44px;padding:0 20px;border-radius:var(--pill);background:#fff;color:var(--red);border:var(--border);font-size:13px;font-weight:800;box-shadow:var(--shadow-sm)">Tham gia ngay →</button>
+          <button style="height:44px;padding:0 20px;border-radius:var(--pill);background:transparent;color:#fff;border:1px solid rgba(255,255,255,.4);font-size:13px;font-weight:700">Xem danh sách CLB</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Footer marquee -->
+<div class="marquee-strip" style="background:var(--red);color:#fff;border-color:var(--ink)">
+  <div class="marquee-inner" style="animation-direction:reverse">
+    <div class="marquee-item">UEF English Club <span class="marquee-sep">✦</span></div>
+    <div class="marquee-item">Marketing Club <span class="marquee-sep">✦</span></div>
+    <div class="marquee-item">IT Society <span class="marquee-sep">✦</span></div>
+    <div class="marquee-item">Volunteer Club <span class="marquee-sep">✦</span></div>
+    <div class="marquee-item">Dance Crew UEF <span class="marquee-sep">✦</span></div>
+    <div class="marquee-item">Photography Club <span class="marquee-sep">✦</span></div>
+    <div class="marquee-item">Startup Hub <span class="marquee-sep">✦</span></div>
+    <div class="marquee-item">Debate Society <span class="marquee-sep">✦</span></div>
+    <div class="marquee-item">UEF English Club <span class="marquee-sep">✦</span></div>
+    <div class="marquee-item">Marketing Club <span class="marquee-sep">✦</span></div>
+    <div class="marquee-item">IT Society <span class="marquee-sep">✦</span></div>
+    <div class="marquee-item">Volunteer Club <span class="marquee-sep">✦</span></div>
+    <div class="marquee-item">Dance Crew UEF <span class="marquee-sep">✦</span></div>
+    <div class="marquee-item">Photography Club <span class="marquee-sep">✦</span></div>
+  </div>
+</div>
+
+<!-- Footer -->
+<footer>
+  <div style="display:flex;align-items:center;gap:10px">
+    <div style="width:28px;height:28px;border-radius:7px;background:#fff;color:var(--ink);display:grid;place-items:center;font-weight:900;font-size:12px;transform:rotate(-3deg);box-shadow:2px 2px 0 var(--red)">U</div>
+    <span style="font-size:14px;font-weight:800;color:#93c5fd">UniClub Hub</span>
+  </div>
+  <span style="font-size:12px;color:rgba(255,255,255,.5)">© 2026 · Đại học Kinh tế Tài chính TP.HCM</span>
+  <div style="display:flex;gap:16px">
+    <button style="background:none;border:none;color:rgba(255,255,255,.55);font-size:13px;font-weight:600">Câu lạc bộ</button>
+    <button style="background:none;border:none;color:rgba(255,255,255,.55);font-size:13px;font-weight:600">Liên hệ</button>
+    <button style="background:none;border:none;color:rgba(255,255,255,.55);font-size:13px;font-weight:600">Đăng nhập</button>
+  </div>
+</footer>
+
+<style>
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+</style>
+
+<script>
+  // Scroll reveal
+  const io = new IntersectionObserver(entries => {
+    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('seen'); io.unobserve(e.target) } })
+  }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' })
+  document.querySelectorAll('.rv').forEach(el => io.observe(el))
+</script>
+</body>
+</html>
