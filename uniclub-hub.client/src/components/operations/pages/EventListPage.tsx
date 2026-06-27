@@ -11,23 +11,9 @@ import { useAuth } from '@/contexts/AuthContext'
 import { CLUB_ROLES } from '@/types/auth'
 import { getEvents, createEvent, updateEvent, deleteEvent } from '../services/operationsApi'
 import type { EventItem, CreateEventDto, UpdateEventDto, EventStatus } from '../services/operations.types'
+import { D } from '@/components/shared/managementTheme'
 
 /* ─── Design tokens ──────────────────────────────────────────────────────── */
-
-const D = {
-  border: '1.5px solid var(--c-ink)',
-  borderLight: '1px solid #e8e3d6',
-  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 var(--c-ink)`,
-  radius: 14,
-  pill: 999,
-  ink: 'var(--c-ink)',
-  inkDim: '#4a4651',
-  inkMuted: '#918c99',
-  bg: 'var(--c-bg)',
-  card: '#ffffff',
-  indigo: '#4f46e5',
-  red: '#ef4444',
-}
 
 /* ─── Config ──────────────────────────────────────────────────────────────── */
 
@@ -47,7 +33,7 @@ const EMPTY_FORM: CreateEventDto = { name: '', description: '', location: '', st
 const inputStyle: React.CSSProperties = {
   width: '100%', padding: '8px 12px', fontSize: 13, fontWeight: 500,
   border: '1.5px solid #c4bfb0', borderRadius: 8, outline: 'none',
-  background: '#fff', color: 'var(--c-ink)', fontFamily: "'Be Vietnam Pro', sans-serif",
+  background: '#fff', color: '#0a2f6e', fontFamily: "'Be Vietnam Pro', sans-serif",
   boxSizing: 'border-box',
 }
 
@@ -133,7 +119,7 @@ export default function EventListPage() {
     padding: '5px 14px', fontSize: 11, fontWeight: 700, cursor: 'pointer',
     border: D.border, borderRadius: D.pill,
     background: active ? D.ink : D.card,
-    color: active ? '#facc15' : D.inkDim,
+    color: active ? '#ffffff' : D.inkDim,
     boxShadow: active ? D.shadow(2, 2) : 'none',
     fontFamily: 'inherit',
   })
@@ -152,7 +138,7 @@ export default function EventListPage() {
             onClick={openCreate}
             style={{
               display: 'flex', alignItems: 'center', gap: 6, padding: '9px 18px',
-              background: D.ink, color: '#facc15', border: D.border,
+              background: D.ink, color: '#ffffff', border: D.border,
               boxShadow: D.shadow(), borderRadius: D.pill,
               fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit',
             }}
@@ -273,7 +259,7 @@ export default function EventListPage() {
             <button type="button" onClick={() => setModalOpen(false)} style={{ padding: '8px 18px', fontSize: 13, fontWeight: 700, border: D.border, borderRadius: D.radius, background: D.card, color: D.inkDim, cursor: 'pointer', fontFamily: 'inherit' }}>
               Hủy
             </button>
-            <button type="button" onClick={handleSave} disabled={saving} style={{ padding: '8px 20px', fontSize: 13, fontWeight: 900, border: D.border, borderRadius: D.radius, background: saving ? '#6b7280' : D.ink, color: '#facc15', cursor: saving ? 'not-allowed' : 'pointer', boxShadow: saving ? 'none' : D.shadow(2, 2), fontFamily: 'inherit' }}>
+            <button type="button" onClick={handleSave} disabled={saving} style={{ padding: '8px 20px', fontSize: 13, fontWeight: 900, border: D.border, borderRadius: D.radius, background: saving ? '#6b7280' : D.ink, color: '#ffffff', cursor: saving ? 'not-allowed' : 'pointer', boxShadow: saving ? 'none' : D.shadow(2, 2), fontFamily: 'inherit' }}>
               {saving ? 'Đang lưu...' : editTarget ? 'Lưu thay đổi' : 'Tạo sự kiện'}
             </button>
           </DialogFooter>

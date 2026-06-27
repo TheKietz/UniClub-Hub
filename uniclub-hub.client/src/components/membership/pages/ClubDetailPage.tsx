@@ -1,9 +1,10 @@
 import { MEMBERSHIP_STATUS, CLUB_ROLES } from '@/types/auth'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useDeferredEffect } from '@/hooks/useDeferredEffect'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { getClubDetail, getDepartments, getFormSchema, getMemberFieldSchema, getMyApplications, submitApplication, resignFromClub, submitResignation, getUserResignations, uploadApplicationFile } from '@/components/membership/services/clubApi'
 import type { ClubDetail, DepartmentItem, FormSchema, MemberFieldDef, ApplicationItem, ResignationRequestItem, ResignationPreference } from '@/components/membership/services/club.types'
-import { useAuth } from '@/contexts/AuthContext'
+import { useAuth } from '@/hooks/useAuth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -13,6 +14,7 @@ import { Tree, TreeNode } from 'react-organizational-chart'
 import PublicHeader from '@/components/layouts/PublicHeader'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { FilterSelect } from '@/components/shared/FilterSelect'
+import { getApiErrorMessage } from '@/lib/apiError'
 
 const AVATAR_COLORS = ['bg-indigo-500', 'bg-emerald-500', 'bg-violet-500', 'bg-rose-500', 'bg-amber-500', 'bg-cyan-500']
 
@@ -52,6 +54,20 @@ export default function ClubDetailPage() {
   const isMember = membership && (membership.status === MEMBERSHIP_STATUS.ACTIVE || membership.status === MEMBERSHIP_STATUS.PROBATION)
   const isLeader = membership?.clubRole === CLUB_ROLES.CLUB_ADMIN || membership?.clubRole === CLUB_ROLES.DEPT_LEAD
 
+  const linkedFieldIds = useMemo(
+    () => new Set(
+      (schema?.fields ?? [])
+        .map(f => f.linkedFieldId)
+        .filter((fid): fid is string => !!fid),
+    ),
+    [schema],
+  )
+
+  const unlinkedMemberFields = useMemo(
+    () => fieldSchema.filter(f => !linkedFieldIds.has(f.id)),
+    [fieldSchema, linkedFieldIds],
+  )
+
   // Load đơn từ chức đang chờ (nếu là leader)
   useEffect(() => {
     if (!isAuthenticated || !isMember || !isLeader || !user) return
@@ -69,8 +85,8 @@ export default function ClubDetailPage() {
       await resignFromClub(id)
       toast.success('Đã rời khỏi CLB.')
       navigate('/clubs')
-    } catch (err: any) {
-      toast.error(err.response?.data?.message ?? 'Thao tác thất bại.')
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'Thao tác thất bại.'))
       setResignOpen(false)
     } finally {
       setResigning(false)
@@ -84,15 +100,16 @@ export default function ClubDetailPage() {
       setResignRequest(result)
       setResignOpen(false)
       toast.success('Đã gửi đơn từ chức. Vui lòng chờ phê duyệt.')
-    } catch (err: any) {
-      toast.error(err.response?.data?.message ?? 'Gửi đơn thất bại.')
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'Gửi đơn thất bại.'))
     } finally {
       setResigning(false)
     }
   }
 
-  useEffect(() => {
-    const tasks: Promise<any>[] = [
+  useDeferredEffect((isCancelled) => {
+    setLoading(true)
+    const tasks: Promise<void>[] = [
       getClubDetail(id).then(setClub),
       getDepartments(id).then(setDepartments),
       getFormSchema(id).then(s => setSchema(s)),
@@ -111,8 +128,8 @@ export default function ClubDetailPage() {
       )
     }
     Promise.all(tasks)
-      .catch(() => toast.error('Không thể tải thông tin CLB.'))
-      .finally(() => setLoading(false))
+      .catch(() => { if (!isCancelled()) toast.error('Không thể tải thông tin CLB.') })
+      .finally(() => { if (!isCancelled()) setLoading(false) })
   }, [id, isAuthenticated])
 
   async function handleSubmit(e: React.FormEvent) {
@@ -126,8 +143,8 @@ export default function ClubDetailPage() {
         return
       }
     }
-    if (fieldSchema.length > 0) {
-      const missingMemberFields = fieldSchema.filter(f => f.required && !memberFieldAnswers[f.id]?.trim())
+    if (unlinkedMemberFields.length > 0) {
+      const missingMemberFields = unlinkedMemberFields.filter(f => f.required && !memberFieldAnswers[f.id]?.trim())
       if (missingMemberFields.length > 0) {
         toast.error(`Vui lòng điền: ${missingMemberFields.map(f => f.label).join(', ')}`)
         return
@@ -148,14 +165,20 @@ export default function ClubDetailPage() {
       }
 
       setSubmitStatus('submitting')
+      const memberFieldData: Record<string, string> = { ...memberFieldAnswers }
+      for (const field of schema?.fields ?? []) {
+        if (field.linkedFieldId && finalAnswers[field.id]?.trim()) {
+          memberFieldData[field.linkedFieldId] = finalAnswers[field.id]
+        }
+      }
       await submitApplication(id, {
         answers: schema ? finalAnswers : { note: finalAnswers['note'] ?? '' },
-        ...(fieldSchema.length > 0 ? { memberFieldData: memberFieldAnswers } : {}),
+        ...(Object.keys(memberFieldData).length > 0 ? { memberFieldData } : {}),
       })
       setSubmitted(true)
       toast.success('Đã gửi đơn đăng ký thành công!')
-    } catch (err: any) {
-      toast.error(err.response?.data?.message ?? 'Gửi đơn thất bại.')
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'Gửi đơn thất bại.'))
     } finally {
       setSubmitting(false)
       setSubmitStatus('idle')
@@ -200,7 +223,7 @@ export default function ClubDetailPage() {
 
             {/* Club header card */}
             <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-              <div className="h-1" style={{ background: 'linear-gradient(90deg, #4f46e5, #7c3aed)' }} />
+              <div className="h-1" style={{ background: 'linear-gradient(90deg, #1d4ed8, #7c3aed)' }} />
               <div className="p-6">
                 <div className="flex items-start gap-4">
                   {club.logoUrl ? (
@@ -379,7 +402,9 @@ export default function ClubDetailPage() {
                               onChange={value => setAnswers(p => ({ ...p, [f.id]: value }))}
                               options={[
                                 { value: '', label: '— Chọn —' },
-                                ...(f.options ?? []).map(o => ({ value: o, label: o })),
+                                ...((f.linkedFieldId
+                                  ? fieldSchema.find(mf => mf.id === f.linkedFieldId)?.options
+                                  : f.options) ?? []).map(o => ({ value: o, label: o })),
                               ]}
                             />
                           ) : f.type === 'file' ? (
@@ -424,12 +449,12 @@ export default function ClubDetailPage() {
                           className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500" />
                       </div>
                     )}
-                    {fieldSchema.length > 0 && (
+                    {unlinkedMemberFields.length > 0 && (
                       <div className="border-t border-gray-100 pt-3 mt-1 space-y-3">
                         <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
                           Thông tin hồ sơ thành viên
                         </p>
-                        {fieldSchema.map(f => (
+                        {unlinkedMemberFields.map(f => (
                           <div key={f.id} className="space-y-1.5">
                             <Label className="text-xs text-gray-600">
                               {f.label}{f.required && <span className="text-red-500 ml-0.5">*</span>}

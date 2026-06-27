@@ -1,9 +1,15 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { getFormSchema, updateFormSchema } from '@/components/membership/services/clubApi'
-import type { FormField, FormFieldType } from '@/components/membership/services/club.types'
+import { getFormSchema, getMemberFieldSchema, updateFormSchema } from '@/components/membership/services/clubApi'
+import type { FormField, FormFieldType, MemberFieldDef } from '@/components/membership/services/club.types'
 import { toast } from 'sonner'
 import { ChevronDown } from 'lucide-react'
+import { D } from '@/components/shared/managementTheme'
+import { PermissionDenied } from '@/components/shared/Can'
+import { useClubPermissions } from '@/hooks/useClubPermissions'
+import { CLUB_PERMISSIONS } from '@/constants/clubPermissions'
+import { useUnsavedNavigationGuard } from '@/hooks/useUnsavedNavigationGuard'
+import type { SettingsTabChildProps } from './settingsTabTypes'
 
 const FIELD_TYPES: { value: FormFieldType; label: string }[] = [
   { value: 'text',     label: 'Văn bản ngắn' },
@@ -13,10 +19,10 @@ const FIELD_TYPES: { value: FormFieldType; label: string }[] = [
 ]
 
 const TYPE_STYLE: Record<string, { bg: string; label: string }> = {
-  text:     { bg: '#4f46e5', label: 'VĂN BẢN NGẮN' },
+  text:     { bg: '#1d4ed8', label: 'VĂN BẢN NGẮN' },
   textarea: { bg: '#7c3aed', label: 'VĂN BẢN DÀI' },
   select:   { bg: '#f59e0b', label: 'CHỌN MỘT' },
-  file:     { bg: 'var(--c-accent)', label: 'TẢI FILE' },
+  file:     { bg: '#ff5a3c', label: 'TẢI FILE' },
 }
 
 const FILE_TYPE_OPTIONS = [
@@ -31,14 +37,6 @@ const FILE_TYPE_OPTIONS = [
   { value: '.png',  label: 'PNG' },
   { value: '.zip',  label: 'ZIP' },
 ]
-
-const D = {
-  border: '1.5px solid var(--c-ink)', borderLight: '1px solid #e8e3d6',
-  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 var(--c-ink)`,
-  radius: 14, pill: 999,
-  ink: 'var(--c-ink)', inkDim: '#4a4651', inkMuted: '#918c99',
-  bg: 'var(--c-bg)', card: '#ffffff', indigo: '#4f46e5',
-}
 
 const inputS: React.CSSProperties = {
   width: '100%', height: 44, borderRadius: 10, border: D.borderLight,
@@ -125,20 +123,48 @@ function newField(): FormField {
   return { id: crypto.randomUUID(), label: '', type: 'text', required: false }
 }
 
-export default function FormSchemaPage() {
+export default function FormSchemaPage({ onDirtyChange, onBindHandles }: SettingsTabChildProps = {}) {
   const { clubId } = useParams<{ clubId: string }>()
   const id = Number(clubId)
+  const clubPermissions = useClubPermissions(id)
+  const canManage = clubPermissions.can(CLUB_PERMISSIONS.RECRUITMENT_FORM_MANAGE)
 
   const [fields, setFields] = useState<FormField[]>([])
+  const [memberFields, setMemberFields] = useState<MemberFieldDef[]>([])
+  const [baseline, setBaseline] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
-    getFormSchema(id)
-      .then(schema => { if (schema) setFields(schema.fields) })
+    Promise.all([
+      getFormSchema(id),
+      getMemberFieldSchema(id).catch(() => [] as MemberFieldDef[]),
+    ])
+      .then(([schema, memberSchema]) => {
+        const next = schema?.fields ?? []
+        setFields(next)
+        setMemberFields(memberSchema)
+        setBaseline(JSON.stringify(next))
+      })
       .catch(() => toast.error('Không thể tải form schema.'))
       .finally(() => setLoading(false))
   }, [id])
+
+  function compatibleMemberFields(field: FormField): MemberFieldDef[] {
+    if (field.type === 'file') return []
+    return memberFields.filter(mf => mf.type === field.type)
+  }
+
+  function setLinkedField(index: number, linkedFieldId: string | undefined) {
+    const field = fields[index]
+    const linked = linkedFieldId
+      ? memberFields.find(mf => mf.id === linkedFieldId)
+      : undefined
+    updateField(index, {
+      linkedFieldId: linkedFieldId || undefined,
+      options: linked?.type === 'select' ? undefined : field.options,
+    })
+  }
 
   function updateField(index: number, patch: Partial<FormField>) {
     setFields(prev => prev.map((f, i) => i === index ? { ...f, ...patch } : f))
@@ -166,18 +192,73 @@ export default function FormSchemaPage() {
     setFields(arr)
   }
 
-  async function handleSave() {
-    if (fields.find(f => !f.label.trim())) { toast.error('Vui lòng điền đầy đủ tiêu đề câu hỏi.'); return }
+  const isDirty = !loading && baseline !== '' && JSON.stringify(fields) !== baseline
+
+  useEffect(() => {
+    onDirtyChange?.(isDirty)
+  }, [isDirty, onDirtyChange])
+
+  const discard = useCallback(() => {
+    if (!baseline) return
+    setFields(JSON.parse(baseline) as FormField[])
+  }, [baseline])
+
+  const handleSave = useCallback(async (): Promise<boolean> => {
+    if (fields.find(f => !f.label.trim())) {
+      toast.error('Vui lòng điền đầy đủ tiêu đề câu hỏi.')
+      return false
+    }
+    const linkedIds = fields.map(f => f.linkedFieldId).filter((v): v is string => !!v)
+    const seen = new Set<string>()
+    for (const linkedId of linkedIds) {
+      if (seen.has(linkedId)) {
+        const mf = memberFields.find(f => f.id === linkedId)
+        toast.error(`Trường «${mf?.label ?? linkedId}» đã được liên kết với nhiều hơn 1 câu hỏi.`)
+        return false
+      }
+      seen.add(linkedId)
+    }
+    for (const field of fields) {
+      if (!field.linkedFieldId) continue
+      const mf = memberFields.find(f => f.id === field.linkedFieldId)
+      if (!mf) {
+        toast.error(`Câu hỏi «${field.label}» liên kết tới trường không tồn tại.`)
+        return false
+      }
+      if (field.type !== 'file' && mf.type !== field.type) {
+        toast.error(`Câu hỏi «${field.label}» và trường «${mf.label}» không cùng kiểu dữ liệu.`)
+        return false
+      }
+    }
     setSaving(true)
     try {
       await updateFormSchema(id, { fields })
+      setBaseline(JSON.stringify(fields))
       toast.success('Đã lưu form đăng ký.')
+      return true
     } catch {
       toast.error('Lưu thất bại.')
+      return false
     } finally {
       setSaving(false)
     }
-  }
+  }, [fields, id, memberFields])
+
+  useEffect(() => {
+    onBindHandles?.({ save: handleSave, discard })
+    return () => onBindHandles?.(null)
+  }, [discard, handleSave, onBindHandles])
+
+  const embedded = onDirtyChange != null
+  useUnsavedNavigationGuard({
+    when: isDirty && !embedded,
+    onSave: handleSave,
+    onDiscard: discard,
+    description: 'Bạn có thay đổi chưa lưu trong form đăng ký. Lưu trước khi rời trang?',
+  })
+
+  if (!clubPermissions.loading && !canManage)
+    return <PermissionDenied />
 
   if (loading) return (
     <div style={{ padding: '28px 32px', color: D.inkMuted, fontSize: 13, fontFamily: "'Be Vietnam Pro', sans-serif" }}>Đang tải...</div>
@@ -191,8 +272,8 @@ export default function FormSchemaPage() {
           <h1 style={{ fontSize: 24, fontWeight: 900, color: D.ink, letterSpacing: '-.025em', margin: 0 }}>Form đăng ký</h1>
           <p style={{ fontSize: 13, color: D.inkMuted, marginTop: 4 }}>Tuỳ chỉnh câu hỏi cho đơn ứng tuyển CLB</p>
         </div>
-        <button onClick={handleSave} disabled={saving} style={{
-          background: D.ink, color: '#facc15', border: D.border, boxShadow: D.shadow(2, 2),
+        <button onClick={() => void handleSave()} disabled={saving} style={{
+          background: D.ink, color: '#ffffff', border: D.border, boxShadow: D.shadow(2, 2),
           padding: '10px 22px', borderRadius: D.pill, fontSize: 13, fontWeight: 800,
           cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1, fontFamily: 'inherit', flexShrink: 0,
         }}>
@@ -218,6 +299,11 @@ export default function FormSchemaPage() {
         {fields.map((field, i) => {
           const ts = TYPE_STYLE[field.type] ?? TYPE_STYLE.text
           const numBg = ts.bg
+          const linkable = field.type !== 'file'
+          const linkedMember = field.linkedFieldId
+            ? memberFields.find(mf => mf.id === field.linkedFieldId)
+            : undefined
+          const compatibleFields = compatibleMemberFields(field)
           return (
             <div key={field.id} style={{ background: D.card, border: D.border, borderRadius: D.radius, boxShadow: D.shadow(), padding: '18px 20px' }}>
               {/* Card header */}
@@ -252,7 +338,19 @@ export default function FormSchemaPage() {
               <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12 }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <label style={labelS}>Loại trả lời</label>
-                  <FieldTypeSelect value={field.type} onChange={v => updateField(i, { type: v, options: [] })} />
+                  <FieldTypeSelect
+                    value={field.type}
+                    onChange={v => {
+                      const keepLink = v !== 'file'
+                        && field.linkedFieldId
+                        && memberFields.find(mf => mf.id === field.linkedFieldId)?.type === v
+                      updateField(i, {
+                        type: v,
+                        options: [],
+                        linkedFieldId: keepLink ? field.linkedFieldId : undefined,
+                      })
+                    }}
+                  />
                 </div>
 
                 {/* Type badge */}
@@ -271,19 +369,49 @@ export default function FormSchemaPage() {
                 </div>
               </div>
 
+              {linkable && memberFields.length > 0 && (
+                <div style={{ marginTop: 14 }}>
+                  <label style={labelS}>Lưu câu trả lời vào trường</label>
+                  <select
+                    value={field.linkedFieldId ?? ''}
+                    onChange={e => setLinkedField(i, e.target.value || undefined)}
+                    style={{ ...inputS, cursor: 'pointer' }}
+                  >
+                    <option value="">Không liên kết</option>
+                    {compatibleFields.map(mf => (
+                      <option key={mf.id} value={mf.id}>{mf.label || '(Chưa đặt tên)'}</option>
+                    ))}
+                  </select>
+                  {field.linkedFieldId && !linkedMember && (
+                    <p style={{ margin: '6px 0 0', fontSize: 12, color: D.coral }}>
+                      Trường liên kết không còn tồn tại — hãy chọn lại hoặc bỏ liên kết.
+                    </p>
+                  )}
+                </div>
+              )}
+
               {/* Select options */}
               {field.type === 'select' && (
                 <div style={{ marginTop: 14 }}>
-                  <label style={labelS}>Các lựa chọn</label>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    {(field.options ?? []).map((opt, oi) => (
-                      <div key={oi} style={{ display: 'flex', gap: 8 }}>
-                        <input value={opt} onChange={e => updateOption(i, oi, e.target.value)} placeholder={`Lựa chọn ${oi + 1}`} style={{ ...inputS, flex: 1, height: 38 }} />
-                        <button onClick={() => removeOption(i, oi)} style={{ width: 38, height: 38, borderRadius: 8, background: 'none', border: D.borderLight, cursor: 'pointer', color: '#ef4444', display: 'grid', placeItems: 'center', flexShrink: 0 }}>✕</button>
+                  {field.linkedFieldId && linkedMember ? (
+                    <p style={{ margin: 0, fontSize: 12, color: D.inkMuted, lineHeight: 1.6 }}>
+                      Lựa chọn lấy từ trường «{linkedMember.label || 'chưa đặt tên'}»:
+                      {' '}{(linkedMember.options ?? []).filter(Boolean).join(', ') || '(chưa có lựa chọn)'}
+                    </p>
+                  ) : (
+                    <>
+                      <label style={labelS}>Các lựa chọn</label>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        {(field.options ?? []).map((opt, oi) => (
+                          <div key={oi} style={{ display: 'flex', gap: 8 }}>
+                            <input value={opt} onChange={e => updateOption(i, oi, e.target.value)} placeholder={`Lựa chọn ${oi + 1}`} style={{ ...inputS, flex: 1, height: 38 }} />
+                            <button onClick={() => removeOption(i, oi)} style={{ width: 38, height: 38, borderRadius: 8, background: 'none', border: D.borderLight, cursor: 'pointer', color: '#ef4444', display: 'grid', placeItems: 'center', flexShrink: 0 }}>✕</button>
+                          </div>
+                        ))}
+                        <button onClick={() => addOption(i)} style={{ padding: '7px 14px', borderRadius: D.pill, background: D.card, border: D.borderLight, fontSize: 12, fontWeight: 600, color: D.indigo, cursor: 'pointer', fontFamily: 'inherit', alignSelf: 'flex-start' }}>+ Thêm lựa chọn</button>
                       </div>
-                    ))}
-                    <button onClick={() => addOption(i)} style={{ padding: '7px 14px', borderRadius: D.pill, background: D.card, border: D.borderLight, fontSize: 12, fontWeight: 600, color: D.indigo, cursor: 'pointer', fontFamily: 'inherit', alignSelf: 'flex-start' }}>+ Thêm lựa chọn</button>
-                  </div>
+                    </>
+                  )}
                 </div>
               )}
 

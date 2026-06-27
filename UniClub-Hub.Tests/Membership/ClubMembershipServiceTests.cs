@@ -5,16 +5,20 @@ using UniClub_Hub.Membership.Services.Implements;
 using UniClub_Hub.Membership.Services.Interfaces;
 using UniClub_Hub.Shared.Enums;
 using UniClub_Hub.Shared.Models;
-using UniClub_Hub.Tests.Helpers;
+using UniClub_Hub.Tests.Infrastructure;
 
 namespace UniClub_Hub.Tests.Membership;
 
-public class ClubMembershipServiceTests
+public class ClubMembershipServiceTests : DbTestBase
 {
-    private static (ClubMembershipService service, Shared.Data.UniClubDbContext db) Setup(
+    public ClubMembershipServiceTests(PostgresFixture fx) : base(fx)
+    {
+    }
+
+    private (ClubMembershipService service, Shared.Data.UniClubDbContext db) Setup(
         Action<Shared.Data.UniClubDbContext> seed)
     {
-        var db = TestDbContextFactory.Create();
+        var db = Fx.CreateDbContext();
 
         var dispatch = new Mock<INotificationDispatchService>();
         dispatch.Setup(d => d.FireAsync(
@@ -25,6 +29,12 @@ public class ClubMembershipServiceTests
         settings.Setup(s => s.GetValueAsync("club.max_members")).ReturnsAsync((string?)null);
 
         var perm = new Mock<IClubPermissionService>();
+        perm.Setup(p => p.EnsureHasPermissionAsync(
+            It.IsAny<int>(),
+            It.IsAny<string>(),
+            It.IsAny<bool>(),
+            It.IsAny<string>()))
+            .Returns(Task.CompletedTask);
 
         seed(db);
         db.SaveChanges();
@@ -61,7 +71,7 @@ public class ClubMembershipServiceTests
     {
         var (svc, db) = Setup(d => SeedClubAndUser(d, status: MembershipStatus.Probation));
 
-        await svc.PromoteMemberAsync(clubId: 1, membershipId: 1);
+        await svc.PromoteMemberAsync(clubId: 1, membershipId: 1, requesterUserId: "admin", isSuperAdmin: true);
 
         Assert.Equal(MembershipStatus.Active, db.ClubMemberships.Find(1)!.Status);
     }
@@ -72,7 +82,7 @@ public class ClubMembershipServiceTests
         var (svc, _) = Setup(d => SeedClubAndUser(d, status: MembershipStatus.Active));
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            svc.PromoteMemberAsync(clubId: 1, membershipId: 1));
+            svc.PromoteMemberAsync(clubId: 1, membershipId: 1, requesterUserId: "admin", isSuperAdmin: true));
     }
 
     // ─── ResignAsync ────────────────────────────────────────────────────────

@@ -1,19 +1,13 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { useDeferredEffect } from '@/hooks/useDeferredEffect'
 import { Link } from 'react-router-dom'
-import { useAuth } from '@/contexts/AuthContext'
+import { useAuth } from '@/hooks/useAuth'
 import { getUserApplications, getUserResignations } from '@/components/membership/services/clubApi'
 import type { ApplicationItem, ResignationRequestItem } from '@/components/membership/services/club.types'
 import { MEMBERSHIP_STATUS } from '@/types/auth'
 import { toast } from 'sonner'
 import { CheckCircle2, Clock, XCircle, MessageCircle, AlertCircle } from 'lucide-react'
-
-const D = {
-  border: '1.5px solid var(--c-ink)', borderLight: '1px solid #e8e3d6',
-  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 var(--c-ink)`,
-  radius: 14, pill: 999,
-  ink: 'var(--c-ink)', inkDim: '#4a4651', inkMuted: '#918c99',
-  bg: 'var(--c-bg)', card: '#ffffff', indigo: '#4f46e5',
-}
+import { D } from '@/components/shared/managementTheme'
 
 const APP_STATUS: Record<string, { label: string; bg: string; color: string; icon: React.ElementType }> = {
   Pending:   { label: 'Chờ duyệt',    bg: '#fef3c7', color: '#b45309', icon: Clock },
@@ -52,17 +46,22 @@ export default function MyActivityPage() {
   const [loading, setLoading] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
 
-  useEffect(() => {
-    if (!user) return
+  useDeferredEffect((isCancelled) => {
     if (tab === 'Đơn ứng tuyển' && applications.length === 0) {
       setLoading(true)
-      getUserApplications(user.id).then(setApplications).catch(() => toast.error('Không thể tải đơn ứng tuyển.')).finally(() => setLoading(false))
+      getUserApplications(user!.id)
+        .then(data => { if (!isCancelled()) setApplications(data) })
+        .catch(() => toast.error('Không thể tải đơn ứng tuyển.'))
+        .finally(() => { if (!isCancelled()) setLoading(false) })
     }
     if (tab === 'Đơn từ chức' && resignations.length === 0) {
       setLoading(true)
-      getUserResignations(user.id).then(setResignations).catch(() => toast.error('Không thể tải đơn từ chức.')).finally(() => setLoading(false))
+      getUserResignations(user!.id)
+        .then(data => { if (!isCancelled()) setResignations(data) })
+        .catch(() => toast.error('Không thể tải đơn từ chức.'))
+        .finally(() => { if (!isCancelled()) setLoading(false) })
     }
-  }, [tab, user])
+  }, [tab, user, applications.length, resignations.length], { enabled: Boolean(user) })
 
   const memberships = user?.memberships ?? []
   const activeMemberships = memberships.filter(m => m.status === MEMBERSHIP_STATUS.ACTIVE || m.status === MEMBERSHIP_STATUS.PROBATION)
@@ -85,14 +84,14 @@ export default function MyActivityPage() {
           return (
             <button key={t} onClick={() => setTab(t)} style={{
               padding: '7px 14px', borderRadius: D.pill,
-              background: active ? D.ink : D.card, color: active ? '#facc15' : D.ink,
+              background: active ? D.ink : D.card, color: active ? '#ffffff' : D.ink,
               border: D.border, boxShadow: active ? 'none' : D.shadow(2, 2),
               transform: active ? 'translate(2px,2px)' : 'none',
               fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
               display: 'flex', alignItems: 'center', gap: 6, transition: 'all .12s',
             }}>
               {t}
-              {c > 0 && <span style={{ padding: '1px 6px', borderRadius: D.pill, fontSize: 10, fontWeight: 800, background: active ? 'rgba(255,255,255,.2)' : D.bg, color: active ? '#facc15' : D.inkMuted }}>{c}</span>}
+              {c > 0 && <span style={{ padding: '1px 6px', borderRadius: D.pill, fontSize: 10, fontWeight: 800, background: active ? 'rgba(255,255,255,.2)' : D.bg, color: active ? '#ffffff' : D.inkMuted }}>{c}</span>}
             </button>
           )
         })}
@@ -229,7 +228,7 @@ export default function MyActivityPage() {
 
 function EmptyCard({ text }: { text: string }) {
   return (
-    <div style={{ background: '#fff', border: '1.5px solid var(--c-ink)', borderRadius: 14, padding: '48px 20px', textAlign: 'center', color: '#918c99', fontSize: 13, boxShadow: '3px 3px 0 var(--c-ink)' }}>
+    <div style={{ background: '#fff', border: '1.5px solid #0a2f6e', borderRadius: 14, padding: '48px 20px', textAlign: 'center', color: '#918c99', fontSize: 13, boxShadow: '3px 3px 0 #0a2f6e' }}>
       {text}
     </div>
   )
@@ -237,7 +236,7 @@ function EmptyCard({ text }: { text: string }) {
 
 function LoadingCard() {
   return (
-    <div style={{ background: '#fff', border: '1.5px solid var(--c-ink)', borderRadius: 14, padding: '48px 20px', textAlign: 'center', color: '#918c99', fontSize: 13 }}>
+    <div style={{ background: '#fff', border: '1.5px solid #0a2f6e', borderRadius: 14, padding: '48px 20px', textAlign: 'center', color: '#918c99', fontSize: 13 }}>
       Đang tải...
     </div>
   )

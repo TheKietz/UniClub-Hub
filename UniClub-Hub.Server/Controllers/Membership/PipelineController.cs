@@ -4,7 +4,6 @@ using System.Security.Claims;
 using UniClub_Hub.Membership.DTOs.Pipeline;
 using UniClub_Hub.Membership.Services.Interfaces;
 using UniClub_Hub.Shared.Common;
-using UniClub_Hub.Shared.Constants;
 
 namespace UniClub_Hub.Server.Controllers.Membership
 {
@@ -14,12 +13,10 @@ namespace UniClub_Hub.Server.Controllers.Membership
     public class PipelineController : ControllerBase
     {
         private readonly IPipelineService _pipeline;
-        private readonly IClubPermissionService _permissions;
 
-        public PipelineController(IPipelineService pipeline, IClubPermissionService permissions)
+        public PipelineController(IPipelineService pipeline)
         {
             _pipeline = pipeline;
-            _permissions = permissions;
         }
 
         [HttpGet("stages")]
@@ -40,13 +37,14 @@ namespace UniClub_Hub.Server.Controllers.Membership
         [HttpPost("stages")]
         public async Task<IActionResult> CreateStage(int clubId, [FromBody] CreatePipelineStageRequest req)
         {
-            if (!await CanManageAsync(clubId)) return Forbid();
+            var (userId, isSuperAdmin) = GetRequester();
 
             try
             {
-                var result = await _pipeline.CreateStageAsync(clubId, req);
+                var result = await _pipeline.CreateStageAsync(clubId, req, userId, isSuperAdmin);
                 return Ok(ApiResponse<PipelineStageDto>.Ok(result, "Đã thêm vòng tuyển."));
             }
+            catch (UnauthorizedAccessException) { return Forbid(); }
             catch (KeyNotFoundException ex)
             {
                 return NotFound(ApiResponse<object>.Fail(ex.Message));
@@ -56,13 +54,14 @@ namespace UniClub_Hub.Server.Controllers.Membership
         [HttpPut("stages/{stageId}")]
         public async Task<IActionResult> UpdateStage(int clubId, int stageId, [FromBody] UpdatePipelineStageRequest req)
         {
-            if (!await CanManageAsync(clubId)) return Forbid();
+            var (userId, isSuperAdmin) = GetRequester();
 
             try
             {
-                var result = await _pipeline.UpdateStageAsync(clubId, stageId, req);
+                var result = await _pipeline.UpdateStageAsync(clubId, stageId, req, userId, isSuperAdmin);
                 return Ok(ApiResponse<PipelineStageDto>.Ok(result, "Đã cập nhật vòng tuyển."));
             }
+            catch (UnauthorizedAccessException) { return Forbid(); }
             catch (KeyNotFoundException ex)
             {
                 return NotFound(ApiResponse<object>.Fail(ex.Message));
@@ -72,13 +71,14 @@ namespace UniClub_Hub.Server.Controllers.Membership
         [HttpDelete("stages/{stageId}")]
         public async Task<IActionResult> DeleteStage(int clubId, int stageId)
         {
-            if (!await CanManageAsync(clubId)) return Forbid();
+            var (userId, isSuperAdmin) = GetRequester();
 
             try
             {
-                await _pipeline.DeleteStageAsync(clubId, stageId);
-                return Ok(ApiResponse<object>.Ok(null, "Đã xóa vòng tuyển."));
+                await _pipeline.DeleteStageAsync(clubId, stageId, userId, isSuperAdmin);
+                return Ok(ApiResponse<object>.Ok(null!, "Đã xóa vòng tuyển."));
             }
+            catch (UnauthorizedAccessException) { return Forbid(); }
             catch (KeyNotFoundException ex)
             {
                 return NotFound(ApiResponse<object>.Fail(ex.Message));
@@ -88,17 +88,17 @@ namespace UniClub_Hub.Server.Controllers.Membership
         [HttpPut("stages/reorder")]
         public async Task<IActionResult> Reorder(int clubId, [FromBody] ReorderStagesRequest req)
         {
-            if (!await CanManageAsync(clubId)) return Forbid();
+            var (userId, isSuperAdmin) = GetRequester();
 
-            await _pipeline.ReorderAsync(clubId, req);
-            return Ok(ApiResponse<object>.Ok(null, "Đã cập nhật thứ tự."));
+            try
+            {
+                await _pipeline.ReorderAsync(clubId, req, userId, isSuperAdmin);
+                return Ok(ApiResponse<object>.Ok(null!, "Đã cập nhật thứ tự."));
+            }
+            catch (UnauthorizedAccessException) { return Forbid(); }
         }
 
-        private async Task<bool> CanManageAsync(int clubId)
-        {
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
-            var isSuperAdmin = User.IsInRole("SUPER_ADMIN");
-            return await _permissions.HasPermissionAsync(clubId, userId, isSuperAdmin, ClubPermissions.RecruitmentPipelineManage);
-        }
+        private (string UserId, bool IsSuperAdmin) GetRequester() =>
+            (User.FindFirstValue(ClaimTypes.NameIdentifier)!, User.IsInRole("SUPER_ADMIN"));
     }
 }

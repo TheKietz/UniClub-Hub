@@ -1,48 +1,34 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
+import { useDeferredEffect } from '@/hooks/useDeferredEffect'
 import api from '@/lib/axiosInstance'
+import axios from 'axios'
+import { AuthContext, type AuthContextType, type RegisterData } from '@/contexts/auth-context'
 import { SYSTEM_ROLES, MEMBERSHIP_STATUS, type UserInfo } from '@/types/auth'
 
-interface RegisterData {
-  email: string
-  password: string
-  fullName: string
-  studentId: string
-  major: string
-}
-
-interface AuthContextType {
-  user: UserInfo | null
-  isLoading: boolean
-  isAuthenticated: boolean
-  isSuperAdmin: boolean
-  hasRole: (role: string) => boolean
-  getClubRole: (clubId: number) => string | null
-  login: (email: string, password: string, rememberMe?: boolean) => Promise<UserInfo>
-  googleLogin: (googleAccessToken: string) => Promise<UserInfo>
-  register: (data: RegisterData) => Promise<void>
-  refreshUser: () => Promise<void>
-  logout: () => void
-}
-
-const AuthContext = createContext<AuthContextType | null>(null)
+// Backward compat: out-of-scope modules still import useAuth from AuthContext.
+// eslint-disable-next-line react-refresh/only-export-components -- re-export hook for legacy imports
+export { useAuth } from '@/hooks/useAuth'
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<UserInfo | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
-  useEffect(() => {
+  useDeferredEffect(async (isCancelled) => {
     const token = localStorage.getItem('accessToken')
+    if (!token) {
+      setIsLoading(false)
+      return
+    }
 
-    if (!token) { setIsLoading(false); return }
-
-    api.get('/users/me')
-      .then((res: { data: { data: UserInfo } }) => setUser(res.data.data))
-      .catch((error) => {
-        // Only clear token on auth failures; keep it on network/server errors
-        if (error.response?.status === 401)
-          localStorage.removeItem('accessToken')
-      })
-      .finally(() => setIsLoading(false))
+    try {
+      const res = await api.get<{ data: UserInfo }>('/users/me')
+      if (!isCancelled()) setUser(res.data.data)
+    } catch (error) {
+      if (!isCancelled() && axios.isAxiosError(error) && error.response?.status === 401)
+        localStorage.removeItem('accessToken')
+    } finally {
+      if (!isCancelled()) setIsLoading(false)
+    }
   }, [])
 
   async function login(email: string, password: string, rememberMe = true): Promise<UserInfo> {
@@ -91,27 +77,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return membership?.clubRole ?? null
   }
 
+  const value: AuthContextType = {
+    user,
+    isLoading,
+    isAuthenticated: !!user,
+    isSuperAdmin: hasRole(SYSTEM_ROLES.SUPER_ADMIN),
+    hasRole,
+    getClubRole,
+    login,
+    googleLogin,
+    register,
+    refreshUser,
+    logout,
+  }
+
   return (
-    <AuthContext.Provider value={{
-      user,
-      isLoading,
-      isAuthenticated: !!user,
-      isSuperAdmin: hasRole(SYSTEM_ROLES.SUPER_ADMIN),
-      hasRole,
-      getClubRole,
-      login,
-      googleLogin,
-      register,
-      refreshUser,
-      logout,
-    }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   )
-}
-
-export function useAuth() {
-  const ctx = useContext(AuthContext)
-  if (!ctx) throw new Error('useAuth must be used inside AuthProvider')
-  return ctx
 }

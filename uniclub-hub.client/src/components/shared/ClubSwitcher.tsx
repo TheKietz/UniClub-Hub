@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate, useLocation, useParams } from "react-router-dom";
 import { ChevronDown, Building2, Check } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/hooks/useAuth";
 import { MEMBERSHIP_STATUS } from "@/types/auth";
 
 const ROLE_LABEL: Record<string, string> = {

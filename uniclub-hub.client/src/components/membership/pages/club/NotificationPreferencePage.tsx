@@ -6,17 +6,13 @@ import {
   getClubPreferences, updateClubPreference, resetClubPreference,
   type NotificationPreferenceItem, type UpdateNotificationPreferenceRequest,
 } from '@/components/membership/services/notificationPreferenceApi'
-
-const D = {
-  border: '1.5px solid var(--c-ink)', borderLight: '1px solid #e8e3d6',
-  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 var(--c-ink)`,
-  radius: 14,
-  ink: 'var(--c-ink)', inkDim: '#4a4651', inkMuted: '#918c99',
-  bg: 'var(--c-bg)', card: '#ffffff', indigo: '#4f46e5',
-}
+import { D } from '@/components/shared/managementTheme'
+import { PermissionDenied } from '@/components/shared/Can'
+import { useClubPermissions } from '@/hooks/useClubPermissions'
+import { CLUB_PERMISSIONS } from '@/constants/clubPermissions'
 
 const CATEGORY_COLORS: Record<string, string> = {
-  'Tuyển thành viên': '#4f46e5',
+  'Tuyển thành viên': '#1d4ed8',
   'Quản lý thành viên': '#10b981',
   'Từ chức': '#f59e0b',
   'Công việc': '#6366f1',
@@ -226,7 +222,7 @@ function TriggerTemplateEditor({
           <button type="button" onClick={save} disabled={!dirty || saving} style={{
             padding: '8px 20px', borderRadius: 8,
             background: dirty ? D.ink : D.bg,
-            color: dirty ? '#facc15' : D.inkMuted,
+            color: dirty ? '#ffffff' : D.inkMuted,
             border: D.border, fontSize: 13, fontWeight: 700,
             cursor: dirty ? 'pointer' : 'default',
             boxShadow: dirty ? D.shadow(2, 2) : 'none',
@@ -255,6 +251,8 @@ function groupByTrigger(items: NotificationPreferenceItem[]) {
 export default function ClubNotificationPreferencePage() {
   const { clubId: clubIdStr } = useParams<{ clubId: string }>()
   const clubId = Number(clubIdStr)
+  const clubPermissions = useClubPermissions(clubId)
+  const canManage = clubPermissions.can(CLUB_PERMISSIONS.NOTIFICATION_SETTINGS_MANAGE)
   const [prefs, setPrefs] = useState<NotificationPreferenceItem[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<Tab>('recipients')
@@ -301,6 +299,9 @@ export default function ClubNotificationPreferencePage() {
     }))
   }
 
+  if (!clubPermissions.loading && !canManage)
+    return <PermissionDenied />
+
   return (
     <div style={{ minHeight: '100%', background: D.bg, fontFamily: "'Be Vietnam Pro', sans-serif" }}>
       {/* Header + tab bar */}
@@ -311,7 +312,7 @@ export default function ClubNotificationPreferencePage() {
             Tùy chỉnh kênh, người nhận và nội dung thông báo riêng cho CLB. Mục chưa tùy chỉnh theo mặc định hệ thống.
           </p>
         </div>
-        <div style={{ display: 'flex', borderBottom: '2px solid #e8e3d6' }}>
+        <div style={{ display: 'flex', borderBottom: '2px solid #dce6f4' }}>
           {TABS.map(tab => (
             <button key={tab.key} onClick={() => setActiveTab(tab.key)} style={{
               padding: '9px 18px', fontSize: 13,

@@ -46,6 +46,7 @@ const TASK_STATUS_CONFIG: Record<
 > = {
   Todo: { label: "Chưa làm", bg: "#f3f4f6", text: "#374151" },
   Doing: { label: "Đang làm", bg: "#dbeafe", text: "#1d4ed8" },
+  Reviewing: { label: "Đang xét duyệt", bg: "#ede9fe", text: "#7c3aed" },
   Done: { label: "Hoàn thành", bg: "#d1fae5", text: "#065f46" },
 };
 

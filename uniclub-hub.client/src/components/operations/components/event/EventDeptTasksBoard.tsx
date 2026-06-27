@@ -14,23 +14,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-
-/* ─── Design tokens ──────────────────────────────────────────────────────── */
-const D = {
-  border: '1.5px solid var(--c-ink)',
-  borderLight: '1px solid #e8e3d6',
-  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 var(--c-ink)`,
-  radius: 14,
-  pill: 999,
-  ink: 'var(--c-ink)',
-  inkDim: '#4a4651',
-  inkMuted: '#918c99',
-  bg: 'var(--c-bg)',
-  card: '#ffffff',
-  indigo: '#4f46e5',
-  amber: '#f59e0b',
-  red: '#ef4444',
-}
+import { D } from '@/components/shared/managementTheme'
 
 const inputStyle: React.CSSProperties = {
   width: '100%', padding: '8px 12px', fontSize: 13, fontWeight: 500,
@@ -380,7 +364,7 @@ export default function EventDeptTasksBoard({ eventId, clubId, isManager, eventS
 
   const primaryBtnStyle: React.CSSProperties = {
     padding: '7px 16px', fontSize: 12, fontWeight: 900, border: D.border,
-    borderRadius: D.pill, background: D.ink, color: '#facc15',
+    borderRadius: D.pill, background: D.ink, color: D.lemon,
     cursor: saving ? 'not-allowed' : 'pointer', boxShadow: saving ? 'none' : D.shadow(2, 2),
     fontFamily: 'inherit', opacity: saving ? 0.7 : 1,
   }

@@ -12,35 +12,18 @@ import {
   getTaskComments, addTaskComment, updateTaskComment, deleteTaskComment,
   getTaskAttachments, addTaskAttachmentLink, deleteTaskAttachment, uploadTaskAttachmentFile,
   getAuditLogs, getTaskAssignees, assignTask, unassignTask,
-  getSuggestAssignees,
 } from "../../services/operationsApi";
 import type {
   TaskItem, TaskCommentItem, TaskAttachmentItem, AuditLogItem,
-  CreateTaskDto, TaskPriority, KanbanColumnItem, AssignmentSuggestion,
+  CreateTaskDto, TaskPriority, KanbanColumnItem,
 } from "../../services/operations.types";
 import { getClubMembers } from "../../../membership/services/clubApi";
 import type { MemberItem } from "../../../membership/services/club.types";
 import { useAuth } from "@/contexts/AuthContext";
 import { CLUB_ROLES } from "@/types/auth";
+import { D } from '@/components/shared/managementTheme'
 
 /* ── Design tokens ─────────────────────────────────────────────────────────── */
-
-const D = {
-  border: '1.5px solid var(--c-ink)',
-  borderLight: '1px solid #e8e3d6',
-  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 var(--c-ink)`,
-  radius: 14,
-  pill: 999,
-  ink: 'var(--c-ink)',
-  inkDim: '#4a4651',
-  inkMuted: '#918c99',
-  bg: 'var(--c-bg)',
-  card: '#ffffff',
-  indigo: '#4f46e5',
-  emerald: '#10b981',
-  amber: '#f59e0b',
-  red: '#ef4444',
-}
 
 /* ── Interfaces ──────────────────────────────────────────────────────────────── */
 
@@ -107,7 +90,7 @@ type Panel = "add" | "label" | "date" | "member" | "attach" | null
 /* ── Shared styles ─────────────────────────────────────────────────────────── */
 
 const inputStyle: React.CSSProperties = {
-  width: '100%', height: 36, borderRadius: 8, border: '1px solid #e8e3d6',
+  width: '100%', height: 36, borderRadius: 8, border: '1px solid #dce6f4',
   padding: '0 12px', fontSize: 13, color: D.ink, outline: 'none',
   background: D.bg, fontFamily: 'inherit', boxSizing: 'border-box',
 }
@@ -184,11 +167,6 @@ export default function TaskDetailModal({
 
   const [members,      setMembers]      = useState<MemberItem[]>([])
   const [memberSearch, setMemberSearch] = useState("")
-
-  // Feature 1: Assignment suggestion
-  const [suggestions,     setSuggestions]     = useState<AssignmentSuggestion[]>([])
-  const [loadingSuggest,  setLoadingSuggest]  = useState(false)
-  const [showSuggestions, setShowSuggestions] = useState(false)
 
   // ── Close panel on outside click ──────────────────────────────────────────
   useEffect(() => {
@@ -432,23 +410,6 @@ export default function TaskDetailModal({
     catch { toast.error("Không thể xóa đính kèm") }
   }
 
-  // ── Feature 1: Suggestion fetch ───────────────────────────────────────────
-  const handleFetchSuggestions = async () => {
-    if (!departmentId) { toast.error("Vui lòng chọn ban trước khi gợi ý"); return }
-    setLoadingSuggest(true)
-    setShowSuggestions(true)
-    try {
-      const res = await getSuggestAssignees({
-        clubId,
-        departmentId,
-        priority,
-        sprintId: task?.sprintId ?? defaultSprintId,
-      })
-      setSuggestions(res)
-    } catch { toast.error("Không thể tải gợi ý") }
-    finally { setLoadingSuggest(false) }
-  }
-
   // ── Feed ───────────────────────────────────────────────────────────────────
   const feed: FeedEntry[] = [
     ...comments.map(c => ({
@@ -500,7 +461,7 @@ export default function TaskDetailModal({
           <span style={{ flex: 1, fontSize: 13, fontWeight: 700, color: D.inkDim, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {isEdit ? `#${task.id} · ${task.title}` : "Tạo công việc mới"}
           </span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0, marginRight: 32 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
             {isEdit && (
               <button type="button" onClick={handleDelete} disabled={deleting}
                 title="Xóa thẻ"
@@ -695,43 +656,8 @@ export default function TaskDetailModal({
                 <div style={popoverStyle}>
                   <div style={{ padding: '12px 16px', borderBottom: D.borderLight, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <span style={{ fontSize: 13, fontWeight: 700, color: D.ink }}>Thành viên</span>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      {canManageAssignees && (
-                        <button type="button" onClick={handleFetchSuggestions} disabled={loadingSuggest}
-                          style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '3px 10px', fontSize: 11, fontWeight: 700, borderRadius: 6, border: `1.5px solid ${D.indigo}`, background: '#ede9fe', color: D.indigo, cursor: loadingSuggest ? 'wait' : 'pointer', opacity: loadingSuggest ? 0.7 : 1 }}>
-                          {loadingSuggest ? "..." : "✨ Gợi ý"}
-                        </button>
-                      )}
-                      <button type="button" onClick={() => { setPanel(null); setShowSuggestions(false) }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: D.inkMuted, display: 'flex', padding: 4 }}><X size={14} /></button>
-                    </div>
+                    <button type="button" onClick={() => setPanel(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: D.inkMuted, display: 'flex', padding: 4 }}><X size={14} /></button>
                   </div>
-
-                  {/* Suggestion results */}
-                  {showSuggestions && suggestions.length > 0 && (
-                    <div style={{ padding: '10px 16px', borderBottom: D.borderLight, background: '#faf5ff' }}>
-                      <p style={{ fontSize: 10, fontWeight: 700, color: D.indigo, textTransform: 'uppercase', letterSpacing: '.06em', margin: '0 0 8px' }}>Top gợi ý</p>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                        {suggestions.map((s, i) => (
-                          <button key={s.userId} type="button"
-                            onClick={() => {
-                              if (!assignedUsers.includes(s.userId)) toggleMember(s.userId)
-                              setShowSuggestions(false)
-                            }}
-                            style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '6px 8px', borderRadius: 8, background: assignedUsers.includes(s.userId) ? '#ede9fe' : D.card, border: `1.5px solid ${assignedUsers.includes(s.userId) ? D.indigo : D.borderLight.replace('1px solid ', '')}`, cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit' }}>
-                            <div style={{ width: 24, height: 24, borderRadius: '50%', background: ['#4f46e5', '#0891b2', '#059669'][i % 3], display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 800, color: '#fff', flexShrink: 0 }}>
-                              {initials(s.fullName)}
-                            </div>
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                              <p style={{ fontSize: 12, fontWeight: 700, color: D.ink, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.fullName}</p>
-                              <p style={{ fontSize: 10, color: D.inkMuted, margin: '1px 0 0' }}>{s.reason}</p>
-                            </div>
-                            <span style={{ fontSize: 10, fontWeight: 800, color: D.indigo, flexShrink: 0 }}>{s.suitabilityScore.toFixed(1)}</span>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
                   <div style={{ padding: '12px 16px' }}>
                     <input
                       type="text"
@@ -900,7 +826,7 @@ export default function TaskDetailModal({
                   background: '#ede9fe', border: `1.5px solid ${D.indigo}55`,
                   borderRadius: D.pill, padding: '4px 12px',
                   textDecoration: 'none', width: 'fit-content',
-                  boxShadow: '1px 1px 0 #4f46e544',
+                  boxShadow: '1px 1px 0 #1d4ed844',
                 }}
               >
                 <Calendar size={11} />
@@ -1047,7 +973,7 @@ export default function TaskDetailModal({
                   {group.items.length > 0 && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
                       <span style={{ fontSize: 11, color: D.inkMuted, width: 28, textAlign: 'right', flexShrink: 0 }}>{pct}%</span>
-                      <div style={{ flex: 1, height: 6, background: '#e8e3d6', borderRadius: 2, overflow: 'hidden', border: '1px solid #ccc' }}>
+                      <div style={{ flex: 1, height: 6, background: '#dce6f4', borderRadius: 2, overflow: 'hidden', border: '1px solid #ccc' }}>
                         <div style={{ height: '100%', borderRadius: 2, background: pct === 100 ? D.emerald : D.indigo, width: `${pct}%`, transition: 'width .3s' }} />
                       </div>
                     </div>
@@ -1122,7 +1048,7 @@ export default function TaskDetailModal({
                 </span>
                 <button type="button" onClick={() => setShowDetail(v => !v)}
                   style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: D.inkMuted, background: 'none', border: 'none', cursor: 'pointer', padding: '4px 8px', borderRadius: 6, fontFamily: 'inherit' }}
-                  onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#e8e3d6'}
+                  onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#dce6f4'}
                   onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'none'}
                 >
                   {showDetail ? <EyeOff size={11} /> : <Eye size={11} />}
@@ -1139,7 +1065,7 @@ export default function TaskDetailModal({
                     if (!showDetail) return null
                     return (
                       <div key={`act-${i}`} style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-                        <div style={{ width: 22, height: 22, borderRadius: '50%', background: '#e8e3d6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, fontWeight: 800, color: D.inkMuted, flexShrink: 0, marginTop: 2 }}>
+                        <div style={{ width: 22, height: 22, borderRadius: '50%', background: '#dce6f4', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, fontWeight: 800, color: D.inkMuted, flexShrink: 0, marginTop: 2 }}>
                           {initials(entry.userName)}
                         </div>
                         <div style={{ minWidth: 0 }}>

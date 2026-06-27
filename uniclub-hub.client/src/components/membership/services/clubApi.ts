@@ -9,8 +9,32 @@ import type {
   ClubEffectivePermissions,
   MemberImportPreview, CreateDepartmentDto, UpdateClubSettingsDto,
 } from '@/components/membership/services/club.types'
+import type { PagedResult } from '@/components/membership/services/admin.types'
 
 const base = (clubId: number) => `/clubs/${clubId}`
+
+export type MemberListQuery = {
+  search?: string
+  role?: string
+  status?: string
+  departmentId?: number
+  sortBy?: string
+  sortDir?: 'asc' | 'desc'
+  page?: number
+  pageSize?: number
+}
+
+export type ApplicationListQuery = {
+  search?: string
+  status?: string
+  stageId?: number
+  dateFrom?: string
+  dateTo?: string
+  sortBy?: string
+  sortDir?: 'asc' | 'desc'
+  page?: number
+  pageSize?: number
+}
 
 // ── Clubs (public) ─────────────────────────────────────────────────────────
 
@@ -46,6 +70,9 @@ export const submitApplication = (clubId: number, dto: SubmitApplicationDto) =>
 
 export const getClubMembers = (clubId: number, params?: { status?: string; role?: string; departmentId?: number }) =>
   api.get<{ data: MemberItem[] }>(`${base(clubId)}/members`, { params }).then(r => r.data.data)
+
+export const getClubMembersPage = (clubId: number, params?: MemberListQuery) =>
+  api.get<{ data: PagedResult<MemberItem> }>(`${base(clubId)}/members`, { params }).then(r => r.data.data)
 
 export const addMember = (clubId: number, dto: AddMemberDto) =>
   api.post<{ data: MemberItem }>(`${base(clubId)}/members`, dto).then(r => r.data.data)
@@ -95,6 +122,9 @@ export const resignFromClub = (clubId: number) =>
 
 export const getApplications = (clubId: number, params?: { status?: string }) =>
   api.get<{ data: ApplicationItem[] }>(`${base(clubId)}/applications`, { params }).then(r => r.data.data)
+
+export const getApplicationsPage = (clubId: number, params?: ApplicationListQuery) =>
+  api.get<{ data: PagedResult<ApplicationItem> }>(`${base(clubId)}/applications`, { params }).then(r => r.data.data)
 
 export const reviewApplication = (clubId: number, applicationId: number, dto: ReviewApplicationDto) =>
   api.put(`${base(clubId)}/applications/${applicationId}/review`, dto)
@@ -189,8 +219,8 @@ export const importMembersConfirm = (clubId: number, rows: { email: string; club
   api.post<{ data: { imported: number; skipped: number } }>(`${base(clubId)}/members/import/confirm`, { rows })
     .then(r => r.data.data)
 
-export const exportMembers = (clubId: number, format: 'xlsx' | 'csv') =>
-  api.get(`${base(clubId)}/members/export`, { params: { format }, responseType: 'blob' })
+export const exportMembers = (clubId: number, format: 'xlsx' | 'csv', params?: Omit<MemberListQuery, 'page' | 'pageSize'>) =>
+  api.get(`${base(clubId)}/members/export`, { params: { format, ...params }, responseType: 'blob' })
 
 // ── Departments (mutations) ────────────────────────────────────────────────
 
@@ -208,7 +238,7 @@ export const setDepartmentLead = (clubId: number, deptId: number, membershipId: 
 
 // ── Applications (export) ──────────────────────────────────────────────────
 
-export const exportApplications = (clubId: number, params: { format: string; status?: string }) =>
+export const exportApplications = (clubId: number, params: { format: string } & Omit<ApplicationListQuery, 'page' | 'pageSize'>) =>
   api.get(`${base(clubId)}/applications/export`, { params, responseType: 'blob' })
 
 // ── Club settings ──────────────────────────────────────────────────────────

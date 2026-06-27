@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
+import { useDeferredEffect } from '@/hooks/useDeferredEffect'
 import { useParams } from 'react-router-dom'
 import { Plus, RotateCcw, Save, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -10,22 +11,10 @@ import {
   type KpiGrade,
 } from '@/components/membership/services/kpiApi'
 import { Tooltip } from '@/components/shared/Tooltip'
-
-const D = {
-  border: '1.5px solid var(--c-ink)',
-  borderLight: '1px solid #e8e3d6',
-  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 var(--c-ink)`,
-  radius: 14,
-  pill: 999,
-  ink: 'var(--c-ink)',
-  inkDim: '#4a4651',
-  inkMuted: '#918c99',
-  bg: 'var(--c-bg)',
-  card: '#ffffff',
-  indigo: '#4f46e5',
-  emerald: '#10b981',
-  red: '#ef4444',
-}
+import { D } from '@/components/shared/managementTheme'
+import { PermissionDenied } from '@/components/shared/Can'
+import { useClubPermissions } from '@/hooks/useClubPermissions'
+import { CLUB_PERMISSIONS } from '@/constants/clubPermissions'
 
 const inputStyle: React.CSSProperties = {
   width: '100%',
@@ -57,13 +46,7 @@ const tdS: React.CSSProperties = {
   verticalAlign: 'middle',
 }
 
-function errorMessage(err: unknown, fallback: string) {
-  if (typeof err === 'object' && err && 'response' in err) {
-    const response = (err as { response?: { data?: { message?: string } } }).response
-    return response?.data?.message ?? fallback
-  }
-  return fallback
-}
+import { getApiErrorMessage } from '@/lib/apiError'
 
 function Toggle({ checked, onChange }: { checked: boolean; onChange: (value: boolean) => void }) {
   return (
@@ -100,6 +83,8 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (value: boo
 export default function KpiConfigPage() {
   const { clubId } = useParams<{ clubId: string }>()
   const id = Number(clubId)
+  const clubPermissions = useClubPermissions(id)
+  const canManage = clubPermissions.can(CLUB_PERMISSIONS.MEMBER_KPI_MANAGE)
   const [criteria, setCriteria] = useState<KpiCriteria[]>([])
   const [initialCriteria, setInitialCriteria] = useState<KpiCriteria[]>([])
   const [grades, setGrades] = useState<KpiGrade[]>([])
@@ -107,7 +92,7 @@ export default function KpiConfigPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
-  useEffect(() => {
+  useDeferredEffect(() => {
     setLoading(true)
     getKpiConfig(id)
       .then(config => {
@@ -116,7 +101,7 @@ export default function KpiConfigPage() {
         setGrades(config.grades)
         setInitialGrades(config.grades)
       })
-      .catch(err => toast.error(errorMessage(err, 'Không thể tải cấu hình KPI.')))
+      .catch(err => toast.error(getApiErrorMessage(err, 'Không thể tải cấu hình KPI.')))
       .finally(() => setLoading(false))
   }, [id])
 
@@ -188,11 +173,14 @@ export default function KpiConfigPage() {
       setInitialGrades(savedGrades.grades)
       toast.success('Đã lưu cấu hình KPI.')
     } catch (err) {
-      toast.error(errorMessage(err, 'Lưu cấu hình KPI thất bại.'))
+      toast.error(getApiErrorMessage(err, 'Lưu cấu hình KPI thất bại.'))
     } finally {
       setSaving(false)
     }
   }
+
+  if (!clubPermissions.loading && !canManage)
+    return <PermissionDenied />
 
   function handleReset() {
     setCriteria(initialCriteria)

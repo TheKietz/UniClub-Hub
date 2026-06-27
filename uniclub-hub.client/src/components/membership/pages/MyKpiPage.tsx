@@ -1,24 +1,12 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useCallback, useState } from 'react'
+import { useDeferredEffect } from '@/hooks/useDeferredEffect'
 import { CalendarDays, RefreshCw, Trophy, Award, Hash, Users } from 'lucide-react'
 import { toast } from 'sonner'
-import { useAuth } from '@/contexts/AuthContext'
+import { useAuth } from '@/hooks/useAuth'
 import { MEMBERSHIP_STATUS } from '@/types/auth'
 import { getMyKpiResult, type MemberKpiResult } from '@/components/membership/services/kpiApi'
 import { FilterSelect } from '@/components/shared/FilterSelect'
-
-const D = {
-  border: '1.5px solid var(--c-ink)',
-  borderLight: '1px solid #e8e3d6',
-  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 var(--c-ink)`,
-  radius: 14,
-  pill: 999,
-  ink: 'var(--c-ink)',
-  inkDim: '#4a4651',
-  inkMuted: '#918c99',
-  bg: 'var(--c-bg)',
-  card: '#ffffff',
-  indigo: '#4f46e5',
-}
+import { D } from '@/components/shared/managementTheme'
 
 function currentMonthRange() {
   const now = new Date()
@@ -46,7 +34,7 @@ function clampScore(score: number) {
 
 function gradeAccent(grade: string): { color: string; iconBg: string } {
   if (grade === 'Xuất sắc') return { color: '#16a34a', iconBg: '#dcfce7' }
-  if (grade === 'Tốt')      return { color: '#4f46e5', iconBg: '#eef2ff' }
+  if (grade === 'Tốt')      return { color: '#1d4ed8', iconBg: '#eef2ff' }
   if (grade === 'Đạt')      return { color: '#d97706', iconBg: '#fef3c7' }
   return { color: '#dc2626', iconBg: '#fee2e2' }
 }
@@ -101,29 +89,26 @@ export default function MyKpiPage() {
     return Array.from(map.values())
   }, [user?.memberships])
 
-  const defaultRange = useMemo(currentMonthRange, [])
-  const [clubId, setClubId] = useState<number | undefined>(clubs[0]?.clubId)
+  const defaultRange = useMemo(() => currentMonthRange(), [])
+  const [selectedClubId, setSelectedClubId] = useState<number | undefined>(undefined)
+  const clubId = selectedClubId ?? clubs[0]?.clubId
   const [fromDate, setFromDate] = useState(defaultRange.fromDate)
   const [toDate, setToDate] = useState(defaultRange.toDate)
   const [result, setResult] = useState<MemberKpiResult | null>(null)
   const [loading, setLoading] = useState(false)
 
-  useEffect(() => {
-    if (!clubId && clubs[0]?.clubId) setClubId(clubs[0].clubId)
-  }, [clubId, clubs])
-
-  function load() {
+  const load = useCallback(() => {
     if (!clubId) return
     setLoading(true)
     getMyKpiResult(clubId, { fromDate, toDate })
       .then(setResult)
       .catch(() => toast.error('Không thể tải KPI cá nhân.'))
       .finally(() => setLoading(false))
-  }
+  }, [clubId, fromDate, toDate])
 
-  useEffect(() => {
+  useDeferredEffect(() => {
     load()
-  }, [clubId])
+  }, [load])
 
   const accent = gradeAccent(result?.grade ?? '')
 
@@ -180,7 +165,7 @@ export default function MyKpiPage() {
       }}>
         <FilterSelect
           value={clubId?.toString() ?? ''}
-          onChange={value => setClubId(Number(value))}
+          onChange={value => setSelectedClubId(Number(value))}
           options={clubs.map(club => ({ value: String(club.clubId), label: club.clubName }))}
           style={{ width: 240 }}
           disabled={clubs.length === 0}
@@ -283,7 +268,7 @@ function MetricRow({ metric }: { metric: MemberKpiResult['metrics'][number] }) {
       <div>
         <div style={{ fontWeight: 900, color: D.ink, fontSize: 14 }}>{metric.displayName}</div>
         <div style={{ marginTop: 3, fontSize: 12, color: D.inkMuted }}>{metric.detail}</div>
-        <div style={{ height: 6, background: '#e8e3d6', borderRadius: D.pill, marginTop: 8, overflow: 'hidden' }}>
+        <div style={{ height: 6, background: '#dce6f4', borderRadius: D.pill, marginTop: 8, overflow: 'hidden' }}>
           <div style={{ width: `${clampScore(metric.rawScore)}%`, height: '100%', background: D.indigo, transition: 'width .4s' }} />
         </div>
       </div>

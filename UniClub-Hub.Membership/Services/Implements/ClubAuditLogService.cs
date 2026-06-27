@@ -2,12 +2,13 @@ using Microsoft.EntityFrameworkCore;
 using UniClub_Hub.Membership.DTOs.AuditLog;
 using UniClub_Hub.Membership.Services.Interfaces;
 using UniClub_Hub.Shared.Common;
+using UniClub_Hub.Shared.Constants;
 using UniClub_Hub.Shared.Data;
 using UniClub_Hub.Shared.Enums;
 
 namespace UniClub_Hub.Membership.Services.Implements
 {
-    public class ClubAuditLogService(UniClubDbContext db) : IClubAuditLogService
+    public class ClubAuditLogService(UniClubDbContext db, IClubPermissionService permissions) : IClubAuditLogService
     {
         private static readonly Dictionary<string, string> EntityToModule = new()
         {
@@ -18,8 +19,23 @@ namespace UniClub_Hub.Membership.Services.Implements
         };
 
         public async Task<PagedResult<ClubAuditLogDto>> GetByClubAsync(
-            int clubId, string? module, string? search, string? action, DateTime? dateFrom, DateTime? dateTo, int page, int pageSize)
+            int clubId,
+            string requesterUserId,
+            bool isSuperAdmin,
+            string? module,
+            string? search,
+            string? action,
+            DateTime? dateFrom,
+            DateTime? dateTo,
+            int page,
+            int pageSize)
         {
+            await permissions.EnsureHasPermissionAsync(
+                clubId,
+                requesterUserId,
+                isSuperAdmin,
+                ClubPermissions.ClubAuditLogView);
+
             var membershipIds = await db.ClubMemberships
                 .Where(m => m.ClubId == clubId)
                 .Select(m => m.Id.ToString())

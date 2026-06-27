@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
+import { useDeferredEffect } from '@/hooks/useDeferredEffect'
 import type { CSSProperties, FormEvent } from 'react'
 import {
   assignMemberPositions,
@@ -34,25 +35,8 @@ import { toast } from 'sonner'
 import { Check, Pencil, Plus, Save, ShieldCheck, Trash2, Users } from 'lucide-react'
 import { Tooltip } from '@/components/shared/Tooltip'
 import { FilterSelect } from '@/components/shared/FilterSelect'
-
-const D = {
-  border: '1.5px solid var(--c-ink)',
-  borderLight: '1px solid #e8e3d6',
-  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 var(--c-ink)`,
-  radius: 14,
-  pill: 999,
-  ink: 'var(--c-ink)',
-  inkDim: '#4a4651',
-  inkMuted: '#918c99',
-  bg: 'var(--c-bg)',
-  card: '#ffffff',
-  indigo: '#4f46e5',
-  emerald: '#10b981',
-  amber: '#f59e0b',
-  red: '#ef4444',
-  violetSoft: '#ede9fe',
-  greenSoft: '#d1fae5',
-}
+import { D } from '@/components/shared/managementTheme'
+import { getApiErrorMessage } from '@/lib/apiError'
 
 const inputStyle: CSSProperties = {
   width: '100%',
@@ -205,7 +189,8 @@ export default function PositionManagementPanel({
   const [refreshKey, setRefreshKey] = useState(0)
 
   const [search, setSearch] = useState('')
-  const [departmentFilter, setDepartmentFilter] = useState(departmentScopeId ? String(departmentScopeId) : '')
+  const [localDepartmentFilter, setLocalDepartmentFilter] = useState('')
+  const departmentFilter = departmentScopeId ? String(departmentScopeId) : localDepartmentFilter
   const [selectedMemberId, setSelectedMemberId] = useState('')
   const [selectedMemberPositionIds, setSelectedMemberPositionIds] = useState<number[]>([])
   const [loadingMemberPositions, setLoadingMemberPositions] = useState(false)
@@ -265,8 +250,7 @@ export default function PositionManagementPanel({
     return Array.from(map.entries()).map(([key, items]) => ({ key, items }))
   }, [permissions])
 
-  useEffect(() => {
-    if (!clubId) return
+  useDeferredEffect((isCancelled) => {
     setLoading(true)
     Promise.all([
       getClubPositions(clubId, departmentScopeId ? { departmentId: departmentScopeId } : undefined),
@@ -278,28 +262,21 @@ export default function PositionManagementPanel({
       }),
     ])
       .then(([positionData, permissionData, departmentData, memberData]) => {
+        if (isCancelled()) return
         setPositions(positionData)
         setPermissions(permissionData)
         setDepartments(departmentScopeId ? departmentData.filter(d => d.id === departmentScopeId) : departmentData)
         setMembers(departmentScopeId ? memberData.filter(m => m.departmentId === departmentScopeId) : memberData)
       })
-      .catch(() => toast.error('Không thể tải dữ liệu vị trí.'))
-      .finally(() => setLoading(false))
-  }, [clubId, departmentScopeId, refreshKey])
+      .catch(() => { if (!isCancelled()) toast.error('Không thể tải dữ liệu vị trí.') })
+      .finally(() => { if (!isCancelled()) setLoading(false) })
+  }, [clubId, departmentScopeId, refreshKey], { enabled: Boolean(clubId) })
 
-  useEffect(() => {
-    setDepartmentFilter(departmentScopeId ? String(departmentScopeId) : '')
-  }, [departmentScopeId])
-
-  useEffect(() => {
-    if (!selectedMemberId) {
-      setSelectedMemberPositionIds([])
-      return
-    }
-
+  useDeferredEffect((isCancelled) => {
     setLoadingMemberPositions(true)
     getMemberPositions(clubId, Number(selectedMemberId))
       .then(result => {
+        if (isCancelled()) return
         const positionIds = canManageCatalog
           ? result.positions.map(position => position.id)
           : result.positions
@@ -307,9 +284,9 @@ export default function PositionManagementPanel({
               .map(position => position.id)
         setSelectedMemberPositionIds(positionIds)
       })
-      .catch(() => toast.error('Không thể tải vị trí của thành viên.'))
-      .finally(() => setLoadingMemberPositions(false))
-  }, [canManageCatalog, clubId, departmentScopeId, selectedMemberId])
+      .catch(() => { if (!isCancelled()) toast.error('Không thể tải vị trí của thành viên.') })
+      .finally(() => { if (!isCancelled()) setLoadingMemberPositions(false) })
+  }, [canManageCatalog, clubId, departmentScopeId, selectedMemberId], { enabled: Boolean(selectedMemberId) })
 
   function openCreate() {
     setEditing(null)
@@ -376,8 +353,8 @@ export default function PositionManagementPanel({
 
       setDialogOpen(false)
       setRefreshKey(k => k + 1)
-    } catch (err: any) {
-      toast.error(err.response?.data?.message ?? 'Lưu vị trí thất bại.')
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'Lưu vị trí thất bại.'))
     } finally {
       setSavingPosition(false)
     }
@@ -390,8 +367,8 @@ export default function PositionManagementPanel({
       toast.success('Đã xoá vị trí.')
       setDeleteTarget(null)
       setRefreshKey(k => k + 1)
-    } catch (err: any) {
-      toast.error(err.response?.data?.message ?? 'Xoá vị trí thất bại.')
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'Xoá vị trí thất bại.'))
     }
   }
 
@@ -402,8 +379,8 @@ export default function PositionManagementPanel({
       await assignMemberPositions(clubId, Number(selectedMemberId), selectedMemberPositionIds)
       toast.success('Đã cập nhật vị trí cho thành viên.')
       setRefreshKey(k => k + 1)
-    } catch (err: any) {
-      toast.error(err.response?.data?.message ?? 'Gán vị trí thất bại.')
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'Gán vị trí thất bại.'))
     } finally {
       setSavingMemberPositions(false)
     }
@@ -441,7 +418,7 @@ export default function PositionManagementPanel({
             {!departmentScopeId && (
               <FilterSelect
                 value={departmentFilter}
-                onChange={setDepartmentFilter}
+                onChange={setLocalDepartmentFilter}
                 options={[
                   { value: '', label: 'Tất cả phạm vi' },
                   { value: '__club__', label: 'Cấp CLB' },
@@ -452,7 +429,7 @@ export default function PositionManagementPanel({
             )}
             {(search || (!departmentScopeId && departmentFilter)) && (
               <button
-                onClick={() => { setSearch(''); if (!departmentScopeId) setDepartmentFilter('') }}
+                onClick={() => { setSearch(''); if (!departmentScopeId) setLocalDepartmentFilter('') }}
                 style={{ fontSize: 12, color: D.indigo, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
               >
                 Xoá lọc
@@ -538,7 +515,10 @@ export default function PositionManagementPanel({
               <label style={labelStyle}>Thành viên</label>
               <FilterSelect
                 value={selectedMemberId}
-                onChange={setSelectedMemberId}
+                onChange={value => {
+                  setSelectedMemberId(value)
+                  if (!value) setSelectedMemberPositionIds([])
+                }}
                 options={[
                   { value: '', label: '— Chọn thành viên —' },
                   ...members.map(member => ({

@@ -1,6 +1,8 @@
 import { MEMBERSHIP_STATUS } from '@/types/auth'
-import { useEffect, useState } from 'react'
-import { getAdminClubs, createClub, updateClub, deleteClub, getCategories, exportClubs } from '@/components/membership/services/adminApi'
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
+import { useDeferredEffect } from '@/hooks/useDeferredEffect'
+import { getAdminClubsPage, createClub, updateClub, deleteClub, getCategories, exportClubs } from '@/components/membership/services/adminApi'
+import type { AdminClubListQuery } from '@/components/membership/services/adminApi'
 import type { ClubItem, CategoryItem, CreateClubDto, UpdateClubDto } from '@/components/membership/services/admin.types'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
@@ -8,24 +10,11 @@ import { toast } from 'sonner'
 import { Pencil, Trash2 } from 'lucide-react'
 import { Tooltip } from '@/components/shared/Tooltip'
 import { FilterSelect } from '@/components/shared/FilterSelect'
+import { LoadMoreBar } from '@/components/shared/LoadMoreBar'
+import { D } from '@/components/shared/managementTheme'
+import { getApiErrorMessage } from '@/lib/apiError'
 
-const D = {
-  border: '1.5px solid var(--c-ink)',
-  borderLight: '1px solid #e8e3d6',
-  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 var(--c-ink)`,
-  radius: 14,
-  pill: 999,
-  ink: 'var(--c-ink)',
-  inkDim: '#4a4651',
-  inkMuted: '#918c99',
-  bg: 'var(--c-bg)',
-  card: '#ffffff',
-  indigo: '#4f46e5',
-  coral: 'var(--c-accent)',
-  emerald: '#10b981',
-  amber: '#f59e0b',
-  red: '#ef4444',
-}
+const PAGE_SIZE = 20
 
 type FormData = {
   name: string; code: string; description: string
@@ -45,6 +34,9 @@ const labelStyle: React.CSSProperties = { fontSize: 12, fontWeight: 700, color: 
 
 export default function ClubsPage() {
   const [clubs, setClubs] = useState<ClubItem[]>([])
+  const [totalClubs, setTotalClubs] = useState(0)
+  const [page, setPage] = useState(1)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [categories, setCategories] = useState<CategoryItem[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshKey, setRefreshKey] = useState(0)
@@ -54,19 +46,81 @@ export default function ClubsPage() {
   const [saving, setSaving] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<ClubItem | null>(null)
   const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('')
   const [sortBy, setSortBy] = useState<'id' | 'name' | 'members'>('id')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
   const [hoverRow, setHoverRow] = useState<number | null>(null)
+  const latestQueryKey = useRef('')
 
   useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedSearch(search.trim()), 300)
+    return () => window.clearTimeout(timer)
+  }, [search])
+
+  const buildQuery = useCallback((pageNumber: number): AdminClubListQuery => {
+    return {
+      page: pageNumber,
+      pageSize: PAGE_SIZE,
+      search: debouncedSearch || undefined,
+      status: statusFilter || undefined,
+      categoryId: categoryFilter ? Number(categoryFilter) : undefined,
+      sortBy,
+      sortDir,
+    }
+  }, [debouncedSearch, statusFilter, categoryFilter, sortBy, sortDir])
+
+  const querySignature = useMemo(() => JSON.stringify({
+    search: debouncedSearch || '',
+    status: statusFilter || '',
+    categoryId: categoryFilter || '',
+    sortBy,
+    sortDir,
+  }), [debouncedSearch, statusFilter, categoryFilter, sortBy, sortDir])
+
+  useDeferredEffect((isCancelled) => {
+    latestQueryKey.current = querySignature
     setLoading(true)
-    Promise.all([getAdminClubs(), getCategories()])
-      .then(([c, cats]) => { setClubs(c); setCategories(cats) })
-      .catch(() => toast.error('Không thể tải dữ liệu.'))
-      .finally(() => setLoading(false))
-  }, [refreshKey])
+    setLoadingMore(false)
+    setClubs([])
+    setPage(1)
+    Promise.all([getAdminClubsPage(buildQuery(1)), getCategories()])
+      .then(([c, cats]) => {
+        if (isCancelled() || latestQueryKey.current !== querySignature) return
+        setClubs(c.items)
+        setTotalClubs(c.totalCount)
+        setCategories(cats)
+      })
+      .catch(() => {
+        if (!isCancelled() && latestQueryKey.current === querySignature)
+          toast.error('Không thể tải dữ liệu.')
+      })
+      .finally(() => {
+        if (!isCancelled() && latestQueryKey.current === querySignature)
+          setLoading(false)
+      })
+  }, [refreshKey, querySignature, buildQuery])
+
+  function loadMore() {
+    const nextPage = page + 1
+    setLoadingMore(true)
+    getAdminClubsPage(buildQuery(nextPage))
+      .then(r => {
+        if (latestQueryKey.current !== querySignature) return
+        setClubs(prev => [...prev, ...r.items])
+        setTotalClubs(r.totalCount)
+        setPage(nextPage)
+      })
+      .catch(() => {
+        if (latestQueryKey.current === querySignature)
+          toast.error('Tải thêm thất bại.')
+      })
+      .finally(() => {
+        if (latestQueryKey.current === querySignature)
+          setLoadingMore(false)
+      })
+  }
 
   function openCreate() { setEditing(null); setForm(emptyForm); setDialogOpen(true) }
 
@@ -104,8 +158,8 @@ export default function ClubsPage() {
       }
       setDialogOpen(false)
       setRefreshKey(k => k + 1)
-    } catch (err: any) {
-      toast.error(err.response?.data?.message ?? 'Thao tác thất bại.')
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'Thao tác thất bại.'))
     } finally {
       setSaving(false)
     }
@@ -124,20 +178,13 @@ export default function ClubsPage() {
   }
 
   const hasFilter = search || statusFilter || categoryFilter
-  const filtered = clubs
-    .filter(c => {
-      if (!search) return true
-      const q = search.toLowerCase()
-      return c.name.toLowerCase().includes(q) || c.code.toLowerCase().includes(q)
-    })
-    .filter(c => !statusFilter || c.status === statusFilter)
-    .filter(c => !categoryFilter || String(c.categoryId ?? '') === categoryFilter)
-    .sort((a, b) => {
-      const cmp = sortBy === 'name' ? a.name.localeCompare(b.name)
-        : sortBy === 'members' ? a.memberCount - b.memberCount
-        : a.id - b.id
-      return sortDir === 'asc' ? cmp : -cmp
-    })
+  const exportQuery = {
+    search: debouncedSearch || undefined,
+    status: statusFilter || undefined,
+    categoryId: categoryFilter ? Number(categoryFilter) : undefined,
+    sortBy,
+    sortDir,
+  }
 
   return (
     <div style={{ padding: '28px 32px', minHeight: '100%', background: D.bg, fontFamily: "'Be Vietnam Pro', sans-serif" }}>
@@ -145,13 +192,13 @@ export default function ClubsPage() {
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20, gap: 16 }}>
         <div>
           <h1 style={{ fontSize: 24, fontWeight: 900, color: D.ink, letterSpacing: '-.025em', margin: 0 }}>Câu lạc bộ</h1>
-          <p style={{ fontSize: 13, color: D.inkMuted, marginTop: 4 }}>{clubs.length} CLB trong hệ thống</p>
+          <p style={{ fontSize: 13, color: D.inkMuted, marginTop: 4 }}>{totalClubs} CLB trong hệ thống</p>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <button
             style={{ background: D.card, color: D.inkDim, border: D.border, boxShadow: D.shadow(2,2), padding: '8px 14px', borderRadius: D.pill, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
             onClick={async () => {
-              const res = await exportClubs('xlsx')
+              const res = await exportClubs('xlsx', exportQuery)
               const url = URL.createObjectURL(res.data)
               const a = document.createElement('a'); a.href = url; a.download = 'clubs.xlsx'; a.click()
               URL.revokeObjectURL(url)
@@ -161,7 +208,7 @@ export default function ClubsPage() {
           <button
             style={{ background: D.card, color: D.inkDim, border: D.border, boxShadow: D.shadow(2,2), padding: '8px 14px', borderRadius: D.pill, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
             onClick={async () => {
-              const res = await exportClubs('csv')
+              const res = await exportClubs('csv', exportQuery)
               const url = URL.createObjectURL(res.data)
               const a = document.createElement('a'); a.href = url; a.download = 'clubs.csv'; a.click()
               URL.revokeObjectURL(url)
@@ -226,7 +273,7 @@ export default function ClubsPage() {
               Xoá lọc
             </button>
           )}
-          <span style={{ fontSize: 12, color: D.inkMuted, whiteSpace: 'nowrap' }}>{filtered.length}/{clubs.length}</span>
+          <span style={{ fontSize: 12, color: D.inkMuted, whiteSpace: 'nowrap' }}>{clubs.length}/{totalClubs}</span>
         </div>
       </div>
 
@@ -247,9 +294,9 @@ export default function ClubsPage() {
           <tbody>
             {loading ? (
               <tr><td colSpan={7} style={{ textAlign: 'center', color: D.inkMuted, padding: '48px 0' }}>Đang tải...</td></tr>
-            ) : filtered.length === 0 ? (
+            ) : clubs.length === 0 ? (
               <tr><td colSpan={7} style={{ textAlign: 'center', color: D.inkMuted, padding: '48px 0' }}>Không tìm thấy CLB nào.</td></tr>
-            ) : filtered.map(club => (
+            ) : clubs.map(club => (
               <tr key={club.id}
                 onMouseEnter={() => setHoverRow(club.id)}
                 onMouseLeave={() => setHoverRow(null)}
@@ -293,6 +340,14 @@ export default function ClubsPage() {
           </tbody>
         </table>
       </div>
+
+      <LoadMoreBar
+        shown={clubs.length}
+        total={totalClubs}
+        loading={loadingMore}
+        onLoadMore={loadMore}
+        label="CLB"
+      />
 
       {/* Create / Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

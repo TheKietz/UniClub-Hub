@@ -1,5 +1,6 @@
 using UniClub_Hub.Shared.Common;
 using UniClub_Hub.Membership.DTOs.Membership;
+using UniClub_Hub.Membership.DTOs.Common;
 
 namespace UniClub_Hub.Membership.Services.Interfaces
 {
@@ -7,6 +8,7 @@ namespace UniClub_Hub.Membership.Services.Interfaces
     {
         // Public
         Task<IEnumerable<MemberDto>> GetAllAsync(int clubId, string? status = null, int? departmentId = null);
+        Task<PagedResult<MemberDto>> GetPageAsync(int clubId, MemberListQuery query);
         Task<MemberDto> GetByIdAsync(int clubId, int membershipId);
 
         // CLUB_ADMIN (kiểm tra quyền theo CLB)
@@ -20,7 +22,7 @@ namespace UniClub_Hub.Membership.Services.Interfaces
         Task RemoveMemberAsAdminAsync(int clubId, int membershipId, bool force = false);
 
         // Xác nhận chính thức (Probation → Active)
-        Task<MemberDto> PromoteMemberAsync(int clubId, int membershipId);
+        Task<MemberDto> PromoteMemberAsync(int clubId, int membershipId, string requesterUserId, bool isSuperAdmin);
 
         // Thành viên tự rời CLB
         Task ResignAsync(int clubId, string userId);
@@ -30,7 +32,7 @@ namespace UniClub_Hub.Membership.Services.Interfaces
 
         // Custom member fields
         Task<List<MemberFieldDef>> GetMemberFieldSchemaAsync(int clubId);
-        Task<List<MemberFieldDef>> UpdateMemberFieldSchemaAsync(int clubId, List<MemberFieldDef> fields, string requestUserId);
-        Task<MemberDto> UpdateMemberCustomDataAsync(int clubId, int membershipId, Dictionary<string, string?> data, string requestUserId);
+        Task<List<MemberFieldDef>> UpdateMemberFieldSchemaAsync(int clubId, List<MemberFieldDef> fields, string requestUserId, bool isSuperAdmin);
+        Task<MemberDto> UpdateMemberCustomDataAsync(int clubId, int membershipId, Dictionary<string, string?> data, string requestUserId, bool isSuperAdmin);
     }
 }

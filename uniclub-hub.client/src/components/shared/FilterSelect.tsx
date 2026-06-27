@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { ChevronDown } from 'lucide-react'
+import { D } from '@/components/shared/managementTheme'
 
 export interface SelectOption { value: string; label: string }
 
@@ -14,13 +15,6 @@ interface Props {
   maxMenuHeight?: number
   /** Mark the selected option with text color only (no background highlight). */
   activeTextOnly?: boolean
-}
-
-const D = {
-  border: '1.5px solid var(--c-ink)', borderLight: '1px solid #e8e3d6',
-  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 var(--c-ink)`,
-  ink: 'var(--c-ink)', inkDim: '#4a4651', inkMuted: '#918c99',
-  bg: 'var(--c-bg)', card: '#ffffff', indigo: '#4f46e5',
 }
 
 export function FilterSelect({ value, onChange, options, style, buttonStyle, menuStyle, disabled = false, maxMenuHeight = 280, activeTextOnly = false }: Props) {

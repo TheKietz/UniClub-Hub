@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using UniClub_Hub.Membership.DTOs.Club;
+using UniClub_Hub.Membership.DTOs.Common;
 using UniClub_Hub.Membership.Services.Interfaces;
 using UniClub_Hub.Shared.Common;
 
@@ -21,8 +22,28 @@ namespace UniClub_Hub.Server.Controllers.Admin
         [HttpGet]
         public async Task<IActionResult> GetAll(
             [FromQuery] int? categoryId,
-            [FromQuery] string? status)
+            [FromQuery] string? status,
+            [FromQuery] string? search,
+            [FromQuery] string sortBy = "id",
+            [FromQuery] string sortDir = "asc",
+            [FromQuery] int? page = null,
+            [FromQuery] int? pageSize = null)
         {
+            if (page.HasValue || pageSize.HasValue)
+            {
+                var paged = await _clubService.GetAllAdminPageAsync(new AdminClubListQuery
+                {
+                    Search = search,
+                    CategoryId = categoryId,
+                    Status = status,
+                    SortBy = sortBy,
+                    SortDir = sortDir,
+                    Page = page ?? 1,
+                    PageSize = pageSize ?? 20
+                });
+                return Ok(ApiResponse<PagedResult<AdminClubDto>>.Ok(paged));
+            }
+
             var result = await _clubService.GetAllAdminAsync(categoryId, status);
             return Ok(ApiResponse<IEnumerable<AdminClubDto>>.Ok(result));
         }

@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using UniClub_Hub.Membership.DTOs.Application;
+using UniClub_Hub.Membership.DTOs.Common;
 using UniClub_Hub.Membership.DTOs.Pipeline;
 using UniClub_Hub.Membership.Services.Interfaces;
 using UniClub_Hub.Shared.Common;
@@ -36,7 +37,17 @@ namespace UniClub_Hub.Server.Controllers.Membership
         // Admin xem tất cả đơn của CLB
         [HttpGet]
         [Authorize]
-        public async Task<IActionResult> GetAll(int clubId, [FromQuery] string? status)
+        public async Task<IActionResult> GetAll(
+            int clubId,
+            [FromQuery] string? status,
+            [FromQuery] string? search,
+            [FromQuery] int? stageId,
+            [FromQuery] DateTime? dateFrom,
+            [FromQuery] DateTime? dateTo,
+            [FromQuery] string sortBy = "appliedAt",
+            [FromQuery] string sortDir = "desc",
+            [FromQuery] int? page = null,
+            [FromQuery] int? pageSize = null)
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
             var isSuperAdmin = User.IsInRole("SUPER_ADMIN");
@@ -45,6 +56,23 @@ namespace UniClub_Hub.Server.Controllers.Membership
 
             try
             {
+                if (page.HasValue || pageSize.HasValue)
+                {
+                    var paged = await _applicationService.GetAllByClubPageAsync(clubId, new ApplicationListQuery
+                    {
+                        Search = search,
+                        Status = status,
+                        StageId = stageId,
+                        DateFrom = dateFrom,
+                        DateTo = dateTo,
+                        SortBy = sortBy,
+                        SortDir = sortDir,
+                        Page = page ?? 1,
+                        PageSize = pageSize ?? 20
+                    });
+                    return Ok(ApiResponse<PagedResult<AdminApplicationDto>>.Ok(paged));
+                }
+
                 var result = await _applicationService.GetAllByClubAsync(clubId, status);
                 return Ok(ApiResponse<IEnumerable<AdminApplicationDto>>.Ok(result));
             }

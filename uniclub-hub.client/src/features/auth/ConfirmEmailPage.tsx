@@ -1,6 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { useDeferredEffect } from '@/hooks/useDeferredEffect'
 import { useSearchParams, Link } from 'react-router-dom'
 import api from '@/lib/axiosInstance'
+import { getApiErrorMessage } from '@/lib/apiError'
 import { C } from '@/components/public/publicComponents'
 import AuthShell from './AuthShell'
 
@@ -17,22 +19,24 @@ export default function ConfirmEmailPage() {
   const [params] = useSearchParams()
   const email = params.get('email') ?? ''
   const token = params.get('token') ?? ''
-  const [status, setStatus] = useState<Status>('loading')
-  const [message, setMessage] = useState('')
+  const missingParams = !email || !token
+  const [status, setStatus] = useState<Status>(() => (missingParams ? 'error' : 'loading'))
+  const [message, setMessage] = useState(() => (missingParams ? 'Liên kết không hợp lệ hoặc đã hết hạn.' : ''))
 
-  useEffect(() => {
-    if (!email || !token) { setStatus('error'); return }
+  useDeferredEffect((isCancelled) => {
     api.get(`/auth/confirm-email?email=${encodeURIComponent(email)}&token=${encodeURIComponent(token)}`)
       .then(res => {
+        if (isCancelled()) return
         const msg: string = res.data.message ?? ''
         setStatus(msg.includes('trước đó') ? 'already' : 'success')
         setMessage(msg)
       })
       .catch(err => {
+        if (isCancelled()) return
         setStatus('error')
-        setMessage(err.response?.data?.message ?? 'Liên kết xác thực không hợp lệ hoặc đã hết hạn.')
+        setMessage(getApiErrorMessage(err, 'Liên kết xác thực không hợp lệ hoặc đã hết hạn.'))
       })
-  }, [email, token])
+  }, [email, token], { enabled: !missingParams })
 
   const s = STATE[status]
 

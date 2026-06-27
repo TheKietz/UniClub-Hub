@@ -5,25 +5,9 @@ import { RefreshCw, AlertTriangle, Clock, CheckCircle, TrendingDown, Minus } fro
 import { getTasks } from '../services/operationsApi'
 import { useTasks } from '../context/TasksContext'
 import type { TaskItem, TaskStatus } from '../services/operations.types'
+import { D } from '@/components/shared/managementTheme'
 
 /* ─── Design tokens ──────────────────────────────────────────────────────── */
-
-const D = {
-  border: '1.5px solid var(--c-ink)',
-  borderLight: '1px solid #e8e3d6',
-  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 var(--c-ink)`,
-  radius: 14,
-  pill: 999,
-  ink: 'var(--c-ink)',
-  inkDim: '#4a4651',
-  inkMuted: '#918c99',
-  bg: 'var(--c-bg)',
-  card: '#ffffff',
-  indigo: '#4f46e5',
-  emerald: '#10b981',
-  amber: '#f59e0b',
-  red: '#ef4444',
-}
 
 /* ─── Logic ──────────────────────────────────────────────────────────────── */
 
@@ -106,7 +90,7 @@ function TaskRowItem({ row }: { row: TaskRow }) {
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}>
           <span style={{ fontSize: 10, color: D.inkMuted }}>{task.progress}%</span>
         </div>
-        <div style={{ height: 4, background: '#e8e3d6', borderRadius: 2, overflow: 'hidden' }}>
+        <div style={{ height: 4, background: '#dce6f4', borderRadius: 2, overflow: 'hidden' }}>
           <div style={{ height: '100%', width: `${task.progress}%`, background: D.indigo, borderRadius: 2 }} />
         </div>
       </div>

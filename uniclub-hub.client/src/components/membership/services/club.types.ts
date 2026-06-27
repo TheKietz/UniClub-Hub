@@ -195,6 +195,7 @@ export interface FormField {
   required: boolean
   options?: string[]   // chỉ dùng khi type = 'select'
   accept?: string      // chỉ dùng khi type = 'file', vd: ".pdf,.docx"
+  linkedFieldId?: string // id của MemberFieldDef — câu trả lời tự lưu vào trường này
 }
 
 export interface FormSchema {

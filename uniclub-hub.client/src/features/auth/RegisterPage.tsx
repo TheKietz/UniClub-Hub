@@ -1,14 +1,16 @@
 import { useState } from 'react'
+import { useResendCooldown } from '@/hooks/useResendCooldown'
 import { Link, useNavigate } from 'react-router-dom'
 import { useGoogleLogin } from '@react-oauth/google'
 import { Eye, EyeOff, MailCheck, RefreshCw } from 'lucide-react'
-import { useAuth } from '@/contexts/AuthContext'
+import { useAuth } from '@/hooks/useAuth'
 import { C } from '@/components/public/publicComponents'
 import MajorSelect from '@/components/shared/MajorSelect'
 import { toast } from 'sonner'
 import api from '@/lib/axiosInstance'
 import type { UserInfo } from '@/types/auth'
 import AuthShell from './AuthShell'
+import { getApiErrorMessage } from '@/lib/apiError'
 
 function redirectAfterLogin(me: UserInfo): string {
   if (me.roles.includes('SUPER_ADMIN')) return '/admin'
@@ -79,6 +81,7 @@ export default function RegisterPage() {
   const [errs, setErrs] = useState<Errs>({})
   const [loading, setLoading] = useState(false)
   const [resendLoading, setResendLoading] = useState(false)
+  const resend = useResendCooldown(60)
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
 
@@ -137,18 +140,20 @@ export default function RegisterPage() {
       })
       setRegisteredEmail(form.email)
       setStep(3)
-    } catch (err: any) {
-      toast.error(err.response?.data?.message ?? 'Đăng ký thất bại. Vui lòng thử lại.')
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'Đăng ký thất bại. Vui lòng thử lại.'))
     } finally {
       setLoading(false)
     }
   }
 
   async function handleResend() {
+    if (resend.active) return
     setResendLoading(true)
     try {
       await api.post('/auth/resend-confirmation', { email: registeredEmail })
       toast.success('Email xác thực đã được gửi lại.')
+      resend.start(60)
     } catch {
       toast.error('Gửi lại thất bại. Vui lòng thử lại sau.')
     } finally {
@@ -163,8 +168,8 @@ export default function RegisterPage() {
       try {
         const me = await googleLogin(tokenResponse.access_token)
         navigate(redirectAfterLogin(me), { replace: true })
-      } catch (err: any) {
-        toast.error(err.response?.data?.message ?? 'Đăng ký Google thất bại.')
+      } catch (err: unknown) {
+        toast.error(getApiErrorMessage(err, 'Đăng ký Google thất bại.'))
       } finally {
         setLoading(false)
       }
@@ -222,27 +227,28 @@ export default function RegisterPage() {
           <button
             type="button"
             onClick={handleResend}
-            disabled={resendLoading}
+            disabled={resendLoading || resend.active}
             style={{
               width: '100%',
               height: 48,
               borderRadius: 14,
               border: '1.5px solid #e4dfd4',
               background: C.card,
-              color: C.ink,
+              color: resend.active ? C.inkDim : C.ink,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               gap: 8,
               fontSize: 14,
               fontWeight: 800,
-              cursor: resendLoading ? 'wait' : 'pointer',
+              cursor: (resendLoading || resend.active) ? 'not-allowed' : 'pointer',
+              opacity: resend.active ? 0.7 : 1,
               marginBottom: 12,
               fontFamily: 'inherit',
             }}
           >
             <RefreshCw size={16} style={{ animation: resendLoading ? 'spin 1s linear infinite' : 'none' }} />
-            {resendLoading ? 'Đang gửi...' : 'Gửi lại email xác thực'}
+            {resend.active ? `Gửi lại sau ${resend.seconds}s` : resendLoading ? 'Đang gửi...' : 'Gửi lại email xác thực'}
           </button>
           <Link
             to="/login"
