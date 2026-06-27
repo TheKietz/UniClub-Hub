@@ -8,25 +8,9 @@ import StatCard from "../components/StatCard";
 import TaskDetailModal from "../components/task/TaskDetailModal";
 import { getKanbanColumns } from "../services/operationsApi";
 import type { TaskItem, KanbanColumnItem } from "../services/operations.types";
+import { D } from '@/components/shared/managementTheme'
 
 /* ── Design tokens ─────────────────────────────────────────────────────────── */
-
-const D = {
-  border: '1.5px solid var(--c-ink)',
-  borderLight: '1px solid #e8e3d6',
-  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 var(--c-ink)`,
-  radius: 14,
-  pill: 999,
-  ink: 'var(--c-ink)',
-  inkDim: '#4a4651',
-  inkMuted: '#918c99',
-  bg: 'var(--c-bg)',
-  card: '#ffffff',
-  indigo: '#4f46e5',
-  emerald: '#10b981',
-  amber: '#f59e0b',
-  red: '#ef4444',
-}
 
 /* ── Config maps ───────────────────────────────────────────────────────────── */
 
@@ -130,7 +114,7 @@ function TaskListCard({ task, onClick }: { task: TaskItem; onClick: () => void }
           <span style={{ fontSize: 11, color: D.inkMuted, fontWeight: 600 }}>Tiến độ</span>
           <span style={{ fontSize: 11, fontWeight: 800, color: p.color }}>{task.progress}%</span>
         </div>
-        <div style={{ height: 6, background: '#e8e3d6', borderRadius: 2, overflow: 'hidden', border: '1px solid #ccc' }}>
+        <div style={{ height: 6, background: '#dce6f4', borderRadius: 2, overflow: 'hidden', border: '1px solid #ccc' }}>
           <div style={{ height: '100%', background: p.color, width: `${task.progress}%`, transition: 'width .4s' }} />
         </div>
       </div>
@@ -148,7 +132,7 @@ function TaskListCard({ task, onClick }: { task: TaskItem; onClick: () => void }
           <span style={{
             fontSize: 11, fontWeight: 700, padding: '2px 8px',
             borderRadius: 0, border: D.borderLight,
-            background: isOverdue ? '#fee2e2' : 'var(--c-bg)',
+            background: isOverdue ? '#fee2e2' : '#f4f7fc',
             color: isOverdue ? D.red : D.inkMuted,
           }}>
             {deadlineStr}
@@ -165,7 +149,7 @@ function CircularProgress({ value, size = 88 }: { value: number; size?: number }
   const dash = circ * (1 - value / 100)
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ transform: 'rotate(-90deg)' }}>
-      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#e8e3d6" strokeWidth={8} />
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#dce6f4" strokeWidth={8} />
       <circle
         cx={size / 2} cy={size / 2} r={r}
         fill="none" stroke={D.indigo} strokeWidth={8}
@@ -279,7 +263,7 @@ export default function MyTasksPage() {
           onChange={e => setSearchQuery(e.target.value)}
           style={{
             flex: 1, minWidth: 200, height: 36, borderRadius: 8,
-            border: '1px solid #e8e3d6', padding: '0 12px', fontSize: 13,
+            border: '1px solid #dce6f4', padding: '0 12px', fontSize: 13,
             color: D.ink, outline: 'none', background: D.bg,
             fontFamily: 'inherit', boxSizing: 'border-box',
           }}

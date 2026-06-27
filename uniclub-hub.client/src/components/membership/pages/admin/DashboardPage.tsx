@@ -8,22 +8,9 @@ import {
   PageShell, PageHeader, DTag,
 } from '@/components/shared/DashboardCharts'
 import { exportDashboardPdf } from '@/lib/pdfExport'
+import { D } from '@/components/shared/managementTheme'
 
-const BAR_COLORS = ['#4f46e5', '#7c3aed', '#ec4899', '#38bdf8', '#14b8a6', 'var(--c-accent)']
-const D = {
-  border: '1.5px solid var(--c-ink)',
-  borderLight: '1px solid #e8e3d6',
-  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 var(--c-ink)`,
-  radius: 14,
-  ink: 'var(--c-ink)',
-  inkMuted: '#918c99',
-  bg: 'var(--c-bg)',
-  amber: '#f59e0b',
-  emerald: '#10b981',
-  red: '#ef4444',
-  sky: '#38bdf8',
-}
-
+const BAR_COLORS = ['#1d4ed8', '#7c3aed', '#ec4899', '#38bdf8', '#14b8a6', '#ff5a3c']
 type AlertItem = { message: string; link: string; linkLabel: string }
 
 function ActionItems({ items }: { items: AlertItem[] }) {
@@ -163,9 +150,9 @@ export default function DashboardPage() {
             style={{
               padding: '8px 16px', borderRadius: 999,
               background: exporting ? D.bg : D.ink,
-              color: exporting ? D.inkMuted : '#facc15',
-              border: '1.5px solid var(--c-ink)',
-              boxShadow: exporting ? 'none' : '3px 3px 0 var(--c-ink)',
+              color: exporting ? D.inkMuted : '#ffffff',
+              border: '1.5px solid #0a2f6e',
+              boxShadow: exporting ? 'none' : '3px 3px 0 #0a2f6e',
               fontSize: 12, fontWeight: 700, cursor: exporting ? 'not-allowed' : 'pointer',
               fontFamily: 'inherit', transition: 'all .15s',
             }}
@@ -180,7 +167,7 @@ export default function DashboardPage() {
 
       {/* Stat cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
-        <StatCard icon="◐" label="Người dùng" value={stats.totalUsers.toLocaleString()} color="#4f46e5" />
+        <StatCard icon="◐" label="Người dùng" value={stats.totalUsers.toLocaleString()} color="#1d4ed8" />
         <StatCard icon="▦" label="Câu lạc bộ" value={stats.totalClubs}
           sub={`${stats.activeClubs} hoạt động (${activeRate}%)`} color={D.emerald} />
         <StatCard icon="◇" label="Thành viên" value={stats.totalActiveMembers.toLocaleString()}
@@ -201,9 +188,9 @@ export default function DashboardPage() {
                 <button key={o.value} onClick={() => setMonths(o.value)} style={{
                   padding: '3px 9px', borderRadius: 999, fontSize: 11, fontWeight: 700, cursor: 'pointer',
                   background: months === o.value ? D.ink : D.bg,
-                  color: months === o.value ? '#facc15' : D.inkMuted,
-                  border: '1.5px solid var(--c-ink)',
-                  boxShadow: months === o.value ? 'none' : '2px 2px 0 var(--c-ink)',
+                  color: months === o.value ? '#ffffff' : D.inkMuted,
+                  border: '1.5px solid #0a2f6e',
+                  boxShadow: months === o.value ? 'none' : '2px 2px 0 #0a2f6e',
                   transform: months === o.value ? 'translate(2px,2px)' : 'none',
                   transition: 'all .1s', fontFamily: 'inherit',
                 }}>{o.label}</button>
@@ -213,7 +200,7 @@ export default function DashboardPage() {
         }
         style={{ marginBottom: 20 }}
       >
-        <MiniAreaChart data={growthData} color="#4f46e5" height={160} />
+        <MiniAreaChart data={growthData} color="#1d4ed8" height={160} />
         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8 }}>
           {growthData.map(g => (
             <span key={g.month} style={{ fontSize: 10, color: D.inkMuted, fontWeight: 600 }}>{g.month}</span>
@@ -266,7 +253,7 @@ export default function DashboardPage() {
                   <div style={{ flex: 1 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
                       <span style={{ fontSize: 13, fontWeight: 600, color: D.ink }}>{c.clubName}</span>
-                      <span style={{ fontSize: 12, fontWeight: 700, color: '#4f46e5' }}>{c.memberCount}</span>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: '#1d4ed8' }}>{c.memberCount}</span>
                     </div>
                     <div style={{ height: 6, borderRadius: 3, background: D.bg, overflow: 'hidden', border: D.borderLight }}>
                       <div style={{ width: `${pct}%`, height: '100%', borderRadius: 3, background: BAR_COLORS[i % BAR_COLORS.length], transition: 'width .5s ease' }} />
@@ -317,7 +304,7 @@ export default function DashboardPage() {
 
       {/* Summary tag */}
       <div style={{ marginTop: 16 }}>
-        <DTag bg="var(--c-bg)" color="#918c99" style={{ border: D.borderLight, fontSize: 11 }}>
+        <DTag bg="#f4f7fc" color="#918c99" style={{ border: D.borderLight, fontSize: 11 }}>
           Tổng đơn: {stats.applications.total} · Tỷ lệ duyệt: {acceptanceRate ?? 0}% · Giữ chân TV: {retentionRate ?? '—'}%
         </DTag>
       </div>

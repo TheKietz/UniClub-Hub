@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { ChevronDown } from 'lucide-react'
+import { D } from '@/components/shared/managementTheme'
 
 export interface SelectOption { value: string; label: string }
 

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { getPublicSettings } from '@/components/membership/services/adminApi'
+import { useAuth } from '@/hooks/useAuth'
 
 function IconFacebook() {
   return (
@@ -303,6 +304,7 @@ export function CatPill({ label, active, onClick }: {
 
 // ─── V3 Footer ───────────────────────────────────────────────────
 export function PublicFooter() {
+  const { isAuthenticated } = useAuth()
   const [s, setS] = useState<Record<string, string>>({})
   useEffect(() => { getPublicSettings().then(setS).catch(() => {}) }, [])
 
@@ -465,8 +467,8 @@ export function PublicFooter() {
 
           <div>
             <div className="public-footer-heading">Tài khoản</div>
-            <a className="public-footer-link" href="/login">Đăng nhập</a>
-            <a className="public-footer-link" href="/register">Đăng ký</a>
+            {!isAuthenticated && <a className="public-footer-link" href="/login">Đăng nhập</a>}
+            {!isAuthenticated && <a className="public-footer-link" href="/register">Đăng ký</a>}
             <a className="public-footer-link" href="/forgot-password">Quên mật khẩu</a>
           </div>
 

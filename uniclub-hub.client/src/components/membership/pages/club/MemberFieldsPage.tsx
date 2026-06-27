@@ -1,9 +1,15 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { getMemberFieldSchema, updateMemberFieldSchema } from '@/components/membership/services/clubApi'
-import type { MemberFieldDef, MemberFieldType } from '@/components/membership/services/club.types'
+import { getFormSchema, getMemberFieldSchema, updateMemberFieldSchema } from '@/components/membership/services/clubApi'
+import type { FormField, MemberFieldDef, MemberFieldType } from '@/components/membership/services/club.types'
 import { toast } from 'sonner'
 import { ChevronDown } from 'lucide-react'
+import { D } from '@/components/shared/managementTheme'
+import { PermissionDenied } from '@/components/shared/Can'
+import { useClubPermissions } from '@/hooks/useClubPermissions'
+import { CLUB_PERMISSIONS } from '@/constants/clubPermissions'
+import { useUnsavedNavigationGuard } from '@/hooks/useUnsavedNavigationGuard'
+import type { SettingsTabChildProps } from './settingsTabTypes'
 
 const FIELD_TYPES: { value: MemberFieldType; label: string }[] = [
   { value: 'text',     label: 'Văn bản ngắn' },
@@ -12,17 +18,9 @@ const FIELD_TYPES: { value: MemberFieldType; label: string }[] = [
 ]
 
 const TYPE_STYLE: Record<string, { bg: string; label: string }> = {
-  text:     { bg: '#4f46e5', label: 'VĂN BẢN NGẮN' },
+  text:     { bg: '#1d4ed8', label: 'VĂN BẢN NGẮN' },
   textarea: { bg: '#7c3aed', label: 'VĂN BẢN DÀI' },
   select:   { bg: '#f59e0b', label: 'CHỌN MỘT' },
-}
-
-const D = {
-  border: '1.5px solid var(--c-ink)', borderLight: '1px solid #e8e3d6',
-  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 var(--c-ink)`,
-  radius: 14, pill: 999,
-  ink: 'var(--c-ink)', inkDim: '#4a4651', inkMuted: '#918c99',
-  bg: 'var(--c-bg)', card: '#ffffff', indigo: '#4f46e5',
 }
 
 const inputS: React.CSSProperties = {
@@ -107,20 +105,49 @@ function newField(): MemberFieldDef {
   return { id: crypto.randomUUID(), label: '', type: 'text', required: false }
 }
 
-export default function MemberFieldsPage() {
+export default function MemberFieldsPage({ onDirtyChange, onBindHandles }: SettingsTabChildProps = {}) {
   const { clubId } = useParams<{ clubId: string }>()
   const id = Number(clubId)
+  const clubPermissions = useClubPermissions(id)
+  const canManage = clubPermissions.can(CLUB_PERMISSIONS.RECRUITMENT_FORM_MANAGE)
 
   const [fields, setFields] = useState<MemberFieldDef[]>([])
+  const [formFields, setFormFields] = useState<FormField[]>([])
+  const [baseline, setBaseline] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
-    getMemberFieldSchema(id)
-      .then(data => setFields(data))
+    Promise.all([
+      getMemberFieldSchema(id),
+      getFormSchema(id).then(s => s?.fields ?? []).catch(() => [] as FormField[]),
+    ])
+      .then(([data, questions]) => {
+        setFields(data)
+        setFormFields(questions)
+        setBaseline(JSON.stringify(data))
+      })
       .catch(() => toast.error('Không thể tải cấu hình trường thông tin.'))
       .finally(() => setLoading(false))
   }, [id])
+
+  function getLinkedQuestion(fieldId: string): FormField | undefined {
+    return formFields.find(f => f.linkedFieldId === fieldId)
+  }
+
+  function removeField(index: number) {
+    const field = fields[index]
+    const linked = getLinkedQuestion(field.id)
+    if (linked) {
+      const label = linked.label.trim() || 'chưa đặt tên'
+      const ok = window.confirm(
+        `Trường này đang được liên kết với câu hỏi «${label}» trong Form đăng ký. `
+        + 'Xóa trường sẽ khiến câu hỏi mất kết nối (câu hỏi không bị xóa). Tiếp tục?',
+      )
+      if (!ok) return
+    }
+    setFields(prev => prev.filter((_, idx) => idx !== index))
+  }
 
   function updateField(index: number, patch: Partial<MemberFieldDef>) {
     setFields(prev => prev.map((f, i) => i === index ? { ...f, ...patch } : f))
@@ -148,18 +175,51 @@ export default function MemberFieldsPage() {
     setFields(arr)
   }
 
-  async function handleSave() {
-    if (fields.find(f => !f.label.trim())) { toast.error('Vui lòng điền đầy đủ tên trường.'); return }
+  const isDirty = !loading && baseline !== '' && JSON.stringify(fields) !== baseline
+
+  useEffect(() => {
+    onDirtyChange?.(isDirty)
+  }, [isDirty, onDirtyChange])
+
+  const discard = useCallback(() => {
+    if (!baseline) return
+    setFields(JSON.parse(baseline) as MemberFieldDef[])
+  }, [baseline])
+
+  const handleSave = useCallback(async (): Promise<boolean> => {
+    if (fields.find(f => !f.label.trim())) {
+      toast.error('Vui lòng điền đầy đủ tên trường.')
+      return false
+    }
     setSaving(true)
     try {
       await updateMemberFieldSchema(id, fields)
+      setBaseline(JSON.stringify(fields))
       toast.success('Đã lưu cấu hình trường thông tin thành viên.')
+      return true
     } catch {
       toast.error('Lưu thất bại.')
+      return false
     } finally {
       setSaving(false)
     }
-  }
+  }, [fields, id])
+
+  useEffect(() => {
+    onBindHandles?.({ save: handleSave, discard })
+    return () => onBindHandles?.(null)
+  }, [discard, handleSave, onBindHandles])
+
+  const embedded = onDirtyChange != null
+  useUnsavedNavigationGuard({
+    when: isDirty && !embedded,
+    onSave: handleSave,
+    onDiscard: discard,
+    description: 'Bạn có thay đổi chưa lưu trong trường thành viên. Lưu trước khi rời trang?',
+  })
+
+  if (!clubPermissions.loading && !canManage)
+    return <PermissionDenied />
 
   if (loading) return (
     <div style={{ padding: '28px 32px', color: D.inkMuted, fontSize: 13, fontFamily: "'Be Vietnam Pro', sans-serif" }}>Đang tải...</div>
@@ -173,8 +233,8 @@ export default function MemberFieldsPage() {
           <h1 style={{ fontSize: 24, fontWeight: 900, color: D.ink, letterSpacing: '-.025em', margin: 0 }}>Trường thông tin thành viên</h1>
           <p style={{ fontSize: 13, color: D.inkMuted, marginTop: 4 }}>Định nghĩa các trường thông tin đặc thù cho CLB của bạn</p>
         </div>
-        <button onClick={handleSave} disabled={saving} style={{
-          background: D.ink, color: '#facc15', border: D.border, boxShadow: D.shadow(2, 2),
+        <button onClick={() => void handleSave()} disabled={saving} style={{
+          background: D.ink, color: '#ffffff', border: D.border, boxShadow: D.shadow(2, 2),
           padding: '10px 22px', borderRadius: D.pill, fontSize: 13, fontWeight: 800,
           cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1, fontFamily: 'inherit', flexShrink: 0,
         }}>
@@ -204,6 +264,7 @@ export default function MemberFieldsPage() {
         )}
         {fields.map((field, i) => {
           const ts = TYPE_STYLE[field.type] ?? TYPE_STYLE.text
+          const linkedQuestion = getLinkedQuestion(field.id)
           return (
             <div key={field.id} style={{ background: D.card, border: D.border, borderRadius: D.radius, boxShadow: D.shadow(), padding: '18px 20px' }}>
               {/* Card header */}
@@ -216,13 +277,22 @@ export default function MemberFieldsPage() {
                 <span style={{ fontSize: 14, fontWeight: 700, color: D.ink, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   Trường {i + 1}
                 </span>
+                {linkedQuestion && (
+                  <span style={{
+                    fontSize: 10, fontWeight: 700, color: D.indigo, background: '#eef2ff',
+                    padding: '3px 8px', borderRadius: D.pill, flexShrink: 0, maxWidth: 180,
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                  }} title={`Đã liên kết với câu hỏi «${linkedQuestion.label || 'chưa đặt tên'}»`}>
+                    ↔ Form đăng ký
+                  </span>
+                )}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 2, flexShrink: 0 }}>
                   <button onClick={() => moveField(i, -1)} disabled={i === 0}
                     style={{ width: 26, height: 26, borderRadius: 6, background: 'none', border: 'none', cursor: i === 0 ? 'not-allowed' : 'pointer', color: D.inkMuted, opacity: i === 0 ? 0.25 : 0.7, display: 'grid', placeItems: 'center', fontSize: 14 }}>↑</button>
                   <button onClick={() => moveField(i, 1)} disabled={i === fields.length - 1}
                     style={{ width: 26, height: 26, borderRadius: 6, background: 'none', border: 'none', cursor: i === fields.length - 1 ? 'not-allowed' : 'pointer', color: D.inkMuted, opacity: i === fields.length - 1 ? 0.25 : 0.7, display: 'grid', placeItems: 'center', fontSize: 14 }}>↓</button>
                   <div style={{ width: 1, height: 16, background: D.borderLight, margin: '0 4px' }} />
-                  <button onClick={() => setFields(prev => prev.filter((_, idx) => idx !== i))}
+                  <button onClick={() => removeField(i)}
                     style={{ width: 26, height: 26, borderRadius: 6, background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', display: 'grid', placeItems: 'center', fontSize: 14 }}>✕</button>
                 </div>
               </div>
@@ -231,6 +301,11 @@ export default function MemberFieldsPage() {
               <div style={{ marginBottom: 14 }}>
                 <label style={labelS}>Tên trường <span style={{ color: '#ef4444' }}>*</span></label>
                 <input value={field.label} onChange={e => updateField(i, { label: e.target.value })} placeholder="VD: Tech stack, Nhạc cụ, Dự án đã làm..." style={inputS} />
+                {linkedQuestion && (
+                  <p style={{ margin: '6px 0 0', fontSize: 12, color: D.inkMuted }}>
+                    Đã liên kết với câu hỏi «{linkedQuestion.label || 'chưa đặt tên'}» — thu thập qua Form đăng ký, không hiện riêng khi nộp đơn.
+                  </p>
+                )}
               </div>
 
               {/* Type + Required */}

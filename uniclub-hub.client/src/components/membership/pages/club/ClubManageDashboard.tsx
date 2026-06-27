@@ -2,12 +2,13 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { getClubStats, getClubGrowth, getDepartments, getClubResignations } from '@/components/membership/services/clubApi'
 import type { ClubStats, MonthlyGrowth, DepartmentItem } from '@/components/membership/services/club.types'
-import { useAuth } from '@/contexts/AuthContext'
+import { useAuth } from '@/hooks/useAuth'
 import {
   StatCard, ChartCard, MiniAreaChart, MiniBarChart, MiniDonut,
   PageShell, DTag,
 } from '@/components/shared/DashboardCharts'
 import { exportDashboardPdf } from '@/lib/pdfExport'
+import { D } from '@/components/shared/managementTheme'
 
 const MONTH_OPTIONS = [
   { value: 3, label: '3 tháng' },
@@ -19,22 +20,8 @@ const MONTH_OPTIONS = [
 const ROLE_LABELS: Record<string, string> = {
   CLUB_ADMIN: 'Ban chủ nhiệm', DEPT_LEAD: 'Trưởng ban', MEMBER: 'Thành viên',
 }
-const ROLE_COLORS = ['var(--c-accent)', '#f59e0b', '#4f46e5']
-const DEPT_COLORS = ['#4f46e5', '#7c3aed', '#ec4899', '#14b8a6', '#38bdf8']
-
-const D = {
-  border: '1.5px solid var(--c-ink)',
-  borderLight: '1px solid #e8e3d6',
-  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 var(--c-ink)`,
-  radius: 14,
-  ink: 'var(--c-ink)',
-  inkMuted: '#918c99',
-  bg: 'var(--c-bg)',
-  amber: '#f59e0b',
-  emerald: '#10b981',
-  red: '#ef4444',
-  sky: '#38bdf8',
-}
+const ROLE_COLORS = ['#ff5a3c', '#f59e0b', '#1d4ed8']
+const DEPT_COLORS = ['#1d4ed8', '#7c3aed', '#ec4899', '#14b8a6', '#38bdf8']
 
 type AlertItem = { message: string; link: string; linkLabel: string }
 
@@ -187,7 +174,7 @@ export default function ClubManageDashboard() {
         ) : (
           <div style={{
             width: 64, height: 64, borderRadius: 16, flexShrink: 0,
-            background: '#4f46e5', border: D.border,
+            background: '#1d4ed8', border: D.border,
             display: 'grid', placeItems: 'center',
             color: '#fff', fontWeight: 900, fontSize: 24,
             transform: 'rotate(-3deg)', boxShadow: D.shadow(),
@@ -204,9 +191,9 @@ export default function ClubManageDashboard() {
           style={{
             flexShrink: 0, padding: '8px 16px', borderRadius: 999,
             background: exporting ? D.bg : D.ink,
-            color: exporting ? D.inkMuted : '#facc15',
-            border: '1.5px solid var(--c-ink)',
-            boxShadow: exporting ? 'none' : '3px 3px 0 var(--c-ink)',
+            color: exporting ? D.inkMuted : '#ffffff',
+            border: '1.5px solid #0a2f6e',
+            boxShadow: exporting ? 'none' : '3px 3px 0 #0a2f6e',
             fontSize: 12, fontWeight: 700, cursor: exporting ? 'not-allowed' : 'pointer',
             fontFamily: 'inherit', transition: 'all .15s',
           }}
@@ -221,7 +208,7 @@ export default function ClubManageDashboard() {
       {/* Stat cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
         <StatCard icon="◐" label="Thành viên chính thức" value={stats.totalActiveMembers}
-          sub={stats.totalProbationMembers > 0 ? `+ ${stats.totalProbationMembers} thử việc` : undefined} color="#4f46e5" />
+          sub={stats.totalProbationMembers > 0 ? `+ ${stats.totalProbationMembers} thử việc` : undefined} color="#1d4ed8" />
         <StatCard icon="▦" label="Ban bộ phận" value={stats.totalDepartments} color={D.emerald} />
         <StatCard icon="✦" label="Đơn chờ duyệt" value={stats.applications.pending} color={D.amber} />
         <StatCard icon="↗" label="TV mới (12 tháng)" value={totalNew} color="#7c3aed" />
@@ -239,9 +226,9 @@ export default function ClubManageDashboard() {
                 <button key={o.value} onClick={() => setMonths(o.value)} style={{
                   padding: '3px 9px', borderRadius: 999, fontSize: 11, fontWeight: 700, cursor: 'pointer',
                   background: months === o.value ? D.ink : D.bg,
-                  color: months === o.value ? '#facc15' : D.inkMuted,
-                  border: '1.5px solid var(--c-ink)',
-                  boxShadow: months === o.value ? 'none' : '2px 2px 0 var(--c-ink)',
+                  color: months === o.value ? '#ffffff' : D.inkMuted,
+                  border: '1.5px solid #0a2f6e',
+                  boxShadow: months === o.value ? 'none' : '2px 2px 0 #0a2f6e',
                   transform: months === o.value ? 'translate(2px,2px)' : 'none',
                   transition: 'all .1s', fontFamily: 'inherit',
                 }}>{o.label}</button>
@@ -251,7 +238,7 @@ export default function ClubManageDashboard() {
         }
         style={{ marginBottom: 20 }}
       >
-        <MiniAreaChart data={growthData} color="#4f46e5" height={140} />
+        <MiniAreaChart data={growthData} color="#1d4ed8" height={140} />
         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8 }}>
           {growthData.map(g => (
             <span key={g.month} style={{ fontSize: 10, color: D.inkMuted, fontWeight: 600 }}>{g.month}</span>

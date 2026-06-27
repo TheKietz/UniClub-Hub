@@ -4,6 +4,26 @@ import type {
   CreateClubDto, UpdateClubDto, CreateCategoryDto, UserImportPreview,
 } from '@/components/membership/services/admin.types'
 
+export type UserListQuery = {
+  search?: string
+  status?: string
+  role?: string
+  sortBy?: string
+  sortDir?: 'asc' | 'desc'
+  page?: number
+  pageSize?: number
+}
+
+export type AdminClubListQuery = {
+  search?: string
+  categoryId?: number
+  status?: string
+  sortBy?: string
+  sortDir?: 'asc' | 'desc'
+  page?: number
+  pageSize?: number
+}
+
 // ── Stats ──────────────────────────────────────────────────────────────────
 
 export const getSystemStats = () =>
@@ -14,7 +34,7 @@ export const getSystemGrowth = (months = 12) =>
 
 // ── Users ──────────────────────────────────────────────────────────────────
 
-export const getUsers = (params?: { search?: string; page?: number; pageSize?: number }) =>
+export const getUsers = (params?: UserListQuery) =>
   api.get<{ data: PagedResult<UserItem> }>('/admin/users', { params }).then(r => r.data.data)
 
 export const lockUser = (id: string) =>
@@ -38,6 +58,9 @@ export const createUser = (dto: {
 
 export const getAdminClubs = (params?: { categoryId?: number; status?: string }) =>
   api.get<{ data: ClubItem[] }>('/admin/clubs', { params }).then(r => r.data.data)
+
+export const getAdminClubsPage = (params?: AdminClubListQuery) =>
+  api.get<{ data: PagedResult<ClubItem> }>('/admin/clubs', { params }).then(r => r.data.data)
 
 export const createClub = (dto: CreateClubDto) =>
   api.post<{ data: ClubItem }>('/admin/clubs', dto).then(r => r.data.data)
@@ -97,13 +120,13 @@ export const importUsersConfirm = (rows: { email: string; fullName?: string; stu
   api.post<{ data: { imported: number; skipped: number } }>('/admin/import/users/confirm', { rows })
     .then(r => r.data.data)
 
-export const exportUsers = (format: 'xlsx' | 'csv') =>
-  api.get('/admin/export/users', { params: { format }, responseType: 'blob' })
+export const exportUsers = (format: 'xlsx' | 'csv', params?: Omit<UserListQuery, 'page' | 'pageSize'>) =>
+  api.get('/admin/export/users', { params: { format, ...params }, responseType: 'blob' })
 
 // ── Clubs export ───────────────────────────────────────────────────────────
 
-export const exportClubs = (format: 'xlsx' | 'csv') =>
-  api.get('/admin/export/clubs', { params: { format }, responseType: 'blob' })
+export const exportClubs = (format: 'xlsx' | 'csv', params?: Omit<AdminClubListQuery, 'page' | 'pageSize'>) =>
+  api.get('/admin/export/clubs', { params: { format, ...params }, responseType: 'blob' })
 
 // ── Support (admin) ────────────────────────────────────────────────────────
 

@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState, useCallback } from 'react'
+import { useDeferredEffect } from '@/hooks/useDeferredEffect'
 import { useParams } from 'react-router-dom'
 import { CalendarDays, RefreshCw } from 'lucide-react'
 import { toast } from 'sonner'
@@ -6,20 +7,10 @@ import { getDepartments } from '@/components/membership/services/clubApi'
 import type { DepartmentItem } from '@/components/membership/services/club.types'
 import { getKpiResults, type KpiResults, type MemberKpiResult } from '@/components/membership/services/kpiApi'
 import { FilterSelect } from '@/components/shared/FilterSelect'
-
-const D = {
-  border: '1.5px solid var(--c-ink)',
-  borderLight: '1px solid #e8e3d6',
-  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 var(--c-ink)`,
-  radius: 14,
-  pill: 999,
-  ink: 'var(--c-ink)',
-  inkDim: '#4a4651',
-  inkMuted: '#918c99',
-  bg: 'var(--c-bg)',
-  card: '#ffffff',
-  indigo: '#4f46e5',
-}
+import { D } from '@/components/shared/managementTheme'
+import { PermissionDenied } from '@/components/shared/Can'
+import { useClubPermissions } from '@/hooks/useClubPermissions'
+import { CLUB_PERMISSIONS } from '@/constants/clubPermissions'
 
 const ROLE_LABELS: Record<string, string> = {
   CLUB_ADMIN: 'Ban chủ nhiệm',
@@ -84,7 +75,9 @@ function MetricBreakdown({ member }: { member: MemberKpiResult }) {
 export default function KpiDashboardPage() {
   const { clubId } = useParams<{ clubId: string }>()
   const id = Number(clubId)
-  const defaultRange = useMemo(currentMonthRange, [])
+  const clubPermissions = useClubPermissions(id)
+  const canView = clubPermissions.canAny(CLUB_PERMISSIONS.MEMBER_KPI_VIEW, CLUB_PERMISSIONS.MEMBER_KPI_MANAGE)
+  const defaultRange = useMemo(() => currentMonthRange(), [])
   const [departments, setDepartments] = useState<DepartmentItem[]>([])
   const [departmentId, setDepartmentId] = useState('')
   const [fromDate, setFromDate] = useState(defaultRange.fromDate)
@@ -94,7 +87,7 @@ export default function KpiDashboardPage() {
   const [loading, setLoading] = useState(true)
   const [hoverRow, setHoverRow] = useState<number | null>(null)
 
-  function load() {
+  const load = useCallback(() => {
     setLoading(true)
     const params = {
       ...(departmentId ? { departmentId: Number(departmentId) } : {}),
@@ -108,11 +101,24 @@ export default function KpiDashboardPage() {
       })
       .catch(() => toast.error('Không thể tải bảng KPI.'))
       .finally(() => setLoading(false))
-  }
+  }, [departmentId, fromDate, id, toDate])
 
-  useEffect(() => {
-    load()
-  }, [id])
+  useDeferredEffect((isCancelled) => {
+    setLoading(true)
+    const params = {
+      ...(departmentId ? { departmentId: Number(departmentId) } : {}),
+      fromDate,
+      toDate,
+    }
+    Promise.all([getKpiResults(id, params), getDepartments(id)])
+      .then(([kpi, deps]) => {
+        if (isCancelled()) return
+        setResults(kpi)
+        setDepartments(deps)
+      })
+      .catch(() => { if (!isCancelled()) toast.error('Không thể tải bảng KPI.') })
+      .finally(() => { if (!isCancelled()) setLoading(false) })
+  }, [departmentId, fromDate, id, toDate])
 
   const filteredMembers = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -124,6 +130,9 @@ export default function KpiDashboardPage() {
       (member.departmentName ?? '').toLowerCase().includes(q)
     )
   }, [results?.members, search])
+
+  if (!clubPermissions.loading && !canView)
+    return <PermissionDenied />
 
   return (
     <div style={{ padding: '28px 32px', minHeight: '100%', background: D.bg, fontFamily: "'Be Vietnam Pro', sans-serif" }}>

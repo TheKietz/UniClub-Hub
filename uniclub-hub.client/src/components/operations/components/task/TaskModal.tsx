@@ -387,7 +387,7 @@ export default function TaskModal({
                       }
                       showLabel={false}
                       size="sm"
-                      color="#4f46e5"
+                      color="#1d4ed8"
                     />
                   </div>
                 )}

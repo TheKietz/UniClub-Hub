@@ -4,26 +4,13 @@ import { CalendarDays, Check, CheckCircle2, ClipboardCheck, Clock, FileText, Lis
 import { deleteNotification, getNotifications, getNotificationUnreadCount, markAllNotificationsRead, markNotificationRead } from '@/components/membership/services/notificationApi'
 import type { NotificationItem, NotificationType } from '@/components/membership/services/notificationApi'
 import { LoadMoreBar } from '@/components/shared/LoadMoreBar'
+import { D } from '@/components/shared/managementTheme'
 
 type FilterKey = 'all' | 'unread' | 'application' | 'task' | 'event' | 'system'
 
-const D = {
-  border: '1.5px solid var(--c-ink)',
-  borderLight: '1px solid #e8e3d6',
-  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 var(--c-ink)`,
-  pill: 999,
-  ink: 'var(--c-ink)',
-  inkDim: '#4a4651',
-  inkMuted: '#918c99',
-  bg: 'var(--c-bg)',
-  card: '#ffffff',
-  lemon: '#facc15',
-  indigo: '#4f46e5',
-}
-
 const TYPE_META: Record<NotificationType, { label: string; color: string; Icon: typeof Star }> = {
   Application: { label: 'Duyệt đơn', color: '#8b3ff2', Icon: ClipboardCheck },
-  Task: { label: 'Nhiệm vụ', color: '#4f46e5', Icon: ListTodo },
+  Task: { label: 'Nhiệm vụ', color: '#1d4ed8', Icon: ListTodo },
   Event: { label: 'Sự kiện', color: '#f59e0b', Icon: CalendarDays },
   System: { label: 'Hệ thống', color: '#10b981', Icon: Megaphone },
   TaskAssigned: { label: 'Được giao việc', color: '#4f46e5', Icon: UserPlus },
@@ -75,17 +62,18 @@ export default function NotificationsPage() {
   const [loadingMore, setLoadingMore] = useState(false)
   const [filter, setFilter] = useState<FilterKey>('all')
 
-  useEffect(() => {
+  useDeferredEffect((isCancelled) => {
     setLoading(true)
     Promise.all([getNotifications(1), getNotificationUnreadCount()])
       .then(([list, count]) => {
+        if (isCancelled()) return
         setItems(list.items ?? [])
         setTotal(list.totalCount ?? 0)
         setUnreadCount(count)
         setPage(1)
       })
-      .catch(() => { setItems([]); setTotal(0) })
-      .finally(() => setLoading(false))
+      .catch(() => { if (!isCancelled()) { setItems([]); setTotal(0) } })
+      .finally(() => { if (!isCancelled()) setLoading(false) })
   }, [])
 
   const filtered = useMemo(

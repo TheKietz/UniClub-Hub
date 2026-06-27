@@ -7,7 +7,7 @@ namespace UniClub_Hub.Membership.Services.Interfaces
         Task<IEnumerable<NotificationPreferenceDto>> GetGlobalAsync();
         Task<IEnumerable<NotificationPreferenceDto>> GetForClubAsync(int clubId);
         Task UpsertGlobalAsync(string triggerKey, string recipientRole, UpdateNotificationPreferenceDto dto, string updatedBy);
-        Task UpsertClubAsync(int clubId, string triggerKey, string recipientRole, UpdateNotificationPreferenceDto dto);
-        Task ResetClubAsync(int clubId, string triggerKey, string recipientRole);
+        Task UpsertClubAsync(int clubId, string triggerKey, string recipientRole, UpdateNotificationPreferenceDto dto, string requesterUserId, bool isSuperAdmin);
+        Task ResetClubAsync(int clubId, string triggerKey, string recipientRole, string requesterUserId, bool isSuperAdmin);
     }
 }

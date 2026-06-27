@@ -7,17 +7,21 @@ using UniClub_Hub.Shared.AI;
 using UniClub_Hub.Shared.Data;
 using UniClub_Hub.Shared.Enums;
 using UniClub_Hub.Shared.Models;
-using UniClub_Hub.Tests.Helpers;
+using UniClub_Hub.Tests.Infrastructure;
 
 namespace UniClub_Hub.Tests.Membership;
 
-public class RoleSuggestionRuleTests
+public class RoleSuggestionRuleTests : DbTestBase
 {
-    private static async Task<UniClubDbContext> SeedAsync(
+    public RoleSuggestionRuleTests(PostgresFixture fx) : base(fx)
+    {
+    }
+
+    private async Task<UniClubDbContext> SeedAsync(
         bool departmentHasLead = false,
         bool hasLeadershipPosition = false)
     {
-        var db = TestDbContextFactory.Create();
+        var db = Fx.CreateDbContext();
         db.Clubs.Add(new Club { Id = 1, Name = "CLB Test", Code = "TEST" });
         db.Users.Add(new ApplicationUser
         {
@@ -157,10 +161,13 @@ public class RoleSuggestionRuleTests
     public async Task SuggestRole_WithLeadershipPositionAndXuatSac_ConfidenceIsBoosted()
     {
         var dbBase = await SeedAsync(hasLeadershipPosition: false);
-        var dbBoosted = await SeedAsync(hasLeadershipPosition: true);
-
         var baseResult = await BuildService(dbBase, "Xuất sắc")
             .SuggestRoleForMemberAsync(1, 1, "u1", isSuperAdmin: true);
+        await dbBase.DisposeAsync();
+
+        await Fx.ResetAsync();
+
+        var dbBoosted = await SeedAsync(hasLeadershipPosition: true);
         var boostedResult = await BuildService(dbBoosted, "Xuất sắc")
             .SuggestRoleForMemberAsync(1, 1, "u1", isSuperAdmin: true);
 

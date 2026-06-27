@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Search, X } from 'lucide-react'
+import { D } from '@/components/shared/managementTheme'
 
 export interface UserSuggestion {
   id: string
@@ -17,16 +18,9 @@ interface Props {
   style?: React.CSSProperties
 }
 
-const D = {
-  border: '1.5px solid var(--c-ink)', borderLight: '1px solid #e8e3d6',
-  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 var(--c-ink)`,
-  ink: 'var(--c-ink)', inkMuted: '#918c99',
-  bg: 'var(--c-bg)', card: '#ffffff',
-}
-
 function Avatar({ name, url }: { name: string; url?: string | null }) {
   const initials = name.split(' ').slice(-2).map(w => w[0]).join('').toUpperCase()
-  const colors = ['#4f46e5', '#7c3aed', '#ec4899', '#f59e0b', '#10b981', '#3b82f6']
+  const colors = ['#1d4ed8', '#7c3aed', '#ec4899', '#f59e0b', '#10b981', '#3b82f6']
   const bg = colors[name.charCodeAt(0) % colors.length]
   return url
     ? <img src={url} style={{ width: 26, height: 26, borderRadius: '50%', objectFit: 'cover', flexShrink: 0, border: D.borderLight }} alt="" />

@@ -12,6 +12,8 @@ export const CLUB_PERMISSIONS = {
   MEMBER_KPI_MANAGE: 'membership.member_kpi.manage',
   MEMBER_IMPORT_EXPORT: 'membership.members.import_export',
   ROLE_SUGGESTIONS_USE: 'membership.role_suggestions.use',
+  REPORTS_VIEW: 'membership.reports.view',
+  REPORTS_EXPORT: 'membership.reports.export',
 
   // Applications (Phase 3)
   APPLICATIONS_VIEW: 'membership.applications.view',
@@ -27,6 +29,7 @@ export const CLUB_PERMISSIONS = {
   RESIGNATIONS_REVIEW: 'membership.resignations.review',
   NOTIFICATION_SETTINGS_MANAGE: 'notifications.settings.manage',
   CLUB_SETTINGS_MANAGE: 'club.settings.manage',
+  CLUB_PROFILE_MANAGE: 'club.profile.manage',
 
   // Audit log (Phase 6)
   CLUB_AUDIT_LOG_VIEW: 'club.audit_log.view',

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import {
   getPipelineStages, createPipelineStage, updatePipelineStage,
@@ -6,17 +6,15 @@ import {
 } from '@/components/membership/services/clubApi'
 import type { PipelineStage } from '@/components/membership/services/club.types'
 import { toast } from 'sonner'
-
-const D = {
-  border: '1.5px solid var(--c-ink)', borderLight: '1px solid #e8e3d6',
-  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 var(--c-ink)`,
-  radius: 14, pill: 999,
-  ink: 'var(--c-ink)', inkDim: '#4a4651', inkMuted: '#918c99',
-  bg: 'var(--c-bg)', card: '#ffffff', indigo: '#4f46e5', red: '#ef4444',
-}
+import { D } from '@/components/shared/managementTheme'
+import { PermissionDenied } from '@/components/shared/Can'
+import { useClubPermissions } from '@/hooks/useClubPermissions'
+import { CLUB_PERMISSIONS } from '@/constants/clubPermissions'
+import { useUnsavedNavigationGuard } from '@/hooks/useUnsavedNavigationGuard'
+import type { SettingsTabChildProps } from './settingsTabTypes'
 
 const inputStyle: React.CSSProperties = {
-  height: 36, borderRadius: 8, border: '1px solid #e8e3d6',
+  height: 36, borderRadius: 8, border: '1px solid #dce6f4',
   padding: '0 12px', fontSize: 13, color: D.ink, outline: 'none',
   background: D.bg, fontFamily: 'inherit', boxSizing: 'border-box',
 }
@@ -26,9 +24,11 @@ const PRESET_STAGES = [
 ]
 const DEFAULT_STAGES = ['Xét CV', 'Phỏng vấn', 'Thử việc']
 
-export default function PipelineSettingsPage() {
+export default function PipelineSettingsPage({ onDirtyChange, onBindHandles }: SettingsTabChildProps = {}) {
   const { clubId } = useParams<{ clubId: string }>()
   const id = Number(clubId)
+  const clubPermissions = useClubPermissions(id)
+  const canManage = clubPermissions.can(CLUB_PERMISSIONS.RECRUITMENT_PIPELINE_MANAGE)
 
   const [stages, setStages] = useState<PipelineStage[]>([])
   const [loading, setLoading] = useState(true)
@@ -44,6 +44,73 @@ export default function PipelineSettingsPage() {
       .catch(() => toast.error('Không thể tải quy trình tuyển dụng.'))
       .finally(() => setLoading(false))
   }, [id])
+
+  const isDirty = editId !== null || newName.trim() !== ''
+
+  useEffect(() => {
+    onDirtyChange?.(isDirty)
+  }, [isDirty, onDirtyChange])
+
+  const discard = useCallback(() => {
+    setEditId(null)
+    setEditName('')
+    setNewName('')
+  }, [])
+
+  const savePending = useCallback(async (): Promise<boolean> => {
+    if (editId !== null) {
+      const trimmed = editName.trim()
+      if (!trimmed) {
+        toast.error('Tên vòng không được để trống.')
+        return false
+      }
+      setSaving(true)
+      try {
+        const updated = await updatePipelineStage(id, editId, { name: trimmed })
+        setStages(prev => prev.map(s => s.id === editId ? { ...s, name: updated.name } : s))
+        setEditId(null)
+        setEditName('')
+        toast.success('Đã cập nhật tên vòng.')
+        return true
+      } catch {
+        toast.error('Cập nhật thất bại.')
+        return false
+      } finally {
+        setSaving(false)
+      }
+    }
+    if (newName.trim()) {
+      const trimmed = newName.trim()
+      setAdding(true)
+      try {
+        const next = stages.length + 1
+        const stage = await createPipelineStage(id, { name: trimmed, stageOrder: next })
+        setStages(prev => [...prev, stage])
+        setNewName('')
+        toast.success(`Đã thêm vòng "${trimmed}".`)
+        return true
+      } catch {
+        toast.error('Thêm vòng thất bại.')
+        return false
+      } finally {
+        setAdding(false)
+      }
+    }
+    return true
+  }, [editId, editName, id, newName, stages.length])
+
+  useEffect(() => {
+    onBindHandles?.({ save: savePending, discard })
+    return () => onBindHandles?.(null)
+  }, [discard, onBindHandles, savePending])
+
+  const embedded = onDirtyChange != null
+  useUnsavedNavigationGuard({
+    when: isDirty && !embedded,
+    onSave: savePending,
+    onDiscard: discard,
+    description: 'Bạn có thay đổi chưa lưu trong quy trình tuyển. Lưu trước khi rời trang?',
+  })
 
   async function addStage(name: string) {
     const trimmed = name.trim()
@@ -121,6 +188,9 @@ export default function PipelineSettingsPage() {
       toast.error('Cập nhật thứ tự thất bại.')
     }
   }
+
+  if (!clubPermissions.loading && !canManage)
+    return <PermissionDenied />
 
   return (
     <div style={{ padding: '28px 32px', minHeight: '100%', background: D.bg, fontFamily: "'Be Vietnam Pro', sans-serif" }}>

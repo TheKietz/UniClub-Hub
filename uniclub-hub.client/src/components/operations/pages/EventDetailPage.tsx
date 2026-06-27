@@ -29,22 +29,6 @@ import type { DepartmentItem } from '@/components/membership/services/club.types
 
 /* ─── Design tokens ──────────────────────────────────────────────────────── */
 
-const D = {
-  border: '1.5px solid var(--c-ink)',
-  borderLight: '1px solid #e8e3d6',
-  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 var(--c-ink)`,
-  radius: 14,
-  pill: 999,
-  ink: 'var(--c-ink)',
-  inkDim: '#4a4651',
-  inkMuted: '#918c99',
-  bg: 'var(--c-bg)',
-  card: '#ffffff',
-  indigo: '#4f46e5',
-  amber: '#f59e0b',
-  red: '#ef4444',
-}
-
 const inputStyle: React.CSSProperties = {
   width: '100%', padding: '8px 12px', fontSize: 13, fontWeight: 500,
   border: '1.5px solid #c4bfb0', borderRadius: 8, outline: 'none',
@@ -268,7 +252,7 @@ function AddSessionModal({ open, eventId, onClose, onAdded }: { open: boolean; e
         </div>
         <DialogFooter style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
           <button type="button" onClick={onClose} style={{ padding: '8px 18px', fontSize: 13, fontWeight: 700, border: D.border, borderRadius: D.radius, background: D.card, color: D.inkDim, cursor: 'pointer', fontFamily: 'inherit' }}>Hủy</button>
-          <button type="button" onClick={handleSave} disabled={saving} style={{ padding: '8px 20px', fontSize: 13, fontWeight: 900, border: D.border, borderRadius: D.radius, background: saving ? '#6b7280' : D.ink, color: '#facc15', cursor: saving ? 'not-allowed' : 'pointer', boxShadow: saving ? 'none' : D.shadow(2, 2), fontFamily: 'inherit' }}>
+          <button type="button" onClick={handleSave} disabled={saving} style={{ padding: '8px 20px', fontSize: 13, fontWeight: 900, border: D.border, borderRadius: D.radius, background: saving ? '#6b7280' : D.ink, color: '#ffffff', cursor: saving ? 'not-allowed' : 'pointer', boxShadow: saving ? 'none' : D.shadow(2, 2), fontFamily: 'inherit' }}>
             {saving ? 'Đang lưu...' : 'Thêm mục'}
           </button>
         </DialogFooter>
@@ -566,7 +550,7 @@ export default function EventDetailPage() {
               <button type="button" onClick={() => setDeleteEventOpen(true)} style={{ ...outlineBtnStyle, color: D.red, borderColor: '#fca5a5' }}>
                 <Trash2 size={13} /> Xóa
               </button>
-              <button type="button" onClick={() => setEditOpen(true)} style={{ ...outlineBtnStyle, background: D.ink, color: '#facc15', boxShadow: D.shadow() }}>
+              <button type="button" onClick={() => setEditOpen(true)} style={{ ...outlineBtnStyle, background: D.ink, color: '#ffffff', boxShadow: D.shadow() }}>
                 <Pencil size={13} /> Chỉnh sửa
               </button>
             </>
@@ -641,7 +625,7 @@ export default function EventDetailPage() {
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
                       <div style={{ width: 10, height: 10, borderRadius: '50%', background: D.indigo, marginTop: 3, flexShrink: 0 }} />
-                      {idx < sessions.length - 1 && <div style={{ width: 1, flex: 1, background: '#e8e3d6', margin: '3px 0' }} />}
+                      {idx < sessions.length - 1 && <div style={{ width: 1, flex: 1, background: '#dce6f4', margin: '3px 0' }} />}
                     </div>
                     <div style={{ flex: 1, paddingBottom: 16, minWidth: 0, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
                       <div style={{ minWidth: 0 }}>

@@ -19,6 +19,7 @@ import type {
 } from "../services/operations.types";
 import { useTasks } from "../context/TasksContext";
 import StatCard from "../components/StatCard";
+import { D } from '@/components/shared/managementTheme'
 
 /* ── Design tokens ─────────────────────────────────────────────────────────── */
 

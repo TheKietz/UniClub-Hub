@@ -1,26 +1,18 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
+import { useDeferredEffect } from '@/hooks/useDeferredEffect'
 import { getAdminClubs } from '@/components/membership/services/adminApi'
 import type { ClubItem } from '@/components/membership/services/admin.types'
 import PositionManagementPanel from '@/components/membership/pages/shared/PositionManagementPanel'
 import { FilterSelect } from '@/components/shared/FilterSelect'
 import { toast } from 'sonner'
-
-const D = {
-  border: '1.5px solid var(--c-ink)',
-  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 var(--c-ink)`,
-  radius: 14,
-  ink: 'var(--c-ink)',
-  inkMuted: '#918c99',
-  bg: 'var(--c-bg)',
-  card: '#ffffff',
-}
+import { D } from '@/components/shared/managementTheme'
 
 export default function AdminPositionsPage() {
   const [clubs, setClubs] = useState<ClubItem[]>([])
   const [selectedClubId, setSelectedClubId] = useState('')
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
+  useDeferredEffect(() => {
     setLoading(true)
     getAdminClubs()
       .then(data => {

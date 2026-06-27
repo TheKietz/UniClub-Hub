@@ -14,12 +14,17 @@ namespace UniClub_Hub.Membership.Services.Interfaces
         Task<IEnumerable<ResignationRequestDto>> GetAllMyRequestsAsync(string userId);
 
         // CLUB_ADMIN xem đơn của DEPT_LEAD trong CLB
-        Task<IEnumerable<ResignationRequestDto>> GetByClubAsync(int clubId);
+        Task<IEnumerable<ResignationRequestDto>> GetByClubAsync(int clubId, string requesterUserId, bool isSuperAdmin);
 
         // SUPER_ADMIN xem đơn của CLUB_ADMIN (tất cả CLB)
         Task<IEnumerable<ResignationRequestDto>> GetAllClubAdminRequestsAsync();
 
         // Duyệt đơn (CLUB_ADMIN duyệt DEPT_LEAD, SUPER_ADMIN duyệt CLUB_ADMIN)
-        Task<ResignationRequestDto> ReviewAsync(int requestId, ReviewResignationDto dto, string reviewerId);
+        Task<ResignationRequestDto> ReviewAsync(
+            int requestId,
+            ReviewResignationDto dto,
+            string reviewerId,
+            bool isSuperAdmin,
+            int? expectedClubId = null);
     }
 }

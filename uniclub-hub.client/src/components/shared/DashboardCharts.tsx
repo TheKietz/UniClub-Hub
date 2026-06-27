@@ -1,13 +1,14 @@
+import { D } from '@/components/shared/managementTheme'
 // Shared SVG chart components for dashboard pages — Campus neo-brutalist style.
 
-const INK = 'var(--c-ink)'
-const INK_MUTED = '#918c99'
-const BORDER = '1.5px solid var(--c-ink)'
-const BORDER_LIGHT = '1px solid #e8e3d6'
-const BG = 'var(--c-bg)'
-const RADIUS = 14
+const INK = D.ink
+const INK_MUTED = D.inkMuted
+const BORDER = D.border
+const BORDER_LIGHT = D.borderLight
+const BG = D.bg
+const RADIUS = D.radius
 
-function shadow(x = 3, y = 3) { return `${x}px ${y}px 0 var(--c-ink)` }
+function shadow(x = 3, y = 3) { return D.shadow(x, y) }
 
 // ── MiniAreaChart ────────────────────────────────────────────────
 export function MiniAreaChart({ data, color, height = 100 }: {
@@ -83,21 +84,24 @@ export function MiniDonut({ segments, size = 120, thickness = 22 }: {
   if (total === 0) return null
   const r = (size - thickness) / 2
   const circ = 2 * Math.PI * r
-  let offset = 0
+  const segmentOffsets = segments.reduce<{ dash: number; offset: number }[]>((acc, seg) => {
+    const dash = (seg.val / total) * circ
+    const offset = acc.length > 0 ? acc[acc.length - 1].offset + acc[acc.length - 1].dash : 0
+    acc.push({ dash, offset })
+    return acc
+  }, [])
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}
       style={{ transform: 'rotate(-90deg)', flexShrink: 0 }}>
       {segments.map((seg, i) => {
-        const dash = (seg.val / total) * circ
-        const el = (
+        const { dash, offset } = segmentOffsets[i]
+        return (
           <circle key={i} cx={size / 2} cy={size / 2} r={r}
             fill="none" stroke={seg.color} strokeWidth={thickness}
             strokeDasharray={`${dash} ${circ - dash}`} strokeDashoffset={-offset}
             strokeLinecap="round"
           />
         )
-        offset += dash
-        return el
       })}
     </svg>
   )
@@ -145,7 +149,7 @@ export function ChartCard({ title, sub, rightLabel, children, style: sx }: {
           <div style={{ fontSize: 14, fontWeight: 700, color: INK }}>{title}</div>
           {sub && <div style={{ fontSize: 11, color: INK_MUTED, marginTop: 1 }}>{sub}</div>}
         </div>
-        {rightLabel && <div style={{ fontSize: 12, fontWeight: 700, color: '#4f46e5' }}>{rightLabel}</div>}
+        {rightLabel && <div style={{ fontSize: 12, fontWeight: 700, color: D.indigo }}>{rightLabel}</div>}
       </div>
       <div style={{ padding: '16px 18px' }}>{children}</div>
     </div>
@@ -153,7 +157,7 @@ export function ChartCard({ title, sub, rightLabel, children, style: sx }: {
 }
 
 // ── DTag ─────────────────────────────────────────────────────────
-export function DTag({ children, bg = INK, color = 'var(--c-bg)', style: sx }: {
+export function DTag({ children, bg = INK, color = D.bg, style: sx }: {
   children: React.ReactNode; bg?: string; color?: string; style?: React.CSSProperties
 }) {
   return (

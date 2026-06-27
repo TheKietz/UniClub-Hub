@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { X, ChevronUp, ChevronDown, ImagePlus, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { uploadApplicationFile } from '@/components/membership/services/clubApi'
+import { D } from '@/components/shared/managementTheme'
 
 // Trình sửa slider "Spotlight" của trang chủ — thay ô JSON thô.
 // Serialize ra cùng cấu trúc mà LandingPage đọc (landing.slider_items).
@@ -16,13 +17,7 @@ type Slide = {
   accent?: string
 }
 
-const D = {
-  borderLight: '1px solid #e8e3d6',
-  ink: 'var(--c-ink)', inkDim: '#4a4651', inkMuted: '#918c99',
-  bg: 'var(--c-bg)', card: '#ffffff', indigo: '#4f46e5',
-}
-
-const ACCENTS = ['#1d4ed8', 'var(--c-accent)', '#2563eb', '#0ea5e9', '#7c3aed', 'var(--c-ink)']
+const ACCENTS = ['#1d4ed8', '#e11d2a', '#2563eb', '#0ea5e9', '#7c3aed', '#0a2f6e']
 
 const inputS: React.CSSProperties = {
   width: '100%', borderRadius: 8, border: D.borderLight, padding: '8px 11px',
@@ -151,7 +146,7 @@ export function SliderItemsEditor({ value, onChange }: { value: string; onChange
                       <div style={{ display: 'flex', gap: 4 }}>
                         {ACCENTS.map(c => (
                           <button key={c} type="button" onClick={() => setField(i, 'accent', c)} title={c}
-                            style={{ width: 20, height: 20, borderRadius: 5, background: c, border: accent.toLowerCase() === c ? '2px solid var(--c-ink)' : D.borderLight, cursor: 'pointer' }} />
+                            style={{ width: 20, height: 20, borderRadius: 5, background: c, border: accent.toLowerCase() === c ? '2px solid #0a2f6e' : D.borderLight, cursor: 'pointer' }} />
                         ))}
                       </div>
                     </div>

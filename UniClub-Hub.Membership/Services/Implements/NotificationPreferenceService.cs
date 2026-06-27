@@ -10,8 +10,13 @@ namespace UniClub_Hub.Membership.Services.Implements
     public class NotificationPreferenceService : INotificationPreferenceService
     {
         private readonly UniClubDbContext _db;
+        private readonly IClubPermissionService _permissions;
 
-        public NotificationPreferenceService(UniClubDbContext db) => _db = db;
+        public NotificationPreferenceService(UniClubDbContext db, IClubPermissionService permissions)
+        {
+            _db = db;
+            _permissions = permissions;
+        }
 
         public async Task<IEnumerable<NotificationPreferenceDto>> GetGlobalAsync()
         {
@@ -69,8 +74,14 @@ namespace UniClub_Hub.Membership.Services.Implements
         }
 
         public async Task UpsertClubAsync(int clubId, string triggerKey, string recipientRole,
-            UpdateNotificationPreferenceDto dto)
+            UpdateNotificationPreferenceDto dto, string requesterUserId, bool isSuperAdmin)
         {
+            await _permissions.EnsureHasPermissionAsync(
+                clubId,
+                requesterUserId,
+                isSuperAdmin,
+                ClubPermissions.NotificationSettingsManage);
+
             if (!await _db.Clubs.AnyAsync(c => c.Id == clubId))
                 throw new KeyNotFoundException("Không tìm thấy CLB.");
 
@@ -97,8 +108,19 @@ namespace UniClub_Hub.Membership.Services.Implements
             await _db.SaveChangesAsync();
         }
 
-        public async Task ResetClubAsync(int clubId, string triggerKey, string recipientRole)
+        public async Task ResetClubAsync(
+            int clubId,
+            string triggerKey,
+            string recipientRole,
+            string requesterUserId,
+            bool isSuperAdmin)
         {
+            await _permissions.EnsureHasPermissionAsync(
+                clubId,
+                requesterUserId,
+                isSuperAdmin,
+                ClubPermissions.NotificationSettingsManage);
+
             var existing = await _db.NotificationPreferences
                 .FirstOrDefaultAsync(p => p.ClubId == clubId && p.TriggerKey == triggerKey && p.RecipientRole == recipientRole);
 
