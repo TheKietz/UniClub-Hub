@@ -1,6 +1,8 @@
 import api from '@/lib/axiosInstance'
 
-export type NotificationType = 'Task' | 'Event' | 'Application' | 'System'
+export type NotificationType =
+  | 'Task' | 'Event' | 'Application' | 'System'
+  | 'TaskAssigned' | 'TaskStatusUpdated' | 'DeadlineReminder' | 'AssignmentReceived'
 
 export interface NotificationItem {
   id: number
@@ -9,6 +11,10 @@ export interface NotificationItem {
   type: NotificationType
   isRead: boolean
   createdAt: string
+  body?: string | null
+  relatedEntityType?: string | null
+  relatedEntityId?: number | null
+  navigationUrl?: string | null
 }
 
 export interface NotificationPagedResult {
@@ -30,3 +36,6 @@ export const markAllNotificationsRead = () =>
 
 export const markNotificationRead = (id: number) =>
   api.patch(`/notifications/${id}/read`)
+
+export const deleteNotification = (id: number) =>
+  api.delete(`/notifications/${id}`)

@@ -2,6 +2,8 @@ using UniClub_Hub.Shared.Enums;
 
 namespace UniClub_Hub.Operations.DTOs.Assignment
 {
+    public record AssignmentAttachmentInfo(string Url, string Name);
+
     public class AssignmentDto
     {
         public int Id { get; set; }
@@ -14,7 +16,7 @@ namespace UniClub_Hub.Operations.DTOs.Assignment
         public TaskPriority Priority { get; set; }
         public DateTimeOffset? Deadline { get; set; }
         public string Status { get; set; } = "Pending";
-        public List<string> AttachmentUrls { get; set; } = [];
+        public List<AssignmentAttachmentInfo> AttachmentUrls { get; set; } = [];
         public string CreatedBy { get; set; } = string.Empty;
         public DateTimeOffset CreatedAt { get; set; }
     }

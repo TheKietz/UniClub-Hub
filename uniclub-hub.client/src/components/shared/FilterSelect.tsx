@@ -12,6 +12,8 @@ interface Props {
   menuStyle?: React.CSSProperties
   disabled?: boolean
   maxMenuHeight?: number
+  /** Mark the selected option with text color only (no background highlight). */
+  activeTextOnly?: boolean
 }
 
 const D = {
@@ -21,7 +23,7 @@ const D = {
   bg: 'var(--c-bg)', card: '#ffffff', indigo: '#4f46e5',
 }
 
-export function FilterSelect({ value, onChange, options, style, buttonStyle, menuStyle, disabled = false, maxMenuHeight = 280 }: Props) {
+export function FilterSelect({ value, onChange, options, style, buttonStyle, menuStyle, disabled = false, maxMenuHeight = 280, activeTextOnly = false }: Props) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   const current = options.find(o => o.value === value) ?? options[0] ?? { value: '', label: '—' }
@@ -75,8 +77,8 @@ export function FilterSelect({ value, onChange, options, style, buttonStyle, men
               style={{
                 width: '100%', padding: '9px 14px', textAlign: 'left',
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
-                background: value === o.value ? '#eef2ff' : 'transparent',
-                color: value === o.value ? D.indigo : D.inkDim,
+                background: value === o.value && !activeTextOnly ? '#eef2ff' : 'transparent',
+                color: value === o.value ? (activeTextOnly ? D.ink : D.indigo) : D.inkDim,
                 fontWeight: value === o.value ? 700 : 400,
                 fontSize: 13, border: 'none', cursor: 'pointer', fontFamily: 'inherit',
                 borderBottom: idx < options.length - 1 ? '1px solid #f3f4f6' : 'none',
@@ -84,7 +86,7 @@ export function FilterSelect({ value, onChange, options, style, buttonStyle, men
               }}
             >
               {o.label}
-              {value === o.value && <span style={{ fontSize: 11, color: D.indigo, flexShrink: 0 }}>✓</span>}
+              {value === o.value && <span style={{ fontSize: 11, color: activeTextOnly ? D.ink : D.indigo, flexShrink: 0 }}>✓</span>}
             </button>
           ))}
         </div>

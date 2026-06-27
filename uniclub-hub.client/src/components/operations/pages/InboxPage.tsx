@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { toast } from 'sonner'
-import { ChevronsRight, Plus, Trash2, CalendarDays, ExternalLink, X, FileText, Paperclip } from 'lucide-react'
-import { getInboxAssignments, createTask, updateAssignmentStatus, uploadTaskAttachmentFile } from '../services/operationsApi'
-import type { AssignmentItem, TaskItem, TaskPriority } from '../services/operations.types'
+import { ChevronsRight, Plus, Trash2, CalendarDays, ExternalLink, X, FileText, Paperclip, ClipboardList, Inbox, ChevronDown } from 'lucide-react'
+import { getInboxAssignments, createTask, updateAssignmentStatus, uploadTaskAttachmentFile, getTasks, updateTaskStatus } from '../services/operationsApi'
+import type { AssignmentItem, TaskItem, TaskPriority, TaskStatus, UpdateTaskStatusDto } from '../services/operations.types'
 import { getDepartments } from '@/components/membership/services/clubApi'
 import type { DepartmentItem } from '@/components/membership/services/club.types'
 
@@ -31,6 +31,15 @@ const PRIORITY_MAP: Record<TaskPriority, { label: string; bg: string; color: str
   Medium: { label: 'Vừa',  bg: '#fef9c3', color: '#a16207' },
   High:   { label: 'Cao',  bg: '#fee2e2', color: '#dc2626' },
 }
+
+const TASK_STATUS_MAP: Record<TaskStatus, { label: string; bg: string; color: string; border: string }> = {
+  Todo:      { label: 'Cần làm',    bg: '#f3f4f6', color: '#374151', border: '#d1d5db' },
+  Doing:     { label: 'Đang làm',   bg: '#dbeafe', color: '#1d4ed8', border: '#93c5fd' },
+  Reviewing: { label: 'Đang duyệt', bg: '#fef9c3', color: '#a16207', border: '#fde68a' },
+  Done:      { label: 'Hoàn thành', bg: '#dcfce7', color: '#15803d', border: '#86efac' },
+}
+
+const TASK_STATUS_ORDER: TaskStatus[] = ['Todo', 'Doing', 'Reviewing', 'Done']
 
 const ALLOWED_TYPES = '.pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.webp'
 
@@ -98,14 +107,11 @@ function AssignmentDetailModal({ assignment, onClose }: { assignment: Assignment
             <div>
               <span style={{ fontSize: 10, fontWeight: 800, color: D.inkMuted, textTransform: 'uppercase', letterSpacing: '.05em' }}>Tài liệu đính kèm</span>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
-                {assignment.attachmentUrls.map((url, i) => {
-                  const name = url.split('/').pop() ?? `file-${i + 1}`
-                  return (
-                    <a key={i} href={url} target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, color: '#4f46e5', background: '#ede9fe', border: '1px solid #c4b5fd', borderRadius: 7, padding: '4px 10px', textDecoration: 'none' }}>
-                      <FileText size={11} />{name}
-                    </a>
-                  )
-                })}
+                {assignment.attachmentUrls.map((att, i) => (
+                  <a key={i} href={att.url} target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, color: '#4f46e5', background: '#ede9fe', border: '1px solid #c4b5fd', borderRadius: 7, padding: '4px 10px', textDecoration: 'none' }}>
+                    <FileText size={11} />{att.name}
+                  </a>
+                ))}
               </div>
             </div>
           )}
@@ -392,6 +398,227 @@ function InboxAssignmentRow({
   )
 }
 
+/* ─── Event Task Row ─────────────────────────────────────────────────────── */
+function EventTaskRow({ task, depts, onStatusChange }: {
+  task: TaskItem
+  depts: DepartmentItem[]
+  onStatusChange: (id: number, status: TaskStatus) => void
+}) {
+  const [updating, setUpdating] = useState(false)
+  const [open, setOpen] = useState(false)
+  const st = TASK_STATUS_MAP[task.status]
+  const pr = PRIORITY_MAP[task.priority]
+  const deptName = depts.find(d => d.id === task.departmentId)?.name
+  const isOverdue = task.deadline ? new Date(task.deadline) < new Date() && task.status !== 'Done' : false
+
+  async function changeStatus(next: TaskStatus) {
+    if (next === task.status) { setOpen(false); return }
+    setUpdating(true)
+    try {
+      const dto: UpdateTaskStatusDto = { status: next, progress: next === 'Done' ? 100 : next === 'Doing' ? 50 : next === 'Reviewing' ? 80 : 0 }
+      await updateTaskStatus(task.id, dto)
+      onStatusChange(task.id, next)
+      toast.success('Đã cập nhật trạng thái')
+    } catch { toast.error('Không thể cập nhật') }
+    finally { setUpdating(false); setOpen(false) }
+  }
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderBottom: D.borderLight, background: task.status === 'Done' ? '#f0fdf4' : 'transparent' }}>
+      {/* Priority dot */}
+      <span style={{ width: 8, height: 8, borderRadius: '50%', background: pr.color, flexShrink: 0 }} />
+
+      {/* Title + meta */}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: D.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{task.title}</p>
+        <div style={{ display: 'flex', gap: 8, marginTop: 3, flexWrap: 'wrap', alignItems: 'center' }}>
+          {deptName && (
+            <span style={{ fontSize: 10, fontWeight: 700, background: '#ede9fe', color: '#7c3aed', borderRadius: 4, padding: '1px 6px' }}>{deptName}</span>
+          )}
+          {task.assigneeName && (
+            <span style={{ fontSize: 10, color: D.inkMuted }}>→ {task.assigneeName}</span>
+          )}
+          {task.deadline && (
+            <span style={{ fontSize: 10, color: isOverdue ? '#dc2626' : D.inkMuted, display: 'flex', alignItems: 'center', gap: 3 }}>
+              <CalendarDays size={9} />{fmtDate(task.deadline)}{isOverdue && ' · Quá hạn'}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Progress */}
+      {task.progress > 0 && task.status !== 'Done' && (
+        <span style={{ fontSize: 10, fontWeight: 700, color: D.inkMuted, flexShrink: 0 }}>{task.progress}%</span>
+      )}
+
+      {/* Status dropdown */}
+      <div style={{ position: 'relative', flexShrink: 0 }}>
+        <button
+          type="button"
+          disabled={updating}
+          onClick={() => setOpen(v => !v)}
+          style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', fontSize: 11, fontWeight: 700, background: st.bg, color: st.color, border: `1.5px solid ${st.border}`, borderRadius: D.pill, cursor: updating ? 'not-allowed' : 'pointer', opacity: updating ? 0.7 : 1 }}
+        >
+          {st.label} <ChevronDown size={10} />
+        </button>
+        {open && (
+          <>
+            <div style={{ position: 'fixed', inset: 0, zIndex: 40 }} onClick={() => setOpen(false)} />
+            <div style={{ position: 'absolute', right: 0, top: '110%', zIndex: 50, background: D.card, border: D.border, borderRadius: 10, boxShadow: D.shadow(), overflow: 'hidden', minWidth: 130 }}>
+              {TASK_STATUS_ORDER.map(s => {
+                const c = TASK_STATUS_MAP[s]
+                return (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => changeStatus(s)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 12px', fontSize: 12, fontWeight: 700, background: s === task.status ? c.bg : 'transparent', color: c.color, border: 'none', cursor: 'pointer', textAlign: 'left' }}
+                  >
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: c.color, flexShrink: 0 }} />
+                    {c.label}
+                  </button>
+                )
+              })}
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
+/* ─── Event Tasks Section ────────────────────────────────────────────────── */
+function EventTasksSection({ clubId, depts, assignments }: {
+  clubId: number
+  depts: DepartmentItem[]
+  assignments: AssignmentItem[]
+}) {
+  const [tasksByEvent, setTasksByEvent] = useState<Record<number, TaskItem[]>>({})
+  const [eventNames, setEventNames] = useState<Record<number, string>>({})
+  const [loading, setLoading] = useState(true)
+  const [collapsed, setCollapsed] = useState<Record<number, boolean>>({})
+
+  useEffect(() => {
+    const eventIds = [...new Set(assignments.map(a => a.eventId))]
+    const names: Record<number, string> = {}
+    assignments.forEach(a => { names[a.eventId] = a.eventName ?? `Sự kiện #${a.eventId}` })
+    setEventNames(names)
+
+    if (!eventIds.length) { setLoading(false); return }
+    setLoading(true)
+    Promise.all(
+      eventIds.map(eid => getTasks({ clubId, eventId: eid, pageSize: 200 }).then(r => ({ eid, items: r.items })))
+    )
+      .then(results => {
+        const map: Record<number, TaskItem[]> = {}
+        results.forEach(({ eid, items }) => { map[eid] = items })
+        setTasksByEvent(map)
+      })
+      .catch(() => toast.error('Không thể tải danh sách công việc'))
+      .finally(() => setLoading(false))
+  }, [clubId, assignments])
+
+  function handleStatusChange(eventId: number, taskId: number, status: TaskStatus) {
+    setTasksByEvent(prev => ({
+      ...prev,
+      [eventId]: (prev[eventId] ?? []).map(t => t.id === taskId ? { ...t, status } : t),
+    }))
+  }
+
+  const totalTasks = Object.values(tasksByEvent).flat().length
+  const doneTasks = Object.values(tasksByEvent).flat().filter(t => t.status === 'Done').length
+
+  if (loading) return <div style={{ padding: 48, textAlign: 'center', color: D.inkMuted, fontSize: 13 }}>Đang tải công việc...</div>
+
+  if (!totalTasks) return (
+    <div style={{ border: D.border, borderRadius: D.radius, background: D.card, boxShadow: D.shadow(), padding: '40px 0', textAlign: 'center', color: D.inkMuted, fontSize: 13 }}>
+      <ClipboardList size={28} style={{ color: '#c4bfb0', display: 'block', margin: '0 auto 8px' }} />
+      Chưa có task nào được triển khai từ phiếu giao việc.
+    </div>
+  )
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {/* Summary bar */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', background: D.card, border: D.border, borderRadius: D.radius, boxShadow: D.shadow() }}>
+        <div style={{ flex: 1 }}>
+          <div style={{ height: 6, borderRadius: 4, background: '#e8e3d6', overflow: 'hidden' }}>
+            <div style={{ height: '100%', borderRadius: 4, background: '#10b981', width: `${totalTasks ? Math.round(doneTasks / totalTasks * 100) : 0}%`, transition: 'width .3s' }} />
+          </div>
+        </div>
+        <span style={{ fontSize: 12, fontWeight: 700, color: D.ink, flexShrink: 0 }}>
+          {doneTasks}/{totalTasks} hoàn thành ({totalTasks ? Math.round(doneTasks / totalTasks * 100) : 0}%)
+        </span>
+      </div>
+
+      {/* Task groups by event */}
+      {Object.entries(tasksByEvent).map(([eidStr, tasks]) => {
+        const eid = Number(eidStr)
+        if (!tasks.length) return null
+        const isCollapsed = collapsed[eid]
+        const eventDone = tasks.filter(t => t.status === 'Done').length
+        const statusCounts = TASK_STATUS_ORDER.reduce<Record<string, number>>((acc, s) => {
+          acc[s] = tasks.filter(t => t.status === s).length
+          return acc
+        }, {})
+
+        return (
+          <div key={eid} style={{ border: D.border, borderRadius: D.radius, boxShadow: D.shadow(), background: D.card }}>
+            {/* Group header */}
+            <button
+              type="button"
+              onClick={() => setCollapsed(c => ({ ...c, [eid]: !c[eid] }))}
+              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', background: D.ink, border: 'none', cursor: 'pointer', textAlign: 'left', borderRadius: isCollapsed ? D.radius : `${D.radius}px ${D.radius}px 0 0` }}
+            >
+              <Link
+                to={`/events/university/${eid}`}
+                onClick={e => e.stopPropagation()}
+                style={{ fontSize: 13, fontWeight: 800, color: '#facc15', textDecoration: 'none', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+              >
+                {eventNames[eid] ?? `Sự kiện #${eid}`}
+              </Link>
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
+                {TASK_STATUS_ORDER.filter(s => statusCounts[s] > 0).map(s => {
+                  const c = TASK_STATUS_MAP[s]
+                  return (
+                    <span key={s} style={{ fontSize: 10, fontWeight: 700, background: c.bg, color: c.color, borderRadius: D.pill, padding: '1px 7px' }}>
+                      {statusCounts[s]} {c.label}
+                    </span>
+                  )
+                })}
+                <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', marginLeft: 4 }}>
+                  {eventDone}/{tasks.length}
+                </span>
+                <ChevronDown size={14} color="rgba(255,255,255,0.7)" style={{ transform: isCollapsed ? 'rotate(-90deg)' : 'none', transition: 'transform .2s' }} />
+              </div>
+            </button>
+
+            {/* Task list */}
+            {!isCollapsed && (
+              <div>
+                {/* Column headers */}
+                <div style={{ display: 'grid', gridTemplateColumns: '8px 1fr auto', gap: 10, padding: '6px 14px', borderBottom: D.borderLight, background: D.bg }}>
+                  {['', 'Công việc', 'Trạng thái'].map((h, i) => (
+                    <span key={i} style={{ fontSize: 10, fontWeight: 800, color: D.inkMuted, textTransform: 'uppercase', letterSpacing: '.06em' }}>{h}</span>
+                  ))}
+                </div>
+                {tasks.map(task => (
+                  <EventTaskRow
+                    key={task.id}
+                    task={task}
+                    depts={depts}
+                    onStatusChange={(id, status) => handleStatusChange(eid, id, status)}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 /* ─── Main Page ──────────────────────────────────────────────────────────── */
 export default function InboxPage() {
   const { clubId } = useParams<{ clubId: string }>()
@@ -400,6 +627,7 @@ export default function InboxPage() {
   const [assignments, setAssignments] = useState<AssignmentItem[]>([])
   const [depts, setDepts] = useState<DepartmentItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [activeTab, setActiveTab] = useState<'inbox' | 'tasks'>('inbox')
 
   useEffect(() => {
     if (!cid) return
@@ -420,65 +648,89 @@ export default function InboxPage() {
   const pending = assignments.filter(a => a.status !== 'Done')
   const done = assignments.filter(a => a.status === 'Done')
 
+  const tabBtn = (tab: 'inbox' | 'tasks', icon: React.ReactNode, label: string, count?: number): React.ReactNode => (
+    <button
+      type="button"
+      onClick={() => setActiveTab(tab)}
+      style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 18px', fontSize: 13, fontWeight: 800, border: D.border, borderRadius: D.pill, background: activeTab === tab ? D.ink : D.card, color: activeTab === tab ? '#facc15' : D.ink, cursor: 'pointer', boxShadow: activeTab === tab ? D.shadow() : 'none', fontFamily: "'Be Vietnam Pro', sans-serif" }}
+    >
+      {icon} {label}
+      {count != null && count > 0 && (
+        <span style={{ fontSize: 11, fontWeight: 700, background: activeTab === tab ? 'rgba(255,255,255,0.2)' : '#fef9c3', color: activeTab === tab ? '#fff' : '#a16207', borderRadius: D.pill, padding: '0 6px' }}>
+          {count}
+        </span>
+      )}
+    </button>
+  )
+
   return (
     <div style={{ padding: '28px 32px', background: D.bg, minHeight: '100%', fontFamily: "'Be Vietnam Pro', sans-serif" }}>
-      <div style={{ marginBottom: 24 }}>
+      <div style={{ marginBottom: 20 }}>
         <h1 style={{ fontSize: 22, fontWeight: 900, color: D.ink, margin: 0 }}>Hộp thư công việc</h1>
         <p style={{ fontSize: 13, color: D.inkMuted, marginTop: 4 }}>
           Phiếu giao việc từ sự kiện cấp trường — đọc yêu cầu, tạo Task về các Ban.
         </p>
       </div>
 
+      {/* Tab switcher */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 24 }}>
+        {tabBtn('inbox', <Inbox size={13} />, 'Phiếu giao việc', pending.length)}
+        {tabBtn('tasks', <ClipboardList size={13} />, 'Task đã triển khai')}
+      </div>
+
       {loading ? (
         <div style={{ textAlign: 'center', padding: 60, color: D.inkMuted, fontSize: 13 }}>Đang tải...</div>
-      ) : assignments.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: 60, border: D.border, borderRadius: D.radius, background: D.card, boxShadow: D.shadow(), color: D.inkMuted, fontSize: 13 }}>
-          Hộp thư trống. Chưa có phiếu giao việc nào từ Admin trường. 🎉
-        </div>
+      ) : activeTab === 'inbox' ? (
+        assignments.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: 60, border: D.border, borderRadius: D.radius, background: D.card, boxShadow: D.shadow(), color: D.inkMuted, fontSize: 13 }}>
+            Hộp thư trống. Chưa có phiếu giao việc nào từ Admin trường. 🎉
+          </div>
+        ) : (
+          <>
+            {pending.length > 0 && (
+              <div style={{ marginBottom: 24 }}>
+                <h2 style={{ fontSize: 14, fontWeight: 800, color: D.ink, margin: '0 0 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  Chờ xử lý
+                  <span style={{ fontSize: 12, fontWeight: 700, background: '#fef9c3', color: '#a16207', borderRadius: D.pill, padding: '1px 8px' }}>{pending.length}</span>
+                </h2>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  {pending.map(a => (
+                    <InboxAssignmentRow
+                      key={a.id}
+                      assignment={a}
+                      depts={depts}
+                      clubId={cid}
+                      onDecomposed={() => {}}
+                      onStatusChanged={handleStatusChanged}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+            {done.length > 0 && (
+              <div>
+                <h2 style={{ fontSize: 14, fontWeight: 800, color: D.inkMuted, margin: '0 0 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  Đã xử lý
+                  <span style={{ fontSize: 12, fontWeight: 700, background: '#dcfce7', color: '#15803d', borderRadius: D.pill, padding: '1px 8px' }}>{done.length}</span>
+                </h2>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  {done.map(a => (
+                    <InboxAssignmentRow
+                      key={a.id}
+                      assignment={a}
+                      depts={depts}
+                      clubId={cid}
+                      onDecomposed={() => {}}
+                      onStatusChanged={handleStatusChanged}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
+        )
       ) : (
-        <>
-          {pending.length > 0 && (
-            <div style={{ marginBottom: 24 }}>
-              <h2 style={{ fontSize: 14, fontWeight: 800, color: D.ink, margin: '0 0 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
-                Chờ xử lý
-                <span style={{ fontSize: 12, fontWeight: 700, background: '#fef9c3', color: '#a16207', borderRadius: D.pill, padding: '1px 8px' }}>{pending.length}</span>
-              </h2>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                {pending.map(a => (
-                  <InboxAssignmentRow
-                    key={a.id}
-                    assignment={a}
-                    depts={depts}
-                    clubId={cid}
-                    onDecomposed={() => {/* tasks created, assignment stays in inbox */}}
-                    onStatusChanged={handleStatusChanged}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {done.length > 0 && (
-            <div>
-              <h2 style={{ fontSize: 14, fontWeight: 800, color: D.inkMuted, margin: '0 0 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
-                Đã xử lý
-                <span style={{ fontSize: 12, fontWeight: 700, background: '#dcfce7', color: '#15803d', borderRadius: D.pill, padding: '1px 8px' }}>{done.length}</span>
-              </h2>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                {done.map(a => (
-                  <InboxAssignmentRow
-                    key={a.id}
-                    assignment={a}
-                    depts={depts}
-                    clubId={cid}
-                    onDecomposed={() => {}}
-                    onStatusChanged={handleStatusChanged}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-        </>
+        <EventTasksSection clubId={cid} depts={depts} assignments={assignments} />
       )}
     </div>
   )

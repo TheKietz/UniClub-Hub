@@ -18,6 +18,7 @@ namespace UniClub_Hub.Operations.DTOs.Event
         public string? Category { get; set; }
         public string? Summary { get; set; }
         public int ParticipantCount { get; set; }
+        public string? RegistrationLink { get; set; }
         public List<EventSessionDto> Sessions { get; set; } = [];
         public List<EventStaffDto> Staff { get; set; } = [];
         public DateTime CreatedAt { get; set; }

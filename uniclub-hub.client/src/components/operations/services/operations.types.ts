@@ -1,4 +1,4 @@
-export type TaskStatus = 'Todo' | 'Doing' | 'Done'
+export type TaskStatus = 'Todo' | 'Doing' | 'Reviewing' | 'Done'
 export type TaskPriority = 'Low' | 'Medium' | 'High'
 export type EventStatus = 'Draft' | 'InProgress' | 'Completed' | 'Cancelled'
 export type SprintStatus = 'Planning' | 'Active' | 'Completed' | 'Cancelled'
@@ -11,6 +11,8 @@ export interface KanbanColumnItem {
   name: string
   color?: string
   sortOrder: number
+  status: TaskStatus
+  isSystem: boolean
   taskCount?: number
 }
 
@@ -124,6 +126,7 @@ export interface EventItem {
   category?: string
   summary?: string
   participantCount: number
+  registrationLink?: string
   sessions: EventSessionItem[]
   staff: EventStaffItem[]
   createdAt: string
@@ -292,6 +295,7 @@ export interface CreateKanbanColumnDto {
   sprintId?: number
   departmentId?: number
   sortOrder?: number
+  status?: TaskStatus
 }
 
 export interface UpdateKanbanColumnDto {
@@ -353,6 +357,11 @@ export interface UpdateAttendanceDto {
 
 export type AssignmentStatus = 'Pending' | 'InProgress' | 'Done'
 
+export interface AssignmentAttachment {
+  url: string
+  name: string
+}
+
 export interface AssignmentItem {
   id: number
   eventId: number
@@ -364,7 +373,7 @@ export interface AssignmentItem {
   priority: TaskPriority
   deadline?: string
   status: AssignmentStatus
-  attachmentUrls: string[]
+  attachmentUrls: AssignmentAttachment[]
   createdBy?: string
   createdAt: string
 }

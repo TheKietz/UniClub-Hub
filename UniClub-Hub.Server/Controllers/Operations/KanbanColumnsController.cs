@@ -40,6 +40,10 @@ namespace UniClub_Hub.Server.Controllers.Operations
             {
                 return NotFound(ApiResponse<object>.Fail(ex.Message));
             }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ApiResponse<object>.Fail(ex.Message));
+            }
         }
 
         [HttpDelete("{id:int}")]
@@ -53,6 +57,10 @@ namespace UniClub_Hub.Server.Controllers.Operations
             catch (KeyNotFoundException ex)
             {
                 return NotFound(ApiResponse<object>.Fail(ex.Message));
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ApiResponse<object>.Fail(ex.Message));
             }
         }
 

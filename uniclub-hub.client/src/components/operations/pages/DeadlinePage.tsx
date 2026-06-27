@@ -29,10 +29,11 @@ const D = {
 
 const MS_PER_DAY = 86_400_000
 
-const STATUS_LABEL: Record<TaskStatus, string> = { Todo: 'Chưa làm', Doing: 'Đang làm', Done: 'Hoàn thành' }
+const STATUS_LABEL: Record<TaskStatus, string> = { Todo: 'Chưa làm', Doing: 'Đang làm', Reviewing: 'Reviewing', Done: 'Hoàn thành' }
 const STATUS_COLORS: Record<TaskStatus, { bg: string; color: string }> = {
   Todo:  { bg: '#f3f4f6', color: D.inkDim },
   Doing: { bg: '#dbeafe', color: '#1e40af' },
+  Reviewing: { bg: '#ede9fe', color: '#6d28d9' },
   Done:  { bg: '#d1fae5', color: '#065f46' },
 }
 

@@ -2,8 +2,9 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using UniClub_Hub.Operations.DTOs.Task;
 using UniClub_Hub.Operations.Services.Interfaces;
-using UniClub_Hub.Shared.Common.Storage ;
+using UniClub_Hub.Shared.Common.Storage;
 using UniClub_Hub.Shared.Data;
+using UniClub_Hub.Shared.Enums;
 using UniClub_Hub.Shared.Models;
 
 namespace UniClub_Hub.Operations.Services.Implements
@@ -53,6 +54,22 @@ namespace UniClub_Hub.Operations.Services.Implements
 
         public async Task<TaskAttachmentDto> UploadFileAsync(int taskId, string userId, IFormFile file, string? note)
         {
+            var task = await db.Tasks.AsNoTracking().FirstOrDefaultAsync(t => t.Id == taskId)
+                ?? throw new KeyNotFoundException($"Task {taskId} not found.");
+
+            var isAdmin = await db.ClubMemberships.AnyAsync(m =>
+                m.UserId == userId &&
+                m.ClubId == task.ClubId &&
+                m.Status == MembershipStatus.Active &&
+                m.ClubRole == ClubRole.CLUB_ADMIN);
+
+            if (!isAdmin)
+                throw new UnauthorizedAccessException("Chỉ Admin CLB mới được tải lên tệp đính kèm.");
+
+            var count = await db.TaskAttachments.CountAsync(a => a.TaskId == taskId && !a.IsDeleted);
+            if (count >= 5)
+                throw new InvalidOperationException("Công việc đã đạt giới hạn 5 tệp đính kèm.");
+
             var url = await fileStorageService.UploadAsync(file, "uploads/tasks");
             if (url == null) throw new InvalidOperationException("Không thể tải file lên.");
 
@@ -76,11 +93,22 @@ namespace UniClub_Hub.Operations.Services.Implements
 
         public async Task DeleteAsync(int attachmentId, string userId)
         {
-            var attachment = await db.TaskAttachments.FindAsync(attachmentId)
+            var attachment = await db.TaskAttachments
+                .Include(a => a.Task)
+                .FirstOrDefaultAsync(a => a.Id == attachmentId)
                 ?? throw new KeyNotFoundException($"Attachment {attachmentId} not found.");
 
             if (attachment.UserId != userId)
-                throw new UnauthorizedAccessException("Chỉ người upload mới được xóa đính kèm.");
+            {
+                var isClubAdmin = await db.ClubMemberships.AnyAsync(m =>
+                    m.UserId == userId &&
+                    m.ClubId == attachment.Task.ClubId &&
+                    m.Status == MembershipStatus.Active &&
+                    m.ClubRole == ClubRole.CLUB_ADMIN);
+
+                if (!isClubAdmin)
+                    throw new UnauthorizedAccessException("Chỉ người upload hoặc Admin CLB mới được xóa đính kèm.");
+            }
 
             db.TaskAttachments.Remove(attachment);
             await db.SaveChangesAsync();

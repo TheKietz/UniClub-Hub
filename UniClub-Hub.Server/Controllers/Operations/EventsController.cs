@@ -314,5 +314,23 @@ namespace UniClub_Hub.Server.Controllers.Operations
                 return NotFound(ApiResponse<object>.Fail(ex.Message));
             }
         }
+
+        // ── Registration Link ─────────────────────────────────────────────────
+
+        [HttpGet("{id:int}/registration-link")]
+        public async Task<IActionResult> GetRegistrationLink(int id)
+        {
+            var link = await eventService.GetRegistrationLinkAsync(id);
+            return Ok(ApiResponse<string?>.Ok(link));
+        }
+
+        [HttpPut("{id:int}/registration-link")]
+        [Authorize(Roles = "SUPER_ADMIN")]
+        public async Task<IActionResult> UpsertRegistrationLink(int id, [FromBody] SetRegistrationLinkDto dto)
+        {
+            var actorId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+            await eventService.UpsertRegistrationLinkAsync(id, dto.Url, actorId);
+            return Ok(ApiResponse<object>.Ok(null!, string.IsNullOrWhiteSpace(dto.Url) ? "Đã xóa link đăng ký." : "Đã lưu link đăng ký."));
+        }
     }
 }

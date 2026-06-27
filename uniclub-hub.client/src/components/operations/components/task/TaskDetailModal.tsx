@@ -132,11 +132,13 @@ export default function TaskDetailModal({
   clubId, task, open, defaultColumnId, defaultSprintId, departmentId, columns, onClose, onSaved,
 }: Props) {
   const { getClubRole } = useAuth()
-  const canManageAssignees = (() => {
-    const role = getClubRole(clubId)
-    return role === CLUB_ROLES.CLUB_ADMIN || role === CLUB_ROLES.DEPT_LEAD
-  })()
+  const role = getClubRole(clubId)
+  const isAdmin = role === CLUB_ROLES.CLUB_ADMIN
+  const canManageAssignees = isAdmin || role === CLUB_ROLES.DEPT_LEAD
   const isEdit = !!task
+
+  const MAX_FILES = 5
+  const ALLOWED_EXTS = '.xlsx,.xls,.docx,.doc,.pdf,.rar,.zip,.jpg,.jpeg,.png,.gif,.webp'
 
   // Form fields
   const [title,          setTitle]         = useState("")
@@ -174,9 +176,10 @@ export default function TaskDetailModal({
   const [editCmtText,  setEditCmtText]  = useState("")
   const [showDetail,   setShowDetail]   = useState(false)
 
-  const [attachments, setAttachments] = useState<TaskAttachmentItem[]>([])
-  const [linkUrl,     setLinkUrl]     = useState("")
-  const [linkNote,    setLinkNote]    = useState("")
+  const [attachments,   setAttachments]   = useState<TaskAttachmentItem[]>([])
+  const [pendingFiles,  setPendingFiles]  = useState<File[]>([])
+  const [linkUrl,       setLinkUrl]       = useState("")
+  const [linkNote,      setLinkNote]      = useState("")
   const fileRef = useRef<HTMLInputElement>(null)
 
   const [members,      setMembers]      = useState<MemberItem[]>([])
@@ -225,7 +228,7 @@ export default function TaskDetailModal({
         .catch(() => {})
       setChecklists(loadCL(task.id))
     } else {
-      setComments([]); setAttachments([]); setActivityLogs([]); setChecklists([])
+      setComments([]); setAttachments([]); setActivityLogs([]); setChecklists([]); setPendingFiles([])
     }
   }, [task, open, clubId])
 
@@ -267,8 +270,21 @@ export default function TaskDetailModal({
         departmentId: task?.departmentId ?? departmentId,
         sprintId: isEdit ? (task?.sprintId ?? undefined) : sprintId,
       }
-      if (isEdit) { await updateTask(task.id, dto); toast.success("Đã cập nhật công việc") }
-      else        { await createTask(clubId, dto);  toast.success("Đã tạo công việc") }
+      if (isEdit) {
+        await updateTask(task.id, dto)
+        toast.success("Đã cập nhật công việc")
+      } else {
+        const created = await createTask(clubId, dto)
+        if (pendingFiles.length > 0) {
+          const failed: string[] = []
+          for (const f of pendingFiles) {
+            try { await uploadTaskAttachmentFile(created.id, f) }
+            catch { failed.push(f.name) }
+          }
+          if (failed.length > 0) toast.error(`Lỗi khi tải lên: ${failed.join(', ')}`)
+        }
+        toast.success("Đã tạo công việc")
+      }
       onSaved(); onClose()
     } catch { toast.error("Có lỗi xảy ra") }
     finally { setSaving(false) }
@@ -387,12 +403,27 @@ export default function TaskDetailModal({
   }
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!task || !e.target.files?.[0]) return
+    const file = e.target.files?.[0]
+    if (!file) return
+    e.target.value = ""
+
+    if (!isEdit) {
+      if (pendingFiles.length >= MAX_FILES) {
+        toast.error(`Tối đa ${MAX_FILES} tệp đính kèm`)
+        return
+      }
+      setPendingFiles(prev => [...prev, file])
+      return
+    }
+
+    if (attachments.length >= MAX_FILES) {
+      toast.error(`Tối đa ${MAX_FILES} tệp đính kèm`)
+      return
+    }
     try {
-      const a = await uploadTaskAttachmentFile(task.id, e.target.files[0])
+      const a = await uploadTaskAttachmentFile(task!.id, file)
       setAttachments(prev => [...prev, a])
     } catch { toast.error("Không thể tải lên tệp") }
-    finally { e.target.value = "" }
   }
 
   const handleDeleteAttachment = async (aid: number) => {
@@ -453,7 +484,7 @@ export default function TaskDetailModal({
   return (
     <Dialog open={open} onOpenChange={v => !v && onClose()}>
       <DialogContent
-        style={{ maxWidth: 1000, width: '95vw', maxHeight: '92vh', overflow: 'hidden', padding: 0, gap: 0, borderRadius: D.radius, border: D.border, boxShadow: D.shadow(8, 8), fontFamily: "'Be Vietnam Pro', sans-serif" }}
+        style={{ maxWidth: 1000, width: '95vw', maxHeight: '92vh', overflow: 'hidden', padding: 0, gap: 0, borderRadius: D.radius, border: D.border, boxShadow: D.shadow(8, 8), fontFamily: "'Be Vietnam Pro', sans-serif", display: 'flex', flexDirection: 'column' }}
         className="!max-w-[1000px] !w-[95vw]"
       >
 
@@ -484,7 +515,7 @@ export default function TaskDetailModal({
         </div>
 
         {/* ── Body ──────────────────────────────────────────────────────────── */}
-        <div style={{ display: 'flex', overflow: 'hidden', maxHeight: 'calc(92vh - 57px)' }}>
+        <div style={{ display: 'flex', overflow: 'hidden', flex: 1, minHeight: 0 }}>
 
           {/* ══ LEFT PANEL ════════════════════════════════════════════════════ */}
           <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 18, minWidth: 0 }}>
@@ -771,33 +802,72 @@ export default function TaskDetailModal({
                     <button type="button" onClick={() => setPanel(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: D.inkMuted, display: 'flex', padding: 4 }}><X size={14} /></button>
                   </div>
                   <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-                    <p style={{ fontSize: 12, color: D.inkMuted, margin: 0 }}>Đính kèm tệp từ máy tính của bạn.</p>
-                    <button type="button" onClick={() => fileRef.current?.click()}
-                      style={{ padding: '8px', border: D.borderLight, borderRadius: 8, fontSize: 12, color: D.inkDim, background: D.bg, cursor: 'pointer', fontFamily: 'inherit' }}>
-                      Chọn tệp
-                    </button>
-                    <input ref={fileRef} type="file" style={{ display: 'none' }} onChange={handleFileUpload} />
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                      <p style={{ fontSize: 12, fontWeight: 700, color: D.inkDim, margin: 0 }}>
-                        Tìm kiếm hoặc dán liên kết <span style={{ color: D.red }}>*</span>
-                      </p>
-                      <input type="url" placeholder="Tìm các liên kết gần đây hoặc dán một đường dẫn..."
-                        value={linkUrl} onChange={e => setLinkUrl(e.target.value)}
-                        style={{ ...inputStyle }} />
-                      <input type="text" placeholder="Văn bản hiển thị (không bắt buộc)"
-                        value={linkNote} onChange={e => setLinkNote(e.target.value)}
-                        style={{ ...inputStyle }} />
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-                      <button type="button" onClick={() => setPanel(null)}
-                        style={{ padding: '7px 14px', fontSize: 12, color: D.inkMuted, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
-                        Hủy
-                      </button>
-                      <button type="button" onClick={handleAddLink} disabled={!linkUrl.trim()}
-                        style={{ padding: '7px 14px', background: D.indigo, color: '#fff', border: D.border, borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: linkUrl.trim() ? 'pointer' : 'not-allowed', opacity: linkUrl.trim() ? 1 : 0.5, fontFamily: 'inherit' }}>
-                        Chèn
-                      </button>
-                    </div>
+                    {/* File upload — admin only */}
+                    {isAdmin ? (
+                      <>
+                        <p style={{ fontSize: 11, color: D.inkMuted, margin: 0 }}>
+                          Excel, Word, PDF, RAR, ZIP, ảnh · Tối đa {MAX_FILES} tệp
+                        </p>
+                        {(() => {
+                          const currentCount = isEdit ? attachments.length : pendingFiles.length
+                          const atLimit = currentCount >= MAX_FILES
+                          return (
+                            <button type="button"
+                              disabled={atLimit}
+                              onClick={() => !atLimit && fileRef.current?.click()}
+                              style={{ padding: '8px', border: D.borderLight, borderRadius: 8, fontSize: 12, color: atLimit ? D.inkMuted : D.inkDim, background: D.bg, cursor: atLimit ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: atLimit ? 0.5 : 1 }}>
+                              Chọn tệp ({currentCount}/{MAX_FILES})
+                            </button>
+                          )
+                        })()}
+                        <input ref={fileRef} type="file" style={{ display: 'none' }}
+                          accept={ALLOWED_EXTS} onChange={handleFileUpload} />
+                        {/* Pending files (create mode) */}
+                        {!isEdit && pendingFiles.length > 0 && (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                            {pendingFiles.map((f, i) => (
+                              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', background: D.bg, borderRadius: 6, border: D.borderLight }}>
+                                <Paperclip size={11} style={{ color: D.inkMuted, flexShrink: 0 }} />
+                                <span style={{ flex: 1, fontSize: 12, color: D.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</span>
+                                <button type="button"
+                                  onClick={() => setPendingFiles(prev => prev.filter((_, j) => j !== i))}
+                                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: D.inkMuted, display: 'flex', padding: 2 }}>
+                                  <X size={12} />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <p style={{ fontSize: 12, color: D.inkMuted, margin: 0 }}>Chỉ Admin CLB mới được tải lên tệp đính kèm.</p>
+                    )}
+                    {/* Link section — edit mode only */}
+                    {isEdit && (
+                      <>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                          <p style={{ fontSize: 12, fontWeight: 700, color: D.inkDim, margin: 0 }}>
+                            Tìm kiếm hoặc dán liên kết <span style={{ color: D.red }}>*</span>
+                          </p>
+                          <input type="url" placeholder="Tìm các liên kết gần đây hoặc dán một đường dẫn..."
+                            value={linkUrl} onChange={e => setLinkUrl(e.target.value)}
+                            style={{ ...inputStyle }} />
+                          <input type="text" placeholder="Văn bản hiển thị (không bắt buộc)"
+                            value={linkNote} onChange={e => setLinkNote(e.target.value)}
+                            style={{ ...inputStyle }} />
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                          <button type="button" onClick={() => setPanel(null)}
+                            style={{ padding: '7px 14px', fontSize: 12, color: D.inkMuted, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
+                            Hủy
+                          </button>
+                          <button type="button" onClick={handleAddLink} disabled={!linkUrl.trim()}
+                            style={{ padding: '7px 14px', background: D.indigo, color: '#fff', border: D.border, borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: linkUrl.trim() ? 'pointer' : 'not-allowed', opacity: linkUrl.trim() ? 1 : 0.5, fontFamily: 'inherit' }}>
+                            Chèn
+                          </button>
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
               )}
@@ -858,40 +928,88 @@ export default function TaskDetailModal({
               />
             </div>
 
-            {/* Attachments list */}
-            {isEdit && attachments.length > 0 && (
+            {/* Attachments list — edit mode */}
+            {isEdit && (
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
                   <Paperclip size={14} style={{ color: D.inkMuted }} />
-                  <span style={{ fontSize: 13, fontWeight: 700, color: D.inkDim }}>Các tập tin đính kèm</span>
-                  <button type="button" onClick={() => togglePanel("attach")}
-                    style={{ marginLeft: 'auto', fontSize: 11, padding: '3px 10px', background: D.bg, border: D.borderLight, borderRadius: D.pill, color: D.inkDim, cursor: 'pointer', fontFamily: 'inherit' }}>
-                    Thêm
-                  </button>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: D.inkDim }}>
+                    Tệp đính kèm ({attachments.length}/{MAX_FILES})
+                  </span>
+                  {isAdmin && attachments.length < MAX_FILES && (
+                    <button type="button" onClick={() => togglePanel("attach")}
+                      style={{ marginLeft: 'auto', fontSize: 11, padding: '3px 10px', background: D.bg, border: D.borderLight, borderRadius: D.pill, color: D.inkDim, cursor: 'pointer', fontFamily: 'inherit' }}>
+                      + Thêm
+                    </button>
+                  )}
+                </div>
+                {attachments.length === 0 ? (
+                  <div style={{ padding: '14px 0', textAlign: 'center', border: '1.5px dashed #d1cfc9', borderRadius: 8, color: D.inkMuted, fontSize: 12 }}>
+                    {isAdmin ? 'Chưa có tệp đính kèm — nhấn "+ Thêm" để tải lên.' : 'Chưa có tệp đính kèm.'}
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {attachments.map(a => (
+                      <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: D.bg, borderRadius: 8, border: D.borderLight }}>
+                        <div style={{ width: 40, height: 32, background: '#e8e3d6', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 10, fontWeight: 700, color: D.inkMuted, textTransform: 'uppercase' }}>
+                          {a.isLink ? <Link2 size={13} style={{ color: D.inkMuted }} /> : (a.fileName?.split(".").pop() ?? "?")}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <a href={a.fileUrl} target="_blank" rel="noreferrer"
+                            style={{ fontSize: 13, color: D.indigo, fontWeight: 600, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: 'none' }}>
+                            {a.fileName ?? a.note ?? a.fileUrl}
+                          </a>
+                          <span style={{ fontSize: 11, color: D.inkMuted }}>Đã thêm {fmtTime(a.uploadedAt)}</span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+                          <a href={a.fileUrl} target="_blank" rel="noreferrer"
+                            style={{ padding: 4, borderRadius: 4, color: D.inkMuted, display: 'flex', textDecoration: 'none' }}>
+                            <Upload size={12} />
+                          </a>
+                          {isAdmin && (
+                            <button type="button" onClick={() => handleDeleteAttachment(a.id)}
+                              style={{ padding: 4, borderRadius: 4, color: D.inkMuted, background: 'none', border: 'none', cursor: 'pointer', display: 'flex' }}
+                              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = D.red }}
+                              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = D.inkMuted }}>
+                              <Trash2 size={12} />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Pending files — create mode only, admin only */}
+            {!isEdit && isAdmin && pendingFiles.length > 0 && (
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                  <Paperclip size={14} style={{ color: D.inkMuted }} />
+                  <span style={{ fontSize: 13, fontWeight: 700, color: D.inkDim }}>
+                    Tệp đính kèm ({pendingFiles.length}/{MAX_FILES})
+                  </span>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {attachments.map(a => (
-                    <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: D.bg, borderRadius: 8, border: D.borderLight }}>
-                      <div style={{ width: 40, height: 32, background: '#e8e3d6', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 10, fontWeight: 700, color: D.inkMuted, textTransform: 'uppercase' }}>
-                        {a.isLink ? <Link2 size={13} style={{ color: D.inkMuted }} /> : (a.fileName?.split(".").pop() ?? "?")}
+                  {pendingFiles.map((f, i) => (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: D.bg, borderRadius: 8, border: D.borderLight }}>
+                      <div style={{ width: 40, height: 32, background: '#e8e3d6', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 9, fontWeight: 700, color: D.inkMuted, textTransform: 'uppercase' }}>
+                        {f.name.split('.').pop()?.slice(0, 4) ?? '?'}
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <a href={a.fileUrl} target="_blank" rel="noreferrer"
-                          style={{ fontSize: 13, color: D.indigo, fontWeight: 600, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: 'none' }}>
-                          {a.note ?? a.fileName ?? a.fileUrl}
-                        </a>
-                        <span style={{ fontSize: 11, color: D.inkMuted }}>Đã thêm {fmtTime(a.uploadedAt)}</span>
+                        <span style={{ fontSize: 13, color: D.ink, fontWeight: 600, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {f.name}
+                        </span>
+                        <span style={{ fontSize: 11, color: D.inkMuted }}>{(f.size / 1024).toFixed(0)} KB</span>
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
-                        <a href={a.fileUrl} target="_blank" rel="noreferrer"
-                          style={{ padding: 4, borderRadius: 4, color: D.inkMuted, display: 'flex', textDecoration: 'none' }}>
-                          <Upload size={12} />
-                        </a>
-                        <button type="button" onClick={() => handleDeleteAttachment(a.id)}
-                          style={{ padding: 4, borderRadius: 4, color: D.inkMuted, background: 'none', border: 'none', cursor: 'pointer', display: 'flex' }}>
-                          <Trash2 size={12} />
-                        </button>
-                      </div>
+                      <button type="button"
+                        onClick={() => setPendingFiles(prev => prev.filter((_, j) => j !== i))}
+                        style={{ padding: 4, borderRadius: 4, color: D.inkMuted, background: 'none', border: 'none', cursor: 'pointer', display: 'flex', flexShrink: 0 }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = D.red }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = D.inkMuted }}>
+                        <Trash2 size={12} />
+                      </button>
                     </div>
                   ))}
                 </div>
@@ -992,19 +1110,6 @@ export default function TaskDetailModal({
               )
             })}
 
-            {/* Bottom action bar */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', paddingTop: 8, borderTop: D.borderLight }}>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button type="button" onClick={onClose}
-                  style={{ padding: '8px 16px', fontSize: 13, border: D.border, borderRadius: D.pill, background: D.card, color: D.inkDim, cursor: 'pointer', boxShadow: D.shadow(2, 2), fontFamily: 'inherit', fontWeight: 600 }}>
-                  Hủy
-                </button>
-                <button type="button" onClick={handleSave} disabled={saving}
-                  style={{ padding: '8px 18px', fontSize: 13, background: D.ink, color: '#facc15', border: D.border, borderRadius: D.pill, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1, boxShadow: D.shadow(2, 2), fontFamily: 'inherit', fontWeight: 700 }}>
-                  {saving ? "Đang lưu..." : isEdit ? "Lưu thay đổi" : "Tạo thẻ"}
-                </button>
-              </div>
-            </div>
           </div>
 
           {/* ══ RIGHT PANEL — Combined feed ═══════════════════════════════════ */}
@@ -1122,6 +1227,18 @@ export default function TaskDetailModal({
               </div>
             </div>
           )}
+        </div>
+
+        {/* ── Footer (always visible, outside scroll) ──────────────────────── */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, padding: '10px 24px', borderTop: D.borderLight, flexShrink: 0, background: D.bg }}>
+          <button type="button" onClick={onClose}
+            style={{ padding: '8px 18px', fontSize: 13, border: D.border, borderRadius: D.pill, background: D.card, color: D.inkDim, cursor: 'pointer', boxShadow: D.shadow(2, 2), fontFamily: 'inherit', fontWeight: 600 }}>
+            Hủy
+          </button>
+          <button type="button" onClick={handleSave} disabled={saving}
+            style={{ padding: '8px 20px', fontSize: 13, background: D.ink, color: '#facc15', border: D.border, borderRadius: D.pill, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1, boxShadow: D.shadow(2, 2), fontFamily: 'inherit', fontWeight: 700 }}>
+            {saving ? "Đang lưu..." : isEdit ? "Lưu thay đổi" : "Tạo thẻ"}
+          </button>
         </div>
       </DialogContent>
     </Dialog>

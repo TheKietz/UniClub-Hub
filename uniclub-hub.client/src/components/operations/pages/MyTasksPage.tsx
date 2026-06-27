@@ -37,10 +37,11 @@ const PRIORITY_CONFIG = {
 } as const
 
 const STATUS_TABS = [
-  { key: "all",   label: "Tất cả"     },
-  { key: "Todo",  label: "Chưa làm"   },
-  { key: "Doing", label: "Đang làm"   },
-  { key: "Done",  label: "Hoàn thành" },
+  { key: "all",       label: "Tất cả"     },
+  { key: "Todo",      label: "Chưa làm"   },
+  { key: "Doing",     label: "Đang làm"   },
+  { key: "Reviewing", label: "Reviewing"  },
+  { key: "Done",      label: "Hoàn thành" },
 ]
 
 /* ── TaskListCard ──────────────────────────────────────────────────────────── */

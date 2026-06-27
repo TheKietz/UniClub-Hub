@@ -121,13 +121,6 @@ const SPRINT_STATUS_LABEL: Record<SprintStatus, string> = {
 const formatDate = (iso: string) =>
   new Date(iso).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" });
 
-const nameToStatus = (name: string): "Todo" | "Doing" | "Done" => {
-  const lc = name.toLowerCase();
-  if (lc.includes("hoàn") || lc.includes("done") || lc.includes("xong")) return "Done";
-  if (lc.includes("đang") || lc.includes("doing")) return "Doing";
-  return "Todo";
-};
-
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function KanbanPage() {
@@ -321,11 +314,10 @@ export default function KanbanPage() {
 
   // ── Kanban logic ──────────────────────────────────────────────────────────────
   const tasksForColumn = (col: KanbanColumnItem): TaskItem[] => {
-    const fallbackStatus = nameToStatus(col.name);
-    const isDefault = col.name === "Cần làm" || col.name === "Đang làm" || col.name === "Hoàn thành";
     return tasks.filter(t => {
       if (t.kanbanColumnId) return t.kanbanColumnId === col.id;
-      if (isDefault) return t.status === fallbackStatus;
+      // Unpinned tasks fall into the system column matching their exact status.
+      if (col.isSystem) return t.status === col.status;
       return false;
     });
   };
@@ -338,7 +330,7 @@ export default function KanbanPage() {
     if (!task || task.kanbanColumnId === targetColId) return;
     const targetCol = columns.find(c => c.id === targetColId);
     if (!targetCol) return;
-    const newStatus = nameToStatus(targetCol.name);
+    const newStatus = targetCol.status;
     if (task.isBlocked && (newStatus === "Doing" || newStatus === "Done")) {
       toast.error(`Bị chặn bởi ${task.blockingCount} công việc chưa hoàn thành`); return;
     }
@@ -356,13 +348,13 @@ export default function KanbanPage() {
       // User already scoped the board to a specific sprint — create inside it
       sprintForNew = selectedSprintId;
     } else if (activeSprints.length === 0) {
-      toast.error('Chưa có sprint nào đang chạy. Vui lòng khởi động sprint trước khi tạo công việc.');
+      toast.error('Chưa có tuần công việc nào đang chạy. Vui lòng khởi động tuần công việc trước khi tạo công việc.');
       return;
     } else if (activeSprints.length === 1) {
       sprintForNew = activeSprints[0].id;
     } else {
       // Multiple active sprints — task goes to backlog; user drags it later
-      toast.info('Có nhiều sprint đang chạy. Task mới sẽ vào Backlog — hãy kéo sang sprint phù hợp.');
+      toast.info('Có nhiều tuần công việc đang chạy. Công việc mới sẽ vào kho công việc — hãy kéo sang tuần công việc phù hợp.');
       sprintForNew = undefined;
     }
 

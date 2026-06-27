@@ -5,13 +5,18 @@ using UniClub_Hub.Operations.DTOs.Event;
 using UniClub_Hub.Operations.Services.Interfaces;
 using UniClub_Hub.Shared.Common;
 using UniClub_Hub.Shared.Common.Storage;
+using UniClub_Hub.Shared.Constants;
 using UniClub_Hub.Shared.Data;
 using UniClub_Hub.Shared.Enums;
 using UniClub_Hub.Shared.Models;
 
 namespace UniClub_Hub.Operations.Services.Implements
 {
-    public class EventService(UniClubDbContext db, IFileStorageService fileStorage, UserManager<ApplicationUser> userManager) : IEventService
+    public class EventService(
+        UniClubDbContext db,
+        IFileStorageService fileStorage,
+        UserManager<ApplicationUser> userManager,
+        IKanbanHubNotifier kanbanNotifier) : IEventService
     {
         private static readonly string[] AllowedExtensions =
         [
@@ -79,7 +84,15 @@ namespace UniClub_Hub.Operations.Services.Implements
                 .FirstOrDefaultAsync(e => e.Id == id)
                 ?? throw new KeyNotFoundException($"Event {id} not found.");
 
-            return MapToDto(e);
+            var regLink = await db.EventAttachments
+                .AsNoTracking()
+                .Where(a => a.EventId == id && a.ContentType == RegLinkContentType)
+                .Select(a => a.FileUrl)
+                .FirstOrDefaultAsync();
+
+            var dto = MapToDto(e);
+            dto.RegistrationLink = regLink;
+            return dto;
         }
 
         public async Task<EventDto> CreateAsync(int? clubId, CreateEventDto dto, string actorId)
@@ -114,6 +127,9 @@ namespace UniClub_Hub.Operations.Services.Implements
 
             await RequireManagerRoleAsync(actorId, ev.ClubId);
 
+            var oldStatus = ev.Status;
+            var newStatus = dto.Status;
+
             ev.Name = dto.Name;
             ev.Description = dto.Description;
             ev.Location = dto.Location;
@@ -121,12 +137,31 @@ namespace UniClub_Hub.Operations.Services.Implements
             ev.StartTime = dto.StartTime;
             ev.EndTime = dto.EndTime;
             ev.MaxParticipants = dto.MaxParticipants;
-            ev.Status = dto.Status;
+            ev.Status = newStatus;
             ev.Budget = dto.Budget;
             ev.Category = dto.Category;
             ev.Summary = dto.Summary;
 
+            // InProgress → Draft / Cancelled: cascade soft-delete all event tasks
+            var cascadeClubId = ev.ClubId;
+            var didCascade = false;
+            if (oldStatus == EventStatus.InProgress &&
+                (newStatus == EventStatus.Draft || newStatus == EventStatus.Cancelled) &&
+                cascadeClubId.HasValue)
+            {
+                await db.Tasks
+                    .Where(t => t.EventId == id && !t.IsDeleted)
+                    .ExecuteUpdateAsync(s => s
+                        .SetProperty(t => t.IsDeleted, true)
+                        .SetProperty(t => t.DeletedBy, actorId));
+                didCascade = true;
+            }
+
             await db.SaveChangesAsync();
+
+            if (didCascade)
+                await kanbanNotifier.NotifyEventTasksCleanedAsync(cascadeClubId!.Value, id);
+
             return MapToDto(ev);
         }
 
@@ -334,16 +369,56 @@ namespace UniClub_Hub.Operations.Services.Implements
 
         // ── Attachments ──────────────────────────────────────────────────────
 
+        private const string RegLinkContentType = "text/x-registration-link";
+
         public async Task<List<EventAttachmentDto>> GetAttachmentsAsync(int eventId)
         {
             var items = await db.EventAttachments
                 .AsNoTracking()
                 .Include(a => a.UploadedByUser)
-                .Where(a => a.EventId == eventId)
+                .Where(a => a.EventId == eventId && a.ContentType != RegLinkContentType)
                 .OrderByDescending(a => a.UploadedAt)
                 .ToListAsync();
 
             return items.Select(MapAttachmentToDto).ToList();
+        }
+
+        public async Task<string?> GetRegistrationLinkAsync(int eventId)
+        {
+            var att = await db.EventAttachments
+                .AsNoTracking()
+                .Where(a => a.EventId == eventId && a.ContentType == RegLinkContentType)
+                .FirstOrDefaultAsync();
+            return att?.FileUrl;
+        }
+
+        public async Task UpsertRegistrationLinkAsync(int eventId, string? url, string actorId)
+        {
+            var existing = await db.EventAttachments
+                .Where(a => a.EventId == eventId && a.ContentType == RegLinkContentType)
+                .FirstOrDefaultAsync();
+
+            if (string.IsNullOrWhiteSpace(url))
+            {
+                if (existing != null) db.EventAttachments.Remove(existing);
+            }
+            else if (existing != null)
+            {
+                existing.FileUrl = url.Trim();
+            }
+            else
+            {
+                db.EventAttachments.Add(new EventAttachment
+                {
+                    EventId = eventId,
+                    UploadedBy = actorId,
+                    FileUrl = url.Trim(),
+                    ContentType = RegLinkContentType,
+                    UploadedAt = DateTimeOffset.UtcNow,
+                });
+            }
+
+            await db.SaveChangesAsync();
         }
 
         public async Task<EventAttachmentDto> UploadAttachmentAsync(int eventId, IFormFile file, string? note, string actorId)

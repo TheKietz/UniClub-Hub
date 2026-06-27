@@ -3,7 +3,6 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
-using UniClub_Hub.Membership.Services.Interfaces;
 using UniClub_Hub.Operations.DTOs.Intelligence;
 using UniClub_Hub.Operations.DTOs.Task;
 using UniClub_Hub.Operations.Services.Interfaces;
@@ -24,7 +23,7 @@ namespace UniClub_Hub.Server.Controllers.Operations
         ITaskCommentService commentService,
         ITaskAttachmentService attachmentService,
         ITaskIntelligenceService intelligenceService,
-        INotificationService notificationService,
+        UniClub_Hub.Shared.Common.Interfaces.INotificationService notificationService,
         UniClubDbContext db) : ControllerBase
     {
         [HttpGet]
@@ -73,7 +72,7 @@ namespace UniClub_Hub.Server.Controllers.Operations
 
                 // Notify dept lead when task is sent to a department
                 if (result.DepartmentId.HasValue)
-                    await NotifyDeptLeadAsync(result.DepartmentId.Value, result.ClubId, result.Id, result.Title, result.EventId);
+                    await NotifyDeptLeadAsync(result.DepartmentId.Value, result.ClubId, result.Id, result.Title, result.EventId, userId, result.AssignedTo);
 
                 return CreatedAtAction(nameof(GetById), new { id = result.Id },
                     ApiResponse<TaskDto>.Ok(result, "Tạo công việc thành công."));
@@ -84,7 +83,7 @@ namespace UniClub_Hub.Server.Controllers.Operations
             }
         }
 
-        private async Task NotifyDeptLeadAsync(int departmentId, int clubId, int taskId, string taskTitle, int? eventId)
+        private async Task NotifyDeptLeadAsync(int departmentId, int clubId, int taskId, string taskTitle, int? eventId, string creatorId, string? assignedTo)
         {
             var lead = await db.ClubMemberships
                 .AsNoTracking()
@@ -95,14 +94,18 @@ namespace UniClub_Hub.Server.Controllers.Operations
                 .Select(m => m.UserId)
                 .FirstOrDefaultAsync();
 
-            if (lead == null) return;
+            // Skip if there's no lead, or the lead is the creator (don't notify yourself),
+            // or the lead is already the assignee (TaskService.CreateAsync notifies them).
+            if (lead == null || lead == creatorId || lead == assignedTo) return;
 
             var eventSuffix = eventId.HasValue ? $" (thuộc sự kiện #{eventId})" : string.Empty;
             await notificationService.SendAsync(
                 lead,
                 "Công việc mới được giao về Ban",
                 $"Bạn có công việc mới cần xử lý: \"{taskTitle}\"{eventSuffix}.",
-                NotificationType.Task);
+                NotificationType.TaskAssigned,
+                relatedEntityType: "Task",
+                relatedEntityId: taskId);
         }
 
         [HttpPut("{id:int}")]
@@ -323,10 +326,9 @@ namespace UniClub_Hub.Server.Controllers.Operations
                 var result = await attachmentService.UploadFileAsync(id, userId, file, note);
                 return Ok(ApiResponse<TaskAttachmentDto>.Ok(result, "Tải lên thành công."));
             }
-            catch (InvalidOperationException ex)
-            {
-                return BadRequest(ApiResponse<object>.Fail(ex.Message));
-            }
+            catch (UnauthorizedAccessException ex) { return Forbid(ex.Message); }
+            catch (InvalidOperationException ex) { return BadRequest(ApiResponse<object>.Fail(ex.Message)); }
+            catch (KeyNotFoundException ex) { return NotFound(ApiResponse<object>.Fail(ex.Message)); }
         }
 
         [HttpDelete("{id:int}/attachments/{attachmentId:int}")]

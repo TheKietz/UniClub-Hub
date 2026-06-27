@@ -51,7 +51,7 @@ export default function CompleteSprintModal({
       {/* Backdrop */}
       <div style={{ position: 'absolute', inset: 0, background: 'rgba(10,10,10,0.5)' }} onClick={onClose} />
 
-      {/* Modal */}
+      {/* Modal — overflow visible so the destination dropdown isn't clipped */}
       <div style={{
         position: 'relative',
         width: '100%',
@@ -60,7 +60,7 @@ export default function CompleteSprintModal({
         border: '3px solid #0A0A0A',
         boxShadow: '8px 8px 0 #0A0A0A',
         borderRadius: 0,
-        overflow: 'hidden',
+        overflow: 'visible',
       }}>
         {/* Trophy banner */}
         <div style={{
@@ -77,26 +77,26 @@ export default function CompleteSprintModal({
         {/* Body */}
         <div style={{ padding: '24px 24px 20px' }}>
           <h2 style={{ margin: '0 0 14px', fontSize: 20, fontWeight: 900, color: '#0A0A0A' }}>
-            Complete {sprint.name}
+            Hoàn thành {sprint.name}
           </h2>
 
           <p style={{ margin: '0 0 14px', fontSize: 14, color: '#333', lineHeight: 1.6 }}>
-            This sprint contains{' '}
-            <strong style={{ color: '#0A0A0A' }}>{completedTasks.length} completed work item{completedTasks.length !== 1 ? 's' : ''}</strong>
-            {' '}and{' '}
-            <strong style={{ color: '#0A0A0A' }}>{openTasks.length} open work item{openTasks.length !== 1 ? 's' : ''}</strong>.
+            Tuần công việc này chứa{' '}
+            <strong style={{ color: '#0A0A0A' }}>{completedTasks.length} công việc đã hoàn thành{completedTasks.length !== 1 ? 's' : ''}</strong>
+            {' '}và{' '}
+            <strong style={{ color: '#0A0A0A' }}>{openTasks.length} công việc chưa hoàn thành</strong>.
           </p>
 
           <ul style={{ margin: '0 0 20px', paddingLeft: 20, fontSize: 13, color: '#444', lineHeight: 1.7 }}>
             <li>
-              Các công việc hoàn thành bao gồm tất cả thẻ có trạng thái <em>Done</em>
+              Các công việc hoàn thành bao gồm tất cả thẻ có trạng thái <em>Hoàn thành</em>
               {doneCol && (
                 <> (cột <span style={{ color: '#3B4EFF', fontWeight: 700, cursor: 'default' }}>{doneCol.name}</span>)</>
               )}.
             </li>
             <li>
               Các công việc chưa hoàn thành là tất cả thẻ còn lại.
-              Chuyển chúng sang sprint khác hoặc Backlog.
+              Chuyển chúng sang "Tuần công việc" khác hoặc "Khối công việc".
             </li>
           </ul>
 
@@ -111,7 +111,7 @@ export default function CompleteSprintModal({
                 textTransform: 'uppercase',
                 letterSpacing: '.06em',
               }}>
-                Move open work items to
+                Chuyển các công việc chưa hoàn thành sang:
               </label>
               <FilterSelect
                 value={destination}
@@ -152,7 +152,7 @@ export default function CompleteSprintModal({
             onMouseEnter={e => (e.currentTarget.style.background = '#F0F0F0')}
             onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
           >
-            Cancel
+            Hủy
           </button>
           <button
             type="button"
@@ -172,7 +172,7 @@ export default function CompleteSprintModal({
             onMouseEnter={e => { if (!saving) (e.currentTarget as HTMLButtonElement).style.background = '#2233dd' }}
             onMouseLeave={e => { if (!saving) (e.currentTarget as HTMLButtonElement).style.background = '#3B4EFF' }}
           >
-            {saving ? 'Completing...' : 'Complete sprint'}
+            {saving ? 'Completing...' : 'Hoàn thành'}
           </button>
         </div>
       </div>

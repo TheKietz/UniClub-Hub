@@ -20,11 +20,11 @@ import { FilterSelect } from '@/components/shared/FilterSelect';
 const TABS = [
   { id: 'overview',   label: 'Tổng quan',  icon: '◇', memberAllowed: true  },
   { id: 'mytasks',    label: 'Task',        icon: '✓', memberAllowed: true  },
-  { id: 'sprints',    label: 'Backlog',     icon: '≡', memberAllowed: true  },
-  { id: 'board',      label: 'Board',       icon: '▦', memberAllowed: true  },
+  { id: 'sprints',    label: 'Công việc',     icon: '≡', memberAllowed: true  },
+  { id: 'board',      label: 'Bảng',       icon: '▦', memberAllowed: true  },
   { id: 'deadlines',  label: 'Deadlines',   icon: '⊖', memberAllowed: true  },
   { id: 'workload',   label: 'Phân công',  icon: '◎', memberAllowed: false },
-  { id: 'gantt',      label: 'Gantt',       icon: '↗', memberAllowed: true  },
+  { id: 'gantt',      label: 'Biểu đồ',       icon: '↗', memberAllowed: true  },
   { id: 'calendar',   label: 'Lịch',        icon: '◑', memberAllowed: true  },
   { id: 'activity',   label: 'Hoạt động',    icon: '◉', memberAllowed: false },
   { id: 'kpi',        label: 'KPI',          icon: '◈', memberAllowed: true  },
@@ -36,6 +36,7 @@ export default function ClubOperationsPage() {
   const { clubId } = useParams<{ clubId: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
   const view = (searchParams.get('view') ?? 'overview') as TabId;
+  const deptParam = searchParams.get('dept');
 
   const { user, getClubRole } = useAuth();
   const clubIdNum = Number(clubId ?? 0);
@@ -81,14 +82,17 @@ export default function ClubOperationsPage() {
 
       setDepartments(visible);
       setSelectedDeptId(prev => {
-        // Keep the current selection if it's still valid; otherwise default to first
+        // A `dept` query param (e.g. from a notification deep-link) wins if it's valid.
+        const fromUrl = deptParam ? Number(deptParam) : undefined;
+        if (fromUrl != null && visible.some(d => d.id === fromUrl)) return fromUrl;
+        // Otherwise keep the current selection if still valid; else default to first.
         if (prev != null && visible.some(d => d.id === prev)) return prev;
         return visible[0]?.id;
       });
     })
       .catch(() => { /* silently fall back to club-wide view */ })
       .finally(() => setDeptLoaded(true));
-  }, [clubId, clubIdNum, user, isClubAdmin]);
+  }, [clubId, clubIdNum, user, isClubAdmin, deptParam]);
 
   function setView(v: TabId) {
     setSearchParams({ view: v }, { replace: true });
@@ -128,6 +132,13 @@ export default function ClubOperationsPage() {
               options={departments.map(d => ({ value: d.id.toString(), label: d.name }))}
               style={{ width: 180 }}
               maxMenuHeight={260}
+              activeTextOnly
+              buttonStyle={{
+                background: 'transparent',
+                border: '1px solid rgba(255,255,255,0.22)',
+                color: '#ffffff',
+                fontWeight: 800,
+              }}
             />
           ) : (
             <span style={{
@@ -154,31 +165,25 @@ export default function ClubOperationsPage() {
                 display: 'flex',
                 alignItems: 'center',
                 gap: 6,
-                padding: isActive ? '14px 18px' : '12px 14px',
+                padding: '13px 16px',
                 border: 'none',
-                background: isActive ? '#ffffff' : 'transparent',
+                background: 'transparent',
                 cursor: 'pointer',
                 whiteSpace: 'nowrap',
                 flexShrink: 0,
                 fontSize: 12,
                 fontWeight: isActive ? 900 : 700,
-                color: isActive ? 'var(--c-ink)' : 'rgba(255,255,255,0.6)',
+                color: isActive ? '#ffffff' : 'rgba(255,255,255,0.5)',
                 letterSpacing: '.06em',
                 textTransform: 'uppercase',
-                transition: 'background .1s, color .1s',
+                transition: 'color .12s',
                 borderRadius: 0,
               }}
               onMouseEnter={e => {
-                if (!isActive) {
-                  (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.12)';
-                  (e.currentTarget as HTMLButtonElement).style.color = 'white';
-                }
+                if (!isActive) (e.currentTarget as HTMLButtonElement).style.color = 'rgba(255,255,255,0.85)';
               }}
               onMouseLeave={e => {
-                if (!isActive) {
-                  (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
-                  (e.currentTarget as HTMLButtonElement).style.color = 'rgba(255,255,255,0.6)';
-                }
+                if (!isActive) (e.currentTarget as HTMLButtonElement).style.color = 'rgba(255,255,255,0.5)';
               }}
             >
               <span style={{ fontSize: 12 }}>{tab.icon}</span>

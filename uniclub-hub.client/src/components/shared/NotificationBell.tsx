@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Bell, Star } from 'lucide-react'
 import api from '@/lib/axiosInstance'
+import { useNotificationSignalR } from '@/lib/useNotificationSignalR'
 
 interface Notif {
   id: number
@@ -10,6 +11,7 @@ interface Notif {
   type: string
   isRead: boolean
   createdAt: string
+  navigationUrl?: string | null
 }
 
 function timeAgo(dateStr: string) {
@@ -53,6 +55,17 @@ export default function NotificationBell() {
     const timer = setInterval(fetchCount, 60_000)
     return () => clearInterval(timer)
   }, [])
+
+  // Realtime: bump the badge instantly; refresh the list if the dropdown is open.
+  // (The 60s poll above remains as a fallback when the socket is down.)
+  useNotificationSignalR(() => {
+    setUnreadCount(c => c + 1)
+    if (open) {
+      api.get('/notifications?pageSize=15')
+        .then(res => setItems(res.data.data.items ?? []))
+        .catch(() => {})
+    }
+  })
 
   useEffect(() => {
     function onClickOutside(e: MouseEvent) {
@@ -102,6 +115,14 @@ export default function NotificationBell() {
     await api.patch(`/notifications/${id}/read`).catch(() => {})
     setItems(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n))
     setUnreadCount(prev => Math.max(0, prev - 1))
+  }
+
+  async function handleItemClick(n: Notif) {
+    if (!n.isRead) await markRead(n.id)
+    if (n.navigationUrl) {
+      setOpen(false)
+      navigate(n.navigationUrl)
+    }
   }
 
   return (
@@ -180,7 +201,7 @@ export default function NotificationBell() {
             ) : items.length === 0 ? (
               <p style={{ textAlign: 'center', fontSize: 14, color: '#918c99', padding: '38px 16px', margin: 0 }}>Không có thông báo nào</p>
             ) : items.map(n => (
-              <div key={n.id} onClick={() => !n.isRead && markRead(n.id)}
+              <div key={n.id} onClick={() => handleItemClick(n)}
                 style={{ padding: '12px 18px', borderBottom: '1px solid #e8e3d6', cursor: 'pointer', background: '#f7f7fb', transition: 'background .1s' }}
                 onMouseEnter={e => (e.currentTarget.style.background = '#f2f1f7')}
                 onMouseLeave={e => (e.currentTarget.style.background = '#f7f7fb')}>

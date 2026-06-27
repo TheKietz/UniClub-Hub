@@ -24,6 +24,9 @@ export default function KanbanColumn({ column, tasks, onAdd, onEdit, onRename, o
   const inputRef = useRef<HTMLInputElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
+  // System columns (Cần làm / Đang làm / Reviewing / Hoàn thành) can't be renamed or deleted.
+  const locked = column.isSystem;
+
   useEffect(() => {
     if (renaming) inputRef.current?.focus();
   }, [renaming]);
@@ -99,9 +102,9 @@ export default function KanbanColumn({ column, tasks, onAdd, onEdit, onRename, o
                 textTransform: 'uppercase',
                 letterSpacing: '.08em',
                 flex: 1,
-                cursor: 'pointer',
+                cursor: locked ? 'default' : 'pointer',
               }}
-              onDoubleClick={() => setRenaming(true)}
+              onDoubleClick={() => { if (!locked) setRenaming(true); }}
             >
               {column.name}
             </span>
@@ -139,6 +142,7 @@ export default function KanbanColumn({ column, tasks, onAdd, onEdit, onRename, o
               <Plus size={14} />
             </button>
 
+            {!locked && (
             <div className="relative" ref={menuRef} style={{ position: 'relative' }}>
               <button
                 type="button"
@@ -220,6 +224,7 @@ export default function KanbanColumn({ column, tasks, onAdd, onEdit, onRename, o
                 </div>
               )}
             </div>
+            )}
           </>
         )}
       </div>

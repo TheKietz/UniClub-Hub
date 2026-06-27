@@ -10,12 +10,16 @@ using UniClub_Hub.Membership;
 using UniClub_Hub.Operations;
 using UniClub_Hub.Portal;
 using UniClub_Hub.Server.Hubs;
+using UniClub_Hub.Server.Services;
+using UniClub_Hub.Operations.Services.Interfaces;
 using UniClub_Hub.Shared.AI;
 using UniClub_Hub.Shared.Common.Storage;
 using UniClub_Hub.Shared.Data;
 using UniClub_Hub.Shared.Email;
 using UniClub_Hub.Shared.Models;
 using CloudinaryDotNet;
+using UniClub_Hub.Shared.Common.Interfaces;
+using UniClub_Hub.Membership.Services.Implements;
 
 // Npgsql 6+ requires DateTimeOffset values sent to timestamptz to be UTC.
 // This switch lets Npgsql accept any offset and convert to UTC on write,
@@ -136,9 +140,13 @@ var cloudinaryAccount = new Account(
 builder.Services.AddSingleton(new Cloudinary(cloudinaryAccount));
 builder.Services.AddScoped<IFileStorageService, CloudinaryStorageService>();
 builder.Services.AddScoped<IEmailService, SendGridEmailService>();
+builder.Services.AddScoped<IKanbanHubNotifier, KanbanHubNotifier>();
+builder.Services.AddScoped<UniClub_Hub.Shared.Common.Interfaces.IRealtimeNotifier, RealtimeNotifier>();
+builder.Services.AddScoped<UniClub_Hub.Shared.Common.Interfaces.INotificationService, NotificationService>();
 builder.Services.AddMembershipServices();
 builder.Services.AddOperationsServices();
 builder.Services.AddPortalServices();
+builder.Services.AddHostedService<UniClub_Hub.Server.BackgroundServices.ReminderHostedService>();
 
 var app = builder.Build();
 

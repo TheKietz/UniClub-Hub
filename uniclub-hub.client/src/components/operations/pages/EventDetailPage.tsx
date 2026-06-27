@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useParams, useNavigate, Link, useLocation } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { CLUB_ROLES } from '@/types/auth'
@@ -9,25 +9,23 @@ import {
 import { toast } from 'sonner'
 import {
   ArrowLeft, Pencil, Share2, Calendar, MapPin, Users, CalendarClock,
-  Wallet, UserCheck, ChevronRight, Plus, Trash2, Tag, UserPlus2,
+  Wallet, ChevronRight, Plus, Trash2, Tag, Grid2x2, ExternalLink, FileText, Link2,
 } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import {
   getEventById, updateEvent, deleteEvent,
-  addEventSession, deleteEventSession, assignEventStaff, removeEventStaff,
-  getEventRegistrations, registerEventMember, removeEventRegistration, updateEventAttendance,
+  addEventSession, deleteEventSession, getTasks,
 } from '../services/operationsApi'
 import EventDeptTasksBoard from '../components/event/EventDeptTasksBoard'
 import EventAttachmentsSection from '../components/event/EventAttachmentsSection'
-import { getClubMembers } from '@/components/membership/services/clubApi'
+import { getDepartments } from '@/components/membership/services/clubApi'
 import { EventStatusBadge } from '../../shared/StatusBadge'
 import { FilterSelect } from '@/components/shared/FilterSelect'
 import type {
   EventItem, UpdateEventDto, EventStatus,
-  CreateEventSessionDto, AssignEventStaffDto,
-  EventRegistrationItem, AttendanceStatus,
+  CreateEventSessionDto, TaskItem,
 } from '../services/operations.types'
-import type { MemberItem } from '@/components/membership/services/club.types'
+import type { DepartmentItem } from '@/components/membership/services/club.types'
 
 /* ─── Design tokens ──────────────────────────────────────────────────────── */
 
@@ -69,15 +67,30 @@ function formatVnd(amount?: number): string {
   return amount.toLocaleString('vi-VN', { style: 'currency', currency: 'VND' })
 }
 
-const ROLE_LABEL: Record<string, string> = { Lead: 'Trưởng ban', Staff: 'Nhân sự' }
+const PRIORITY_DOT: Record<string, string> = { High: '#ef4444', Medium: '#f59e0b', Low: '#60a5fa' }
+
+/* ─── Dept status helper ──────────────────────────────────────────────────── */
+
+function getDeptStatus(tasks: TaskItem[]): { label: string; bg: string; color: string; border: string } {
+  if (!tasks.length) return { label: 'Chưa có việc', bg: '#f3f4f6', color: '#6b7280', border: '#e5e7eb' }
+  if (tasks.every(t => t.status === 'Done')) return { label: 'Hoàn thành', bg: '#dcfce7', color: '#15803d', border: '#86efac' }
+  if (tasks.some(t => t.status === 'Reviewing')) return { label: 'Đang duyệt', bg: '#fef9c3', color: '#a16207', border: '#fde68a' }
+  if (tasks.some(t => t.status === 'Doing')) return { label: 'Đang triển khai', bg: '#dbeafe', color: '#1d4ed8', border: '#93c5fd' }
+  return { label: 'Chưa bắt đầu', bg: '#f3f4f6', color: '#374151', border: '#d1d5db' }
+}
 
 /* ─── Edit modal ──────────────────────────────────────────────────────────── */
 
 type EventForm = { name: string; description: string; location: string; startTime: string; endTime: string; maxParticipants?: number; status: EventStatus; budget?: number; category: string; summary: string }
 
-function EditModal({ open, event, onClose, onSaved }: { open: boolean; event: EventItem; onClose: () => void; onSaved: (u: EventItem) => void }) {
+function EditModal({ open, event, clubId, onClose, onSaved }: {
+  open: boolean; event: EventItem; clubId: number; onClose: () => void; onSaved: (u: EventItem) => void
+}) {
   const [form, setForm] = useState<EventForm>({ name: '', description: '', location: '', startTime: '', endTime: '', status: 'Draft', category: '', summary: '' })
   const [saving, setSaving] = useState(false)
+  const [dangerOpen, setDangerOpen]     = useState(false)
+  const [taskCount, setTaskCount]       = useState(0)
+  const [countLoading, setCountLoading] = useState(false)
 
   useEffect(() => {
     if (open) setForm({ name: event.name, description: event.description ?? '', location: event.location ?? '', startTime: event.startTime ? event.startTime.slice(0, 16) : '', endTime: event.endTime ? event.endTime.slice(0, 16) : '', maxParticipants: event.maxParticipants, status: event.status, budget: event.budget, category: event.category ?? '', summary: event.summary ?? '' })
@@ -85,60 +98,138 @@ function EditModal({ open, event, onClose, onSaved }: { open: boolean; event: Ev
 
   const set = (field: keyof EventForm, value: unknown) => setForm(prev => ({ ...prev, [field]: value }))
 
-  const handleSave = async () => {
-    if (!form.name.trim()) { toast.error('Tên sự kiện không được để trống'); return }
+  const isCascadeTransition =
+    event.status === 'InProgress' &&
+    (form.status === 'Draft' || form.status === 'Cancelled')
+
+  async function doSave() {
     setSaving(true)
     try {
       const dto: UpdateEventDto = { name: form.name, description: form.description, location: form.location, startTime: form.startTime || undefined, endTime: form.endTime || undefined, maxParticipants: form.maxParticipants, status: form.status, budget: form.budget, category: form.category || undefined, summary: form.summary || undefined }
       const updated = await updateEvent(event.id, dto)
-      toast.success('Đã cập nhật sự kiện'); onSaved(updated); onClose()
+      toast.success('Đã cập nhật sự kiện'); onSaved(updated); onClose(); setDangerOpen(false)
     } catch { toast.error('Có lỗi xảy ra, vui lòng thử lại') }
     finally { setSaving(false) }
   }
 
+  const handleSave = async () => {
+    if (!form.name.trim()) { toast.error('Tên sự kiện không được để trống'); return }
+    if (isCascadeTransition) {
+      setCountLoading(true)
+      try {
+        const result = await getTasks({ clubId, eventId: event.id, pageSize: 1 })
+        setTaskCount(result.totalCount)
+      } catch { setTaskCount(0) }
+      finally { setCountLoading(false) }
+      setDangerOpen(true)
+      return
+    }
+    await doSave()
+  }
+
+  const statusLabel = form.status === 'Draft' ? 'Nháp' : 'Đã hủy'
+
   return (
-    <Dialog open={open} onOpenChange={v => !v && onClose()}>
-      <DialogContent style={{ maxWidth: 520, fontFamily: "'Be Vietnam Pro', sans-serif" }}>
-        <DialogHeader><DialogTitle style={{ fontSize: 16, fontWeight: 900, color: D.ink }}>Chỉnh sửa sự kiện</DialogTitle></DialogHeader>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: '8px 0', maxHeight: '65vh', overflowY: 'auto' }}>
-          <div><label style={labelStyle}>Tên sự kiện <span style={{ color: D.red }}>*</span></label><input style={inputStyle} value={form.name} onChange={e => set('name', e.target.value)} /></div>
-          <div>
-            <label style={labelStyle}>Trạng thái</label>
-            <FilterSelect
-              value={form.status}
-              onChange={value => set('status', value as EventStatus)}
-              options={[
-                { value: 'Draft', label: 'Nháp' },
-                { value: 'InProgress', label: 'Đang diễn ra' },
-                { value: 'Completed', label: 'Hoàn thành' },
-                { value: 'Cancelled', label: 'Đã hủy' },
-              ]}
-            />
+    <>
+      <Dialog open={open} onOpenChange={v => !v && onClose()}>
+        <DialogContent style={{ maxWidth: 520, fontFamily: "'Be Vietnam Pro', sans-serif" }}>
+          <DialogHeader><DialogTitle style={{ fontSize: 16, fontWeight: 900, color: D.ink }}>Chỉnh sửa sự kiện</DialogTitle></DialogHeader>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: '8px 0', maxHeight: '65vh', overflowY: 'auto' }}>
+            <div><label style={labelStyle}>Tên sự kiện <span style={{ color: D.red }}>*</span></label><input style={inputStyle} value={form.name} onChange={e => set('name', e.target.value)} /></div>
+            <div>
+              <label style={labelStyle}>Trạng thái</label>
+              <FilterSelect
+                value={form.status}
+                onChange={value => set('status', value as EventStatus)}
+                options={[
+                  { value: 'Draft', label: 'Nháp' },
+                  { value: 'InProgress', label: 'Đang diễn ra' },
+                  { value: 'Completed', label: 'Hoàn thành' },
+                  { value: 'Cancelled', label: 'Đã hủy' },
+                ]}
+              />
+              {isCascadeTransition && (
+                <p style={{ margin: '6px 0 0', fontSize: 11, fontWeight: 700, color: D.red, display: 'flex', alignItems: 'center', gap: 5 }}>
+                  ⚠ Chuyển về "{statusLabel}" sẽ xóa toàn bộ công việc của sự kiện này!
+                </p>
+              )}
+            </div>
+            <div><label style={labelStyle}>Mô tả</label><textarea style={{ ...inputStyle, resize: 'none', minHeight: 72 }} rows={3} value={form.description} onChange={e => set('description', e.target.value)} /></div>
+            <div><label style={labelStyle}>Địa điểm</label><input style={inputStyle} value={form.location} onChange={e => set('location', e.target.value)} /></div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div><label style={labelStyle}>Bắt đầu</label><input style={inputStyle} type="datetime-local" value={form.startTime} onChange={e => set('startTime', e.target.value)} /></div>
+              <div><label style={labelStyle}>Kết thúc</label><input style={inputStyle} type="datetime-local" value={form.endTime} onChange={e => set('endTime', e.target.value)} /></div>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div><label style={labelStyle}>Số người tối đa</label><input style={inputStyle} type="number" min={1} value={form.maxParticipants ?? ''} onChange={e => set('maxParticipants', e.target.value ? Number(e.target.value) : undefined)} placeholder="Không giới hạn" /></div>
+              <div><label style={labelStyle}>Danh mục</label><input style={inputStyle} value={form.category} onChange={e => set('category', e.target.value)} placeholder="Văn hoá, Học thuật..." /></div>
+            </div>
+            <div><label style={labelStyle}>Ngân sách (VNĐ)</label><input style={inputStyle} type="number" min={0} value={form.budget ?? ''} onChange={e => set('budget', e.target.value ? Number(e.target.value) : undefined)} placeholder="Chưa xác định" /></div>
+            <div>
+              <label style={labelStyle}>Kết quả / Tổng kết sự kiện</label>
+              <textarea style={{ ...inputStyle, resize: 'none', minHeight: 80 }} rows={3} value={form.summary} onChange={e => set('summary', e.target.value)} placeholder="Ghi lại kết quả, số lượng tham dự thực tế, đánh giá sau sự kiện..." />
+            </div>
           </div>
-          <div><label style={labelStyle}>Mô tả</label><textarea style={{ ...inputStyle, resize: 'none', minHeight: 72 }} rows={3} value={form.description} onChange={e => set('description', e.target.value)} /></div>
-          <div><label style={labelStyle}>Địa điểm</label><input style={inputStyle} value={form.location} onChange={e => set('location', e.target.value)} /></div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <div><label style={labelStyle}>Bắt đầu</label><input style={inputStyle} type="datetime-local" value={form.startTime} onChange={e => set('startTime', e.target.value)} /></div>
-            <div><label style={labelStyle}>Kết thúc</label><input style={inputStyle} type="datetime-local" value={form.endTime} onChange={e => set('endTime', e.target.value)} /></div>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <div><label style={labelStyle}>Số người tối đa</label><input style={inputStyle} type="number" min={1} value={form.maxParticipants ?? ''} onChange={e => set('maxParticipants', e.target.value ? Number(e.target.value) : undefined)} placeholder="Không giới hạn" /></div>
-            <div><label style={labelStyle}>Danh mục</label><input style={inputStyle} value={form.category} onChange={e => set('category', e.target.value)} placeholder="Văn hoá, Học thuật..." /></div>
-          </div>
-          <div><label style={labelStyle}>Ngân sách (VNĐ)</label><input style={inputStyle} type="number" min={0} value={form.budget ?? ''} onChange={e => set('budget', e.target.value ? Number(e.target.value) : undefined)} placeholder="Chưa xác định" /></div>
-          <div>
-            <label style={labelStyle}>Kết quả / Tổng kết sự kiện</label>
-            <textarea style={{ ...inputStyle, resize: 'none', minHeight: 80 }} rows={3} value={form.summary} onChange={e => set('summary', e.target.value)} placeholder="Ghi lại kết quả, số lượng tham dự thực tế, đánh giá sau sự kiện..." />
+          <DialogFooter style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+            <button type="button" onClick={onClose} style={{ padding: '8px 18px', fontSize: 13, fontWeight: 700, border: D.border, borderRadius: D.radius, background: D.card, color: D.inkDim, cursor: 'pointer', fontFamily: 'inherit' }}>Hủy</button>
+            <button type="button" onClick={handleSave} disabled={saving || countLoading} style={{ padding: '8px 20px', fontSize: 13, fontWeight: 900, border: D.border, borderRadius: D.radius, background: (saving || countLoading) ? '#6b7280' : isCascadeTransition ? D.red : D.ink, color: '#facc15', cursor: (saving || countLoading) ? 'not-allowed' : 'pointer', boxShadow: (saving || countLoading) ? 'none' : D.shadow(2, 2), fontFamily: 'inherit' }}>
+              {countLoading ? 'Đang kiểm tra...' : saving ? 'Đang lưu...' : 'Lưu thay đổi'}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Neo-brutalism danger confirmation ── */}
+      {dangerOpen && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 16px' }}>
+          <div style={{ background: '#fff', border: '3px solid var(--c-ink)', borderRadius: 16, boxShadow: '6px 6px 0 var(--c-ink)', maxWidth: 480, width: '100%', fontFamily: "'Be Vietnam Pro', sans-serif", overflow: 'hidden' }}>
+            {/* Header */}
+            <div style={{ background: '#fef2f2', borderBottom: '3px solid var(--c-ink)', padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontSize: 24 }}>⚠️</span>
+              <div>
+                <p style={{ margin: 0, fontSize: 14, fontWeight: 900, color: D.red, letterSpacing: '-.01em' }}>HÀNH ĐỘNG NÀY SẼ XÓA TOÀN BỘ CÔNG VIỆC!</p>
+                <p style={{ margin: '2px 0 0', fontSize: 11, color: '#7f1d1d', fontWeight: 600 }}>Không thể hoàn tác sau khi xác nhận</p>
+              </div>
+            </div>
+            {/* Body */}
+            <div style={{ padding: '18px 20px', borderBottom: '2px solid #fee2e2' }}>
+              <p style={{ margin: 0, fontSize: 13, color: D.inkDim, lineHeight: 1.7 }}>
+                Hệ thống ghi nhận sự kiện <span style={{ fontWeight: 700, color: D.ink }}>"{event.name}"</span> đang được triển khai.
+              </p>
+              <p style={{ margin: '10px 0 0', fontSize: 13, color: D.inkDim, lineHeight: 1.7 }}>
+                Nếu bạn chuyển về trạng thái <span style={{ fontWeight: 900, color: D.red }}>"{statusLabel}"</span>,{' '}
+                {taskCount > 0
+                  ? <><span style={{ fontWeight: 900, color: D.red }}>{taskCount} công việc</span> đang chạy trên Kanban của các Ban sẽ bị xóa bỏ hoàn toàn.</>
+                  : <>toàn bộ công việc đang chạy trên Kanban của các Ban sẽ bị xóa bỏ hoàn toàn.</>
+                }
+              </p>
+              <div style={{ marginTop: 14, padding: '10px 14px', background: '#fef2f2', border: '1.5px solid #fca5a5', borderRadius: 8 }}>
+                <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: '#7f1d1d' }}>Bạn có chắc chắn muốn tiếp tục không?</p>
+              </div>
+            </div>
+            {/* Footer */}
+            <div style={{ padding: '14px 20px', display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => setDangerOpen(false)}
+                style={{ padding: '9px 20px', fontSize: 13, fontWeight: 700, border: '2px solid var(--c-ink)', borderRadius: 10, background: '#fff', color: D.inkDim, cursor: 'pointer', boxShadow: '2px 2px 0 var(--c-ink)' }}
+              >
+                Không, giữ nguyên
+              </button>
+              <button
+                type="button"
+                disabled={saving}
+                onClick={doSave}
+                style={{ padding: '9px 20px', fontSize: 13, fontWeight: 900, border: '2px solid var(--c-ink)', borderRadius: 10, background: saving ? '#6b7280' : D.red, color: '#fff', cursor: saving ? 'not-allowed' : 'pointer', boxShadow: saving ? 'none' : '3px 3px 0 #7f1d1d' }}
+              >
+                {saving ? 'Đang xử lý...' : 'Xác nhận, xóa hết'}
+              </button>
+            </div>
           </div>
         </div>
-        <DialogFooter style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-          <button type="button" onClick={onClose} style={{ padding: '8px 18px', fontSize: 13, fontWeight: 700, border: D.border, borderRadius: D.radius, background: D.card, color: D.inkDim, cursor: 'pointer', fontFamily: 'inherit' }}>Hủy</button>
-          <button type="button" onClick={handleSave} disabled={saving} style={{ padding: '8px 20px', fontSize: 13, fontWeight: 900, border: D.border, borderRadius: D.radius, background: saving ? '#6b7280' : D.ink, color: '#facc15', cursor: saving ? 'not-allowed' : 'pointer', boxShadow: saving ? 'none' : D.shadow(2, 2), fontFamily: 'inherit' }}>
-            {saving ? 'Đang lưu...' : 'Lưu thay đổi'}
-          </button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      )}
+    </>
   )
 }
 
@@ -186,114 +277,158 @@ function AddSessionModal({ open, eventId, onClose, onAdded }: { open: boolean; e
   )
 }
 
-/* ─── Assign staff modal ──────────────────────────────────────────────────── */
+/* ─── Dept Summary Table ──────────────────────────────────────────────────── */
 
-function AssignStaffModal({ open, eventId, members, onClose, onAssigned }: { open: boolean; eventId: number; members: MemberItem[]; onClose: () => void; onAssigned: () => void }) {
-  const [form, setForm] = useState<AssignEventStaffDto>({ userId: '', role: 'Staff' })
-  const [saving, setSaving] = useState(false)
+function DeptSummaryTable({ eventId, clubId }: { eventId: number; clubId: number }) {
+  const [depts, setDepts]       = useState<DepartmentItem[]>([])
+  const [taskMap, setTaskMap]   = useState<Record<number, TaskItem[]>>({})
+  const [loading, setLoading]   = useState(true)
 
-  useEffect(() => { if (open) setForm({ userId: '', role: 'Staff' }) }, [open])
+  useEffect(() => {
+    const cancelled = { v: false }
+    Promise.all([
+      getDepartments(clubId),
+      getTasks({ clubId, eventId, pageSize: 200 }),
+    ]).then(([deptList, result]) => {
+      if (cancelled.v) return
+      const map: Record<number, TaskItem[]> = {}
+      for (const t of result.items) {
+        if (t.departmentId != null) {
+          if (!map[t.departmentId]) map[t.departmentId] = []
+          map[t.departmentId].push(t)
+        }
+      }
+      setDepts(deptList.filter(d => (map[d.id]?.length ?? 0) > 0))
+      setTaskMap(map)
+    }).catch(() => {}).finally(() => { if (!cancelled.v) setLoading(false) })
+    return () => { cancelled.v = true }
+  }, [eventId, clubId])
 
-  const handleSave = async () => {
-    if (!form.userId) { toast.error('Vui lòng chọn thành viên'); return }
-    setSaving(true)
-    try { await assignEventStaff(eventId, form); toast.success('Đã phân công thành viên'); onAssigned(); onClose() }
-    catch { toast.error('Thành viên này đã được phân công hoặc có lỗi xảy ra') }
-    finally { setSaving(false) }
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={v => !v && onClose()}>
-      <DialogContent style={{ maxWidth: 360, fontFamily: "'Be Vietnam Pro', sans-serif" }}>
-        <DialogHeader><DialogTitle style={{ fontSize: 15, fontWeight: 900, color: D.ink }}>Phân công nhân sự</DialogTitle></DialogHeader>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: '8px 0' }}>
-          <div>
-            <label style={labelStyle}>Thành viên <span style={{ color: D.red }}>*</span></label>
-            <FilterSelect
-              value={form.userId}
-              onChange={value => setForm(f => ({ ...f, userId: value }))}
-              options={[
-                { value: '', label: '-- Chọn thành viên --' },
-                ...members.map(m => ({ value: m.userId, label: m.fullName ?? m.email ?? 'Thành viên' })),
-              ]}
-              maxMenuHeight={260}
-            />
-          </div>
-          <div>
-            <label style={labelStyle}>Vai trò</label>
-            <FilterSelect
-              value={form.role ?? 'Staff'}
-              onChange={value => setForm(f => ({ ...f, role: value }))}
-              options={[
-                { value: 'Lead', label: 'Trưởng ban' },
-                { value: 'Staff', label: 'Nhân sự' },
-              ]}
-            />
-          </div>
-        </div>
-        <DialogFooter style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-          <button type="button" onClick={onClose} style={{ padding: '8px 18px', fontSize: 13, fontWeight: 700, border: D.border, borderRadius: D.radius, background: D.card, color: D.inkDim, cursor: 'pointer', fontFamily: 'inherit' }}>Hủy</button>
-          <button type="button" onClick={handleSave} disabled={saving} style={{ padding: '8px 20px', fontSize: 13, fontWeight: 900, border: D.border, borderRadius: D.radius, background: saving ? '#6b7280' : D.ink, color: '#facc15', cursor: saving ? 'not-allowed' : 'pointer', boxShadow: saving ? 'none' : D.shadow(2, 2), fontFamily: 'inherit' }}>
-            {saving ? 'Đang lưu...' : 'Phân công'}
-          </button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
-}
-
-/* ─── Attendance config ───────────────────────────────────────────────────── */
-
-const ATTENDANCE_CONFIG: Record<AttendanceStatus, { label: string; bg: string; text: string }> = {
-  Pending:   { label: 'Chờ xác nhận', bg: '#f3f4f6', text: '#374151' },
-  CheckedIn: { label: 'Đã điểm danh', bg: '#d1fae5', text: '#065f46' },
-  Absent:    { label: 'Vắng mặt',     bg: '#fee2e2', text: '#991b1b' },
-}
-
-/* ─── Add participant modal ───────────────────────────────────────────────── */
-
-function AddParticipantModal({ open, eventId, members, onClose, onAdded }: {
-  open: boolean; eventId: number; members: MemberItem[]; onClose: () => void; onAdded: () => void
-}) {
-  const [userId, setUserId] = useState('')
-  const [note, setNote] = useState('')
-  const [saving, setSaving] = useState(false)
-
-  useEffect(() => { if (open) { setUserId(''); setNote('') } }, [open])
-
-  const handleSave = async () => {
-    if (!userId) { toast.error('Vui lòng chọn thành viên'); return }
-    setSaving(true)
-    try { await registerEventMember(eventId, { userId, note: note || undefined }); toast.success('Đã thêm người tham gia'); onAdded(); onClose() }
-    catch { toast.error('Thành viên này đã được đăng ký hoặc có lỗi xảy ra') }
-    finally { setSaving(false) }
-  }
+  const allTasks = useMemo(() => Object.values(taskMap).flat(), [taskMap])
+  const totalDone = useMemo(() => allTasks.filter(t => t.status === 'Done').length, [allTasks])
 
   return (
-    <Dialog open={open} onOpenChange={v => !v && onClose()}>
-      <DialogContent style={{ maxWidth: 360, fontFamily: "'Be Vietnam Pro', sans-serif" }}>
-        <DialogHeader><DialogTitle style={{ fontSize: 15, fontWeight: 900, color: D.ink }}>Thêm người tham gia</DialogTitle></DialogHeader>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: '8px 0' }}>
-          <div>
-            <label style={labelStyle}>Thành viên <span style={{ color: D.red }}>*</span></label>
-            <select aria-label="Chọn thành viên" style={{ ...inputStyle, cursor: 'pointer' }} value={userId} onChange={e => setUserId(e.target.value)}>
-              <option value="">-- Chọn thành viên --</option>
-              {members.map(m => <option key={m.userId} value={m.userId}>{m.fullName ?? m.email}</option>)}
-            </select>
+    <div style={{ marginTop: 20, background: D.card, border: D.border, borderRadius: D.radius, boxShadow: D.shadow(), overflow: 'hidden' }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', borderBottom: D.borderLight }}>
+        <h2 style={{ fontSize: 13, fontWeight: 800, color: D.ink, margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Grid2x2 size={14} style={{ color: D.indigo }} />
+          Danh sách Ban tham chiến
+          {depts.length > 0 && (
+            <span style={{ fontSize: 10, background: '#ede9fe', color: D.indigo, padding: '1px 6px', borderRadius: 4, fontWeight: 700 }}>{depts.length} ban</span>
+          )}
+        </h2>
+        {allTasks.length > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ width: 100, height: 6, borderRadius: 4, background: '#e8e3d6', overflow: 'hidden' }}>
+              <div style={{ height: '100%', borderRadius: 4, background: '#10b981', width: `${Math.round(totalDone / allTasks.length * 100)}%`, transition: 'width .3s' }} />
+            </div>
+            <span style={{ fontSize: 11, fontWeight: 700, color: D.inkMuted, whiteSpace: 'nowrap' }}>
+              {totalDone}/{allTasks.length} hoàn thành
+            </span>
           </div>
-          <div>
-            <label style={labelStyle}>Ghi chú</label>
-            <input style={inputStyle} value={note} onChange={e => setNote(e.target.value)} placeholder="Ghi chú (tùy chọn)..." />
-          </div>
+        )}
+      </div>
+
+      {loading ? (
+        <div style={{ padding: '40px 0', display: 'flex', justifyContent: 'center', color: D.inkMuted, fontSize: 13 }}>Đang tải...</div>
+      ) : depts.length === 0 ? (
+        <div style={{ padding: '48px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+          <Grid2x2 size={28} style={{ color: '#c4bfb0' }} />
+          <p style={{ color: D.inkMuted, fontSize: 13, margin: 0 }}>Chưa có ban nào được giao việc trong sự kiện này</p>
         </div>
-        <DialogFooter style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-          <button type="button" onClick={onClose} style={{ padding: '8px 18px', fontSize: 13, fontWeight: 700, border: D.border, borderRadius: D.radius, background: D.card, color: D.inkDim, cursor: 'pointer', fontFamily: 'inherit' }}>Hủy</button>
-          <button type="button" onClick={handleSave} disabled={saving} style={{ padding: '8px 20px', fontSize: 13, fontWeight: 900, border: D.border, borderRadius: D.radius, background: saving ? '#6b7280' : D.ink, color: '#facc15', cursor: saving ? 'not-allowed' : 'pointer', boxShadow: saving ? 'none' : D.shadow(2, 2), fontFamily: 'inherit' }}>
-            {saving ? 'Đang thêm...' : 'Thêm'}
-          </button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      ) : (
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', fontSize: 13, borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ background: D.bg }}>
+                {['Ban', 'Trưởng Ban', 'Công việc được giao', 'Tiến độ', 'Tổng quan'].map((h, i) => (
+                  <th key={i} style={{ padding: '10px 16px', fontSize: 10, fontWeight: 800, color: D.inkMuted, textTransform: 'uppercase', letterSpacing: '.06em', textAlign: 'left', borderBottom: D.borderLight, whiteSpace: 'nowrap' }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {depts.map(dept => {
+                const tasks   = taskMap[dept.id] ?? []
+                const done    = tasks.filter(t => t.status === 'Done').length
+                const pct     = tasks.length > 0 ? Math.round(done / tasks.length * 100) : 0
+                const status  = getDeptStatus(tasks)
+                const initial = dept.name.charAt(0).toUpperCase()
+
+                return (
+                  <tr key={dept.id} style={{ borderBottom: D.borderLight }}>
+
+                    {/* Ban name */}
+                    <td style={{ padding: '14px 16px', minWidth: 140 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <div style={{ width: 36, height: 36, borderRadius: 10, background: '#ede9fe', border: D.borderLight, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 900, color: D.indigo, flexShrink: 0 }}>
+                          {initial}
+                        </div>
+                        <div style={{ minWidth: 0 }}>
+                          <p style={{ margin: 0, fontWeight: 800, color: D.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 130 }}>{dept.name}</p>
+                          <p style={{ margin: '2px 0 0', fontSize: 10, color: D.inkMuted }}>{tasks.length} công việc</p>
+                        </div>
+                      </div>
+                    </td>
+
+                    {/* Trưởng ban */}
+                    <td style={{ padding: '14px 16px', minWidth: 150 }}>
+                      {dept.deptLeadName ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#d1fae5', border: D.borderLight, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 900, color: '#065f46', flexShrink: 0 }}>
+                            {dept.deptLeadName.charAt(0).toUpperCase()}
+                          </div>
+                          <div style={{ minWidth: 0 }}>
+                            <p style={{ margin: 0, fontWeight: 700, color: D.ink, fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 110 }}>{dept.deptLeadName}</p>
+                            <p style={{ margin: '1px 0 0', fontSize: 10, color: D.inkMuted }}>Trưởng ban</p>
+                          </div>
+                        </div>
+                      ) : (
+                        <span style={{ fontSize: 12, color: D.inkMuted }}>Chưa có trưởng ban</span>
+                      )}
+                    </td>
+
+                    {/* Tasks */}
+                    <td style={{ padding: '14px 16px', minWidth: 220 }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        {tasks.slice(0, 3).map(t => (
+                          <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                            <span style={{ width: 6, height: 6, borderRadius: '50%', background: PRIORITY_DOT[t.priority] ?? PRIORITY_DOT.Medium, flexShrink: 0 }} />
+                            <span style={{ fontSize: 11, color: t.status === 'Done' ? D.inkMuted : D.inkDim, fontWeight: t.status === 'Done' ? 400 : 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 200, textDecoration: t.status === 'Done' ? 'line-through' : 'none' }}>
+                              {t.title}
+                            </span>
+                          </div>
+                        ))}
+                        {tasks.length > 3 && (
+                          <span style={{ fontSize: 10, color: D.inkMuted, paddingLeft: 11 }}>+{tasks.length - 3} việc khác</span>
+                        )}
+                      </div>
+                    </td>
+
+                    {/* Progress */}
+                    <td style={{ padding: '14px 16px', minWidth: 130 }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                        <div style={{ height: 6, borderRadius: 4, background: '#e8e3d6', overflow: 'hidden' }}>
+                          <div style={{ height: '100%', borderRadius: 4, background: pct === 100 ? '#10b981' : D.indigo, width: `${pct}%`, transition: 'width .3s' }} />
+                        </div>
+                        <span style={{ fontSize: 10, color: D.inkMuted, fontWeight: 600 }}>{done}/{tasks.length} ({pct}%)</span>
+                      </div>
+                    </td>
+
+                    {/* Status */}
+                    <td style={{ padding: '14px 16px' }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: D.pill, background: status.bg, color: status.color, border: `1.5px solid ${status.border}`, whiteSpace: 'nowrap' }}>
+                        {status.label}
+                      </span>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -312,21 +447,18 @@ export default function EventDetailPage() {
   const { isSuperAdmin, getClubRole } = useAuth()
   const canManage = isSuperAdmin || getClubRole(clubId) === CLUB_ROLES.CLUB_ADMIN
 
-  const [event, setEvent]   = useState<EventItem | null>(null)
-  const [members, setMembers] = useState<MemberItem[]>([])
-  const [registrations, setRegistrations] = useState<EventRegistrationItem[]>([])
-  const [loading, setLoading] = useState(true)
-  const [editOpen, setEditOpen] = useState(false)
+  const [event, setEvent]         = useState<EventItem | null>(null)
+  const [loading, setLoading]     = useState(true)
+  const [editOpen, setEditOpen]   = useState(false)
   const [addSessionOpen, setAddSessionOpen] = useState(false)
-  const [assignStaffOpen, setAssignStaffOpen] = useState(false)
-  const [addParticipantOpen, setAddParticipantOpen] = useState(false)
   const [deleteEventOpen, setDeleteEventOpen] = useState(false)
-  const [deletingEvent, setDeletingEvent] = useState(false)
-  const [staffDeleteTarget, setStaffDeleteTarget] = useState<string | null>(null)
-  const [deletingStaff, setDeletingStaff] = useState(false)
-  const [participantDeleteTarget, setParticipantDeleteTarget] = useState<string | null>(null)
-  const [deletingParticipant, setDeletingParticipant] = useState(false)
-  const [updatingAttendance, setUpdatingAttendance] = useState<string | null>(null)
+  const [deletingEvent, setDeletingEvent]     = useState(false)
+
+  // Google Form link (persisted in localStorage per event)
+  const storageKey = id ? `club-event-${id}-reg-link` : ''
+  const [regLink, setRegLink]       = useState<string>('')
+  const [editingLink, setEditingLink] = useState(false)
+  const [linkDraft, setLinkDraft]   = useState('')
 
   const loadEvent = async () => {
     if (!id) return
@@ -334,55 +466,20 @@ export default function EventDetailPage() {
     setEvent(ev)
   }
 
-  const loadRegistrations = async () => {
-    if (!id) return
-    const regs = await getEventRegistrations(Number(id))
-    setRegistrations(regs)
-  }
-
   useEffect(() => {
     if (!id) return
     setLoading(true)
-    Promise.all([
-      getEventById(Number(id)),
-      getClubMembers(clubId),
-      getEventRegistrations(Number(id)),
-    ])
-      .then(([ev, memberList, regs]) => {
-        setEvent(ev); setMembers(memberList); setRegistrations(regs)
-      })
+    getEventById(Number(id))
+      .then(ev => setEvent(ev))
       .catch(() => toast.error('Không thể tải thông tin sự kiện'))
       .finally(() => setLoading(false))
-  }, [id, clubId])
+    setRegLink(localStorage.getItem(`club-event-${id}-reg-link`) ?? '')
+  }, [id])
 
   const handleDeleteSession = async (sessionId: number) => {
     if (!event) return
     try { await deleteEventSession(event.id, sessionId); toast.success('Đã xóa mục lịch trình'); await loadEvent() }
     catch { toast.error('Không thể xóa mục này') }
-  }
-
-  const confirmRemoveStaff = async () => {
-    if (!event || !staffDeleteTarget) return
-    setDeletingStaff(true)
-    try { await removeEventStaff(event.id, staffDeleteTarget); toast.success('Đã xóa nhân sự'); setStaffDeleteTarget(null); await loadEvent() }
-    catch { toast.error('Không thể xóa nhân sự này') }
-    finally { setDeletingStaff(false) }
-  }
-
-  const confirmRemoveParticipant = async () => {
-    if (!event || !participantDeleteTarget) return
-    setDeletingParticipant(true)
-    try { await removeEventRegistration(event.id, participantDeleteTarget); toast.success('Đã xóa người tham gia'); setParticipantDeleteTarget(null); await loadRegistrations() }
-    catch { toast.error('Không thể xóa người tham gia này') }
-    finally { setDeletingParticipant(false) }
-  }
-
-  const handleUpdateAttendance = async (userId: string, attendance: AttendanceStatus) => {
-    if (!event) return
-    setUpdatingAttendance(userId)
-    try { await updateEventAttendance(event.id, userId, { attendance }); await loadRegistrations() }
-    catch { toast.error('Không thể cập nhật điểm danh') }
-    finally { setUpdatingAttendance(null) }
   }
 
   const handleDeleteEvent = async () => {
@@ -417,8 +514,7 @@ export default function EventDetailPage() {
     )
   }
 
-  const sessions  = event.sessions ?? []
-  const staff     = event.staff ?? []
+  const sessions = event.sessions ?? []
 
   const outlineBtnStyle: React.CSSProperties = {
     display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px',
@@ -583,44 +679,85 @@ export default function EventDetailPage() {
             )}
           </div>
 
-          {/* Staff */}
+          {/* Google Form registration link */}
           <div style={cardStyle}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
               <h2 style={{ fontSize: 11, fontWeight: 800, color: D.inkMuted, textTransform: 'uppercase', letterSpacing: '.08em', margin: 0, display: 'flex', alignItems: 'center', gap: 5 }}>
-                <UserCheck size={12} style={{ color: '#7c3aed' }} />
-                Nhân sự phụ trách
-                {staff.length > 0 && <span style={{ fontSize: 10, background: '#ede9fe', color: '#7c3aed', padding: '1px 6px', borderRadius: 4, fontWeight: 700 }}>{staff.length}</span>}
+                <FileText size={12} style={{ color: '#0ea5e9' }} />
+                Form đăng ký
               </h2>
-              {canManage && (
-                <button type="button" onClick={() => setAssignStaffOpen(true)} style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 800, color: D.indigo, background: 'transparent', border: 'none', cursor: 'pointer', padding: 0 }}>
-                  <Plus size={11} /> Phân công
+              {canManage && !editingLink && (
+                <button
+                  type="button"
+                  onClick={() => { setLinkDraft(regLink); setEditingLink(true) }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 800, color: D.indigo, background: 'transparent', border: 'none', cursor: 'pointer', padding: 0 }}
+                >
+                  <Pencil size={11} /> {regLink ? 'Sửa' : 'Thêm link'}
                 </button>
               )}
             </div>
 
-            {staff.length === 0 ? (
-              <div style={{ border: '2px dashed #c4bfb0', borderRadius: 10, padding: '20px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-                <UserCheck size={20} style={{ color: '#c4bfb0' }} />
-                <p style={{ fontSize: 11, color: D.inkMuted, margin: 0, textAlign: 'center' }}>Chưa có nhân sự được phân công</p>
+            {editingLink ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <input
+                  autoFocus
+                  type="url"
+                  placeholder="https://forms.google.com/..."
+                  value={linkDraft}
+                  onChange={e => setLinkDraft(e.target.value)}
+                  style={{ ...inputStyle, fontSize: 12 }}
+                />
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <button
+                    type="button"
+                    onClick={() => setEditingLink(false)}
+                    style={{ flex: 1, padding: '6px 0', fontSize: 12, fontWeight: 700, border: D.border, borderRadius: 8, background: D.card, color: D.inkDim, cursor: 'pointer', fontFamily: 'inherit' }}
+                  >Hủy</button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const trimmed = linkDraft.trim()
+                      if (storageKey) localStorage.setItem(storageKey, trimmed)
+                      setRegLink(trimmed)
+                      setEditingLink(false)
+                    }}
+                    style={{ flex: 1, padding: '6px 0', fontSize: 12, fontWeight: 900, border: D.border, borderRadius: 8, background: D.ink, color: '#facc15', cursor: 'pointer', fontFamily: 'inherit', boxShadow: D.shadow(2, 2) }}
+                  >Lưu</button>
+                </div>
+                {regLink && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (storageKey) localStorage.removeItem(storageKey)
+                      setRegLink(''); setEditingLink(false)
+                    }}
+                    style={{ width: '100%', padding: '5px 0', fontSize: 11, fontWeight: 700, border: '1.5px solid #fca5a5', borderRadius: 8, background: '#fff5f5', color: D.red, cursor: 'pointer', fontFamily: 'inherit' }}
+                  >Xóa link</button>
+                )}
+              </div>
+            ) : regLink ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '10px 12px', background: '#f0f9ff', border: '1.5px solid #bae6fd', borderRadius: 10 }}>
+                  <Link2 size={14} style={{ color: '#0ea5e9', flexShrink: 0, marginTop: 1 }} />
+                  <p style={{ margin: 0, fontSize: 11, color: '#0369a1', wordBreak: 'break-all', lineHeight: 1.5, fontWeight: 500 }}>
+                    {regLink.length > 60 ? regLink.slice(0, 60) + '…' : regLink}
+                  </p>
+                </div>
+                <a
+                  href={regLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '8px 0', fontSize: 12, fontWeight: 900, border: D.border, borderRadius: 10, background: D.ink, color: '#facc15', textDecoration: 'none', boxShadow: D.shadow(2, 2) }}
+                >
+                  <ExternalLink size={12} /> Mở Form đăng ký
+                </a>
               </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {staff.map(s => (
-                  <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#ede9fe', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 900, color: D.indigo, flexShrink: 0, overflow: 'hidden', border: D.borderLight }}>
-                      {s.avatarUrl ? <img src={s.avatarUrl} alt={s.userName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : s.userName.charAt(0).toUpperCase()}
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ fontSize: 12, fontWeight: 700, color: D.ink, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.userName}</p>
-                      <p style={{ fontSize: 10, color: D.inkMuted, margin: 0 }}>{ROLE_LABEL[s.role] ?? s.role}</p>
-                    </div>
-                    {canManage && (
-                      <button type="button" aria-label="Xóa nhân sự" onClick={() => setStaffDeleteTarget(s.userId)} style={{ padding: 4, color: D.inkMuted, background: 'transparent', border: 'none', cursor: 'pointer', flexShrink: 0 }}>
-                        <Trash2 size={12} />
-                      </button>
-                    )}
-                  </div>
-                ))}
+              <div style={{ border: '2px dashed #bae6fd', borderRadius: 10, padding: '20px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                <FileText size={20} style={{ color: '#7dd3fc' }} />
+                <p style={{ fontSize: 11, color: D.inkMuted, margin: 0, textAlign: 'center' }}>
+                  {canManage ? 'Nhấn "Thêm link" để dán link Google Form' : 'Chưa có link form đăng ký'}
+                </p>
               </div>
             )}
           </div>
@@ -628,94 +765,25 @@ export default function EventDetailPage() {
       </div>
 
       {/* Tasks by department */}
-      <EventDeptTasksBoard eventId={event.id} clubId={clubId} isManager={canManage} />
+      <EventDeptTasksBoard
+        eventId={event.id}
+        clubId={clubId}
+        isManager={canManage}
+        eventStart={event.startTime}
+        eventEnd={event.endTime}
+      />
 
       {/* Attachments */}
       <EventAttachmentsSection eventId={event.id} isManager={canManage} />
 
-      {/* Participants table */}
-      <div style={{ marginTop: 20, background: D.card, border: D.border, borderRadius: D.radius, boxShadow: D.shadow(), overflow: 'hidden' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', borderBottom: D.borderLight }}>
-          <h2 style={{ fontSize: 13, fontWeight: 800, color: D.ink, margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <UserPlus2 size={14} style={{ color: '#10b981' }} />
-            Danh sách người tham gia
-            {registrations.length > 0 && <span style={{ fontSize: 10, background: '#d1fae5', color: '#065f46', padding: '1px 6px', borderRadius: 4, fontWeight: 700 }}>{registrations.length}</span>}
-          </h2>
-          {canManage && (
-            <button type="button" onClick={() => setAddParticipantOpen(true)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 14px', fontSize: 11, fontWeight: 800, border: D.border, borderRadius: D.pill, background: D.ink, color: '#facc15', cursor: 'pointer', boxShadow: D.shadow(2, 2), fontFamily: 'inherit' }}>
-              <Plus size={11} /> Thêm người tham gia
-            </button>
-          )}
-        </div>
-        {registrations.length === 0 ? (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '48px 0', gap: 10 }}>
-            <UserPlus2 size={28} style={{ color: '#c4bfb0' }} />
-            <p style={{ color: D.inkMuted, fontSize: 13, margin: 0 }}>Chưa có người tham gia nào được đăng ký</p>
-          </div>
-        ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', fontSize: 13, borderCollapse: 'collapse' }}>
-              <thead>
-                <tr style={{ background: D.bg }}>
-                  {['Thành viên', 'Email', 'Ngày đăng ký', 'Điểm danh', ''].map((h, i) => (
-                    <th key={i} style={{ padding: '10px 16px', fontSize: 10, fontWeight: 800, color: D.inkMuted, textTransform: 'uppercase', letterSpacing: '.06em', textAlign: 'left', borderBottom: D.borderLight }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {registrations.map(reg => {
-                  const att = ATTENDANCE_CONFIG[reg.attendance] ?? ATTENDANCE_CONFIG.Pending
-                  return (
-                    <tr key={reg.id} style={{ borderBottom: D.borderLight }}>
-                      <td style={{ padding: '12px 16px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <div style={{ width: 30, height: 30, borderRadius: '50%', background: '#d1fae5', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 900, color: '#065f46', flexShrink: 0, overflow: 'hidden', border: D.borderLight }}>
-                            {reg.avatarUrl ? <img src={reg.avatarUrl} alt={reg.userName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : reg.userName.charAt(0).toUpperCase()}
-                          </div>
-                          <span style={{ fontWeight: 700, color: D.ink }}>{reg.userName}</span>
-                        </div>
-                      </td>
-                      <td style={{ padding: '12px 16px', color: D.inkMuted, fontSize: 12 }}>{reg.email ?? '—'}</td>
-                      <td style={{ padding: '12px 16px', color: D.inkMuted, fontSize: 12 }}>{new Date(reg.registeredAt).toLocaleDateString('vi-VN')}</td>
-                      <td style={{ padding: '12px 16px' }}>
-                        {canManage ? (
-                          <select
-                            aria-label="Điểm danh"
-                            disabled={updatingAttendance === reg.userId}
-                            value={reg.attendance}
-                            onChange={e => handleUpdateAttendance(reg.userId, e.target.value as AttendanceStatus)}
-                            style={{ fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 4, border: '1.5px solid #c4bfb0', background: att.bg, color: att.text, cursor: 'pointer', outline: 'none', fontFamily: 'inherit' }}
-                          >
-                            <option value="Pending">Chờ xác nhận</option>
-                            <option value="CheckedIn">Đã điểm danh</option>
-                            <option value="Absent">Vắng mặt</option>
-                          </select>
-                        ) : (
-                          <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 4, background: att.bg, color: att.text }}>{att.label}</span>
-                        )}
-                      </td>
-                      <td style={{ padding: '12px 16px', textAlign: 'right' }}>
-                        {canManage && (
-                          <button type="button" aria-label="Xóa người tham gia" onClick={() => setParticipantDeleteTarget(reg.userId)} style={{ padding: 4, color: D.inkMuted, background: 'transparent', border: 'none', cursor: 'pointer', borderRadius: 4 }}>
-                            <Trash2 size={12} />
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+      {/* Department summary table */}
+      <DeptSummaryTable eventId={event.id} clubId={clubId} />
 
       {/* Modals */}
-      {editOpen && <EditModal open={editOpen} event={event} onClose={() => setEditOpen(false)} onSaved={updated => setEvent(updated)} />}
+      {editOpen && <EditModal open={editOpen} event={event} clubId={clubId} onClose={() => setEditOpen(false)} onSaved={updated => setEvent(updated)} />}
       <AddSessionModal open={addSessionOpen} eventId={event.id} onClose={() => setAddSessionOpen(false)} onAdded={loadEvent} />
-      <AssignStaffModal open={assignStaffOpen} eventId={event.id} members={members} onClose={() => setAssignStaffOpen(false)} onAssigned={loadEvent} />
-      <AddParticipantModal open={addParticipantOpen} eventId={event.id} members={members} onClose={() => setAddParticipantOpen(false)} onAdded={loadRegistrations} />
 
+      {/* Delete event */}
       <AlertDialog open={deleteEventOpen} onOpenChange={v => !v && setDeleteEventOpen(false)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -728,36 +796,6 @@ export default function EventDetailPage() {
             <AlertDialogCancel disabled={deletingEvent}>Hủy</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteEvent} disabled={deletingEvent} className="bg-red-600 hover:bg-red-700 text-white focus:ring-red-600">
               {deletingEvent ? 'Đang xóa...' : 'Xóa sự kiện'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <AlertDialog open={!!staffDeleteTarget} onOpenChange={v => !v && setStaffDeleteTarget(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Xóa nhân sự</AlertDialogTitle>
-            <AlertDialogDescription>Bạn có chắc muốn xóa nhân sự này khỏi sự kiện không?</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={deletingStaff}>Hủy</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmRemoveStaff} disabled={deletingStaff} className="bg-red-600 hover:bg-red-700 text-white focus:ring-red-600">
-              {deletingStaff ? 'Đang xóa...' : 'Xóa'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <AlertDialog open={!!participantDeleteTarget} onOpenChange={v => !v && setParticipantDeleteTarget(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Xóa người tham gia</AlertDialogTitle>
-            <AlertDialogDescription>Bạn có chắc muốn xóa người tham gia này khỏi sự kiện không?</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={deletingParticipant}>Hủy</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmRemoveParticipant} disabled={deletingParticipant} className="bg-red-600 hover:bg-red-700 text-white focus:ring-red-600">
-              {deletingParticipant ? 'Đang xóa...' : 'Xóa'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

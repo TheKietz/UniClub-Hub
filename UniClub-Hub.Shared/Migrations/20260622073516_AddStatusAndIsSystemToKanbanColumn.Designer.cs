@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using UniClub_Hub.Shared.Data;
@@ -11,9 +12,11 @@ using UniClub_Hub.Shared.Data;
 namespace UniClub_Hub.Shared.Migrations
 {
     [DbContext(typeof(UniClubDbContext))]
-    partial class UniClubDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260622073516_AddStatusAndIsSystemToKanbanColumn")]
+    partial class AddStatusAndIsSystemToKanbanColumn
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1359,9 +1362,6 @@ namespace UniClub_Hub.Shared.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
-                    b.Property<string>("Body")
-                        .HasColumnType("text");
-
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamptz");
 
@@ -1370,12 +1370,6 @@ namespace UniClub_Hub.Shared.Migrations
 
                     b.Property<string>("Message")
                         .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<int?>("RelatedEntityId")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("RelatedEntityType")
                         .HasColumnType("text");
 
                     b.Property<string>("Title")

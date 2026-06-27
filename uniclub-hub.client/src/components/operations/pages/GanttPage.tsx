@@ -33,7 +33,7 @@ const ZOOM_DAY_PX: Record<ZoomLevel, number> = { Day: 36, Week: 14, Month: 4 }
 const WIN_WEEKS_MAP: Record<ZoomLevel, number> = { Day: 4, Week: 8, Month: 24 }
 const NAV_STEP: Record<ZoomLevel, number> = { Day: 1, Week: 2, Month: 4 }
 
-const STATUS_DOT: Record<TaskStatus, string> = { Todo: '#9ca3af', Doing: '#3b82f6', Done: D.emerald }
+const STATUS_DOT: Record<TaskStatus, string> = { Todo: '#9ca3af', Doing: '#3b82f6', Reviewing: '#8b5cf6', Done: D.emerald }
 const PRIORITY_COLOR: Record<string, string> = { High: '#ef4444', Medium: '#f59e0b', Low: D.indigo }
 
 const EVENT_STATUS_META: Record<EventStatus, { bar: string; bg: string; text: string; label: string }> = {
