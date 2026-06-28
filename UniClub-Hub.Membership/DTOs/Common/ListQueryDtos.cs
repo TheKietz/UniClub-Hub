@@ -46,4 +46,24 @@ namespace UniClub_Hub.Membership.DTOs.Common
         public int Page { get; set; } = 1;
         public int PageSize { get; set; } = 20;
     }
+
+    public class ResignationListQuery
+    {
+        public string? Search { get; set; }
+        public string? Status { get; set; }
+        public string SortBy { get; set; } = "requestedAt";
+        public string SortDir { get; set; } = "desc";
+        public int Page { get; set; } = 1;
+        public int PageSize { get; set; } = 20;
+    }
+
+    public class SupportListQuery
+    {
+        public string? Search { get; set; }
+        public string? Status { get; set; }
+        public string SortBy { get; set; } = "createdAt";
+        public string SortDir { get; set; } = "desc";
+        public int Page { get; set; } = 1;
+        public int PageSize { get; set; } = 20;
+    }
 }

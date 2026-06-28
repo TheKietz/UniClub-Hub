@@ -125,4 +125,35 @@ internal static class PagedServiceTestHelpers
             dispatch.Object,
             Mock.Of<IClubPermissionService>());
     }
+
+    public static ResignationRequest Resignation(
+        int id,
+        string userId,
+        int membershipId,
+        int clubId = 1,
+        ClubRole role = ClubRole.DEPT_LEAD,
+        ResignationStatus status = ResignationStatus.Pending,
+        DateTime? requestedAt = null) => new()
+    {
+        Id = id,
+        UserId = userId,
+        ClubId = clubId,
+        MembershipId = membershipId,
+        Preference = ResignationPreference.BecomeMember,
+        Status = status,
+        RequestedAt = requestedAt ?? new DateTime(2026, 3, Math.Clamp(id, 1, 28), 9, 0, 0, DateTimeKind.Utc),
+    };
+
+    public static ResignationService CreateResignationService(UniClubDbContext db)
+    {
+        var dispatch = new Mock<INotificationDispatchService>();
+        dispatch.Setup(d => d.FireAsync(It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<Dictionary<string, string>>()))
+            .Returns(Task.CompletedTask);
+
+        var permissions = new Mock<IClubPermissionService>();
+        permissions.Setup(p => p.EnsureHasPermissionAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<bool>(), It.IsAny<string>()))
+            .Returns(Task.CompletedTask);
+
+        return new ResignationService(db, dispatch.Object, permissions.Object);
+    }
 }

@@ -225,15 +225,10 @@ export default function UsersPage() {
     sortDir,
   }
 
-  function toggleSort(col: typeof sortBy) {
-    if (sortBy === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
-    else { setSortBy(col); setSortDir('asc') }
-  }
-
   const field = (key: keyof CreateForm) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm(p => ({ ...p, [key]: e.target.value }))
 
-    const thS: React.CSSProperties = { padding: '10px 14px', textAlign: 'left', fontSize: 12, fontWeight: 700, color: D.inkMuted, letterSpacing: '.02em', whiteSpace: 'nowrap' }
+  const thS: React.CSSProperties = { padding: '10px 14px', textAlign: 'left', fontSize: 12, fontWeight: 700, color: D.inkMuted, letterSpacing: '.02em', whiteSpace: 'nowrap' }
   const tdS: React.CSSProperties = { padding: '12px 14px', fontSize: 13 }
 
   return (
@@ -299,6 +294,21 @@ export default function UsersPage() {
           ]}
           style={{ width: 160 }}
         />
+        <FilterSelect
+          value={`${sortBy}-${sortDir}`}
+          onChange={v => {
+            const [col, dir] = v.split('-')
+            setSortBy(col as 'name' | 'email' | 'role')
+            setSortDir(dir as 'asc' | 'desc')
+          }}
+          options={[
+            { value: 'name-asc', label: 'Tên A → Z' },
+            { value: 'name-desc', label: 'Tên Z → A' },
+            { value: 'role-asc', label: 'Quyền A → Z' },
+            { value: 'role-desc', label: 'Quyền Z → A' },
+          ]}
+          style={{ width: 160 }}
+        />
         {hasFilter && (
           <button onClick={() => { setSearch(''); setStatusFilter(''); setRoleFilter('') }}
             style={{ fontSize: 12, color: D.indigo, fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
@@ -313,10 +323,10 @@ export default function UsersPage() {
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
           <thead>
             <tr style={{ background: D.bg, borderBottom: D.borderLight }}>
-              <th style={thS}><button onClick={() => toggleSort('name')} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', fontFamily: 'inherit', fontSize: 12, fontWeight: 700, color: D.inkMuted }}>Người dùng <span style={{ color: sortBy === 'name' ? D.indigo : '#ccc' }}>↕</span></button></th>
+              <th style={thS}>Người dùng</th>
               <th style={thS}>MSSV</th>
               <th style={thS}>Ngành</th>
-              <th style={thS}><button onClick={() => toggleSort('role')} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', fontFamily: 'inherit', fontSize: 12, fontWeight: 700, color: D.inkMuted }}>Quyền <span style={{ color: sortBy === 'role' ? D.indigo : '#ccc' }}>↕</span></button></th>
+              <th style={thS}>Quyền</th>
               <th style={thS}>Trạng thái</th>
               <th style={{ ...thS, textAlign: 'center' }}>Hành động</th>
             </tr>

@@ -72,17 +72,21 @@ export default function DashboardPage() {
   const contentRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    Promise.all([getSystemStats(), getAdminClubs(), getAdminResignations()])
-      .then(([s, clubs, resignations]) => {
+    Promise.all([
+      getSystemStats(),
+      getAdminClubs(),
+      getAdminResignations({ status: 'Approved', page: 1, pageSize: 1 }),
+      getAdminResignations({ status: 'Pending', page: 1, pageSize: 1 }),
+    ])
+      .then(([s, clubs, approved, pending]) => {
         setStats(s)
-        setApprovedResignCount(resignations.filter(r => r.status === 'Approved').length)
+        setApprovedResignCount(approved.totalCount)
         const items: AlertItem[] = []
         clubs.filter(c => !c.hasAdmin && c.status === 'Active').forEach(c => {
           items.push({ message: `CLB "${c.name}" chưa có Trưởng CLB`, link: '/admin/structure', linkLabel: 'Bổ nhiệm' })
         })
-        const pendingResignations = resignations.filter(r => r.status === 'Pending')
-        if (pendingResignations.length > 0)
-          items.push({ message: `${pendingResignations.length} đơn từ chức Trưởng CLB đang chờ phê duyệt`, link: '/admin/resignations', linkLabel: 'Xem đơn' })
+        if (pending.totalCount > 0)
+          items.push({ message: `${pending.totalCount} đơn từ chức Trưởng CLB đang chờ phê duyệt`, link: '/admin/resignations', linkLabel: 'Xem đơn' })
         setAlerts(items)
       })
       .catch(() => setError('Không thể tải dữ liệu thống kê.'))

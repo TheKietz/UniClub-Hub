@@ -87,11 +87,16 @@ export default function ClubManageDashboard() {
   useEffect(() => {
     if (!clubId) return
     const id = Number(clubId)
-    Promise.all([getClubStats(id), getDepartments(id), getClubResignations(id)])
-      .then(([s, dpts, resignations]) => {
+    Promise.all([
+      getClubStats(id),
+      getDepartments(id),
+      getClubResignations(id, { status: 'Approved', page: 1, pageSize: 1 }),
+      getClubResignations(id, { status: 'Pending', page: 1, pageSize: 1 }),
+    ])
+      .then(([s, dpts, approved, pending]) => {
         setStats(s)
         setDepts(dpts)
-        setApprovedResignCount(resignations.filter(r => r.status === 'Approved').length)
+        setApprovedResignCount(approved.totalCount)
 
         const items: AlertItem[] = []
         dpts.filter(d => !d.deptLeadName).forEach(d => items.push({
@@ -99,9 +104,8 @@ export default function ClubManageDashboard() {
           link: `/clubs/${id}/manage/departments`,
           linkLabel: 'Bổ nhiệm',
         }))
-        const pendingResign = resignations.filter(r => r.status === 'Pending')
-        if (pendingResign.length > 0)
-          items.push({ message: `${pendingResign.length} đơn từ chức đang chờ phê duyệt`, link: `/clubs/${id}/manage/resignations`, linkLabel: 'Xem đơn' })
+        if (pending.totalCount > 0)
+          items.push({ message: `${pending.totalCount} đơn từ chức đang chờ phê duyệt`, link: `/clubs/${id}/manage/resignations`, linkLabel: 'Xem đơn' })
         if (s.totalProbationMembers > 0)
           items.push({ message: `${s.totalProbationMembers} thành viên đang thử việc`, link: `/clubs/${id}/manage/members`, linkLabel: 'Xem danh sách' })
         if (s.applications.pending > 0)

@@ -160,14 +160,14 @@ export const getDepartments = (clubId: number) =>
 export const submitResignation = (clubId: number, dto: SubmitResignationDto) =>
   api.post<{ data: ResignationRequestItem }>(`${base(clubId)}/resignation-requests`, dto).then(r => r.data.data)
 
-export const getClubResignations = (clubId: number) =>
-  api.get<{ data: ResignationRequestItem[] }>(`${base(clubId)}/resignation-requests`).then(r => r.data.data)
+export const getClubResignations = (clubId: number, params?: ResignationListQuery) =>
+  api.get<{ data: PagedResult<ResignationRequestItem> }>(`${base(clubId)}/resignation-requests`, { params }).then(r => r.data.data)
 
 export const reviewClubResignation = (clubId: number, id: number, dto: ReviewResignationDto) =>
   api.patch<{ data: ResignationRequestItem }>(`${base(clubId)}/resignation-requests/${id}`, dto).then(r => r.data.data)
 
-export const getAdminResignations = () =>
-  api.get<{ data: ResignationRequestItem[] }>('/admin/resignation-requests').then(r => r.data.data)
+export const getAdminResignations = (params?: ResignationListQuery) =>
+  api.get<{ data: PagedResult<ResignationRequestItem> }>('/admin/resignation-requests', { params }).then(r => r.data.data)
 
 export const reviewAdminResignation = (id: number, dto: ReviewResignationDto) =>
   api.patch<{ data: ResignationRequestItem }>(`/admin/resignation-requests/${id}`, dto).then(r => r.data.data)
@@ -185,7 +185,16 @@ export const getPublicCategories = () =>
   api.get<{ data: { id: number; name: string; description?: string }[] }>('/categories').then(r => r.data.data)
 
 // ── Audit Log ───────────────────────────────────────────────────────────────
-export const getClubAuditLogs = (clubId: number, params?: { module?: string; search?: string; action?: string; dateFrom?: string; dateTo?: string; page?: number; pageSize?: number }) =>
+export type ResignationListQuery = {
+  search?: string
+  status?: string
+  sortBy?: string
+  sortDir?: 'asc' | 'desc'
+  page?: number
+  pageSize?: number
+}
+
+export const getClubAuditLogs = (clubId: number, params?: { module?: string; search?: string; action?: string; dateFrom?: string; dateTo?: string; sortBy?: string; sortDir?: 'asc' | 'desc'; page?: number; pageSize?: number }) =>
   api.get<{ data: ClubAuditLogPage }>(`${base(clubId)}/audit-logs`, { params }).then(r => r.data.data)
 
 export const suggestClubMembers = (clubId: number, q: string) =>

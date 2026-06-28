@@ -1,11 +1,16 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { useDeferredEffect } from '@/hooks/useDeferredEffect'
 import { getAdminResignations, reviewAdminResignation } from '@/components/membership/services/clubApi'
+import type { ResignationListQuery } from '@/components/membership/services/clubApi'
 import type { ResignationRequestItem, ReviewResignationDto } from '@/components/membership/services/club.types'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { toast } from 'sonner'
+import { LoadMoreBar } from '@/components/shared/LoadMoreBar'
+import { FilterSelect } from '@/components/shared/FilterSelect'
 import { D } from '@/components/shared/managementTheme'
 import { getApiErrorMessage } from '@/lib/apiError'
+
+const PAGE_SIZE = 20
 
 const STATUS_CONFIG: Record<string, { label: string; bg: string; color: string }> = {
   Pending:  { label: 'Chờ duyệt', bg: '#fef3c7', color: '#b45309' },
@@ -22,21 +27,100 @@ const STATUS_TABS = [
 
 export default function AdminResignationPage() {
   const [requests, setRequests] = useState<ResignationRequestItem[]>([])
+  const [totalRequests, setTotalRequests] = useState(0)
+  const [page, setPage] = useState(1)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState('')
+  const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [sortBy, setSortBy] = useState<'requestedAt' | 'status'>('requestedAt')
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
+  const [statusCounts, setStatusCounts] = useState<Record<string, number>>({})
   const [selected, setSelected] = useState<ResignationRequestItem | null>(null)
   const [reviewNote, setReviewNote] = useState('')
   const [reviewing, setReviewing] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
   const [hoverRow, setHoverRow] = useState<number | null>(null)
+  const latestQueryKey = useRef('')
 
-  useDeferredEffect(() => {
-    setLoading(true)
-    getAdminResignations()
-      .then(setRequests)
-      .catch(() => toast.error('Không thể tải danh sách đơn từ chức.'))
-      .finally(() => setLoading(false))
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedSearch(search.trim()), 300)
+    return () => window.clearTimeout(timer)
+  }, [search])
+
+  const buildQuery = useCallback((pageNumber: number): ResignationListQuery => ({
+    page: pageNumber,
+    pageSize: PAGE_SIZE,
+    search: debouncedSearch || undefined,
+    status: statusFilter || undefined,
+    sortBy,
+    sortDir,
+  }), [debouncedSearch, statusFilter, sortBy, sortDir])
+
+  const querySignature = useMemo(() => JSON.stringify({
+    search: debouncedSearch || '',
+    status: statusFilter || '',
+    sortBy,
+    sortDir,
+  }), [debouncedSearch, statusFilter, sortBy, sortDir])
+
+  useEffect(() => {
+    Promise.all([
+      getAdminResignations({ page: 1, pageSize: 1 }),
+      getAdminResignations({ status: 'Pending', page: 1, pageSize: 1 }),
+      getAdminResignations({ status: 'Approved', page: 1, pageSize: 1 }),
+      getAdminResignations({ status: 'Rejected', page: 1, pageSize: 1 }),
+    ]).then(([all, pending, approved, rejected]) => {
+      setStatusCounts({
+        '': all.totalCount,
+        Pending: pending.totalCount,
+        Approved: approved.totalCount,
+        Rejected: rejected.totalCount,
+      })
+    }).catch(() => {})
   }, [refreshKey])
+
+  useDeferredEffect((isCancelled) => {
+    latestQueryKey.current = querySignature
+    setLoading(true)
+    setLoadingMore(false)
+    setRequests([])
+    setPage(1)
+    getAdminResignations(buildQuery(1))
+      .then(r => {
+        if (isCancelled() || latestQueryKey.current !== querySignature) return
+        setRequests(r.items)
+        setTotalRequests(r.totalCount)
+      })
+      .catch(() => {
+        if (!isCancelled() && latestQueryKey.current === querySignature)
+          toast.error('Không thể tải danh sách đơn từ chức.')
+      })
+      .finally(() => {
+        if (!isCancelled() && latestQueryKey.current === querySignature)
+          setLoading(false)
+      })
+  }, [refreshKey, querySignature, buildQuery])
+
+  function loadMore() {
+    const nextPage = page + 1
+    setLoadingMore(true)
+    getAdminResignations(buildQuery(nextPage))
+      .then(r => {
+        if (latestQueryKey.current !== querySignature) return
+        setRequests(prev => [...prev, ...r.items])
+        setPage(nextPage)
+      })
+      .catch(() => {
+        if (latestQueryKey.current === querySignature)
+          toast.error('Tải thêm thất bại.')
+      })
+      .finally(() => {
+        if (latestQueryKey.current === querySignature)
+          setLoadingMore(false)
+      })
+  }
 
   async function handleReview(status: 'Approved' | 'Rejected') {
     if (!selected) return
@@ -54,25 +138,17 @@ export default function AdminResignationPage() {
     }
   }
 
-  const filtered = requests.filter(r => !statusFilter || r.status === statusFilter)
-  const counts = requests.reduce((acc, r) => {
-    acc[r.status] = (acc[r.status] ?? 0) + 1
-    return acc
-  }, {} as Record<string, number>)
-
   return (
     <div style={{ padding: '28px 32px', minHeight: '100%', background: D.bg, fontFamily: "'Be Vietnam Pro', sans-serif" }}>
-      {/* Header */}
       <div style={{ marginBottom: 20 }}>
         <h1 style={{ fontSize: 24, fontWeight: 900, color: D.ink, letterSpacing: '-.025em', margin: 0 }}>Đơn từ chức Trưởng CLB</h1>
-        <p style={{ fontSize: 13, color: D.inkMuted, marginTop: 4 }}>{requests.length} đơn tổng cộng</p>
+        <p style={{ fontSize: 13, color: D.inkMuted, marginTop: 4 }}>{totalRequests} đơn phù hợp</p>
       </div>
 
-      {/* Status tabs */}
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
         {STATUS_TABS.map(tab => {
+          const c = statusCounts[tab.value] ?? 0
           const active = statusFilter === tab.value
-          const c = tab.value ? (counts[tab.value] ?? 0) : requests.length
           return (
             <button key={tab.value} onClick={() => setStatusFilter(tab.value)}
               style={{
@@ -98,7 +174,40 @@ export default function AdminResignationPage() {
         })}
       </div>
 
-      {/* Table */}
+      <div style={{
+        padding: '10px 14px', borderRadius: D.radius, background: D.card,
+        border: D.border, boxShadow: D.shadow(), display: 'flex', gap: 10,
+        alignItems: 'center', marginBottom: 16, flexWrap: 'wrap',
+      }}>
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="⌕  Tên hoặc email..." style={{
+          flex: 1, minWidth: 220, height: 36, borderRadius: 8, border: D.borderLight,
+          padding: '0 12px', fontSize: 13, color: D.ink, outline: 'none', background: D.bg,
+          fontFamily: 'inherit',
+        }} />
+        <FilterSelect
+          value={`${sortBy}-${sortDir}`}
+          onChange={v => {
+            const [col, dir] = v.split('-')
+            setSortBy(col as 'requestedAt' | 'status')
+            setSortDir(dir as 'asc' | 'desc')
+          }}
+          options={[
+            { value: 'requestedAt-desc', label: 'Mới nhất' },
+            { value: 'requestedAt-asc', label: 'Cũ nhất' },
+            { value: 'status-asc', label: 'Trạng thái A → Z' },
+            { value: 'status-desc', label: 'Trạng thái Z → A' },
+          ]}
+          style={{ width: 180 }}
+        />
+        {search && (
+          <button onClick={() => setSearch('')}
+            style={{ fontSize: 12, color: D.indigo, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
+            Xoá lọc
+          </button>
+        )}
+        <span style={{ fontSize: 12, color: D.inkMuted, whiteSpace: 'nowrap', marginLeft: 'auto' }}>{requests.length}/{totalRequests}</span>
+      </div>
+
       <div style={{ borderRadius: D.radius, overflow: 'hidden', background: D.card, border: D.border, boxShadow: D.shadow() }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
           <thead>
@@ -114,13 +223,13 @@ export default function AdminResignationPage() {
           <tbody>
             {loading ? (
               <tr><td colSpan={6} style={{ textAlign: 'center', color: D.inkMuted, padding: '48px 0' }}>Đang tải...</td></tr>
-            ) : filtered.length === 0 ? (
+            ) : requests.length === 0 ? (
               <tr>
                 <td colSpan={6} style={{ textAlign: 'center', color: D.inkMuted, padding: '48px 0' }}>
-                  Chưa có đơn từ chức nào.
+                  {search ? 'Không tìm thấy đơn nào.' : 'Chưa có đơn từ chức nào.'}
                 </td>
               </tr>
-            ) : filtered.map(r => {
+            ) : requests.map(r => {
               const cfg = STATUS_CONFIG[r.status]
               return (
                 <tr key={r.id}
@@ -163,7 +272,14 @@ export default function AdminResignationPage() {
         </table>
       </div>
 
-      {/* Detail / Review dialog */}
+      <LoadMoreBar
+        shown={requests.length}
+        total={totalRequests}
+        loading={loadingMore}
+        onLoadMore={loadMore}
+        label="đơn"
+      />
+
       <Dialog open={!!selected} onOpenChange={open => !open && setSelected(null)}>
         <DialogContent className="sm:max-w-md" style={{ fontFamily: "'Be Vietnam Pro', sans-serif" }}>
           <DialogHeader>

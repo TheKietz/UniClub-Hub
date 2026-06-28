@@ -345,12 +345,18 @@ export default function ApplicationsPage() {
             background: D.bg, fontFamily: 'inherit',
           }}
         />
-        <button onClick={() => setSortDir(d => d === 'desc' ? 'asc' : 'desc')} style={{
-          height: 36, padding: '0 12px', display: 'flex', alignItems: 'center', gap: 6,
-          fontSize: 12, fontWeight: 600, color: D.inkDim,
-          background: D.bg, border: D.borderLight, borderRadius: 8,
-          cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap',
-        }}>↕ {sortDir === 'desc' ? 'Mới nhất' : 'Cũ nhất'}</button>
+        <FilterSelect
+          value={`appliedAt-${sortDir}`}
+          onChange={v => {
+            const [, dir] = v.split('-')
+            setSortDir(dir as 'asc' | 'desc')
+          }}
+          options={[
+            { value: 'appliedAt-desc', label: 'Mới nhất' },
+            { value: 'appliedAt-asc', label: 'Cũ nhất' },
+          ]}
+          style={{ width: 140 }}
+        />
         {(search || stageFilter || dateFrom || dateTo) && (
           <button onClick={() => { setSearch(''); setStageFilter(''); setDateFrom(''); setDateTo('') }}
             style={{ fontSize: 12, color: D.indigo, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>

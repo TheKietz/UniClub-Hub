@@ -1,24 +1,15 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { useDeferredEffect } from '@/hooks/useDeferredEffect'
-import api from '@/lib/axiosInstance'
-import { updateSupportRequest } from '@/components/membership/services/adminApi'
+import { getSupportTickets, updateSupportRequest } from '@/components/membership/services/adminApi'
+import type { SupportListQuery, SupportTicketItem } from '@/components/membership/services/adminApi'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { toast } from 'sonner'
+import { LoadMoreBar } from '@/components/shared/LoadMoreBar'
+import { FilterSelect } from '@/components/shared/FilterSelect'
 import { D } from '@/components/shared/managementTheme'
 import { getApiErrorMessage } from '@/lib/apiError'
 
-interface Ticket {
-  id: number
-  subject: string
-  message: string
-  status: string
-  adminNote?: string
-  createdAt: string
-  resolvedAt?: string
-  userId: string
-  userFullName: string
-  userEmail: string
-}
+const PAGE_SIZE = 20
 
 const STATUS_CONFIG: Record<string, { label: string; bg: string; text: string }> = {
   Open:       { label: 'Đang chờ',      bg: '#fef3c7', text: '#b45309' },
@@ -34,26 +25,101 @@ const STATUS_TABS = [
 ]
 
 export default function SupportAdminPage() {
-  const [tickets, setTickets] = useState<Ticket[]>([])
+  const [tickets, setTickets] = useState<SupportTicketItem[]>([])
+  const [totalTickets, setTotalTickets] = useState(0)
+  const [page, setPage] = useState(1)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState('')
   const [search, setSearch] = useState('')
-  const [selected, setSelected] = useState<Ticket | null>(null)
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [sortBy, setSortBy] = useState<'createdAt' | 'status'>('createdAt')
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
+  const [statusCounts, setStatusCounts] = useState<Record<string, number>>({})
+  const [selected, setSelected] = useState<SupportTicketItem | null>(null)
   const [adminNote, setAdminNote] = useState('')
   const [saving, setSaving] = useState(false)
   const [hoverTicket, setHoverTicket] = useState<number | null>(null)
+  const [refreshKey, setRefreshKey] = useState(0)
+  const latestQueryKey = useRef('')
 
-  function load() {
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedSearch(search.trim()), 300)
+    return () => window.clearTimeout(timer)
+  }, [search])
+
+  const buildQuery = useCallback((pageNumber: number): SupportListQuery => ({
+    page: pageNumber,
+    pageSize: PAGE_SIZE,
+    search: debouncedSearch || undefined,
+    status: statusFilter || undefined,
+    sortBy,
+    sortDir,
+  }), [debouncedSearch, statusFilter, sortBy, sortDir])
+
+  const querySignature = useMemo(() => JSON.stringify({
+    search: debouncedSearch || '',
+    status: statusFilter || '',
+    sortBy,
+    sortDir,
+  }), [debouncedSearch, statusFilter, sortBy, sortDir])
+
+  useEffect(() => {
+    Promise.all([
+      getSupportTickets({ page: 1, pageSize: 1 }),
+      getSupportTickets({ status: 'Open', page: 1, pageSize: 1 }),
+      getSupportTickets({ status: 'InProgress', page: 1, pageSize: 1 }),
+      getSupportTickets({ status: 'Resolved', page: 1, pageSize: 1 }),
+    ]).then(([all, open, inProgress, resolved]) => {
+      setStatusCounts({
+        '': all.totalCount,
+        Open: open.totalCount,
+        InProgress: inProgress.totalCount,
+        Resolved: resolved.totalCount,
+      })
+    }).catch(() => {})
+  }, [refreshKey])
+
+  useDeferredEffect((isCancelled) => {
+    latestQueryKey.current = querySignature
     setLoading(true)
-    api.get<{ data: Ticket[] }>('/support')
-      .then(r => setTickets(r.data.data))
-      .catch(() => toast.error('Không thể tải danh sách yêu cầu.'))
-      .finally(() => setLoading(false))
-  }
+    setLoadingMore(false)
+    setTickets([])
+    setPage(1)
+    getSupportTickets(buildQuery(1))
+      .then(r => {
+        if (isCancelled() || latestQueryKey.current !== querySignature) return
+        setTickets(r.items)
+        setTotalTickets(r.totalCount)
+      })
+      .catch(() => {
+        if (!isCancelled() && latestQueryKey.current === querySignature)
+          toast.error('Không thể tải danh sách yêu cầu.')
+      })
+      .finally(() => {
+        if (!isCancelled() && latestQueryKey.current === querySignature)
+          setLoading(false)
+      })
+  }, [refreshKey, querySignature, buildQuery])
 
-  useDeferredEffect(() => {
-    load()
-  }, [])
+  function loadMore() {
+    const nextPage = page + 1
+    setLoadingMore(true)
+    getSupportTickets(buildQuery(nextPage))
+      .then(r => {
+        if (latestQueryKey.current !== querySignature) return
+        setTickets(prev => [...prev, ...r.items])
+        setPage(nextPage)
+      })
+      .catch(() => {
+        if (latestQueryKey.current === querySignature)
+          toast.error('Tải thêm thất bại.')
+      })
+      .finally(() => {
+        if (latestQueryKey.current === querySignature)
+          setLoadingMore(false)
+      })
+  }
 
   async function handleUpdate(newStatus: string) {
     if (!selected) return
@@ -62,7 +128,7 @@ export default function SupportAdminPage() {
       await updateSupportRequest(selected.id, newStatus, adminNote || null)
       toast.success('Đã cập nhật trạng thái.')
       setSelected(null)
-      load()
+      setRefreshKey(k => k + 1)
     } catch (err: unknown) {
       toast.error(getApiErrorMessage(err, 'Cập nhật thất bại.'))
     } finally {
@@ -70,33 +136,22 @@ export default function SupportAdminPage() {
     }
   }
 
-  function openTicket(t: Ticket) {
+  function openTicket(t: SupportTicketItem) {
     setSelected(t)
     setAdminNote(t.adminNote ?? '')
   }
 
-  const filtered = tickets.filter(t => {
-    const q = search.toLowerCase()
-    const matchStatus = !statusFilter || t.status === statusFilter
-    const matchSearch = !q || t.subject.toLowerCase().includes(q) || t.userFullName.toLowerCase().includes(q) || t.userEmail.toLowerCase().includes(q)
-    return matchStatus && matchSearch
-  })
-
-  const counts = tickets.reduce((acc, t) => { acc[t.status] = (acc[t.status] ?? 0) + 1; return acc }, {} as Record<string, number>)
-
   return (
     <div style={{ padding: '28px 32px', minHeight: '100%', background: D.bg, fontFamily: "'Be Vietnam Pro', sans-serif" }}>
-      {/* Header */}
       <div style={{ marginBottom: 20 }}>
         <h1 style={{ fontSize: 24, fontWeight: 900, color: D.ink, letterSpacing: '-.025em', margin: 0 }}>Yêu cầu hỗ trợ</h1>
-        <p style={{ fontSize: 13, color: D.inkMuted, marginTop: 4 }}>{tickets.length} yêu cầu tổng cộng</p>
+        <p style={{ fontSize: 13, color: D.inkMuted, marginTop: 4 }}>{totalTickets} yêu cầu phù hợp</p>
       </div>
 
-      {/* Status tabs */}
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
         {STATUS_TABS.map(tab => {
           const active = statusFilter === tab.value
-          const c = tab.value ? (counts[tab.value] ?? 0) : tickets.length
+          const c = statusCounts[tab.value] ?? 0
           return (
             <button key={tab.value} onClick={() => setStatusFilter(tab.value)}
               style={{
@@ -122,33 +177,46 @@ export default function SupportAdminPage() {
         })}
       </div>
 
-      {/* Search bar */}
-      <div style={{ padding: '10px 14px', borderRadius: D.radius, background: D.card, border: D.border, boxShadow: D.shadow(), display: 'flex', gap: 10, alignItems: 'center', marginBottom: 16 }}>
+      <div style={{ padding: '10px 14px', borderRadius: D.radius, background: D.card, border: D.border, boxShadow: D.shadow(), display: 'flex', gap: 10, alignItems: 'center', marginBottom: 16, flexWrap: 'wrap' }}>
         <input
           placeholder="⌕  Tìm theo tiêu đề, tên, email..."
           value={search}
           onChange={e => setSearch(e.target.value)}
-          style={{ flex: 1, height: 36, borderRadius: 8, border: D.borderLight, padding: '0 12px', fontSize: 13, color: D.ink, outline: 'none', background: D.bg, fontFamily: 'inherit' }}
+          style={{ flex: 1, minWidth: 220, height: 36, borderRadius: 8, border: D.borderLight, padding: '0 12px', fontSize: 13, color: D.ink, outline: 'none', background: D.bg, fontFamily: 'inherit' }}
+        />
+        <FilterSelect
+          value={`${sortBy}-${sortDir}`}
+          onChange={v => {
+            const [col, dir] = v.split('-')
+            setSortBy(col as 'createdAt' | 'status')
+            setSortDir(dir as 'asc' | 'desc')
+          }}
+          options={[
+            { value: 'createdAt-desc', label: 'Mới nhất' },
+            { value: 'createdAt-asc', label: 'Cũ nhất' },
+            { value: 'status-asc', label: 'Trạng thái A → Z' },
+            { value: 'status-desc', label: 'Trạng thái Z → A' },
+          ]}
+          style={{ width: 180 }}
         />
         {search && (
           <button onClick={() => setSearch('')}
-            style={{ padding: '4px 8px', borderRadius: 6, border: D.borderLight, background: D.card, color: D.inkMuted, cursor: 'pointer', fontFamily: 'inherit', fontSize: 13 }}>
-            ✕
+            style={{ fontSize: 12, color: D.indigo, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
+            Xoá lọc
           </button>
         )}
-        <span style={{ fontSize: 12, color: D.inkMuted, whiteSpace: 'nowrap' }}>{filtered.length}/{tickets.length}</span>
+        <span style={{ fontSize: 12, color: D.inkMuted, whiteSpace: 'nowrap', marginLeft: 'auto' }}>{tickets.length}/{totalTickets}</span>
       </div>
 
-      {/* Ticket list */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {loading ? (
           <p style={{ textAlign: 'center', color: D.inkMuted, padding: '48px 0', fontSize: 13 }}>Đang tải...</p>
-        ) : filtered.length === 0 ? (
+        ) : tickets.length === 0 ? (
           <div style={{ background: D.card, borderRadius: D.radius, border: D.border, boxShadow: D.shadow(), padding: '48px 0', textAlign: 'center' }}>
             <p style={{ fontSize: 32, margin: '0 0 8px' }}>🎫</p>
-            <p style={{ fontSize: 13, color: D.inkMuted }}>Không có yêu cầu hỗ trợ nào.</p>
+            <p style={{ fontSize: 13, color: D.inkMuted }}>{search ? 'Không tìm thấy yêu cầu nào.' : 'Không có yêu cầu hỗ trợ nào.'}</p>
           </div>
-        ) : filtered.map(t => {
+        ) : tickets.map(t => {
           const cfg = STATUS_CONFIG[t.status] ?? STATUS_CONFIG.Open
           const isHover = hoverTicket === t.id
           return (
@@ -182,7 +250,14 @@ export default function SupportAdminPage() {
         })}
       </div>
 
-      {/* Detail dialog */}
+      <LoadMoreBar
+        shown={tickets.length}
+        total={totalTickets}
+        loading={loadingMore}
+        onLoadMore={loadMore}
+        label="yêu cầu"
+      />
+
       <Dialog open={!!selected} onOpenChange={open => !open && setSelected(null)}>
         <DialogContent className="sm:max-w-lg" style={{ fontFamily: "'Be Vietnam Pro', sans-serif" }}>
           <DialogHeader>

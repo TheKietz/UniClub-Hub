@@ -20,6 +20,8 @@ namespace UniClub_Hub.Server.Controllers.Membership
             [FromQuery] string? action,
             [FromQuery] DateTime? dateFrom,
             [FromQuery] DateTime? dateTo,
+            [FromQuery] string sortBy = "timestamp",
+            [FromQuery] string sortDir = "desc",
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 20)
         {
@@ -27,7 +29,7 @@ namespace UniClub_Hub.Server.Controllers.Membership
             var isSuperAdmin = User.IsInRole("SUPER_ADMIN");
             try
             {
-                var result = await auditLogService.GetByClubAsync(clubId, userId, isSuperAdmin, module, search, action, dateFrom, dateTo, page, pageSize);
+                var result = await auditLogService.GetByClubAsync(clubId, userId, isSuperAdmin, module, search, action, dateFrom, dateTo, sortBy, sortDir, page, pageSize);
                 return Ok(ApiResponse<object>.Ok(result));
             }
             catch (UnauthorizedAccessException) { return Forbid(); }
@@ -41,10 +43,12 @@ namespace UniClub_Hub.Server.Controllers.Membership
             [FromQuery] string? action,
             [FromQuery] DateTime? dateFrom,
             [FromQuery] DateTime? dateTo,
+            [FromQuery] string sortBy = "timestamp",
+            [FromQuery] string sortDir = "desc",
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 20)
         {
-            var result = await auditLogService.GetAllAsync(module, search, action, dateFrom, dateTo, page, pageSize);
+            var result = await auditLogService.GetAllAsync(module, search, action, dateFrom, dateTo, sortBy, sortDir, page, pageSize);
             return Ok(ApiResponse<object>.Ok(result));
         }
     }

@@ -87,7 +87,7 @@ export const deleteCategory = (id: number) =>
 
 
 import type { ClubAuditLogPage } from './club.types'
-export const getAdminAuditLogs = (params?: { module?: string; search?: string; action?: string; dateFrom?: string; dateTo?: string; page?: number; pageSize?: number }) =>
+export const getAdminAuditLogs = (params?: { module?: string; search?: string; action?: string; dateFrom?: string; dateTo?: string; sortBy?: string; sortDir?: 'asc' | 'desc'; page?: number; pageSize?: number }) =>
   api.get<{ data: ClubAuditLogPage }>('/admin/audit-logs', { params }).then(r => r.data.data)
 
 export interface SystemSetting {
@@ -129,6 +129,31 @@ export const exportClubs = (format: 'xlsx' | 'csv', params?: Omit<AdminClubListQ
   api.get('/admin/export/clubs', { params: { format, ...params }, responseType: 'blob' })
 
 // ── Support (admin) ────────────────────────────────────────────────────────
+
+export type SupportListQuery = {
+  search?: string
+  status?: string
+  sortBy?: string
+  sortDir?: 'asc' | 'desc'
+  page?: number
+  pageSize?: number
+}
+
+export interface SupportTicketItem {
+  id: number
+  subject: string
+  message: string
+  status: string
+  adminNote?: string
+  createdAt: string
+  resolvedAt?: string
+  userId: string
+  userFullName: string
+  userEmail: string
+}
+
+export const getSupportTickets = (params?: SupportListQuery) =>
+  api.get<{ data: PagedResult<SupportTicketItem> }>('/support', { params }).then(r => r.data.data)
 
 export const updateSupportRequest = (id: number, status: string, adminNote?: string | null) =>
   api.patch(`/support/${id}`, { status, adminNote: adminNote ?? null })
