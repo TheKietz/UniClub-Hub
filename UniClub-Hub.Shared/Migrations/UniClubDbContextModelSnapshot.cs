@@ -1251,6 +1251,9 @@ namespace UniClub_Hub.Shared.Migrations
                     b.Property<bool>("IsRead")
                         .HasColumnType("boolean");
 
+                    b.Property<string>("Link")
+                        .HasColumnType("text");
+
                     b.Property<string>("Message")
                         .IsRequired()
                         .HasColumnType("text");

@@ -10,7 +10,6 @@ const CANONICAL_ORDER = Object.fromEntries(
 import { getClubLandingPage, recordClubView, getExploreClubs } from '../services/portal.api'
 import { usePortalSEO } from '../hooks/usePortalSEO'
 import SectionRenderer from '../components/SectionRenderer'
-import PublicHeader from '@/components/layouts/PublicHeader'
 import AppFooter from '@/components/shared/AppFooter'
 
 // ── Club Switcher Dropdown ────────────────────────────────────────────────────
@@ -18,15 +17,9 @@ function ClubSwitcher({ currentId, currentName }: { currentId: number; currentNa
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
   const [clubs, setClubs] = useState<ClubExploreItem[]>([])
+  const [clubsLoaded, setClubsLoaded] = useState(false)
   const [search, setSearch] = useState('')
   const ref = useRef<HTMLDivElement>(null)
-
-  // Load clubs on mount
-  useEffect(() => {
-    getExploreClubs({ pageSize: 100 })
-      .then(r => setClubs(r.data))
-      .catch(() => {})
-  }, [])
 
   // Close on outside click
   useEffect(() => {
@@ -50,7 +43,16 @@ function ClubSwitcher({ currentId, currentName }: { currentId: number; currentNa
     <div ref={ref} style={{ position: 'relative' }}>
       {/* Trigger button */}
       <button
-        onClick={() => { setOpen(o => !o); setSearch('') }}
+        onClick={() => {
+          const opening = !open
+          setOpen(opening)
+          setSearch('')
+          if (opening && !clubsLoaded) {
+            getExploreClubs({ pageSize: 100 })
+              .then(r => { setClubs(r.data); setClubsLoaded(true) })
+              .catch(() => {})
+          }
+        }}
         style={{
           display: 'flex', alignItems: 'center', gap: 5,
           height: 28, padding: '0 10px', borderRadius: 6,
@@ -200,10 +202,8 @@ export default function ClubLandingPage() {
 
   return (
     <div className="portal-page" style={{ '--p': theme.primaryColor, '--a': theme.accentColor } as React.CSSProperties}>
-      <PublicHeader />
-
       {/* Sub-nav bar */}
-      <div className="sticky top-0 z-30 bg-white shadow-none" style={{ borderBottom: '2px solid #003087' }}>
+      <div className="sticky top-0 z-40 bg-white" style={{ borderBottom: '2px solid #003087' }}>
         <div className="max-w-5xl mx-auto px-6 h-11 flex items-center gap-3 justify-between">
           {/* Left: back + switcher */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -253,7 +253,6 @@ export default function ClubLandingPage() {
 function LandingPageSkeleton() {
   return (
     <div className="portal-page">
-      <PublicHeader />
       <div className="animate-pulse">
         <div className="h-[520px]" style={{ backgroundColor: '#002D6B', borderBottom: '4px solid #003087' }} />
         <div style={{ borderBottom: '4px solid #003087' }}>
@@ -284,7 +283,6 @@ function LandingPageSkeleton() {
 function LandingPageError({ message }: { message: string }) {
   return (
     <div className="portal-page">
-      <PublicHeader />
       <div className="min-h-[60vh] flex flex-col items-center justify-center text-center px-6">
         <div
           className="w-20 h-20 flex items-center justify-center text-3xl mb-6"

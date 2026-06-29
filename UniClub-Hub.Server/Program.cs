@@ -144,6 +144,13 @@ builder.Services.AddPortalServices();
 
 var app = builder.Build();
 
+// Apply pending EF Core migrations on startup
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<UniClubDbContext>();
+    await db.Database.MigrateAsync();
+}
+
 if (app.Environment.IsDevelopment())
 {
     await UniClub_Hub.Server.Data.DbSeeder.SeedAsync(app.Services);

@@ -32,9 +32,11 @@ namespace UniClub_Hub.Membership.Services.Implements
                 var template = pref.InAppTemplate ?? GetDefaultInAppTemplate(triggerKey, pref.RecipientRole);
                 var message = ApplyTemplate(template, context);
                 var title = GetTitle(triggerKey);
+                var link = GetLink(triggerKey, pref.RecipientRole, clubId);
 
+                var notifType = GetNotificationType(triggerKey);
                 foreach (var uid in userIds)
-                    await _notifications.SendAsync(uid, title, message, NotificationType.System);
+                    await _notifications.SendAsync(uid, title, message, notifType, link);
             }
         }
 
@@ -128,6 +130,30 @@ namespace UniClub_Hub.Membership.Services.Implements
         private static string GetTitle(string triggerKey) =>
             NotificationTriggers.Meta.TryGetValue(triggerKey, out var meta) ? meta.Label : "Thông báo";
 
+        private static string? GetLink(string triggerKey, string recipientRole, int? clubId)
+        {
+            if (!clubId.HasValue) return null;
+            var cid = clubId.Value;
+            return triggerKey switch
+            {
+                NotificationTriggers.ApplicationSubmitted => $"/clubs/{cid}/manage/applications",
+                NotificationTriggers.ApplicationInterview => $"/clubs/{cid}",
+                NotificationTriggers.ApplicationAccepted  => $"/clubs/{cid}",
+                NotificationTriggers.ApplicationRejected  => $"/clubs/{cid}",
+                NotificationTriggers.ResignationSubmitted => $"/clubs/{cid}/manage/resignations",
+                NotificationTriggers.ResignationReviewed  => $"/clubs/{cid}",
+                NotificationTriggers.TaskAssigned         => $"/clubs/{cid}/operations",
+                NotificationTriggers.TaskDeadlineSoon     => $"/clubs/{cid}/operations",
+                NotificationTriggers.TaskStatusChanged    => $"/clubs/{cid}/operations",
+                NotificationTriggers.EventCreated         => $"/clubs/{cid}/manage/events",
+                NotificationTriggers.EventReminder        => $"/clubs/{cid}/manage/events",
+                NotificationTriggers.MemberAdded          => $"/clubs/{cid}",
+                NotificationTriggers.MemberRoleChanged    => $"/clubs/{cid}",
+                NotificationTriggers.MemberRemoved        => $"/clubs/{cid}",
+                _ => null
+            };
+        }
+
         private static string GetDefaultInAppTemplate(string triggerKey, string recipientRole) => triggerKey switch
         {
             NotificationTriggers.ApplicationSubmitted => "Có đơn đăng ký mới từ {{userName}} vào {{clubName}}.",
@@ -146,6 +172,23 @@ namespace UniClub_Hub.Membership.Services.Implements
             NotificationTriggers.EventReminder        => "Nhắc lịch: sự kiện '{{eventName}}' diễn ra vào {{eventDate}}.",
             NotificationTriggers.SystemAnnouncement   => "{{message}}",
             _ => "Bạn có thông báo mới.",
+        };
+
+        private static NotificationType GetNotificationType(string triggerKey) => triggerKey switch
+        {
+            NotificationTriggers.ApplicationSubmitted or
+            NotificationTriggers.ApplicationInterview or
+            NotificationTriggers.ApplicationAccepted  or
+            NotificationTriggers.ApplicationRejected  => NotificationType.Application,
+
+            NotificationTriggers.TaskAssigned         or
+            NotificationTriggers.TaskDeadlineSoon     or
+            NotificationTriggers.TaskStatusChanged    => NotificationType.Task,
+
+            NotificationTriggers.EventCreated         or
+            NotificationTriggers.EventReminder        => NotificationType.Event,
+
+            _ => NotificationType.System,
         };
     }
 }

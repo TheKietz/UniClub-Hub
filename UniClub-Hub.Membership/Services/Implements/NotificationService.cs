@@ -17,7 +17,7 @@ namespace UniClub_Hub.Membership.Services.Implements
             _db = db;
         }
 
-        public async Task SendAsync(string userId, string title, string message, NotificationType type = NotificationType.System)
+        public async Task SendAsync(string userId, string title, string message, NotificationType type = NotificationType.System, string? link = null)
         {
             _db.Notifications.Add(new Notification
             {
@@ -25,6 +25,7 @@ namespace UniClub_Hub.Membership.Services.Implements
                 Title = title,
                 Message = message,
                 Type = type,
+                Link = link,
                 CreatedAt = DateTime.UtcNow
             });
             await _db.SaveChangesAsync();
@@ -48,6 +49,7 @@ namespace UniClub_Hub.Membership.Services.Implements
                     Message = n.Message,
                     Type = n.Type,
                     IsRead = n.IsRead,
+                    Link = n.Link,
                     CreatedAt = n.CreatedAt
                 })
                 .ToListAsync();

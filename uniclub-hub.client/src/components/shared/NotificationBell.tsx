@@ -2,6 +2,9 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Bell, Star } from 'lucide-react'
 import api from '@/lib/axiosInstance'
+import { useAuth } from '@/contexts/AuthContext'
+import { CLUB_ROLES, MEMBERSHIP_STATUS } from '@/types/auth'
+import type { UserMembership } from '@/types/auth'
 
 interface Notif {
   id: number
@@ -9,6 +12,7 @@ interface Notif {
   message: string
   type: string
   isRead: boolean
+  link?: string
   createdAt: string
 }
 
@@ -33,8 +37,21 @@ function notificationColor(type: string) {
   return TYPE_COLORS[type] ?? '#4f46e5'
 }
 
+function deriveLink(type: string, memberships: UserMembership[]): string | null {
+  const adminMembership = memberships.find(
+    m => (m.clubRole === CLUB_ROLES.CLUB_ADMIN || m.clubRole === CLUB_ROLES.DEPT_LEAD)
+      && (m.status === MEMBERSHIP_STATUS.ACTIVE || m.status === MEMBERSHIP_STATUS.PROBATION)
+  )
+  const clubId = adminMembership?.clubId
+  if (type === 'Application') return clubId ? `/clubs/${clubId}/manage/applications` : '/dashboard'
+  if (type === 'Task') return clubId ? `/clubs/${clubId}/operations` : '/dashboard'
+  if (type === 'Event') return clubId ? `/clubs/${clubId}/manage/events` : '/dashboard'
+  return null
+}
+
 export default function NotificationBell() {
   const navigate = useNavigate()
+  const { user } = useAuth()
   const [open, setOpen] = useState(false)
   const [items, setItems] = useState<Notif[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
@@ -180,7 +197,11 @@ export default function NotificationBell() {
             ) : items.length === 0 ? (
               <p style={{ textAlign: 'center', fontSize: 14, color: '#918c99', padding: '38px 16px', margin: 0 }}>Không có thông báo nào</p>
             ) : items.map(n => (
-              <div key={n.id} onClick={() => !n.isRead && markRead(n.id)}
+              <div key={n.id} onClick={async () => {
+                  if (!n.isRead) await markRead(n.id)
+                  const link = n.link ?? deriveLink(n.type, user?.memberships ?? [])
+                  if (link) { setOpen(false); navigate(link) }
+                }}
                 style={{ padding: '12px 18px', borderBottom: '1px solid #e8e3d6', cursor: 'pointer', background: '#f7f7fb', transition: 'background .1s' }}
                 onMouseEnter={e => (e.currentTarget.style.background = '#f2f1f7')}
                 onMouseLeave={e => (e.currentTarget.style.background = '#f7f7fb')}>

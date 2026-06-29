@@ -29,7 +29,7 @@ export default function ClubDetailPage() {
   const { clubId } = useParams<{ clubId: string }>()
   const id = Number(clubId)
   const navigate = useNavigate()
-  const { user, isAuthenticated } = useAuth()
+  const { user, isAuthenticated, refreshUser } = useAuth()
 
   const [club, setClub] = useState<ClubDetail | null>(null)
   const [departments, setDepartments] = useState<DepartmentItem[]>([])
@@ -56,6 +56,13 @@ export default function ClubDetailPage() {
   const membership = user?.memberships.find(m => m.clubId === id)
   const isMember = membership && (membership.status === MEMBERSHIP_STATUS.ACTIVE || membership.status === MEMBERSHIP_STATUS.PROBATION)
   const isLeader = membership?.clubRole === CLUB_ROLES.CLUB_ADMIN || membership?.clubRole === CLUB_ROLES.DEPT_LEAD
+
+  // Nếu đơn đã Accepted nhưng auth context chưa có membership → refresh để lấy trạng thái mới nhất
+  useEffect(() => {
+    if (isAuthenticated && !isMember && application?.status === 'Accepted') {
+      refreshUser()
+    }
+  }, [application?.status])
 
   // Load đơn từ chức đang chờ (nếu là leader)
   useEffect(() => {
@@ -334,7 +341,7 @@ export default function ClubDetailPage() {
                       )}
                     </div>
                   </div>
-                ) : application && !submitted ? (
+                ) : application && !submitted && (application.status === 'Pending' || application.status === 'Interview' || application.status === 'Reviewing') ? (
                   (() => {
                     const s = APP_STATUS[application.status]
                     const Icon = s?.icon ?? Clock
@@ -354,6 +361,41 @@ export default function ClubDetailPage() {
                             <p className="text-xs font-medium text-indigo-500 mb-1">Phản hồi từ CLB</p>
                             <p className="text-sm text-indigo-900 whitespace-pre-wrap">{application.reviewNote}</p>
                           </div>
+                        )}
+                      </div>
+                    )
+                  })()
+                ) : application && !submitted && application.status === 'Rejected' ? (
+                  (() => {
+                    const rejectedAt = application.reviewedAt ? new Date(application.reviewedAt) : new Date(application.appliedAt)
+                    const canReapply = Date.now() - rejectedAt.getTime() >= 24 * 60 * 60 * 1000
+                    const msLeft = 24 * 60 * 60 * 1000 - (Date.now() - rejectedAt.getTime())
+                    const hoursLeft = Math.ceil(msLeft / (60 * 60 * 1000))
+                    return (
+                      <div className="text-center py-2 space-y-2">
+                        <div className="w-10 h-10 rounded-full flex items-center justify-center mx-auto" style={{ background: '#fee2e2' }}>
+                          <XCircle size={22} style={{ color: '#dc2626' }} />
+                        </div>
+                        <p className="font-semibold text-gray-900 text-sm">Đơn đã bị từ chối</p>
+                        <p className="text-xs text-gray-400">Nộp {new Date(application.appliedAt).toLocaleDateString('vi-VN')}</p>
+                        {application.reviewNote && (
+                          <div className="rounded-lg px-3 py-2.5 text-left" style={{ background: '#fff1f2', border: '1px solid #fecaca' }}>
+                            <p className="text-xs font-medium mb-1" style={{ color: '#dc2626' }}>Lý do từ CLB</p>
+                            <p className="text-sm whitespace-pre-wrap" style={{ color: '#7f1d1d' }}>{application.reviewNote}</p>
+                          </div>
+                        )}
+                        {canReapply ? (
+                          <button
+                            onClick={() => { setApplication(null); setApplyOpen(true) }}
+                            className="w-full py-2.5 rounded-xl font-bold text-sm text-white transition-all active:translate-y-0.5"
+                            style={{ background: '#C8102E', border: '2px solid #8B0000', boxShadow: '0 3px 0 #8B0000' }}
+                          >
+                            Đăng ký lại
+                          </button>
+                        ) : (
+                          <p className="text-xs text-gray-400">
+                            Có thể đăng ký lại sau <span className="font-semibold text-gray-600">{hoursLeft} giờ</span>
+                          </p>
                         )}
                       </div>
                     )
@@ -380,106 +422,16 @@ export default function ClubDetailPage() {
                 ) : club.status !== 'Active' ? (
                   <p className="text-center text-sm text-gray-400 py-2">CLB hiện không nhận thành viên mới.</p>
                 ) : (
-                  <form onSubmit={handleSubmit} className="space-y-3">
-                    {schema && schema.fields.length > 0 ? (
-                      schema.fields.map(f => (
-                        <div key={f.id} className="space-y-1.5">
-                          <Label className="text-xs text-gray-600">
-                            {f.label}{f.required && <span className="text-red-500 ml-0.5">*</span>}
-                          </Label>
-                          {f.type === 'textarea' ? (
-                            <textarea rows={3} value={answers[f.id] ?? ''}
-                              onChange={e => setAnswers(p => ({ ...p, [f.id]: e.target.value }))}
-                              className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-                          ) : f.type === 'select' ? (
-                            <FilterSelect
-                              value={answers[f.id] ?? ''}
-                              onChange={value => setAnswers(p => ({ ...p, [f.id]: value }))}
-                              options={[
-                                { value: '', label: '— Chọn —' },
-                                ...(f.options ?? []).map(o => ({ value: o, label: o })),
-                              ]}
-                            />
-                          ) : f.type === 'file' ? (
-                            <div>
-                              <label className={`flex items-center gap-2 w-full border rounded-lg px-3 py-2 text-sm cursor-pointer transition-colors ${
-                                fileAnswers[f.id] ? 'border-indigo-400 bg-indigo-50' : 'border-input bg-background hover:bg-gray-50'
-                              }`}>
-                                <Paperclip size={14} className="text-gray-400 flex-shrink-0" />
-                                <span className="flex-1 truncate text-gray-600">
-                                  {fileAnswers[f.id]?.name ?? 'Chọn file...'}
-                                </span>
-                                {fileAnswers[f.id] && (
-                                  <button type="button" onClick={e => { e.preventDefault(); setFileAnswers(p => ({ ...p, [f.id]: null })) }}
-                                    className="text-gray-400 hover:text-red-500 flex-shrink-0">
-                                    <X size={13} />
-                                  </button>
-                                )}
-                                <input type="file" className="hidden"
-                                  accept={f.accept}
-                                  onChange={e => {
-                                    const file = e.target.files?.[0] ?? null
-                                    setFileAnswers(p => ({ ...p, [f.id]: file }))
-                                    e.target.value = ''
-                                  }} />
-                              </label>
-                              {f.accept && (
-                                <p className="text-xs text-gray-400 mt-1">Định dạng chấp nhận: {f.accept}</p>
-                              )}
-                            </div>
-                          ) : (
-                            <Input value={answers[f.id] ?? ''}
-                              onChange={e => setAnswers(p => ({ ...p, [f.id]: e.target.value }))} />
-                          )}
-                        </div>
-                      ))
-                    ) : (
-                      <div className="space-y-1.5">
-                        <Label className="text-xs text-gray-600">Lý do muốn tham gia</Label>
-                        <textarea rows={4} value={answers['note'] ?? ''}
-                          onChange={e => setAnswers(p => ({ ...p, note: e.target.value }))}
-                          placeholder="Chia sẻ lý do bạn muốn tham gia CLB..."
-                          className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-                      </div>
-                    )}
-                    {fieldSchema.length > 0 && (
-                      <div className="border-t border-gray-100 pt-3 mt-1 space-y-3">
-                        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                          Thông tin hồ sơ thành viên
-                        </p>
-                        {fieldSchema.map(f => (
-                          <div key={f.id} className="space-y-1.5">
-                            <Label className="text-xs text-gray-600">
-                              {f.label}{f.required && <span className="text-red-500 ml-0.5">*</span>}
-                            </Label>
-                            {f.type === 'textarea' ? (
-                              <textarea rows={3} value={memberFieldAnswers[f.id] ?? ''}
-                                onChange={e => setMemberFieldAnswers(p => ({ ...p, [f.id]: e.target.value }))}
-                                className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-                            ) : f.type === 'select' ? (
-                              <FilterSelect
-                                value={memberFieldAnswers[f.id] ?? ''}
-                                onChange={value => setMemberFieldAnswers(p => ({ ...p, [f.id]: value }))}
-                                options={[
-                                  { value: '', label: '— Chọn —' },
-                                  ...(f.options ?? []).map(o => ({ value: o, label: o })),
-                                ]}
-                              />
-                            ) : (
-                              <Input value={memberFieldAnswers[f.id] ?? ''}
-                                onChange={e => setMemberFieldAnswers(p => ({ ...p, [f.id]: e.target.value }))} />
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    <Button type="submit" disabled={submitting}
-                      className="w-full bg-indigo-600 hover:bg-indigo-700 mt-1">
-                      {submitStatus === 'uploading' ? 'Đang tải file...'
-                        : submitStatus === 'submitting' ? 'Đang gửi...'
-                        : 'Gửi đơn đăng ký'}
-                    </Button>
-                  </form>
+                  <div className="py-2 text-center space-y-3">
+                    <p className="text-sm text-gray-500">Tham gia {club.name} và cùng nhau phát triển!</p>
+                    <button
+                      onClick={() => setApplyOpen(true)}
+                      className="w-full py-4 rounded-xl font-black text-xl text-white transition-all active:translate-y-0.5"
+                      style={{ background: '#C8102E', border: '2px solid #8B0000', boxShadow: '0 4px 0 #8B0000', letterSpacing: '-.01em' }}
+                    >
+                      Đăng ký ngay!!!
+                    </button>
+                  </div>
                 )}
               </div>
             </div>

@@ -1,8 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { CalendarDays, Check, CheckCircle2, ClipboardCheck, FileText, ListTodo, Megaphone, Star } from 'lucide-react'
 import { getNotifications, getNotificationUnreadCount, markAllNotificationsRead, markNotificationRead } from '@/components/membership/services/notificationApi'
 import type { NotificationItem, NotificationType } from '@/components/membership/services/notificationApi'
 import { LoadMoreBar } from '@/components/shared/LoadMoreBar'
+import { useAuth } from '@/contexts/AuthContext'
+import { CLUB_ROLES, MEMBERSHIP_STATUS } from '@/types/auth'
+import type { UserMembership } from '@/types/auth'
 
 type FilterKey = 'all' | 'unread' | 'application' | 'task' | 'event' | 'system'
 
@@ -60,7 +64,21 @@ function matchesFilter(item: NotificationItem, filter: FilterKey) {
   return item.type.toLowerCase() === filter
 }
 
+function deriveLink(type: NotificationType, memberships: UserMembership[]): string | null {
+  const adminMembership = memberships.find(
+    m => (m.clubRole === CLUB_ROLES.CLUB_ADMIN || m.clubRole === CLUB_ROLES.DEPT_LEAD)
+      && (m.status === MEMBERSHIP_STATUS.ACTIVE || m.status === MEMBERSHIP_STATUS.PROBATION)
+  )
+  const clubId = adminMembership?.clubId
+  if (type === 'Application') return clubId ? `/clubs/${clubId}/manage/applications` : '/dashboard'
+  if (type === 'Task') return clubId ? `/clubs/${clubId}/operations` : '/dashboard'
+  if (type === 'Event') return clubId ? `/clubs/${clubId}/manage/events` : '/dashboard'
+  return null
+}
+
 export default function NotificationsPage() {
+  const navigate = useNavigate()
+  const { user } = useAuth()
   const [items, setItems] = useState<NotificationItem[]>([])
   const [total, setTotal] = useState(0)
   const [unreadCount, setUnreadCount] = useState(0)
@@ -116,11 +134,14 @@ export default function NotificationsPage() {
     setUnreadCount(0)
   }
 
-  async function markRead(item: NotificationItem) {
-    if (item.isRead) return
-    await markNotificationRead(item.id).catch(() => {})
-    setItems(prev => prev.map(n => n.id === item.id ? { ...n, isRead: true } : n))
-    setUnreadCount(prev => Math.max(0, prev - 1))
+  async function handleNotificationClick(item: NotificationItem) {
+    if (!item.isRead) {
+      await markNotificationRead(item.id).catch(() => {})
+      setItems(prev => prev.map(n => n.id === item.id ? { ...n, isRead: true } : n))
+      setUnreadCount(prev => Math.max(0, prev - 1))
+    }
+    const link = item.link ?? deriveLink(item.type, user?.memberships ?? [])
+    if (link) navigate(link)
   }
 
   function renderGroup(label: string, groupItems: NotificationItem[]) {
@@ -142,7 +163,7 @@ export default function NotificationsPage() {
               <button
                 key={item.id}
                 type="button"
-                onClick={() => markRead(item)}
+                onClick={() => handleNotificationClick(item)}
                 style={{
                   width: '100%', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 14,
                   padding: '14px 18px', borderRadius: 16, border: D.border,

@@ -279,6 +279,7 @@ namespace UniClub_Hub.Membership.Services.Implements
                 ClubName = a.Club?.Name ?? "",
                 Status = a.Status,
                 AppliedAt = a.AppliedAt,
+                ReviewedAt = a.ReviewedAt,
                 ReviewNote = a.ReviewNote,
             };
 

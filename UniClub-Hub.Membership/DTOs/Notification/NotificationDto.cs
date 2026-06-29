@@ -9,6 +9,7 @@ namespace UniClub_Hub.Membership.DTOs.Notification
         public string Message { get; set; } = null!;
         public NotificationType Type { get; set; }
         public bool IsRead { get; set; }
+        public string? Link { get; set; }
         public DateTime CreatedAt { get; set; }
     }
 }

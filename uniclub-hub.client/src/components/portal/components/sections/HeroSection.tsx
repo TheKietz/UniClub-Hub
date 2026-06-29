@@ -19,15 +19,21 @@ export default function HeroSection({ data, style, theme }: Props) {
 function HeroDefault({ data, theme }: { data: ClubLandingData; theme: PortalTheme }) {
   const { club, landingPage } = data
 
+  const hasImage = !!landingPage.heroImage
+
   return (
-    <section className="relative min-h-[580px] flex items-end overflow-hidden border-b-4 border-black bg-black">
-      {landingPage.heroImage && (
+    <section className="relative min-h-[580px] flex items-end overflow-hidden border-b-4 border-black"
+      style={{ backgroundColor: hasImage ? '#000' : theme.primaryColor }}>
+      {hasImage && (
         <img src={landingPage.heroImage} alt={club.name}
           className="absolute inset-0 w-full h-full object-cover opacity-50" />
       )}
-      <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent" />
+      {hasImage
+        ? <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent" />
+        : <div className="absolute inset-0" style={{ background: 'linear-gradient(160deg, rgba(0,0,0,0) 40%, rgba(0,0,0,0.45) 100%)' }} />
+      }
 
-      <div className="relative z-10 max-w-5xl mx-auto w-full px-6 pb-14 pt-36">
+      <div className="relative z-10 max-w-5xl mx-auto w-full px-6 pb-14 pt-12">
         <div className="flex items-center gap-3 mb-5">
           {club.logoUrl ? (
             <img src={club.logoUrl} alt={club.name}
