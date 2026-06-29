@@ -9,14 +9,18 @@ namespace UniClub_Hub.Shared.Models
         public string AuthorId { get; set; } = null!;
         public int? DepartmentId { get; set; }
         public string Title { get; set; } = null!;
-        public string Content { get; set; } = null!; // HTML / Markdown
+        public string Content { get; set; } = null!;
         public string? ThumbnailUrl { get; set; }
         public PostCategory Category { get; set; } = PostCategory.News;
-        public bool IsPublished { get; set; } = false;
+        public PostStatus Status { get; set; } = PostStatus.Draft;
+        public string? ReviewNote { get; set; }
+        public string? ReviewerId { get; set; }
+        public DateTime? ReviewedAt { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         public Club Club { get; set; } = null!;
         public ApplicationUser Author { get; set; } = null!;
         public Department? Department { get; set; }
+        public ApplicationUser? Reviewer { get; set; }
     }
 }

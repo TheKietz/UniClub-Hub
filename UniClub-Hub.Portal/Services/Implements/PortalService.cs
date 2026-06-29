@@ -124,7 +124,7 @@ namespace UniClub_Hub.Portal.Services.Implements
 
             // Recent published posts
             var posts = await db.Posts
-                .Where(p => p.ClubId == clubId && p.IsPublished)
+                .Where(p => p.ClubId == clubId && p.Status == PostStatus.Published)
                 .OrderByDescending(p => p.CreatedAt)
                 .Take(9)
                 .Select(p => new PostPublicDto
@@ -158,7 +158,7 @@ namespace UniClub_Hub.Portal.Services.Implements
                 m.ClubId == clubId &&
                 (m.Status == MembershipStatus.Active || m.Status == MembershipStatus.Probation));
             var eventCount = await db.Events.CountAsync(e => e.ClubId == clubId && !e.IsDeleted);
-            var postCount = await db.Posts.CountAsync(p => p.ClubId == clubId && p.IsPublished);
+            var postCount = await db.Posts.CountAsync(p => p.ClubId == clubId && p.Status == PostStatus.Published);
             var deptCount = await db.Departments.CountAsync(d => d.ClubId == clubId && !d.IsDeleted);
 
             return new ClubLandingDataDto

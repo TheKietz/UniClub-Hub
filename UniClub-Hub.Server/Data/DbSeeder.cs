@@ -1559,7 +1559,7 @@ namespace UniClub_Hub.Server.Data
                         Title = "CLB Công nghệ UEF đạt giải nhất Hackathon Quốc gia 2024",
                         Content = "<p>Đội tuyển của CLB Công nghệ UEF xuất sắc đạt giải nhất tại cuộc thi Hackathon Quốc gia 2024 với giải pháp AI hỗ trợ nông nghiệp thông minh...</p>",
                         ThumbnailUrl = "https://picsum.photos/seed/tech-p1/800/450",
-                        Category = PostCategory.News, IsPublished = true,
+                        Category = PostCategory.News, Status = PostStatus.Published,
                         CreatedAt = DateTime.UtcNow.AddDays(-5),
                     },
                     new Post
@@ -1568,7 +1568,7 @@ namespace UniClub_Hub.Server.Data
                         Title = "Tổng kết Workshop Python AI — 120 sinh viên tham gia",
                         Content = "<p>Workshop lập trình AI với Python thu hút hơn 120 sinh viên từ các khoa. Các bạn được thực hành trực tiếp với dataset thực tế...</p>",
                         ThumbnailUrl = "https://picsum.photos/seed/tech-p2/800/450",
-                        Category = PostCategory.News, IsPublished = true,
+                        Category = PostCategory.News, Status = PostStatus.Published,
                         CreatedAt = DateTime.UtcNow.AddDays(-12),
                     },
                     new Post
@@ -1577,7 +1577,7 @@ namespace UniClub_Hub.Server.Data
                         Title = "Thông báo: Mở đăng ký Hackathon UEF Tech 2025",
                         Content = "<p>Hackathon UEF Tech 2025 chính thức mở đăng ký. Chủ đề năm nay: <strong>AI & Automation</strong>. Đăng ký theo nhóm 2-4 người...</p>",
                         ThumbnailUrl = "https://picsum.photos/seed/tech-p3/800/450",
-                        Category = PostCategory.Announcement, IsPublished = true,
+                        Category = PostCategory.Announcement, Status = PostStatus.Published,
                         CreatedAt = DateTime.UtcNow.AddDays(-2),
                     },
                     // FOOTBALL — 2 bài
@@ -1587,7 +1587,7 @@ namespace UniClub_Hub.Server.Data
                         Title = "UEF FC vô địch Giải Bóng đá Sinh viên TP.HCM lần III",
                         Content = "<p>Sau 90 phút kịch tính, UEF FC giành chức vô địch với tỷ số 2-1 trước đội chủ nhà UIT trong trận chung kết gay cấn...</p>",
                         ThumbnailUrl = "https://picsum.photos/seed/football-p1/800/450",
-                        Category = PostCategory.News, IsPublished = true,
+                        Category = PostCategory.News, Status = PostStatus.Published,
                         CreatedAt = DateTime.UtcNow.AddDays(-8),
                     },
                     new Post
@@ -1596,7 +1596,7 @@ namespace UniClub_Hub.Server.Data
                         Title = "Lịch tập mùa hè 2025 — Tăng cường thể lực",
                         Content = "<p>Ban huấn luyện thông báo lịch tập mùa hè với chương trình tăng cường thể lực đặc biệt. Tập luyện mỗi sáng thứ 3, 5, 7 tại sân UEF...</p>",
                         ThumbnailUrl = "https://picsum.photos/seed/football-p2/800/450",
-                        Category = PostCategory.Announcement, IsPublished = true,
+                        Category = PostCategory.Announcement, Status = PostStatus.Published,
                         CreatedAt = DateTime.UtcNow.AddDays(-3),
                     },
                     // MUSIC — 3 bài
@@ -1606,7 +1606,7 @@ namespace UniClub_Hub.Server.Data
                         Title = "UEF Music Night 2024 — Đêm nhạc cháy hết mình",
                         Content = "<p>Hơn 400 khán giả đã có mặt tại đêm nhạc UEF Music Night 2024. 22 tiết mục từ rock đến ballad, từ solo đến band...</p>",
                         ThumbnailUrl = "https://picsum.photos/seed/music-p1/800/450",
-                        Category = PostCategory.News, IsPublished = true,
+                        Category = PostCategory.News, Status = PostStatus.Published,
                         CreatedAt = DateTime.UtcNow.AddDays(-15),
                     },
                     new Post
@@ -1615,7 +1615,7 @@ namespace UniClub_Hub.Server.Data
                         Title = "Tuyển thành viên Ban Nhạc cụ & Thanh nhạc học kỳ II/2025",
                         Content = "<p>CLB Âm nhạc UEF tuyển thêm thành viên cho 2 ban: Nhạc cụ (guitar, piano, violin) và Thanh nhạc. Không yêu cầu kinh nghiệm...</p>",
                         ThumbnailUrl = "https://picsum.photos/seed/music-p2/800/450",
-                        Category = PostCategory.Announcement, IsPublished = true,
+                        Category = PostCategory.Announcement, Status = PostStatus.Published,
                         CreatedAt = DateTime.UtcNow.AddDays(-4),
                     },
                     new Post
@@ -1624,7 +1624,7 @@ namespace UniClub_Hub.Server.Data
                         Title = "Recap: Buổi jam session acoustic đầu xuân 2025",
                         Content = "<p>Buổi jam session acoustic với sự tham gia của 15 nghệ sĩ sinh viên. Không gian ấm cúng, giai điệu chân thật — một buổi chiều không thể quên...</p>",
                         ThumbnailUrl = "https://picsum.photos/seed/music-p3/800/450",
-                        Category = PostCategory.News, IsPublished = true,
+                        Category = PostCategory.News, Status = PostStatus.Published,
                         CreatedAt = DateTime.UtcNow.AddDays(-20),
                     },
                     // ENGLISH — 2 bài
@@ -1634,7 +1634,7 @@ namespace UniClub_Hub.Server.Data
                         Title = "10 bí quyết nâng band IELTS từ 5.5 lên 6.5 trong 3 tháng",
                         Content = "<p>Dựa trên kinh nghiệm của các thành viên CLB đã chinh phục IELTS 6.5+, chúng tôi tổng hợp 10 bí quyết học hiệu quả nhất...</p>",
                         ThumbnailUrl = "https://picsum.photos/seed/english-p1/800/450",
-                        Category = PostCategory.News, IsPublished = true,
+                        Category = PostCategory.News, Status = PostStatus.Published,
                         CreatedAt = DateTime.UtcNow.AddDays(-10),
                     },
                     new Post
@@ -1643,7 +1643,7 @@ namespace UniClub_Hub.Server.Data
                         Title = "Kết quả English Speaking Contest 2024 — UEF tỏa sáng",
                         Content = "<p>UEF giành 2 giải nhất và 1 giải nhì tại cuộc thi hùng biện tiếng Anh cấp trường. Chúc mừng các bạn đã đại diện xuất sắc cho CLB...</p>",
                         ThumbnailUrl = "https://picsum.photos/seed/english-p2/800/450",
-                        Category = PostCategory.News, IsPublished = true,
+                        Category = PostCategory.News, Status = PostStatus.Published,
                         CreatedAt = DateTime.UtcNow.AddDays(-30),
                     },
                     // VOLUNTEER — 3 bài
@@ -1653,7 +1653,7 @@ namespace UniClub_Hub.Server.Data
                         Title = "Mùa Hè Xanh 2024 — Hành trình 7 ngày ý nghĩa tại Kon Tum",
                         Content = "<p>Hơn 35 tình nguyện viên UEF đã đến với Kon Tum, xây dựng 2 phòng học mới, tặng 500 suất quà và tổ chức lớp học hè cho 120 em nhỏ...</p>",
                         ThumbnailUrl = "https://picsum.photos/seed/volunteer-p1/800/450",
-                        Category = PostCategory.News, IsPublished = true,
+                        Category = PostCategory.News, Status = PostStatus.Published,
                         CreatedAt = DateTime.UtcNow.AddDays(-60),
                     },
                     new Post
@@ -1662,7 +1662,7 @@ namespace UniClub_Hub.Server.Data
                         Title = "Chiến dịch \"Xanh hóa Trường học\" — Trồng 200 cây xanh tại UEF",
                         Content = "<p>Nhân ngày Môi trường Thế giới 5/6, CLB Tình nguyện UEF phối hợp với Ban Quản lý cơ sở vật chất trồng 200 cây xanh trên khuôn viên trường...</p>",
                         ThumbnailUrl = "https://picsum.photos/seed/volunteer-p2/800/450",
-                        Category = PostCategory.News, IsPublished = true,
+                        Category = PostCategory.News, Status = PostStatus.Published,
                         CreatedAt = DateTime.UtcNow.AddDays(-25),
                     },
                     new Post
@@ -1671,7 +1671,7 @@ namespace UniClub_Hub.Server.Data
                         Title = "Đăng ký tham gia Mùa Hè Xanh 2025 — Hạn cuối 15/6",
                         Content = "<p>Chiến dịch Mùa Hè Xanh 2025 chính thức mở đăng ký. Năm nay CLB hướng đến Đắk Lắk — vùng đất giàu văn hóa nhưng còn nhiều khó khăn...</p>",
                         ThumbnailUrl = "https://picsum.photos/seed/volunteer-p3/800/450",
-                        Category = PostCategory.Announcement, IsPublished = true,
+                        Category = PostCategory.Announcement, Status = PostStatus.Published,
                         CreatedAt = DateTime.UtcNow.AddDays(-6),
                     }
                 );

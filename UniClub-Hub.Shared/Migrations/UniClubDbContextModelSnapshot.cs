@@ -1510,8 +1510,17 @@ namespace UniClub_Hub.Shared.Migrations
                     b.Property<int?>("DepartmentId")
                         .HasColumnType("integer");
 
-                    b.Property<bool>("IsPublished")
-                        .HasColumnType("boolean");
+                    b.Property<string>("ReviewNote")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("ReviewedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ReviewerId")
+                        .HasColumnType("text");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
 
                     b.Property<string>("ThumbnailUrl")
                         .HasColumnType("text");
@@ -1528,6 +1537,8 @@ namespace UniClub_Hub.Shared.Migrations
                     b.HasIndex("ClubId");
 
                     b.HasIndex("DepartmentId");
+
+                    b.HasIndex("ReviewerId");
 
                     b.ToTable("Posts");
                 });
@@ -2379,11 +2390,17 @@ namespace UniClub_Hub.Shared.Migrations
                         .WithMany("Posts")
                         .HasForeignKey("DepartmentId");
 
+                    b.HasOne("UniClub_Hub.Shared.Models.ApplicationUser", "Reviewer")
+                        .WithMany()
+                        .HasForeignKey("ReviewerId");
+
                     b.Navigation("Author");
 
                     b.Navigation("Club");
 
                     b.Navigation("Department");
+
+                    b.Navigation("Reviewer");
                 });
 
             modelBuilder.Entity("UniClub_Hub.Shared.Models.RefreshToken", b =>

@@ -10,8 +10,12 @@ namespace UniClub_Hub.Membership.DTOs.Post
         public string Content { get; set; } = "";
         public string? ThumbnailUrl { get; set; }
         public string Category { get; set; } = "";
-        public bool IsPublished { get; set; }
+        public string Status { get; set; } = "Draft";
+        public string? ReviewNote { get; set; }
+        public string? ReviewerName { get; set; }
+        public DateTime? ReviewedAt { get; set; }
         public DateTime CreatedAt { get; set; }
+        public string AuthorId { get; set; } = "";
         public string AuthorName { get; set; } = "";
         public int? DepartmentId { get; set; }
         public string? DepartmentName { get; set; }
@@ -30,7 +34,7 @@ namespace UniClub_Hub.Membership.DTOs.Post
         public string Title { get; set; } = "";
         public string Content { get; set; } = "";
         public PostCategory Category { get; set; } = PostCategory.News;
-        public bool IsPublished { get; set; } = false;
+        public bool PublishDirectly { get; set; } = false;
         public int? DepartmentId { get; set; }
     }
 
@@ -39,7 +43,11 @@ namespace UniClub_Hub.Membership.DTOs.Post
         public string Title { get; set; } = "";
         public string Content { get; set; } = "";
         public PostCategory Category { get; set; } = PostCategory.News;
-        public bool IsPublished { get; set; } = false;
         public int? DepartmentId { get; set; }
+    }
+
+    public class ReviewPostRequest
+    {
+        public string? ReviewNote { get; set; }
     }
 }
