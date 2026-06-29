@@ -88,21 +88,11 @@ function clubNav(id: string, role?: string, isSuperAdmin = false, perms: ClubPer
   }
 
   if (!isSuperAdmin && role === CLUB_ROLES.DEPT_LEAD) {
-    const items: NavItem[] = []
-    if (perms.positions) items.push(positionsItem)
-    if (perms.members) items.push({ to: `/clubs/${id}/manage/members`, icon: '◐', label: 'Thành viên' })
-    if (perms.applications) items.push({ to: `/clubs/${id}/manage/applications`, icon: '✦', label: 'Đơn ứng tuyển' })
-    if (perms.departments) items.push({ to: `/clubs/${id}/manage/departments`, icon: '▦', label: 'Ban bộ phận' })
-    if (perms.kpiView) items.push({ to: `/clubs/${id}/manage/kpi`, icon: '▥', label: 'KPI thành viên', end: true })
-    if (perms.kpiManage) items.push({ to: `/clubs/${id}/manage/kpi/config`, icon: '◫', label: 'Cấu hình KPI' })
-    if (perms.orgChart) items.push({ to: `/clubs/${id}/manage/orgchart`, icon: '⊹', label: 'Sơ đồ tổ chức' })
-    if (perms.pipeline) items.push({ to: `/clubs/${id}/manage/pipeline`, icon: '↗', label: 'Quy trình tuyển' })
-    if (perms.form) items.push({ to: `/clubs/${id}/manage/form`, icon: '✦', label: 'Form đăng ký' })
-    if (perms.resignations) items.push({ to: `/clubs/${id}/manage/resignations`, icon: '⊖', label: 'Đơn từ chức' })
-    if (perms.notifications) items.push({ to: `/clubs/${id}/manage/notifications`, icon: '◑', label: 'Cài đặt thông báo' })
-    if (perms.settings) items.push({ to: `/clubs/${id}/manage/settings`, icon: '◉', label: 'Cài đặt CLB' })
-    if (perms.auditLog) items.push({ to: `/clubs/${id}/manage/audit-log`, icon: '◎', label: 'Lịch sử thay đổi' })
-    return items
+    return [
+      { to: `/clubs/${id}/manage/members`, icon: '◐', label: 'Thành viên' },
+      { to: `/clubs/${id}/manage/posts`, icon: '✦', label: 'Bài viết & Tin tức' },
+      { to: `/clubs/${id}/manage/gallery`, icon: '◈', label: 'Thư viện ảnh & Video' },
+    ]
   }
 
   const positionItems = perms.positions ? [{ ...positionsItem, dividerAfter: true }] : []
@@ -237,7 +227,7 @@ export default function DashboardSidebar({ mode, clubId }: Props) {
     if (clubPerms.positions) return `/clubs/${club.clubId}/manage/positions`
     if (clubPerms.members) return `/clubs/${club.clubId}/manage/members`
     if (clubPerms.applications) return `/clubs/${club.clubId}/manage/applications`
-    return `/clubs/${club.clubId}/manage/positions`
+    return `/clubs/${club.clubId}/manage/posts`
   }
 
   function handleLogout() {
@@ -320,7 +310,7 @@ export default function DashboardSidebar({ mode, clubId }: Props) {
         <div style={{ display: 'flex', gap: 2, padding: 3, borderRadius: 10, background: 'rgba(255,255,255,.06)' }}>
           {([['member', 'SV'], ['admin', 'Admin'], ['club', 'CLB']] as [Mode, string][])
             .filter(([m]) => m !== 'admin' || isSuperAdmin)
-            .filter(([m]) => m !== 'club' || adminClubs.length > 0)
+            .filter(([m]) => m !== 'club' || manageableClubs.length > 0)
             .map(([m, label]) => (
               <button key={m} onClick={() => switchMode(m)} style={{
                 flex: 1, padding: '6px 0', borderRadius: 8, border: 'none', cursor: 'pointer',

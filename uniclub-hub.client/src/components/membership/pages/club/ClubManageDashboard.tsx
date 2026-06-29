@@ -107,8 +107,8 @@ export default function ClubManageDashboard() {
         const allPosts = postsRes.data
         setMedia({
           totalPosts: postsRes.totalCount,
-          publishedPosts: allPosts.filter(p => p.isPublished).length,
-          draftPosts: allPosts.filter(p => !p.isPublished).length,
+          publishedPosts: allPosts.filter(p => p.status === 'Published').length,
+          draftPosts: allPosts.filter(p => p.status === 'Draft').length,
           recentPosts: allPosts.slice(0, 5),
           imageCount: galleryItems.filter(g => g.mediaType === 'Image').length,
           videoCount: galleryItems.filter(g => g.mediaType === 'Video').length,
@@ -466,10 +466,10 @@ export default function ClubManageDashboard() {
                     </div>
                     <span style={{
                       fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 4, flexShrink: 0,
-                      background: post.isPublished ? '#d1fae5' : '#f3f4f6',
-                      color: post.isPublished ? '#065f46' : '#6b7280',
+                      background: post.status === 'Published' ? '#d1fae5' : '#f3f4f6',
+                      color: post.status === 'Published' ? '#065f46' : '#6b7280',
                     }}>
-                      {post.isPublished ? '● Đã đăng' : '○ Nháp'}
+                      {post.status === 'Published' ? '● Đã đăng' : '○ Nháp'}
                     </span>
                   </div>
                 ))}

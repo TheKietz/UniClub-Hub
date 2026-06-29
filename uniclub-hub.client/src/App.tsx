@@ -350,6 +350,20 @@ export default function App() {
                 </Route>
               </Route>
 
+              {/* Posts, Gallery, Members (read-only), Analytics — CLUB_ADMIN + DEPT_LEAD */}
+              <Route
+                element={
+                  <ClubProtectedRoute requiredRoles={[CLUB_ROLES.CLUB_ADMIN, CLUB_ROLES.DEPT_LEAD]} />
+                }
+              >
+                <Route element={<ClubManageLayout />}>
+                  <Route path="manage/posts" element={<PostsManagePage />} />
+                  <Route path="manage/gallery" element={<GalleryManagePage />} />
+                  <Route path="manage/members" element={<MembersPage />} />
+                  <Route path="manage/analytics" element={<AnalyticsPage />} />
+                </Route>
+              </Route>
+
               {/* Dashboard & operations — chỉ CLUB_ADMIN */}
               <Route
                 element={
@@ -369,9 +383,6 @@ export default function App() {
                   <Route path="manage/notifications" element={<ClubNotificationPreferencePage />} />
                   <Route path="manage/resignations" element={<ResignationPage />} />
                   <Route path="manage/settings" element={<ClubSettingsPage />} />
-                  <Route path="manage/posts" element={<PostsManagePage />} />
-                  <Route path="manage/gallery" element={<GalleryManagePage />} />
-                  <Route path="manage/analytics" element={<AnalyticsPage />} />
                   <Route
                     path="manage/landing-page"
                     element={<LandingPageManagePage />}
