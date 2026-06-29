@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useAuth } from '@/contexts/AuthContext'
+import { useAuth } from '@/hooks/useAuth'
 import api from '@/lib/axiosInstance'
 import { C } from '@/components/public/publicComponents'
 import MajorSelect from '@/components/shared/MajorSelect'
 import { FilterSelect } from '@/components/shared/FilterSelect'
 import { toast } from 'sonner'
 import AuthShell from './AuthShell'
+import { getApiErrorMessage } from '@/lib/apiError'
 
 type F = {
   fullName: string
@@ -89,8 +90,8 @@ export default function CompleteProfilePage() {
       })
       await refreshUser()
       navigate('/dashboard', { replace: true })
-    } catch (err: any) {
-      toast.error(err.response?.data?.message ?? 'Cập nhật thất bại. Vui lòng thử lại.')
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'Cập nhật thất bại. Vui lòng thử lại.'))
     } finally {
       setLoading(false)
     }

@@ -47,9 +47,10 @@ export default function TaskCard({ task, onEdit }: Props) {
     d.toLocaleDateString("vi-VN", { day: "2-digit", month: "short" });
 
   const statusStyle: Record<string, { bg: string; color: string; label: string }> = {
-    Todo:  { bg: '#F5F5F5', color: '#0A0A0A', label: 'Cần làm' },
-    Doing: { bg: '#3B4EFF', color: 'white',   label: 'Đang làm' },
-    Done:  { bg: '#00C853', color: 'white',   label: 'Hoàn thành' },
+    Todo:      { bg: '#F5F5F5', color: '#0A0A0A', label: 'Cần làm' },
+    Doing:     { bg: '#3B4EFF', color: 'white',   label: 'Đang làm' },
+    Reviewing: { bg: '#8B5CF6', color: 'white',   label: 'Reviewing' },
+    Done:      { bg: '#00C853', color: 'white',   label: 'Hoàn thành' },
   };
   const ss = statusStyle[task.status] ?? statusStyle.Todo;
 

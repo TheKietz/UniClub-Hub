@@ -13,6 +13,9 @@ namespace UniClub_Hub.Operations.Services.Interfaces
             string title, string? description,
             TaskPriority priority, DateTimeOffset? deadline,
             string actorId, IFormFileCollection? files);
+        Task<AssignmentDto> UpdateAsync(int id, string title, string? description, TaskPriority priority, DateTimeOffset? deadline);
+        Task<AssignmentDto> AddAttachmentsAsync(int id, IFormFileCollection files);
+        Task<AssignmentDto> RemoveAttachmentAsync(int id, string url);
         Task<AssignmentDto> UpdateStatusAsync(int id, string status);
         Task DeleteAsync(int id);
     }

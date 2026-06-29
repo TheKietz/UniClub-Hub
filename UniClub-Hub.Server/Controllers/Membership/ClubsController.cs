@@ -5,8 +5,8 @@ using Microsoft.AspNetCore.Mvc;
 using UniClub_Hub.Membership.DTOs.Club;
 using UniClub_Hub.Membership.Services.Interfaces;
 using UniClub_Hub.Shared.Common;
+using UniClub_Hub.Shared.Common.Storage;
 using UniClub_Hub.Shared.Constants;
-using UniClub_Hub.Shared.Data;
 
 namespace UniClub_Hub.Server.Controllers.Membership
 {
@@ -15,14 +15,17 @@ namespace UniClub_Hub.Server.Controllers.Membership
     public class ClubsController : ControllerBase
     {
         private readonly IClubService _clubService;
-        private readonly UniClubDbContext _db;
         private readonly IClubPermissionService _permissions;
+        private readonly IFileStorageService _storage;
 
-        public ClubsController(IClubService clubService, UniClubDbContext db, IClubPermissionService permissions)
+        public ClubsController(
+            IClubService clubService,
+            IClubPermissionService permissions,
+            IFileStorageService storage)
         {
             _clubService = clubService;
-            _db = db;
             _permissions = permissions;
+            _storage = storage;
         }
 
         [HttpGet]
@@ -53,15 +56,17 @@ namespace UniClub_Hub.Server.Controllers.Membership
         [HttpGet("{id}/form-schema")]
         public async Task<IActionResult> GetFormSchema(int id)
         {
-            var club = await _db.Clubs.FindAsync(id);
-            if (club == null)
-                return NotFound(ApiResponse<object>.Fail("Không tìm thấy CLB."));
-
-            if (string.IsNullOrEmpty(club.FormSchema))
-                return Ok(ApiResponse<object?>.Ok(null, "CLB chưa cấu hình form."));
-
-            var schema = JsonSerializer.Deserialize<JsonElement>(club.FormSchema);
-            return Ok(ApiResponse<JsonElement>.Ok(schema));
+            try
+            {
+                var schema = await _clubService.GetFormSchemaAsync(id);
+                return schema.HasValue
+                    ? Ok(ApiResponse<JsonElement>.Ok(schema.Value))
+                    : Ok(ApiResponse<object?>.Ok(null, "CLB chưa cấu hình form."));
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(ApiResponse<object>.Fail(ex.Message));
+            }
         }
 
         // Cập nhật schema form đăng ký — CLUB_ADMIN hoặc SUPER_ADMIN
@@ -69,20 +74,57 @@ namespace UniClub_Hub.Server.Controllers.Membership
         [Authorize]
         public async Task<IActionResult> UpdateFormSchema(int id, [FromBody] JsonElement schema)
         {
-            var club = await _db.Clubs.FindAsync(id);
-            if (club == null)
-                return NotFound(ApiResponse<object>.Fail("Không tìm thấy CLB."));
-
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
             var isSuperAdmin = User.IsInRole("SUPER_ADMIN");
 
-            if (!await _permissions.HasPermissionAsync(id, userId, isSuperAdmin, ClubPermissions.RecruitmentFormManage))
-                return Forbid();
+            try
+            {
+                await _clubService.UpdateFormSchemaAsync(id, schema, userId, isSuperAdmin);
+                return Ok(ApiResponse<object?>.Ok(null, "Cập nhật form schema thành công."));
+            }
+            catch (UnauthorizedAccessException) { return Forbid(); }
+            catch (KeyNotFoundException ex) { return NotFound(ApiResponse<object>.Fail(ex.Message)); }
+        }
 
-            club.FormSchema = JsonSerializer.Serialize(schema);
-            await _db.SaveChangesAsync();
+        // Cập nhật thông tin hiển thị của CLB — club-scope
+        [HttpPatch("{id}/settings")]
+        [Authorize]
+        public async Task<IActionResult> UpdateSettings(int id, [FromBody] UpdateClubSettingsDto dto)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+            var isSuperAdmin = User.IsInRole("SUPER_ADMIN");
 
-            return Ok(ApiResponse<object?>.Ok(null, "Cập nhật form schema thành công."));
+            try
+            {
+                var result = await _clubService.UpdateSettingsAsync(id, dto, userId, isSuperAdmin);
+                return Ok(ApiResponse<ClubDto>.Ok(result, "Cập nhật cài đặt CLB thành công."));
+            }
+            catch (UnauthorizedAccessException) { return Forbid(); }
+            catch (KeyNotFoundException ex) { return NotFound(ApiResponse<object>.Fail(ex.Message)); }
+        }
+
+        // Upload logo CLB — club-scope. LogoUrl được lưu ở bước PATCH /settings.
+        [HttpPost("{id}/logo")]
+        [Authorize]
+        public async Task<IActionResult> UploadLogo(int id, IFormFile file)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+            var isSuperAdmin = User.IsInRole("SUPER_ADMIN");
+
+            try
+            {
+                await _permissions.EnsureHasPermissionAsync(
+                    id,
+                    userId,
+                    isSuperAdmin,
+                    ClubPermissions.ClubSettingsManage);
+
+                var logoUrl = await _storage.UploadAsync(file, "clubs/logos");
+                return Ok(ApiResponse<object>.Ok(new { logoUrl }, "Upload logo thành công."));
+            }
+            catch (UnauthorizedAccessException) { return Forbid(); }
+            catch (KeyNotFoundException ex) { return NotFound(ApiResponse<object>.Fail(ex.Message)); }
+            catch (InvalidOperationException ex) { return BadRequest(ApiResponse<object>.Fail(ex.Message)); }
         }
     }
 }

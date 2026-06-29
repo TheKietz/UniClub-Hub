@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { useDeferredEffect } from '@/hooks/useDeferredEffect'
 import { Pencil, Trash2 } from 'lucide-react'
 import { Tooltip } from '@/components/shared/Tooltip'
 import { getCategories, createCategory, updateCategory, deleteCategory } from '@/components/membership/services/adminApi'
@@ -6,21 +7,8 @@ import type { CategoryItem, CreateCategoryDto } from '@/components/membership/se
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { toast } from 'sonner'
-
-const D = {
-  border: '1.5px solid var(--c-ink)',
-  borderLight: '1px solid #e8e3d6',
-  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 var(--c-ink)`,
-  radius: 14,
-  pill: 999,
-  ink: 'var(--c-ink)',
-  inkDim: '#4a4651',
-  inkMuted: '#918c99',
-  bg: 'var(--c-bg)',
-  card: '#ffffff',
-  indigo: '#4f46e5',
-  red: '#ef4444',
-}
+import { D } from '@/components/shared/managementTheme'
+import { getApiErrorMessage } from '@/lib/apiError'
 
 const CAT_PALETTES = [
   { bg: '#ede9fe', color: '#5b21b6' },
@@ -35,9 +23,9 @@ type FormData = { name: string; description: string }
 const emptyForm: FormData = { name: '', description: '' }
 
 const inputStyle: React.CSSProperties = {
-  width: '100%', height: 36, borderRadius: 8, border: '1px solid #e8e3d6',
-  padding: '0 12px', fontSize: 13, color: 'var(--c-ink)', outline: 'none',
-  background: 'var(--c-bg)', fontFamily: 'inherit', boxSizing: 'border-box',
+  width: '100%', height: 36, borderRadius: 8, border: '1px solid #dce6f4',
+  padding: '0 12px', fontSize: 13, color: '#0a2f6e', outline: 'none',
+  background: '#f4f7fc', fontFamily: 'inherit', boxSizing: 'border-box',
 }
 const labelStyle: React.CSSProperties = { fontSize: 12, fontWeight: 700, color: '#4a4651', display: 'block', marginBottom: 4 }
 
@@ -53,7 +41,7 @@ export default function CategoriesPage() {
   const [search, setSearch] = useState('')
   const [hoverRow, setHoverRow] = useState<number | null>(null)
 
-  useEffect(() => {
+  useDeferredEffect(() => {
     setLoading(true)
     getCategories()
       .then(setCategories)
@@ -87,8 +75,8 @@ export default function CategoriesPage() {
       }
       setDialogOpen(false)
       setRefreshKey(k => k + 1)
-    } catch (err: any) {
-      toast.error(err.response?.data?.message ?? 'Thao tác thất bại.')
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'Thao tác thất bại.'))
     } finally {
       setSaving(false)
     }
@@ -101,8 +89,8 @@ export default function CategoriesPage() {
       toast.success('Đã xoá lĩnh vực.')
       setDeleteTarget(null)
       setRefreshKey(k => k + 1)
-    } catch (err: any) {
-      toast.error(err.response?.data?.message ?? 'Xoá thất bại.')
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'Xoá thất bại.'))
     }
   }
 

@@ -1,26 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { useDeferredEffect } from '@/hooks/useDeferredEffect'
 import api from '@/lib/axiosInstance'
 import { updateSupportRequest } from '@/components/membership/services/adminApi'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { toast } from 'sonner'
-
-const D = {
-  border: '1.5px solid var(--c-ink)',
-  borderLight: '1px solid #e8e3d6',
-  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 var(--c-ink)`,
-  radius: 14,
-  pill: 999,
-  ink: 'var(--c-ink)',
-  inkDim: '#4a4651',
-  inkMuted: '#918c99',
-  bg: 'var(--c-bg)',
-  card: '#ffffff',
-  lemon: '#facc15',
-  indigo: '#4f46e5',
-  emerald: '#10b981',
-  sky: '#38bdf8',
-  red: '#ef4444',
-}
+import { D } from '@/components/shared/managementTheme'
+import { getApiErrorMessage } from '@/lib/apiError'
 
 interface Ticket {
   id: number
@@ -66,7 +51,9 @@ export default function SupportAdminPage() {
       .finally(() => setLoading(false))
   }
 
-  useEffect(() => { load() }, [])
+  useDeferredEffect(() => {
+    load()
+  }, [])
 
   async function handleUpdate(newStatus: string) {
     if (!selected) return
@@ -76,8 +63,8 @@ export default function SupportAdminPage() {
       toast.success('Đã cập nhật trạng thái.')
       setSelected(null)
       load()
-    } catch (err: any) {
-      toast.error(err.response?.data?.message ?? 'Cập nhật thất bại.')
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'Cập nhật thất bại.'))
     } finally {
       setSaving(false)
     }

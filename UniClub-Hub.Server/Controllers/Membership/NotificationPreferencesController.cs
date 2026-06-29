@@ -3,7 +3,6 @@ using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 using UniClub_Hub.Membership.DTOs.NotificationPreference;
 using UniClub_Hub.Membership.Services.Interfaces;
-using UniClub_Hub.Shared.Constants;
 
 namespace UniClub_Hub.Server.Controllers.Membership
 {
@@ -13,12 +12,10 @@ namespace UniClub_Hub.Server.Controllers.Membership
     public class NotificationPreferencesController : ControllerBase
     {
         private readonly INotificationPreferenceService _prefs;
-        private readonly IClubPermissionService _permissions;
 
-        public NotificationPreferencesController(INotificationPreferenceService prefs, IClubPermissionService permissions)
+        public NotificationPreferencesController(INotificationPreferenceService prefs)
         {
             _prefs = prefs;
-            _permissions = permissions;
         }
 
         // ── Super Admin — global defaults ────────────────────────────────────
@@ -69,14 +66,12 @@ namespace UniClub_Hub.Server.Controllers.Membership
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
             var isSuperAdmin = User.IsInRole("SUPER_ADMIN");
-            if (!await _permissions.HasPermissionAsync(clubId, userId, isSuperAdmin, ClubPermissions.NotificationSettingsManage))
-                return Forbid();
-
             try
             {
-                await _prefs.UpsertClubAsync(clubId, triggerKey, recipientRole, dto);
+                await _prefs.UpsertClubAsync(clubId, triggerKey, recipientRole, dto, userId, isSuperAdmin);
                 return Ok(new { success = true, message = "Đã cập nhật cài đặt thông báo cho CLB." });
             }
+            catch (UnauthorizedAccessException) { return Forbid(); }
             catch (KeyNotFoundException ex)
             {
                 return NotFound(new { message = ex.Message });
@@ -89,11 +84,12 @@ namespace UniClub_Hub.Server.Controllers.Membership
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
             var isSuperAdmin = User.IsInRole("SUPER_ADMIN");
-            if (!await _permissions.HasPermissionAsync(clubId, userId, isSuperAdmin, ClubPermissions.NotificationSettingsManage))
-                return Forbid();
-
-            await _prefs.ResetClubAsync(clubId, triggerKey, recipientRole);
-            return Ok(new { success = true, message = "Đã đặt lại về mặc định hệ thống." });
+            try
+            {
+                await _prefs.ResetClubAsync(clubId, triggerKey, recipientRole, userId, isSuperAdmin);
+                return Ok(new { success = true, message = "Đã đặt lại về mặc định hệ thống." });
+            }
+            catch (UnauthorizedAccessException) { return Forbid(); }
         }
     }
 }

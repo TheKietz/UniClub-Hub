@@ -42,19 +42,6 @@ namespace UniClub_Hub.Server.Controllers.Membership
         [EnableRateLimiting("auth:register")]
         public async Task<IActionResult> Register([FromBody] RegisterDto dto)
         {
-            // Check registration open
-            if (!await _settings.IsRegistrationOpenAsync())
-                return BadRequest(ApiResponse<object>.Fail("Hệ thống tạm ngừng nhận đăng ký mới."));
-
-            // Check allowed domains
-            var allowedDomains = await _settings.GetAllowedDomainsAsync();
-            if (allowedDomains.Count > 0)
-            {
-                var emailDomain = dto.Email.Split('@').LastOrDefault()?.ToLower() ?? "";
-                if (!allowedDomains.Contains(emailDomain))
-                    return BadRequest(ApiResponse<object>.Fail($"Email phải thuộc domain: {string.Join(", ", allowedDomains)}."));
-            }
-
             try
             {
                 await _authService.RegisterAsync(dto);

@@ -13,6 +13,11 @@ namespace UniClub_Hub.Shared.Models
         public string? Link { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
+        // Extended payload for deep-linking from a notification to its source entity.
+        public string? Body { get; set; }
+        public string? RelatedEntityType { get; set; }   // "Task" | "Event" | "Assignment" | "Sprint"
+        public int? RelatedEntityId { get; set; }
+
         public ApplicationUser User { get; set; } = null!;
     }
 }

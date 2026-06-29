@@ -67,7 +67,7 @@ namespace UniClub_Hub.Operations.Services.Implements
             TaskPriority priority, DateTimeOffset? deadline,
             string actorId, IFormFileCollection? files)
         {
-            var urls = new List<string>();
+            var attachments = new List<AssignmentAttachmentInfo>();
 
             if (files != null)
             {
@@ -80,7 +80,7 @@ namespace UniClub_Hub.Operations.Services.Implements
                         throw new InvalidOperationException($"File '{file.FileName}' vượt quá 20 MB.");
 
                     var url = await fileStorage.UploadAsync(file, "uploads/assignments");
-                    if (url != null) urls.Add(url);
+                    if (url != null) attachments.Add(new AssignmentAttachmentInfo(url, file.FileName));
                 }
             }
 
@@ -93,7 +93,7 @@ namespace UniClub_Hub.Operations.Services.Implements
                 Priority = priority,
                 Deadline = deadline,
                 Status = "Pending",
-                AttachmentUrlsJson = urls.Count > 0 ? JsonSerializer.Serialize(urls) : null,
+                AttachmentUrlsJson = attachments.Count > 0 ? JsonSerializer.Serialize(attachments) : null,
                 CreatedBy = actorId,
                 CreatedAt = DateTimeOffset.UtcNow,
             };
@@ -106,6 +106,100 @@ namespace UniClub_Hub.Operations.Services.Implements
             var clubName = await db.Clubs.AsNoTracking()
                 .Where(c => c.Id == clubId).Select(c => c.Name).FirstOrDefaultAsync();
 
+            // Note: the receiving club's admins are notified by EventAssignmentsController
+            // (NotifyClubAdminsAsync) so all admins get one AssignmentReceived notification.
+
+            return MapToDto(assignment, eventName, clubName);
+        }
+
+        public async Task<AssignmentDto> UpdateAsync(int id, string title, string? description, TaskPriority priority, DateTimeOffset? deadline)
+        {
+            var assignment = await db.EventClubAssignments.FindAsync(id)
+                ?? throw new KeyNotFoundException($"Assignment {id} not found.");
+
+            if (deadline.HasValue)
+            {
+                var ev = await db.Events.AsNoTracking()
+                    .Where(e => e.Id == assignment.EventId)
+                    .Select(e => new { e.Name, e.StartTime, e.EndTime })
+                    .FirstOrDefaultAsync();
+
+                if (ev != null)
+                {
+                    if (ev.StartTime.HasValue && deadline < ev.StartTime)
+                        throw new InvalidOperationException("Deadline không thể trước ngày bắt đầu sự kiện.");
+                    if (ev.EndTime.HasValue && deadline > ev.EndTime)
+                        throw new InvalidOperationException("Deadline không thể sau ngày kết thúc sự kiện.");
+                }
+            }
+
+            assignment.Title = title.Trim();
+            assignment.Description = description?.Trim();
+            assignment.Priority = priority;
+            assignment.Deadline = deadline;
+
+            await db.SaveChangesAsync();
+
+            var eventName = await db.Events.AsNoTracking()
+                .Where(e => e.Id == assignment.EventId).Select(e => e.Name).FirstOrDefaultAsync();
+            var clubName = await db.Clubs.AsNoTracking()
+                .Where(c => c.Id == assignment.ClubId).Select(c => c.Name).FirstOrDefaultAsync();
+
+            return MapToDto(assignment, eventName, clubName);
+        }
+
+        public async Task<AssignmentDto> AddAttachmentsAsync(int id, IFormFileCollection files)
+        {
+            var assignment = await db.EventClubAssignments.FindAsync(id)
+                ?? throw new KeyNotFoundException($"Assignment {id} not found.");
+
+            var existing = DeserializeAttachments(assignment.AttachmentUrlsJson);
+
+            foreach (var file in files)
+            {
+                var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
+                if (!AllowedExtensions.Contains(ext))
+                    throw new InvalidOperationException($"Định dạng không được phép: {ext}");
+                if (file.Length > MaxFileSizeBytes)
+                    throw new InvalidOperationException($"File '{file.FileName}' vượt quá 20 MB.");
+
+                var url = await fileStorage.UploadAsync(file, "uploads/assignments");
+                if (url != null) existing.Add(new AssignmentAttachmentInfo(url, file.FileName));
+            }
+
+            assignment.AttachmentUrlsJson = existing.Count > 0 ? JsonSerializer.Serialize(existing) : null;
+            await db.SaveChangesAsync();
+
+            return await ReloadDtoAsync(assignment);
+        }
+
+        public async Task<AssignmentDto> RemoveAttachmentAsync(int id, string url)
+        {
+            var assignment = await db.EventClubAssignments.FindAsync(id)
+                ?? throw new KeyNotFoundException($"Assignment {id} not found.");
+
+            var existing = DeserializeAttachments(assignment.AttachmentUrlsJson);
+            existing.RemoveAll(a => a.Url == url);
+
+            assignment.AttachmentUrlsJson = existing.Count > 0 ? JsonSerializer.Serialize(existing) : null;
+            await db.SaveChangesAsync();
+
+            return await ReloadDtoAsync(assignment);
+        }
+
+        private static List<AssignmentAttachmentInfo> DeserializeAttachments(string? json)
+        {
+            if (string.IsNullOrEmpty(json)) return [];
+            try { return JsonSerializer.Deserialize<List<AssignmentAttachmentInfo>>(json) ?? []; }
+            catch { return []; }
+        }
+
+        private async Task<AssignmentDto> ReloadDtoAsync(UniClub_Hub.Shared.Models.EventClubAssignment assignment)
+        {
+            var eventName = await db.Events.AsNoTracking()
+                .Where(e => e.Id == assignment.EventId).Select(e => e.Name).FirstOrDefaultAsync();
+            var clubName = await db.Clubs.AsNoTracking()
+                .Where(c => c.Id == assignment.ClubId).Select(c => c.Name).FirstOrDefaultAsync();
             return MapToDto(assignment, eventName, clubName);
         }
 
@@ -130,11 +224,26 @@ namespace UniClub_Hub.Operations.Services.Implements
 
         private static AssignmentDto MapToDto(EventClubAssignment a, string? eventName, string? clubName)
         {
-            List<string> urls = [];
+            List<AssignmentAttachmentInfo> attachments = [];
             if (!string.IsNullOrEmpty(a.AttachmentUrlsJson))
             {
-                try { urls = JsonSerializer.Deserialize<List<string>>(a.AttachmentUrlsJson) ?? []; }
-                catch { /* malformed JSON — skip */ }
+                try
+                {
+                    // New format: [{"url":"...","name":"..."}]
+                    attachments = JsonSerializer.Deserialize<List<AssignmentAttachmentInfo>>(a.AttachmentUrlsJson) ?? [];
+                }
+                catch
+                {
+                    // Old format (backward compat): ["url1","url2"]
+                    try
+                    {
+                        var oldUrls = JsonSerializer.Deserialize<List<string>>(a.AttachmentUrlsJson) ?? [];
+                        attachments = oldUrls
+                            .Select(u => new AssignmentAttachmentInfo(u, Uri.UnescapeDataString(u.Split('/').LastOrDefault() ?? u)))
+                            .ToList();
+                    }
+                    catch { /* malformed JSON — skip */ }
+                }
             }
 
             return new AssignmentDto
@@ -149,7 +258,7 @@ namespace UniClub_Hub.Operations.Services.Implements
                 Priority = a.Priority,
                 Deadline = a.Deadline,
                 Status = a.Status,
-                AttachmentUrls = urls,
+                AttachmentUrls = attachments,
                 CreatedBy = a.CreatedBy,
                 CreatedAt = a.CreatedAt,
             };

@@ -41,6 +41,8 @@ namespace UniClub_Hub.Membership.Services.Implements
 
         public async Task<AuthResponseDto> RegisterAsync(RegisterDto dto)
         {
+            await EnsureRegistrationAllowedAsync(dto.Email);
+
             var existing = await _userManager.FindByEmailAsync(dto.Email);
             if (existing != null)
                 throw new InvalidOperationException("Email đã được sử dụng.");
@@ -116,17 +118,7 @@ namespace UniClub_Hub.Membership.Services.Implements
 
             if (user == null)
             {
-                // Apply the same registration restrictions as the normal register flow
-                if (!await _settings.IsRegistrationOpenAsync())
-                    throw new InvalidOperationException("Hệ thống tạm ngừng nhận đăng ký mới.");
-
-                var allowedDomains = await _settings.GetAllowedDomainsAsync();
-                if (allowedDomains.Count > 0)
-                {
-                    var domain = email.Split('@').LastOrDefault()?.ToLower() ?? "";
-                    if (!allowedDomains.Contains(domain))
-                        throw new InvalidOperationException($"Email phải thuộc domain: {string.Join(", ", allowedDomains)}.");
-                }
+                await EnsureRegistrationAllowedAsync(email);
 
                 user = new ApplicationUser
                 {
@@ -188,6 +180,20 @@ namespace UniClub_Hub.Membership.Services.Implements
         }
 
         // ── Helpers ──────────────────────────────────────────────────────
+
+        private async Task EnsureRegistrationAllowedAsync(string email)
+        {
+            if (!await _settings.IsRegistrationOpenAsync())
+                throw new InvalidOperationException("Hệ thống tạm ngừng nhận đăng ký mới.");
+
+            var allowedDomains = await _settings.GetAllowedDomainsAsync();
+            if (allowedDomains.Count > 0)
+            {
+                var domain = email.Split('@').LastOrDefault()?.ToLower() ?? "";
+                if (!allowedDomains.Contains(domain))
+                    throw new InvalidOperationException($"Email phải thuộc domain: {string.Join(", ", allowedDomains)}.");
+            }
+        }
 
         private async Task<AuthResponseDto> BuildAuthResponseAsync(ApplicationUser user)
         {

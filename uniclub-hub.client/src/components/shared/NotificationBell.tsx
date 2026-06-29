@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
+import { useDeferredEffect } from '@/hooks/useDeferredEffect'
 import { useNavigate } from 'react-router-dom'
 import { Bell, Star } from 'lucide-react'
 import api from '@/lib/axiosInstance'
+import { useNotificationSignalR } from '@/lib/useNotificationSignalR'
 import { useAuth } from '@/contexts/AuthContext'
 import { CLUB_ROLES, MEMBERSHIP_STATUS } from '@/types/auth'
 import type { UserMembership } from '@/types/auth'
@@ -14,6 +16,7 @@ interface Notif {
   isRead: boolean
   link?: string
   createdAt: string
+  navigationUrl?: string | null
 }
 
 function timeAgo(dateStr: string) {
@@ -28,13 +31,13 @@ function timeAgo(dateStr: string) {
 
 const TYPE_COLORS: Record<string, string> = {
   Application: '#8b3ff2',
-  Task: '#4f46e5',
+  Task: '#1d4ed8',
   Event: '#f59e0b',
   System: '#10b981',
 }
 
 function notificationColor(type: string) {
-  return TYPE_COLORS[type] ?? '#4f46e5'
+  return TYPE_COLORS[type] ?? '#1d4ed8'
 }
 
 function deriveLink(type: string, memberships: UserMembership[]): string | null {
@@ -71,6 +74,17 @@ export default function NotificationBell() {
     return () => clearInterval(timer)
   }, [])
 
+  // Realtime: bump the badge instantly; refresh the list if the dropdown is open.
+  // (The 60s poll above remains as a fallback when the socket is down.)
+  useNotificationSignalR(() => {
+    setUnreadCount(c => c + 1)
+    if (open) {
+      api.get('/notifications?pageSize=15')
+        .then(res => setItems(res.data.data.items ?? []))
+        .catch(() => {})
+    }
+  })
+
   useEffect(() => {
     function onClickOutside(e: MouseEvent) {
       if (
@@ -84,18 +98,20 @@ export default function NotificationBell() {
     return () => document.removeEventListener('mousedown', onClickOutside)
   }, [])
 
-  useEffect(() => {
-    if (!open) return
+  useDeferredEffect((isCancelled) => {
     setLoading(true)
     api.get('/notifications?pageSize=15')
       .then(res => {
+        if (isCancelled()) return
         const fetched: Notif[] = res.data.data.items ?? []
         setItems(fetched)
         setUnreadCount(fetched.filter(n => !n.isRead).length)
       })
       .catch(() => {})
-      .finally(() => setLoading(false))
-  }, [open])
+      .finally(() => {
+        if (!isCancelled()) setLoading(false)
+      })
+  }, [open], { enabled: open })
 
   function handleToggle() {
     if (!open && btnRef.current) {
@@ -119,6 +135,12 @@ export default function NotificationBell() {
     await api.patch(`/notifications/${id}/read`).catch(() => {})
     setItems(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n))
     setUnreadCount(prev => Math.max(0, prev - 1))
+  }
+
+  async function handleItemClick(n: Notif) {
+    if (!n.isRead) await markRead(n.id)
+    const link = n.navigationUrl ?? n.link ?? deriveLink(n.type, user?.memberships ?? [])
+    if (link) { setOpen(false); navigate(link) }
   }
 
   return (
@@ -166,19 +188,19 @@ export default function NotificationBell() {
             background: '#fff',
             borderRadius: 16,
             boxShadow: '10px 10px 26px rgba(0,0,0,.13)',
-            border: '2px solid var(--c-ink)',
+            border: '2px solid #0a2f6e',
             zIndex: 9999,
             overflow: 'hidden',
             fontFamily: "'Be Vietnam Pro', sans-serif",
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px 13px', borderBottom: '1px solid #e8e3d6' }}>
-            <span style={{ fontWeight: 900, fontSize: 16, color: 'var(--c-ink)', letterSpacing: '-.02em' }}>Thông báo</span>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px 13px', borderBottom: '1px solid #dce6f4' }}>
+            <span style={{ fontWeight: 900, fontSize: 16, color: '#0a2f6e', letterSpacing: '-.02em' }}>Thông báo</span>
             <button
               onClick={markAllRead}
               disabled={items.length === 0}
               style={{
-                fontSize: 12, fontWeight: 800, color: '#4f46e5',
+                fontSize: 12, fontWeight: 800, color: '#1d4ed8',
                 background: 'none', border: 'none',
                 cursor: items.length === 0 ? 'default' : 'pointer',
                 opacity: items.length === 0 ? 0.45 : 1,
@@ -192,23 +214,19 @@ export default function NotificationBell() {
           <div className="notification-popover-scroll" style={{ maxHeight: 260, overflowY: 'auto', background: '#f7f7fb' }}>
             {loading ? (
               <div style={{ display: 'flex', justifyContent: 'center', padding: '32px 0' }}>
-                <div style={{ width: 18, height: 18, border: '2px solid #4f46e5', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+                <div style={{ width: 18, height: 18, border: '2px solid #1d4ed8', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
               </div>
             ) : items.length === 0 ? (
               <p style={{ textAlign: 'center', fontSize: 14, color: '#918c99', padding: '38px 16px', margin: 0 }}>Không có thông báo nào</p>
             ) : items.map(n => (
-              <div key={n.id} onClick={async () => {
-                  if (!n.isRead) await markRead(n.id)
-                  const link = n.link ?? deriveLink(n.type, user?.memberships ?? [])
-                  if (link) { setOpen(false); navigate(link) }
-                }}
+              <div key={n.id} onClick={() => handleItemClick(n)}
                 style={{ padding: '12px 18px', borderBottom: '1px solid #e8e3d6', cursor: 'pointer', background: '#f7f7fb', transition: 'background .1s' }}
                 onMouseEnter={e => (e.currentTarget.style.background = '#f2f1f7')}
                 onMouseLeave={e => (e.currentTarget.style.background = '#f7f7fb')}>
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
                   <div style={{
                     width: 38, height: 38, borderRadius: 10,
-                    border: '2px solid var(--c-ink)',
+                    border: '2px solid #0a2f6e',
                     background: notificationColor(n.type),
                     display: 'grid', placeItems: 'center',
                     flexShrink: 0,
@@ -217,10 +235,10 @@ export default function NotificationBell() {
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <p style={{
-                      fontSize: 14, fontWeight: 900, color: 'var(--c-ink)',
+                      fontSize: 14, fontWeight: 900, color: '#0a2f6e',
                       margin: 0, lineHeight: 1.28, letterSpacing: '-.02em',
                       overflow: 'hidden', display: '-webkit-box',
-                      WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any,
+                      WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as const,
                     }}>
                       {n.title}
                     </p>
@@ -228,7 +246,7 @@ export default function NotificationBell() {
                       <p style={{
                         fontSize: 11, color: '#6b7280', marginTop: 3, lineHeight: 1.35,
                         overflow: 'hidden', display: '-webkit-box',
-                        WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any,
+                        WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as const,
                       }}>
                         {n.message}
                       </p>
@@ -249,8 +267,8 @@ export default function NotificationBell() {
             }}
             style={{
               width: '100%', height: 42, border: 'none',
-              borderTop: '1px solid #e8e3d6', background: '#fff',
-              color: '#4f46e5', fontSize: 14, fontWeight: 900,
+              borderTop: '1px solid #dce6f4', background: '#fff',
+              color: '#1d4ed8', fontSize: 14, fontWeight: 900,
               cursor: 'pointer', fontFamily: 'inherit',
             }}
           >

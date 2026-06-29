@@ -2,13 +2,14 @@ using Microsoft.EntityFrameworkCore;
 using UniClub_Hub.Operations.DTOs.Task;
 using UniClub_Hub.Operations.Services.Interfaces;
 using UniClub_Hub.Shared.Common;
+using UniClub_Hub.Shared.Common.Interfaces;
 using UniClub_Hub.Shared.Data;
 using UniClub_Hub.Shared.Enums;
 using UniClub_Hub.Shared.Models;
 
 namespace UniClub_Hub.Operations.Services.Implements
 {
-    public class TaskService(UniClubDbContext db) : ITaskService
+    public class TaskService(UniClubDbContext db, INotificationService notifications) : ITaskService
     {
         public async Task<PagedResult<TaskDto>> GetByClubAsync(
             int? clubId,
@@ -23,7 +24,7 @@ namespace UniClub_Hub.Operations.Services.Implements
             bool? unassigned = null
         )
         {
-            var query = db.Tasks.AsNoTracking().AsQueryable();
+            var query = db.Tasks.AsNoTracking().Where(t => !t.IsDeleted);
 
             if (clubId.HasValue)
                 query = query.Where(t => t.ClubId == clubId.Value);
@@ -152,8 +153,32 @@ namespace UniClub_Hub.Operations.Services.Implements
             return dto;
         }
 
+        private async Task GuardEventNotCompletedAsync(int? eventId)
+        {
+            if (!eventId.HasValue) return;
+            var evStatus = await db.Events
+                .AsNoTracking()
+                .Where(e => e.Id == eventId.Value)
+                .Select(e => (EventStatus?)e.Status)
+                .FirstOrDefaultAsync();
+            if (evStatus == EventStatus.Completed)
+                throw new InvalidOperationException("Sự kiện đã hoàn thành. Không thể thêm hoặc chỉnh sửa công việc.");
+        }
+
         public async Task<TaskDto> CreateAsync(int clubId, CreateTaskDto dto, string createdBy)
         {
+            await GuardEventNotCompletedAsync(dto.EventId);
+
+            // When created inside a specific column, inherit that column's exact status.
+            var status = ClubTaskStatus.Todo;
+            if (dto.KanbanColumnId.HasValue)
+            {
+                var col = await db.KanbanColumns
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(c => c.Id == dto.KanbanColumnId.Value);
+                if (col is not null) status = col.Status;
+            }
+
             var task = new ClubTask
             {
                 ClubId = clubId,
@@ -169,12 +194,23 @@ namespace UniClub_Hub.Operations.Services.Implements
                 DepartmentId = dto.DepartmentId,
                 ParentId = dto.ParentId,
                 KanbanColumnId = dto.KanbanColumnId,
-                Status = ClubTaskStatus.Todo,
+                Status = status,
                 CreatedBy = createdBy,
             };
 
             db.Tasks.Add(task);
             await db.SaveChangesAsync();
+
+            // Notify the assignee (skip self-assignment by the creator).
+            if (!string.IsNullOrEmpty(task.AssignedTo) && task.AssignedTo != createdBy)
+                await notifications.SendAsync(
+                    task.AssignedTo,
+                    "Bạn được giao công việc mới",
+                    $"Bạn được giao công việc: \"{task.Title}\".",
+                    NotificationType.TaskAssigned,
+                    relatedEntityType: "Task",
+                    relatedEntityId: task.Id);
+
             return MapToDto(task);
         }
 
@@ -183,6 +219,8 @@ namespace UniClub_Hub.Operations.Services.Implements
             var task =
                 await db.Tasks.FindAsync(id)
                 ?? throw new KeyNotFoundException($"Task {id} not found.");
+
+            await GuardEventNotCompletedAsync(task.EventId);
 
             task.Title = dto.Title;
             task.Description = dto.Description;
@@ -205,6 +243,8 @@ namespace UniClub_Hub.Operations.Services.Implements
             var task =
                 await db.Tasks.FindAsync(id)
                 ?? throw new KeyNotFoundException($"Task {id} not found.");
+
+            await GuardEventNotCompletedAsync(task.EventId);
 
             if (dto.Status == ClubTaskStatus.Doing || dto.Status == ClubTaskStatus.Done)
             {
@@ -231,6 +271,17 @@ namespace UniClub_Hub.Operations.Services.Implements
                 task.CompletedAt = null;
 
             await db.SaveChangesAsync();
+
+            // Notify the assignee that their task changed status.
+            if (!string.IsNullOrEmpty(task.AssignedTo))
+                await notifications.SendAsync(
+                    task.AssignedTo,
+                    "Trạng thái công việc đã thay đổi",
+                    $"Công việc \"{task.Title}\" chuyển sang trạng thái {dto.Status}.",
+                    NotificationType.TaskStatusUpdated,
+                    relatedEntityType: "Task",
+                    relatedEntityId: task.Id);
+
             return MapToDto(task);
         }
 

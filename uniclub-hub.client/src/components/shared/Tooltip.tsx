@@ -33,7 +33,7 @@ export function Tooltip({ label, children }: TooltipProps) {
           top: pos.top,
           left: pos.left,
           transform: 'translateX(-50%)',
-          background: 'var(--c-ink)',
+          background: '#0a2f6e',
           color: '#fff',
           fontSize: 12,
           fontWeight: 600,

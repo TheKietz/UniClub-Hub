@@ -4,7 +4,6 @@ using System.Security.Claims;
 using UniClub_Hub.Membership.DTOs.Resignation;
 using UniClub_Hub.Membership.Services.Interfaces;
 using UniClub_Hub.Shared.Common;
-using UniClub_Hub.Shared.Constants;
 
 namespace UniClub_Hub.Server.Controllers.Membership
 {
@@ -13,12 +12,10 @@ namespace UniClub_Hub.Server.Controllers.Membership
     public class ResignationRequestsController : ControllerBase
     {
         private readonly IResignationService _resignationService;
-        private readonly IClubPermissionService _permissions;
 
-        public ResignationRequestsController(IResignationService resignationService, IClubPermissionService permissions)
+        public ResignationRequestsController(IResignationService resignationService)
         {
             _resignationService = resignationService;
-            _permissions = permissions;
         }
 
         // Thành viên gửi đơn từ chức
@@ -41,11 +38,12 @@ namespace UniClub_Hub.Server.Controllers.Membership
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
             var isSuperAdmin = User.IsInRole("SUPER_ADMIN");
-            if (!await _permissions.HasPermissionAsync(clubId, userId, isSuperAdmin, ClubPermissions.ResignationsView))
-                return Forbid();
-
-            var result = await _resignationService.GetByClubAsync(clubId);
-            return Ok(ApiResponse<object>.Ok(result));
+            try
+            {
+                var result = await _resignationService.GetByClubAsync(clubId, userId, isSuperAdmin);
+                return Ok(ApiResponse<object>.Ok(result));
+            }
+            catch (UnauthorizedAccessException) { return Forbid(); }
         }
 
         // Duyệt đơn từ chức trong CLB
@@ -54,14 +52,12 @@ namespace UniClub_Hub.Server.Controllers.Membership
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
             var isSuperAdmin = User.IsInRole("SUPER_ADMIN");
-            if (!await _permissions.HasPermissionAsync(clubId, userId, isSuperAdmin, ClubPermissions.ResignationsReview))
-                return Forbid();
-
             try
             {
-                var result = await _resignationService.ReviewAsync(id, dto, userId);
+                var result = await _resignationService.ReviewAsync(id, dto, userId, isSuperAdmin, clubId);
                 return Ok(ApiResponse<ResignationRequestDto>.Ok(result, "Đã cập nhật đơn từ chức."));
             }
+            catch (UnauthorizedAccessException) { return Forbid(); }
             catch (KeyNotFoundException ex) { return NotFound(ApiResponse<object>.Fail(ex.Message)); }
             catch (InvalidOperationException ex) { return Conflict(ApiResponse<object>.Fail(ex.Message)); }
             catch (ArgumentException ex) { return BadRequest(ApiResponse<object>.Fail(ex.Message)); }
@@ -84,9 +80,10 @@ namespace UniClub_Hub.Server.Controllers.Membership
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
             try
             {
-                var result = await _resignationService.ReviewAsync(id, dto, userId);
+                var result = await _resignationService.ReviewAsync(id, dto, userId, isSuperAdmin: true);
                 return Ok(ApiResponse<ResignationRequestDto>.Ok(result, "Đã cập nhật đơn từ chức."));
             }
+            catch (UnauthorizedAccessException) { return Forbid(); }
             catch (KeyNotFoundException ex) { return NotFound(ApiResponse<object>.Fail(ex.Message)); }
             catch (InvalidOperationException ex) { return Conflict(ApiResponse<object>.Fail(ex.Message)); }
             catch (ArgumentException ex) { return BadRequest(ApiResponse<object>.Fail(ex.Message)); }

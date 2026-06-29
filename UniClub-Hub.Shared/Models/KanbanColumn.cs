@@ -1,4 +1,5 @@
 using UniClub_Hub.Shared.Common;
+using UniClub_Hub.Shared.Enums;
 
 namespace UniClub_Hub.Shared.Models
 {
@@ -10,6 +11,13 @@ namespace UniClub_Hub.Shared.Models
         public string Name { get; set; } = null!;
         public string? Color { get; set; }
         public int SortOrder { get; set; }
+
+        // Exact task status this column represents — replaces name-based guessing.
+        public ClubTaskStatus Status { get; set; } = ClubTaskStatus.Todo;
+
+        // True for the 4 fixed columns (Cần làm / Đang làm / Reviewing / Hoàn thành):
+        // they cannot be renamed or deleted.
+        public bool IsSystem { get; set; }
 
         public DateTime CreatedAt { get; set; }
         public string? CreatedBy { get; set; }

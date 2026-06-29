@@ -60,11 +60,8 @@ const STATUS_STYLE: Record<
   { label: string; bg: string; text: string }
 > = {
   Todo: { label: "Chưa làm", bg: "bg-gray-100", text: "text-gray-600" },
-  Doing: {
-    label: "Đang thực hiện",
-    bg: "bg-green-100",
-    text: "text-green-700",
-  },
+  Doing: { label: "Đang thực hiện", bg: "bg-green-100", text: "text-green-700" },
+  Reviewing: { label: "Đang xét duyệt", bg: "bg-purple-100", text: "text-purple-700" },
   Done: { label: "Hoàn thành", bg: "bg-blue-100", text: "text-blue-700" },
 };
 
@@ -387,7 +384,7 @@ export default function TaskModal({
                       }
                       showLabel={false}
                       size="sm"
-                      color="#4f46e5"
+                      color="#1d4ed8"
                     />
                   </div>
                 )}

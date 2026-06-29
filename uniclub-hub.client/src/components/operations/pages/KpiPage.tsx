@@ -15,26 +15,9 @@ import { useTasks } from '../context/TasksContext'
 import { getPersonalKpi, getDepartmentKpi, getSprints } from '../services/operationsApi'
 import { CLUB_ROLES } from '@/types/auth'
 import type { PersonalKpiData, DepartmentKpiData, SprintItem } from '../services/operations.types'
+import { D } from '@/components/shared/managementTheme'
 
 /* ── Design tokens ────────────────────────────────────────────────────────── */
-
-const D = {
-  border: '1.5px solid var(--c-ink)',
-  borderLight: '1px solid #e8e3d6',
-  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 var(--c-ink)`,
-  radius: 14,
-  pill: 999,
-  ink: 'var(--c-ink)',
-  inkDim: '#4a4651',
-  inkMuted: '#918c99',
-  bg: 'var(--c-bg)',
-  card: '#ffffff',
-  indigo: '#4f46e5',
-  emerald: '#10b981',
-  amber: '#f59e0b',
-  red: '#ef4444',
-  violet: '#7c3aed',
-}
 
 /* ── Helpers ──────────────────────────────────────────────────────────────── */
 
@@ -51,7 +34,7 @@ function CircularProgress({ value, size = 80, color = D.indigo }: { value: numbe
   const dash = circ * (1 - value / 100)
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ transform: 'rotate(-90deg)' }}>
-      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#e8e3d6" strokeWidth={7} />
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#dce6f4" strokeWidth={7} />
       <circle
         cx={size / 2} cy={size / 2} r={r}
         fill="none" stroke={color} strokeWidth={7}
@@ -77,7 +60,7 @@ function RateRing({ value, label, color }: { value: number; label: string; color
 }
 
 const PIE_COLORS: Record<string, string> = {
-  'Chưa làm': '#e8e3d6',
+  'Chưa làm': '#dce6f4',
   'Đang làm': '#dbeafe',
   'Hoàn thành': D.emerald,
 }
@@ -147,7 +130,7 @@ function PersonalSection({ kpi }: { kpi: PersonalKpiData }) {
           ) : (
             <ResponsiveContainer width="100%" height={200}>
               <PieChart>
-                <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={72} strokeWidth={1.5} stroke="var(--c-ink)">
+                <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={72} strokeWidth={1.5} stroke="#0a2f6e">
                   {pieData.map(entry => (
                     <Cell key={entry.name} fill={PIE_COLORS[entry.name] ?? D.inkMuted} />
                   ))}
@@ -165,7 +148,7 @@ function PersonalSection({ kpi }: { kpi: PersonalKpiData }) {
             <h3 style={{ fontSize: 13, fontWeight: 800, color: D.ink, margin: '0 0 16px' }}>Giờ dự kiến vs thực tế</h3>
             <ResponsiveContainer width="100%" height={200}>
               <BarChart data={hoursData} margin={{ top: 4, right: 8, left: -16, bottom: 4 }} barGap={6}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e8e3d6" />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#dce6f4" />
                 <XAxis dataKey="name" hide />
                 <YAxis tick={{ fontSize: 11, fill: D.inkMuted }} axisLine={false} tickLine={false} />
                 <Tooltip content={<CustomBarTooltip />} cursor={{ fill: D.bg }} />
@@ -243,7 +226,7 @@ function DepartmentSection({ kpi }: { kpi: DepartmentKpiData }) {
           ) : (
             <ResponsiveContainer width="100%" height={Math.max(chartData.length * 48, 160)}>
               <BarChart layout="vertical" data={chartData} margin={{ top: 4, right: 32, left: 8, bottom: 4 }} barSize={20}>
-                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e8e3d6" />
+                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#dce6f4" />
                 <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11, fill: D.inkMuted }} axisLine={false} tickLine={false} />
                 <YAxis type="category" dataKey="name" width={110} tick={{ fontSize: 12, fill: D.inkDim }} axisLine={false} tickLine={false} />
                 <Tooltip content={({ active, payload, label }) => {

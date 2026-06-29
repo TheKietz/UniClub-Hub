@@ -33,5 +33,9 @@ namespace UniClub_Hub.Operations.Services.Interfaces
         Task<List<EventAttachmentDto>> GetAttachmentsAsync(int eventId);
         Task<EventAttachmentDto> UploadAttachmentAsync(int eventId, IFormFile file, string? note, string actorId);
         Task DeleteAttachmentAsync(int eventId, int attachmentId, string actorId);
+
+        // Registration Link
+        Task<string?> GetRegistrationLinkAsync(int eventId);
+        Task UpsertRegistrationLinkAsync(int eventId, string? url, string actorId);
     }
 }

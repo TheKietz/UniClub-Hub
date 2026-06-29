@@ -1,13 +1,20 @@
 import { APPLICATION_STATUS } from '@/types/auth'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
+import { useDeferredEffect } from '@/hooks/useDeferredEffect'
 import { useParams } from 'react-router-dom'
-import { getApplications, reviewApplication, getMemberFieldSchema, advanceApplicationStage, getPipelineStages, getMyClubPermissions, exportApplications } from '@/components/membership/services/clubApi'
-import type { ApplicationItem, MemberFieldDef, PipelineStage } from '@/components/membership/services/club.types'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { getApplications, getApplicationsPage, reviewApplication, getMemberFieldSchema, getFormSchema, advanceApplicationStage, getPipelineStages, exportApplications } from '@/components/membership/services/clubApi'
+import type { ApplicationListQuery } from '@/components/membership/services/clubApi'
+import type { ApplicationItem, FormField, MemberFieldDef, PipelineStage } from '@/components/membership/services/club.types'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { toast } from 'sonner'
 import { Clock, MessageCircle, CheckCircle2, XCircle, GitBranch } from 'lucide-react'
 import { LoadMoreBar } from '@/components/shared/LoadMoreBar'
+import { FilterSelect } from '@/components/shared/FilterSelect'
 import { CLUB_PERMISSIONS } from '@/constants/clubPermissions'
+import { D } from '@/components/shared/managementTheme'
+import { PermissionDenied } from '@/components/shared/Can'
+import { useClubPermissions } from '@/hooks/useClubPermissions'
+import { getApiErrorMessage } from '@/lib/apiError'
 
 const PAGE_SIZE = 20
 
@@ -33,33 +40,118 @@ export default function ApplicationsPage() {
   const id = Number(clubId)
 
   const [applications, setApplications] = useState<ApplicationItem[]>([])
+  const [allApplications, setAllApplications] = useState<ApplicationItem[]>([])
+  const [totalApplications, setTotalApplications] = useState(0)
+  const [page, setPage] = useState(1)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [fieldSchema, setFieldSchema] = useState<MemberFieldDef[]>([])
+  const [formFields, setFormFields] = useState<FormField[]>([])
   const [pipelineStages, setPipelineStages] = useState<PipelineStage[]>([])
-  const [permCodes, setPermCodes] = useState<Set<string>>(new Set())
+  const clubPermissions = useClubPermissions(id)
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState('')
   const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [stageFilter, setStageFilter] = useState('')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
   const [sortDir, setSortDir] = useState<'desc' | 'asc'>('desc')
   const [refreshKey, setRefreshKey] = useState(0)
-  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
+  const latestQueryKey = useRef('')
 
   useEffect(() => {
-    getMemberFieldSchema(id).then(setFieldSchema).catch(() => {})
-    getPipelineStages(id).then(setPipelineStages).catch(() => {})
-    getMyClubPermissions(id)
-      .then(r => setPermCodes(new Set(r.permissionCodes.map(c => c.toLowerCase()))))
-      .catch(() => {})
+    let cancelled = false
+
+    getMemberFieldSchema(id).then(r => { if (!cancelled) setFieldSchema(r) }).catch(() => {})
+    getFormSchema(id).then(s => { if (!cancelled) setFormFields(s?.fields ?? []) }).catch(() => {})
+    getPipelineStages(id).then(r => { if (!cancelled) setPipelineStages(r) }).catch(() => {})
+
+    return () => { cancelled = true }
   }, [id])
 
   useEffect(() => {
-    setLoading(true)
+    let cancelled = false
+
     getApplications(id)
-      .then(setApplications)
-      .catch(() => toast.error('Không thể tải danh sách đơn.'))
-      .finally(() => setLoading(false))
+      .then(r => { if (!cancelled) setAllApplications(r) })
+      .catch(() => {})
+
+    return () => { cancelled = true }
   }, [id, refreshKey])
 
-  const canReview = permCodes.has(CLUB_PERMISSIONS.APPLICATIONS_REVIEW)
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedSearch(search.trim()), 300)
+    return () => window.clearTimeout(timer)
+  }, [search])
+
+  const buildQuery = useCallback((pageNumber: number): ApplicationListQuery => {
+    return {
+      page: pageNumber,
+      pageSize: PAGE_SIZE,
+      search: debouncedSearch || undefined,
+      status: statusFilter || undefined,
+      stageId: stageFilter ? Number(stageFilter) : undefined,
+      dateFrom: dateFrom || undefined,
+      dateTo: dateTo || undefined,
+      sortBy: 'appliedAt',
+      sortDir,
+    }
+  }, [debouncedSearch, statusFilter, stageFilter, dateFrom, dateTo, sortDir])
+
+  const querySignature = useMemo(() => JSON.stringify({
+    search: debouncedSearch || '',
+    status: statusFilter || '',
+    stageId: stageFilter || '',
+    dateFrom: dateFrom || '',
+    dateTo: dateTo || '',
+    sortDir,
+  }), [debouncedSearch, statusFilter, stageFilter, dateFrom, dateTo, sortDir])
+
+  useDeferredEffect((isCancelled) => {
+    latestQueryKey.current = querySignature
+    setLoading(true)
+    setLoadingMore(false)
+    setApplications([])
+    setPage(1)
+    getApplicationsPage(id, buildQuery(1))
+      .then(r => {
+        if (isCancelled() || latestQueryKey.current !== querySignature) return
+        setApplications(r.items)
+        setTotalApplications(r.totalCount)
+      })
+      .catch(() => {
+        if (!isCancelled() && latestQueryKey.current === querySignature)
+          toast.error('Không thể tải danh sách đơn.')
+      })
+      .finally(() => {
+        if (!isCancelled() && latestQueryKey.current === querySignature)
+          setLoading(false)
+      })
+  }, [id, refreshKey, querySignature, buildQuery])
+
+  function loadMore() {
+    const nextPage = page + 1
+    setLoadingMore(true)
+    getApplicationsPage(id, buildQuery(nextPage))
+      .then(r => {
+        if (latestQueryKey.current !== querySignature) return
+        setApplications(prev => [...prev, ...r.items])
+        setTotalApplications(r.totalCount)
+        setPage(nextPage)
+      })
+      .catch(() => {
+        if (latestQueryKey.current === querySignature)
+          toast.error('Tải thêm thất bại.')
+      })
+      .finally(() => {
+        if (latestQueryKey.current === querySignature)
+          setLoadingMore(false)
+      })
+  }
+
+  const canView = clubPermissions.canAny(CLUB_PERMISSIONS.APPLICATIONS_VIEW, CLUB_PERMISSIONS.APPLICATIONS_REVIEW)
+  const canReview = clubPermissions.can(CLUB_PERMISSIONS.APPLICATIONS_REVIEW)
+  const canExport = clubPermissions.can(CLUB_PERMISSIONS.REPORTS_EXPORT)
 
   const [selected, setSelected] = useState<ApplicationItem | null>(null)
   const [reviewNote, setReviewNote] = useState('')
@@ -78,8 +170,8 @@ export default function ApplicationsPage() {
       toast.success(`Đã cập nhật: ${STATUS_CONFIG[status]?.label ?? status}`)
       setSelected(null)
       setRefreshKey(k => k + 1)
-    } catch (err: any) {
-      toast.error(err.response?.data?.message ?? 'Thao tác thất bại.')
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'Thao tác thất bại.'))
     } finally {
       setReviewing(false)
     }
@@ -93,8 +185,8 @@ export default function ApplicationsPage() {
       toast.success(`Đã chuyển sang vòng: ${updated.currentStageName}`)
       setSelected(null)
       setRefreshKey(k => k + 1)
-    } catch (err: any) {
-      toast.error(err.response?.data?.message ?? 'Chuyển vòng thất bại.')
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'Chuyển vòng thất bại.'))
     } finally {
       setReviewing(false)
     }
@@ -108,30 +200,23 @@ export default function ApplicationsPage() {
     (selected?.status === 'Pending' || selected?.status === 'Reviewing') &&
     !isAtLastStage
 
-  useEffect(() => setVisibleCount(PAGE_SIZE), [search, statusFilter, sortDir])
-
-  const filtered = applications
-    .filter(app => !statusFilter || app.status === statusFilter)
-    .filter(app => {
-      const q = search.toLowerCase()
-      return !q
-        || (app.fullName ?? '').toLowerCase().includes(q)
-        || (app.email ?? '').toLowerCase().includes(q)
-        || (app.studentId ?? '').toLowerCase().includes(q)
-    })
-    .sort((a, b) => {
-      const cmp = new Date(a.appliedAt).getTime() - new Date(b.appliedAt).getTime()
-      return sortDir === 'desc' ? -cmp : cmp
-    })
-
-  const counts = applications.reduce((acc, a) => {
+  const counts = allApplications.reduce((acc, a) => {
     acc[a.status] = (acc[a.status] ?? 0) + 1
     return acc
   }, {} as Record<string, number>)
 
   async function handleExport(format: 'xlsx' | 'csv') {
     try {
-      const res = await exportApplications(id, { format, ...(statusFilter ? { status: statusFilter } : {}) })
+      const res = await exportApplications(id, {
+        format,
+        search: debouncedSearch || undefined,
+        status: statusFilter || undefined,
+        stageId: stageFilter ? Number(stageFilter) : undefined,
+        dateFrom: dateFrom || undefined,
+        dateTo: dateTo || undefined,
+        sortBy: 'appliedAt',
+        sortDir,
+      })
       const url = URL.createObjectURL(res.data)
       const a = document.createElement('a')
       a.href = url
@@ -143,14 +228,7 @@ export default function ApplicationsPage() {
     }
   }
 
-  const D = {
-    border: '1.5px solid var(--c-ink)', borderLight: '1px solid #e8e3d6',
-    shadow: (x = 3, y = 3) => `${x}px ${y}px 0 var(--c-ink)`,
-    radius: 14, pill: 999,
-    ink: 'var(--c-ink)', inkDim: '#4a4651', inkMuted: '#918c99',
-    bg: 'var(--c-bg)', card: '#ffffff', lemon: '#facc15', indigo: '#4f46e5',
-  }
-  const thS: React.CSSProperties = { padding: '10px 14px', textAlign: 'left', fontSize: 12, fontWeight: 700, color: D.inkMuted, letterSpacing: '.02em', whiteSpace: 'nowrap' }
+    const thS: React.CSSProperties = { padding: '10px 14px', textAlign: 'left', fontSize: 12, fontWeight: 700, color: D.inkMuted, letterSpacing: '.02em', whiteSpace: 'nowrap' }
   const tdS: React.CSSProperties = { padding: '12px 14px', fontSize: 13 }
   const labelStyle: React.CSSProperties = { fontSize: 12, fontWeight: 700, color: D.inkDim, display: 'block', marginBottom: 6 }
   const fieldBoxStyle: React.CSSProperties = {
@@ -170,29 +248,34 @@ export default function ApplicationsPage() {
     fontFamily: 'inherit',
   }
 
+  if (!clubPermissions.loading && !canView)
+    return <PermissionDenied />
+
   return (
     <div style={{ padding: '28px 32px', minHeight: '100%', background: D.bg, fontFamily: "'Be Vietnam Pro', sans-serif" }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20, gap: 16 }}>
         <div>
           <h1 style={{ fontSize: 24, fontWeight: 900, color: D.ink, letterSpacing: '-.025em', margin: 0 }}>Đơn đăng ký</h1>
-          <p style={{ fontSize: 13, color: D.inkMuted, marginTop: 4 }}>{applications.length} đơn tổng cộng</p>
+          <p style={{ fontSize: 13, color: D.inkMuted, marginTop: 4 }}>{totalApplications} đơn phù hợp</p>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          {(['xlsx', 'csv'] as const).map(fmt => (
-            <button key={fmt} onClick={() => handleExport(fmt)} style={{
-              padding: '8px 14px', borderRadius: D.pill, background: D.card, border: D.border,
-              boxShadow: D.shadow(2, 2), fontSize: 12, fontWeight: 600, color: D.inkDim,
-              cursor: 'pointer', fontFamily: 'inherit',
-            }}>↓ {fmt.toUpperCase()}</button>
-          ))}
-        </div>
+        {canExport && (
+          <div style={{ display: 'flex', gap: 8 }}>
+            {(['xlsx', 'csv'] as const).map(fmt => (
+              <button key={fmt} onClick={() => handleExport(fmt)} style={{
+                padding: '8px 14px', borderRadius: D.pill, background: D.card, border: D.border,
+                boxShadow: D.shadow(2, 2), fontSize: 12, fontWeight: 600, color: D.inkDim,
+                cursor: 'pointer', fontFamily: 'inherit',
+              }}>↓ {fmt.toUpperCase()}</button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Status tabs */}
       <div style={{ display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap' }}>
         {STATUS_TABS.map(tab => {
-          const c = tab.value ? (counts[tab.value] ?? 0) : applications.length
+          const c = tab.value ? (counts[tab.value] ?? 0) : allApplications.length
           const active = statusFilter === tab.value
           return (
             <button key={tab.value} onClick={() => setStatusFilter(tab.value)} style={{
@@ -223,9 +306,9 @@ export default function ApplicationsPage() {
       <div style={{
         padding: '10px 14px', borderRadius: D.radius, background: D.card,
         border: D.border, boxShadow: D.shadow(), display: 'flex', gap: 10,
-        alignItems: 'center', marginBottom: 16,
+        alignItems: 'center', marginBottom: 16, flexWrap: 'wrap',
       }}>
-        <div style={{ position: 'relative', flex: 1 }}>
+        <div style={{ position: 'relative', flex: 1, minWidth: 220 }}>
           <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: D.inkMuted, fontSize: 14, pointerEvents: 'none' }}>⌕</span>
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Tìm tên, email, MSSV..." style={{
             width: '100%', height: 36, borderRadius: 8, border: D.borderLight,
@@ -233,13 +316,48 @@ export default function ApplicationsPage() {
             background: D.bg, fontFamily: 'inherit',
           }} />
         </div>
+        <FilterSelect
+          value={stageFilter}
+          onChange={setStageFilter}
+          options={[
+            { value: '', label: 'Tất cả vòng' },
+            ...pipelineStages.map(stage => ({ value: String(stage.id), label: stage.name })),
+          ]}
+          style={{ width: 150 }}
+        />
+        <input
+          type="date"
+          value={dateFrom}
+          onChange={e => setDateFrom(e.target.value)}
+          style={{
+            height: 36, borderRadius: 8, border: D.borderLight,
+            padding: '0 10px', fontSize: 12, color: D.inkDim,
+            background: D.bg, fontFamily: 'inherit',
+          }}
+        />
+        <input
+          type="date"
+          value={dateTo}
+          onChange={e => setDateTo(e.target.value)}
+          style={{
+            height: 36, borderRadius: 8, border: D.borderLight,
+            padding: '0 10px', fontSize: 12, color: D.inkDim,
+            background: D.bg, fontFamily: 'inherit',
+          }}
+        />
         <button onClick={() => setSortDir(d => d === 'desc' ? 'asc' : 'desc')} style={{
           height: 36, padding: '0 12px', display: 'flex', alignItems: 'center', gap: 6,
           fontSize: 12, fontWeight: 600, color: D.inkDim,
           background: D.bg, border: D.borderLight, borderRadius: 8,
           cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap',
         }}>↕ {sortDir === 'desc' ? 'Mới nhất' : 'Cũ nhất'}</button>
-        <span style={{ fontSize: 12, color: D.inkMuted, whiteSpace: 'nowrap' }}>{filtered.length}/{applications.length}</span>
+        {(search || stageFilter || dateFrom || dateTo) && (
+          <button onClick={() => { setSearch(''); setStageFilter(''); setDateFrom(''); setDateTo('') }}
+            style={{ fontSize: 12, color: D.indigo, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
+            Xoá lọc
+          </button>
+        )}
+        <span style={{ fontSize: 12, color: D.inkMuted, whiteSpace: 'nowrap', marginLeft: 'auto' }}>{applications.length}/{totalApplications}</span>
       </div>
 
       {/* Table */}
@@ -258,9 +376,9 @@ export default function ApplicationsPage() {
           <tbody>
             {loading ? (
               <tr><td colSpan={6} style={{ padding: '48px 20px', textAlign: 'center', color: D.inkMuted }}>Đang tải...</td></tr>
-            ) : filtered.length === 0 ? (
+            ) : applications.length === 0 ? (
               <tr><td colSpan={6} style={{ padding: '48px 20px', textAlign: 'center', color: D.inkMuted }}>{search ? 'Không tìm thấy đơn nào.' : 'Chưa có đơn đăng ký.'}</td></tr>
-            ) : filtered.slice(0, visibleCount).map(app => {
+            ) : applications.map(app => {
               const cfg = STATUS_CONFIG[app.status]
               const Icon = cfg?.icon ?? Clock
               const isPending = app.status === APPLICATION_STATUS.PENDING || app.status === APPLICATION_STATUS.INTERVIEW
@@ -304,9 +422,10 @@ export default function ApplicationsPage() {
         </table>
       </div>
       <LoadMoreBar
-        shown={Math.min(visibleCount, filtered.length)}
-        total={filtered.length}
-        onLoadMore={() => setVisibleCount(v => v + PAGE_SIZE)}
+        shown={applications.length}
+        total={totalApplications}
+        loading={loadingMore}
+        onLoadMore={loadMore}
         label="đơn"
       />
 
@@ -344,12 +463,15 @@ export default function ApplicationsPage() {
                     <div>
                       <label style={labelStyle}>Câu trả lời</label>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                        {entries.map(([k, v]) => (
+                        {entries.map(([k, v]) => {
+                          const question = formFields.find(f => f.id === k)
+                          return (
                           <div key={k} style={fieldBoxStyle}>
-                            <p style={{ fontSize: 11.5, color: D.inkMuted, marginBottom: 3 }}>{k}</p>
+                            <p style={{ fontSize: 11.5, color: D.inkMuted, marginBottom: 3 }}>{question?.label ?? k}</p>
                             <p style={{ fontSize: 13, color: D.ink }}>{String(v)}</p>
                           </div>
-                        ))}
+                          )
+                        })}
                       </div>
                     </div>
                   )

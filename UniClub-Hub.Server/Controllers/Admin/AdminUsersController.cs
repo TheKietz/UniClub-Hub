@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
+using UniClub_Hub.Membership.DTOs.Common;
 using UniClub_Hub.Membership.DTOs.User;
 using UniClub_Hub.Membership.Services.Interfaces;
 using UniClub_Hub.Shared.Common;
@@ -22,10 +23,23 @@ namespace UniClub_Hub.Server.Controllers.Admin
         [HttpGet]
         public async Task<IActionResult> GetUsers(
             [FromQuery] string? search,
+            [FromQuery] string? status,
+            [FromQuery] string? role,
+            [FromQuery] string sortBy = "name",
+            [FromQuery] string sortDir = "asc",
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 20)
         {
-            var result = await _userService.GetUsersAsync(search, page, pageSize);
+            var result = await _userService.GetUsersAsync(new UserListQuery
+            {
+                Search = search,
+                Status = status,
+                Role = role,
+                SortBy = sortBy,
+                SortDir = sortDir,
+                Page = page,
+                PageSize = pageSize
+            });
             return Ok(ApiResponse<PagedResult<UserListItemDto>>.Ok(result));
         }
 

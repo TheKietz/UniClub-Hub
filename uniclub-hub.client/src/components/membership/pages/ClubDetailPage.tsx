@@ -1,5 +1,6 @@
 import { MEMBERSHIP_STATUS, CLUB_ROLES } from '@/types/auth'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useDeferredEffect } from '@/hooks/useDeferredEffect'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { getClubDetail, getDepartments, getFormSchema, getMemberFieldSchema, getMyApplications, submitApplication, resignFromClub, submitResignation, getUserResignations, uploadApplicationFile } from '@/components/membership/services/clubApi'
 import type { ClubDetail, DepartmentItem, FormSchema, MemberFieldDef, ApplicationItem, ResignationRequestItem, ResignationPreference } from '@/components/membership/services/club.types'
@@ -12,9 +13,10 @@ import { ArrowLeft, Users, Building, Calendar, Phone, GraduationCap, CheckCircle
 import { Tree, TreeNode } from 'react-organizational-chart'
 import PublicHeader from '@/components/layouts/PublicHeader'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { FilterSelect } from '@/components/shared/FilterSelect'
+import { getApiErrorMessage } from '@/lib/apiError'
 import { getClubLandingPage } from '@/components/portal/services/portal.api'
 import type { ClubLandingData } from '@/components/portal/services/portal.types'
-import { FilterSelect } from '@/components/shared/FilterSelect'
 
 const AVATAR_COLORS = ['bg-indigo-500', 'bg-emerald-500', 'bg-violet-500', 'bg-rose-500', 'bg-amber-500', 'bg-cyan-500']
 
@@ -34,7 +36,6 @@ export default function ClubDetailPage() {
   const [club, setClub] = useState<ClubDetail | null>(null)
   const [departments, setDepartments] = useState<DepartmentItem[]>([])
   const [schema, setSchema] = useState<FormSchema | null>(null)
-  const [landingData, setLandingData] = useState<ClubLandingData | null>(null)
   const [fieldSchema, setFieldSchema] = useState<MemberFieldDef[]>([])
   const [application, setApplication] = useState<ApplicationItem | null>(null)
   const [loading, setLoading] = useState(true)
@@ -45,8 +46,8 @@ export default function ClubDetailPage() {
   const [submitting, setSubmitting] = useState(false)
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'uploading' | 'submitting'>('idle')
   const [submitted, setSubmitted] = useState(false)
-
   const [applyOpen, setApplyOpen] = useState(false)
+  const [landingData, setLandingData] = useState<ClubLandingData | null>(null)
 
   const [resignOpen, setResignOpen] = useState(false)
   const [resigning, setResigning] = useState(false)
@@ -63,6 +64,20 @@ export default function ClubDetailPage() {
       refreshUser()
     }
   }, [application?.status])
+
+  const linkedFieldIds = useMemo(
+    () => new Set(
+      (schema?.fields ?? [])
+        .map(f => f.linkedFieldId)
+        .filter((fid): fid is string => !!fid),
+    ),
+    [schema],
+  )
+
+  const unlinkedMemberFields = useMemo(
+    () => fieldSchema.filter(f => !linkedFieldIds.has(f.id)),
+    [fieldSchema, linkedFieldIds],
+  )
 
   // Load đơn từ chức đang chờ (nếu là leader)
   useEffect(() => {
@@ -81,8 +96,8 @@ export default function ClubDetailPage() {
       await resignFromClub(id)
       toast.success('Đã rời khỏi CLB.')
       navigate('/clubs')
-    } catch (err: any) {
-      toast.error(err.response?.data?.message ?? 'Thao tác thất bại.')
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'Thao tác thất bại.'))
       setResignOpen(false)
     } finally {
       setResigning(false)
@@ -96,17 +111,17 @@ export default function ClubDetailPage() {
       setResignRequest(result)
       setResignOpen(false)
       toast.success('Đã gửi đơn từ chức. Vui lòng chờ phê duyệt.')
-    } catch (err: any) {
-      toast.error(err.response?.data?.message ?? 'Gửi đơn thất bại.')
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'Gửi đơn thất bại.'))
     } finally {
       setResigning(false)
     }
   }
 
-  useEffect(() => {
+  useDeferredEffect((isCancelled) => {
+    setLoading(true)
     getClubLandingPage(id).then(setLandingData).catch(() => {})
-
-    const tasks: Promise<any>[] = [
+    const tasks: Promise<void>[] = [
       getClubDetail(id).then(setClub),
       getDepartments(id).then(setDepartments),
       getFormSchema(id).then(s => setSchema(s)),
@@ -125,8 +140,8 @@ export default function ClubDetailPage() {
       )
     }
     Promise.all(tasks)
-      .catch(() => toast.error('Không thể tải thông tin CLB.'))
-      .finally(() => setLoading(false))
+      .catch(() => { if (!isCancelled()) toast.error('Không thể tải thông tin CLB.') })
+      .finally(() => { if (!isCancelled()) setLoading(false) })
   }, [id, isAuthenticated])
 
   async function handleSubmit(e: React.FormEvent) {
@@ -140,8 +155,8 @@ export default function ClubDetailPage() {
         return
       }
     }
-    if (fieldSchema.length > 0) {
-      const missingMemberFields = fieldSchema.filter(f => f.required && !memberFieldAnswers[f.id]?.trim())
+    if (unlinkedMemberFields.length > 0) {
+      const missingMemberFields = unlinkedMemberFields.filter(f => f.required && !memberFieldAnswers[f.id]?.trim())
       if (missingMemberFields.length > 0) {
         toast.error(`Vui lòng điền: ${missingMemberFields.map(f => f.label).join(', ')}`)
         return
@@ -162,15 +177,21 @@ export default function ClubDetailPage() {
       }
 
       setSubmitStatus('submitting')
+      const memberFieldData: Record<string, string> = { ...memberFieldAnswers }
+      for (const field of schema?.fields ?? []) {
+        if (field.linkedFieldId && finalAnswers[field.id]?.trim()) {
+          memberFieldData[field.linkedFieldId] = finalAnswers[field.id]
+        }
+      }
       await submitApplication(id, {
         answers: schema ? finalAnswers : { note: finalAnswers['note'] ?? '' },
-        ...(fieldSchema.length > 0 ? { memberFieldData: memberFieldAnswers } : {}),
+        ...(Object.keys(memberFieldData).length > 0 ? { memberFieldData } : {}),
       })
       setSubmitted(true)
       setApplyOpen(false)
       toast.success('Đã gửi đơn đăng ký thành công!')
-    } catch (err: any) {
-      toast.error(err.response?.data?.message ?? 'Gửi đơn thất bại.')
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'Gửi đơn thất bại.'))
     } finally {
       setSubmitting(false)
       setSubmitStatus('idle')
@@ -193,11 +214,7 @@ export default function ClubDetailPage() {
   const avatarLetter = (club.name.startsWith('CLB ') ? club.name.slice(4) : club.name)[0]?.toUpperCase() ?? '?'
 
   return (
-    <div className="min-h-screen flex flex-col" style={{
-      backgroundColor: '#EBF3FF',
-      backgroundImage: 'radial-gradient(circle, rgba(0,48,135,0.08) 1.5px, transparent 1.5px)',
-      backgroundSize: '26px 26px',
-    }}>
+    <div className="min-h-screen bg-gray-50 flex flex-col">
       <PublicHeader />
 
       <div className="flex-1 max-w-5xl mx-auto w-full px-6 pt-[132px] pb-8 space-y-6">
@@ -212,42 +229,37 @@ export default function ClubDetailPage() {
           <span className="text-gray-700 font-medium truncate max-w-xs">{club.name}</span>
         </div>
 
-        <div className="flex flex-col lg:flex-row gap-6 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
 
           {/* ── Cột trái — Nội dung chính ── */}
-          <div className="flex-1 min-w-0 space-y-5">
+          <div className="lg:col-span-2 space-y-5">
 
             {/* Club header card */}
-            <div className="bg-white rounded-2xl overflow-hidden" style={{ border: '1.5px solid #C5D8F0', boxShadow: '0 2px 8px rgba(0,48,135,0.08)' }}>
-              <div className="h-1.5" style={{ background: 'linear-gradient(90deg, #003087, #0055B8)' }} />
+            <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+              <div className="h-1" style={{ background: 'linear-gradient(90deg, #1d4ed8, #7c3aed)' }} />
               <div className="p-6">
                 <div className="flex items-start gap-4">
                   {club.logoUrl ? (
                     <img src={club.logoUrl} alt=""
-                      className="w-16 h-16 rounded-xl object-cover flex-shrink-0" style={{ border: '1.5px solid #C5D8F0' }} />
+                      className="w-16 h-16 rounded-xl object-cover flex-shrink-0 border border-gray-100" />
                   ) : (
-                    <div className="w-16 h-16 rounded-xl flex items-center justify-center text-white text-2xl font-bold flex-shrink-0" style={{ background: 'linear-gradient(135deg, #003087, #0055B8)' }}>
+                    <div className={`w-16 h-16 rounded-xl flex items-center justify-center text-white text-2xl font-bold flex-shrink-0 ${avatarColor}`}>
                       {avatarLetter}
                     </div>
                   )}
                   <div className="min-w-0 flex-1 pt-0.5">
-                    <h1 className="text-xl font-bold leading-snug" style={{ color: '#003087', margin: 0 }}>{club.name}</h1>
+                    <h1 className="text-xl font-bold leading-snug" style={{ color: 'var(--c-ink)', margin: 0 }}>{club.name}</h1>
                     <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                      <span className="text-xs font-mono px-2 py-0.5 rounded-md font-semibold" style={{ background: '#EBF3FF', color: '#5E7AA8' }}>{club.code}</span>
+                      <span className="text-xs font-mono px-2 py-0.5 rounded-md bg-gray-100 text-gray-500">{club.code}</span>
                       {club.categoryName && (
-                        <span className="text-xs px-2.5 py-0.5 rounded-full font-semibold" style={{ background: '#EBF3FF', color: '#0055B8' }}>
+                        <span className="text-xs px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-600 font-medium">
                           {club.categoryName}
                         </span>
                       )}
                     </div>
-                    <p className="pt-3 text-sm leading-relaxed" style={{ color: '#5E7AA8' }}>
+                    <p className="pt-3 text-sm text-gray-500 leading-relaxed">
                       {club.description ?? 'Chưa có mô tả.'}
                     </p>
-                    <div className="flex justify-end mt-3">
-                      <Link to={`/landing-page/${club.id}`} className="text-xs font-semibold transition-colors" style={{ color: '#0055B8' }}>
-                        Xem thêm thông tin →
-                      </Link>
-                    </div>
                   </div>
                 </div>
               </div>
@@ -255,19 +267,19 @@ export default function ClubDetailPage() {
 
             {/* Org chart public */}
             {departments.length > 0 && (
-              <div className="bg-white rounded-2xl overflow-hidden" style={{ border: '1.5px solid #C5D8F0', boxShadow: '0 2px 8px rgba(0,48,135,0.08)' }}>
-                <div className="px-6 py-4 flex items-center gap-2" style={{ borderBottom: '1.5px solid #EBF3FF' }}>
-                  <GitBranch size={15} style={{ color: '#003087' }} />
-                  <p className="text-sm font-semibold" style={{ color: '#003087' }}>Cơ cấu tổ chức</p>
+              <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+                <div className="px-6 py-4 border-b border-gray-100 flex items-center gap-2">
+                  <GitBranch size={15} className="text-indigo-400" />
+                  <p className="text-sm font-semibold text-gray-900">Cơ cấu tổ chức</p>
                 </div>
                 <div className="px-6 py-5 overflow-x-auto">
                   <div className="min-w-max mx-auto">
                     <Tree
                       lineWidth="2px"
-                      lineColor="#C5D8F0"
+                      lineColor="#c7d2fe"
                       lineBorderRadius="8px"
                       label={
-                        <div className="inline-flex items-center gap-2 text-white rounded-xl px-4 py-2 text-sm font-bold" style={{ background: '#003087', boxShadow: '0 2px 8px rgba(0,48,135,0.25)' }}>
+                        <div className="inline-flex items-center gap-2 bg-indigo-600 text-white rounded-xl px-4 py-2 text-sm font-semibold shadow">
                           <Building size={14} />
                           {club.name}
                         </div>
@@ -275,13 +287,13 @@ export default function ClubDetailPage() {
                     >
                       {departments.map(dept => (
                         <TreeNode key={dept.id} label={
-                          <div className="inline-flex flex-col items-center gap-0.5 bg-white rounded-xl px-4 py-2.5 min-w-28" style={{ border: '1.5px solid #C5D8F0', boxShadow: '0 1px 4px rgba(0,48,135,0.08)' }}>
-                            <p className="font-semibold text-sm" style={{ color: '#003087' }}>{dept.name}</p>
+                          <div className="inline-flex flex-col items-center gap-0.5 bg-white border-2 border-indigo-200 rounded-xl px-4 py-2.5 shadow-sm min-w-28">
+                            <p className="font-semibold text-sm text-gray-800">{dept.name}</p>
                             {dept.deptLeadName
-                              ? <p className="text-xs" style={{ color: '#0055B8' }}>{dept.deptLeadName}</p>
+                              ? <p className="text-xs text-indigo-500">{dept.deptLeadName}</p>
                               : <p className="text-xs text-amber-500">Chưa có trưởng ban</p>
                             }
-                            <p className="text-xs" style={{ color: '#5E7AA8' }}>{dept.memberCount} thành viên</p>
+                            <p className="text-xs text-gray-400">{dept.memberCount} thành viên</p>
                           </div>
                         } />
                       ))}
@@ -290,16 +302,38 @@ export default function ClubDetailPage() {
                 </div>
               </div>
             )}
-
+            {/* Introduction / mission / vision từ landing data */}
+            {landingData?.landingPage && (landingData.landingPage.introduction || landingData.landingPage.mission || landingData.landingPage.vision) && (
+              <div className="bg-white rounded-2xl border border-gray-200 p-6 space-y-4">
+                {landingData.landingPage.introduction && (
+                  <div>
+                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Giới thiệu</p>
+                    <p className="text-sm text-gray-600 leading-relaxed">{landingData.landingPage.introduction}</p>
+                  </div>
+                )}
+                {landingData.landingPage.mission && (
+                  <div>
+                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Sứ mệnh</p>
+                    <p className="text-sm text-gray-600 leading-relaxed">{landingData.landingPage.mission}</p>
+                  </div>
+                )}
+                {landingData.landingPage.vision && (
+                  <div>
+                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Tầm nhìn</p>
+                    <p className="text-sm text-gray-600 leading-relaxed">{landingData.landingPage.vision}</p>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* ── Cột phải — Apply + meta ── */}
-          <div className="space-y-4 w-full lg:w-72 xl:w-80 flex-shrink-0 lg:sticky lg:top-24 self-start">
+          <div className="space-y-4 lg:sticky lg:top-24">
 
             {/* Apply card */}
-            <div className="rounded-2xl overflow-hidden" style={{ border: '2px solid #003087', boxShadow: '4px 4px 0 #003087' }}>
-              <div className="px-5 py-3" style={{ background: '#003087' }}>
-                <p className="text-sm font-black text-white uppercase tracking-wider">Tham gia CLB</p>
+            <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+              <div className="px-5 py-4 border-b border-gray-100">
+                <p className="text-sm font-semibold text-gray-900">Tham gia CLB</p>
               </div>
 
               <div className="p-5">
@@ -341,7 +375,7 @@ export default function ClubDetailPage() {
                       )}
                     </div>
                   </div>
-                ) : application && !submitted && (application.status === 'Pending' || application.status === 'Interview' || application.status === 'Reviewing') ? (
+                ) : application && !submitted && application.status !== 'Rejected' ? (
                   (() => {
                     const s = APP_STATUS[application.status]
                     const Icon = s?.icon ?? Clock
@@ -369,8 +403,7 @@ export default function ClubDetailPage() {
                   (() => {
                     const rejectedAt = application.reviewedAt ? new Date(application.reviewedAt) : new Date(application.appliedAt)
                     const canReapply = Date.now() - rejectedAt.getTime() >= 24 * 60 * 60 * 1000
-                    const msLeft = 24 * 60 * 60 * 1000 - (Date.now() - rejectedAt.getTime())
-                    const hoursLeft = Math.ceil(msLeft / (60 * 60 * 1000))
+                    const hoursLeft = Math.ceil((24 * 60 * 60 * 1000 - (Date.now() - rejectedAt.getTime())) / 3600000)
                     return (
                       <div className="text-center py-2 space-y-2">
                         <div className="w-10 h-10 rounded-full flex items-center justify-center mx-auto" style={{ background: '#fee2e2' }}>
@@ -387,15 +420,13 @@ export default function ClubDetailPage() {
                         {canReapply ? (
                           <button
                             onClick={() => { setApplication(null); setApplyOpen(true) }}
-                            className="w-full py-2.5 rounded-xl font-bold text-sm text-white transition-all active:translate-y-0.5"
+                            className="w-full py-2.5 rounded-xl font-bold text-sm text-white mt-1"
                             style={{ background: '#C8102E', border: '2px solid #8B0000', boxShadow: '0 3px 0 #8B0000' }}
                           >
                             Đăng ký lại
                           </button>
                         ) : (
-                          <p className="text-xs text-gray-400">
-                            Có thể đăng ký lại sau <span className="font-semibold text-gray-600">{hoursLeft} giờ</span>
-                          </p>
+                          <p className="text-xs text-gray-400">Có thể đăng ký lại sau {hoursLeft} giờ</p>
                         )}
                       </div>
                     )
@@ -426,8 +457,8 @@ export default function ClubDetailPage() {
                     <p className="text-sm text-gray-500">Tham gia {club.name} và cùng nhau phát triển!</p>
                     <button
                       onClick={() => setApplyOpen(true)}
-                      className="w-full py-4 rounded-xl font-black text-xl text-white transition-all active:translate-y-0.5"
-                      style={{ background: '#C8102E', border: '2px solid #8B0000', boxShadow: '0 4px 0 #8B0000', letterSpacing: '-.01em' }}
+                      className="w-full py-2.5 rounded-xl font-bold text-sm text-white transition-transform active:translate-y-0.5"
+                      style={{ background: '#1d4ed8', border: '2px solid #1e3a8a', boxShadow: '0 3px 0 #1e3a8a' }}
                     >
                       Đăng ký ngay!!!
                     </button>
@@ -437,216 +468,35 @@ export default function ClubDetailPage() {
             </div>
 
             {/* Club meta card */}
-            <div className="bg-white rounded-2xl overflow-hidden" style={{ border: '1.5px solid #C5D8F0', boxShadow: '0 2px 8px rgba(0,48,135,0.08)' }}>
-              <div className="px-5 py-3" style={{ background: '#EBF3FF', borderBottom: '1.5px solid #C5D8F0' }}>
-                <p className="text-xs font-black uppercase tracking-widest" style={{ color: '#003087' }}>Thông tin CLB</p>
+            <div className="bg-white rounded-2xl border border-gray-200 p-5 space-y-3">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Thông tin CLB</p>
+              <div className="flex items-center gap-2.5 text-sm text-gray-600">
+                <Users size={14} className="text-gray-400 flex-shrink-0" />
+                <span>{club.memberCount} thành viên</span>
               </div>
-              <div className="p-5 space-y-3">
-                <div className="flex items-center gap-2.5 text-sm font-medium" style={{ color: '#003087' }}>
-                  <Users size={14} style={{ color: '#5E7AA8', flexShrink: 0 }} />
-                  <span>{club.memberCount} thành viên</span>
+              {club.advisorName && (
+                <div className="flex items-center gap-2.5 text-sm text-gray-600">
+                  <GraduationCap size={14} className="text-gray-400 flex-shrink-0" />
+                  <span>{club.advisorName}</span>
                 </div>
-                {club.advisorName && (
-                  <div className="flex items-center gap-2.5 text-sm font-medium" style={{ color: '#003087' }}>
-                    <GraduationCap size={14} style={{ color: '#5E7AA8', flexShrink: 0 }} />
-                    <span>{club.advisorName}</span>
-                  </div>
-                )}
-                {club.establishedDate && (
-                  <div className="flex items-center gap-2.5 text-sm font-medium" style={{ color: '#003087' }}>
-                    <Calendar size={14} style={{ color: '#5E7AA8', flexShrink: 0 }} />
-                    <span>Thành lập {new Date(club.establishedDate).getFullYear()}</span>
-                  </div>
-                )}
-                {club.contactInfo && (
-                  <div className="flex items-center gap-2.5 text-sm font-medium" style={{ color: '#003087' }}>
-                    <Phone size={14} style={{ color: '#5E7AA8', flexShrink: 0 }} />
-                    <span>{club.contactInfo}</span>
-                  </div>
-                )}
-              </div>
+              )}
+              {club.establishedDate && (
+                <div className="flex items-center gap-2.5 text-sm text-gray-600">
+                  <Calendar size={14} className="text-gray-400 flex-shrink-0" />
+                  <span>Thành lập {new Date(club.establishedDate).getFullYear()}</span>
+                </div>
+              )}
+              {club.contactInfo && (
+                <div className="flex items-center gap-2.5 text-sm text-gray-600">
+                  <Phone size={14} className="text-gray-400 flex-shrink-0" />
+                  <span>{club.contactInfo}</span>
+                </div>
+              )}
             </div>
           </div>
 
         </div>
-
-        {/* ── Thống kê & Bài viết — full width ── */}
-        {landingData && (
-          <div className="space-y-5">
-            <div className="bg-white rounded-2xl overflow-hidden" style={{ border: '1.5px solid #C5D8F0', boxShadow: '0 2px 8px rgba(0,48,135,0.08)' }}>
-              <div className="px-6 py-3" style={{ background: '#EBF3FF', borderBottom: '1.5px solid #C5D8F0' }}>
-                <p className="text-xs font-black uppercase tracking-widest" style={{ color: '#003087' }}>Thống kê hoạt động</p>
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-y sm:divide-y-0">
-                {[
-                  { value: landingData.stats.memberCount, label: 'Thành viên', color: '#003087', icon: '👥' },
-                  { value: landingData.stats.departmentCount, label: 'Ban chức năng', color: '#0055B8', icon: '🏛️' },
-                  { value: landingData.stats.eventCount, label: 'Sự kiện', color: '#C8102E', icon: '📅' },
-                  { value: landingData.stats.postCount, label: 'Bài viết', color: '#14b8a6', icon: '📝' },
-                ].map((s, i) => (
-                  <div key={i} className="flex flex-col items-center justify-center py-7 px-3 gap-1" style={{ borderColor: '#EBF3FF' }}>
-                    <span className="text-2xl mb-1">{s.icon}</span>
-                    <span className="text-3xl font-black leading-none" style={{ color: s.color }}>{s.value}</span>
-                    <span className="text-xs font-semibold mt-1 text-center" style={{ color: '#5E7AA8' }}>{s.label}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {landingData.recentPosts.length > 0 && (
-              <div className="bg-white rounded-2xl overflow-hidden" style={{ border: '1.5px solid #C5D8F0', boxShadow: '0 2px 8px rgba(0,48,135,0.08)' }}>
-                <div className="px-6 py-3" style={{ background: '#EBF3FF', borderBottom: '1.5px solid #C5D8F0' }}>
-                  <p className="text-xs font-black uppercase tracking-widest" style={{ color: '#003087' }}>Bài viết mới nhất</p>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x" style={{ borderColor: '#EBF3FF' }}>
-                  {landingData.recentPosts.slice(0, 3).map(post => (
-                    <div key={post.id} className="flex flex-col gap-3 p-4">
-                      {post.thumbnailUrl ? (
-                        <img src={post.thumbnailUrl} alt="" className="w-full h-32 rounded-xl object-cover" style={{ border: '1px solid #C5D8F0' }} />
-                      ) : (
-                        <div className="w-full h-32 rounded-xl flex items-center justify-center text-white text-2xl font-black" style={{ background: 'linear-gradient(135deg, #003087, #0055B8)' }}>✦</div>
-                      )}
-                      <div className="flex-1">
-                        {post.category && (
-                          <span className="text-xs font-bold px-2 py-0.5 rounded-full mb-1.5 inline-block" style={{ background: '#EBF3FF', color: '#003087' }}>{post.category}</span>
-                        )}
-                        <p className="text-sm font-bold leading-snug line-clamp-2" style={{ color: '#003087' }}>{post.title}</p>
-                        <p className="text-xs mt-1" style={{ color: '#5E7AA8' }}>{new Date(post.createdAt).toLocaleDateString('vi-VN')}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <div className="px-5 py-3" style={{ borderTop: '1px solid #EBF3FF' }}>
-                  <Link to={`/landing-page/${club.id}#posts`} className="text-xs font-bold" style={{ color: '#003087' }}>
-                    Xem tất cả bài viết →
-                  </Link>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
       </div>
-
-      {/* Dialog đăng ký tham gia CLB */}
-      <Dialog open={applyOpen} onOpenChange={setApplyOpen}>
-        <DialogContent className="sm:max-w-lg p-0 overflow-hidden gap-0">
-          {/* Header cố định */}
-          <div className="px-6 py-4 flex items-center justify-between flex-shrink-0" style={{ background: '#003087', borderBottom: '2px solid #001A5E' }}>
-            <div>
-              <p className="text-xs font-bold text-white/60 uppercase tracking-widest mb-0.5">Đăng ký tham gia</p>
-              <p className="text-base font-black text-white leading-tight">{club.name}</p>
-            </div>
-          </div>
-
-          {/* Body có scroll */}
-          <div className="overflow-y-auto" style={{ maxHeight: 'calc(85vh - 140px)' }}>
-          <form id="apply-form" onSubmit={handleSubmit} className="space-y-4 p-6">
-            {schema && schema.fields.length > 0 ? (
-              schema.fields.map(f => (
-                <div key={f.id} className="space-y-1.5">
-                  <Label className="text-xs text-gray-600">
-                    {f.label}{f.required && <span className="text-red-500 ml-0.5">*</span>}
-                  </Label>
-                  {f.type === 'textarea' ? (
-                    <textarea rows={3} value={answers[f.id] ?? ''}
-                      onChange={e => setAnswers(p => ({ ...p, [f.id]: e.target.value }))}
-                      className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-                  ) : f.type === 'select' ? (
-                    <select value={answers[f.id] ?? ''}
-                      onChange={e => setAnswers(p => ({ ...p, [f.id]: e.target.value }))}
-                      className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-white">
-                      <option value="">— Chọn —</option>
-                      {f.options?.map(o => <option key={o} value={o}>{o}</option>)}
-                    </select>
-                  ) : f.type === 'file' ? (
-                    <div>
-                      <label className={`flex items-center gap-2 w-full border rounded-lg px-3 py-2 text-sm cursor-pointer transition-colors ${
-                        fileAnswers[f.id] ? 'border-indigo-400 bg-indigo-50' : 'border-input bg-background hover:bg-gray-50'
-                      }`}>
-                        <Paperclip size={14} className="text-gray-400 flex-shrink-0" />
-                        <span className="flex-1 truncate text-gray-600">
-                          {fileAnswers[f.id]?.name ?? 'Chọn file...'}
-                        </span>
-                        {fileAnswers[f.id] && (
-                          <button type="button" onClick={e => { e.preventDefault(); setFileAnswers(p => ({ ...p, [f.id]: null })) }}
-                            className="text-gray-400 hover:text-red-500 flex-shrink-0">
-                            <X size={13} />
-                          </button>
-                        )}
-                        <input type="file" className="hidden" accept={f.accept}
-                          onChange={e => {
-                            const file = e.target.files?.[0] ?? null
-                            setFileAnswers(p => ({ ...p, [f.id]: file }))
-                            e.target.value = ''
-                          }} />
-                      </label>
-                      {f.accept && <p className="text-xs text-gray-400 mt-1">Định dạng chấp nhận: {f.accept}</p>}
-                    </div>
-                  ) : (
-                    <Input value={answers[f.id] ?? ''}
-                      onChange={e => setAnswers(p => ({ ...p, [f.id]: e.target.value }))} />
-                  )}
-                </div>
-              ))
-            ) : (
-              <div className="space-y-1.5">
-                <Label className="text-xs text-gray-600">Lý do muốn tham gia</Label>
-                <textarea rows={4} value={answers['note'] ?? ''}
-                  onChange={e => setAnswers(p => ({ ...p, note: e.target.value }))}
-                  placeholder="Chia sẻ lý do bạn muốn tham gia CLB..."
-                  className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-              </div>
-            )}
-
-            {fieldSchema.length > 0 && (
-              <div className="border-t border-gray-100 pt-3 space-y-3">
-                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Thông tin hồ sơ thành viên</p>
-                {fieldSchema.map(f => (
-                  <div key={f.id} className="space-y-1.5">
-                    <Label className="text-xs text-gray-600">
-                      {f.label}{f.required && <span className="text-red-500 ml-0.5">*</span>}
-                    </Label>
-                    {f.type === 'textarea' ? (
-                      <textarea rows={3} value={memberFieldAnswers[f.id] ?? ''}
-                        onChange={e => setMemberFieldAnswers(p => ({ ...p, [f.id]: e.target.value }))}
-                        className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-                    ) : f.type === 'select' ? (
-                      <select value={memberFieldAnswers[f.id] ?? ''}
-                        onChange={e => setMemberFieldAnswers(p => ({ ...p, [f.id]: e.target.value }))}
-                        className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-white">
-                        <option value="">— Chọn —</option>
-                        {f.options?.map(o => <option key={o} value={o}>{o}</option>)}
-                      </select>
-                    ) : (
-                      <Input value={memberFieldAnswers[f.id] ?? ''}
-                        onChange={e => setMemberFieldAnswers(p => ({ ...p, [f.id]: e.target.value }))} />
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-
-          </form>
-          </div>
-
-          {/* Footer cố định */}
-          <div className="px-6 py-4 flex items-center justify-end gap-3 flex-shrink-0"
-            style={{ borderTop: '1.5px solid #C5D8F0', background: '#F8FBFF' }}>
-            <Button type="button" variant="outline" onClick={() => setApplyOpen(false)} disabled={submitting}
-              style={{ borderColor: '#003087', color: '#003087' }}>
-              Huỷ
-            </Button>
-            <Button type="submit" form="apply-form" disabled={submitting}
-              style={{ background: '#C8102E', border: 'none', boxShadow: '0 2px 0 #8B0000' }}
-              className="hover:opacity-90 font-bold">
-              {submitStatus === 'uploading' ? 'Đang tải file...'
-                : submitStatus === 'submitting' ? 'Đang gửi...'
-                : 'Gửi đơn đăng ký'}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
 
       {/* Dialog rời CLB / đệ đơn từ chức */}
       <Dialog open={resignOpen} onOpenChange={setResignOpen}>
@@ -706,6 +556,120 @@ export default function ClubDetailPage() {
               </Button>
             )}
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog đăng ký */}
+      <Dialog open={applyOpen} onOpenChange={open => { if (!submitting) setApplyOpen(open) }}>
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Đăng ký tham gia {club.name}</DialogTitle>
+          </DialogHeader>
+
+          <form onSubmit={handleSubmit} className="space-y-3 py-1">
+            {schema && schema.fields.length > 0 ? (
+              schema.fields.map(f => (
+                <div key={f.id} className="space-y-1.5">
+                  <Label className="text-xs text-gray-600">
+                    {f.label}{f.required && <span className="text-red-500 ml-0.5">*</span>}
+                  </Label>
+                  {f.type === 'textarea' ? (
+                    <textarea rows={3} value={answers[f.id] ?? ''}
+                      onChange={e => setAnswers(p => ({ ...p, [f.id]: e.target.value }))}
+                      className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                  ) : f.type === 'select' ? (
+                    <FilterSelect
+                      value={answers[f.id] ?? ''}
+                      onChange={value => setAnswers(p => ({ ...p, [f.id]: value }))}
+                      options={[
+                        { value: '', label: '— Chọn —' },
+                        ...((f.linkedFieldId
+                          ? fieldSchema.find(mf => mf.id === f.linkedFieldId)?.options
+                          : f.options) ?? []).map(o => ({ value: o, label: o })),
+                      ]}
+                    />
+                  ) : f.type === 'file' ? (
+                    <div>
+                      <label className={`flex items-center gap-2 w-full border rounded-lg px-3 py-2 text-sm cursor-pointer transition-colors ${
+                        fileAnswers[f.id] ? 'border-indigo-400 bg-indigo-50' : 'border-input bg-background hover:bg-gray-50'
+                      }`}>
+                        <Paperclip size={14} className="text-gray-400 flex-shrink-0" />
+                        <span className="flex-1 truncate text-gray-600">
+                          {fileAnswers[f.id]?.name ?? 'Chọn file...'}
+                        </span>
+                        {fileAnswers[f.id] && (
+                          <button type="button" onClick={e => { e.preventDefault(); setFileAnswers(p => ({ ...p, [f.id]: null })) }}
+                            className="text-gray-400 hover:text-red-500 flex-shrink-0">
+                            <X size={13} />
+                          </button>
+                        )}
+                        <input type="file" className="hidden"
+                          accept={f.accept}
+                          onChange={e => {
+                            const file = e.target.files?.[0] ?? null
+                            setFileAnswers(p => ({ ...p, [f.id]: file }))
+                            e.target.value = ''
+                          }} />
+                      </label>
+                      {f.accept && (
+                        <p className="text-xs text-gray-400 mt-1">Định dạng chấp nhận: {f.accept}</p>
+                      )}
+                    </div>
+                  ) : (
+                    <Input value={answers[f.id] ?? ''}
+                      onChange={e => setAnswers(p => ({ ...p, [f.id]: e.target.value }))} />
+                  )}
+                </div>
+              ))
+            ) : (
+              <div className="space-y-1.5">
+                <Label className="text-xs text-gray-600">Lý do muốn tham gia</Label>
+                <textarea rows={4} value={answers['note'] ?? ''}
+                  onChange={e => setAnswers(p => ({ ...p, note: e.target.value }))}
+                  placeholder="Chia sẻ lý do bạn muốn tham gia CLB..."
+                  className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+              </div>
+            )}
+            {unlinkedMemberFields.length > 0 && (
+              <div className="border-t border-gray-100 pt-3 mt-1 space-y-3">
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                  Thông tin hồ sơ thành viên
+                </p>
+                {unlinkedMemberFields.map(f => (
+                  <div key={f.id} className="space-y-1.5">
+                    <Label className="text-xs text-gray-600">
+                      {f.label}{f.required && <span className="text-red-500 ml-0.5">*</span>}
+                    </Label>
+                    {f.type === 'textarea' ? (
+                      <textarea rows={3} value={memberFieldAnswers[f.id] ?? ''}
+                        onChange={e => setMemberFieldAnswers(p => ({ ...p, [f.id]: e.target.value }))}
+                        className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                    ) : f.type === 'select' ? (
+                      <FilterSelect
+                        value={memberFieldAnswers[f.id] ?? ''}
+                        onChange={value => setMemberFieldAnswers(p => ({ ...p, [f.id]: value }))}
+                        options={[
+                          { value: '', label: '— Chọn —' },
+                          ...(f.options ?? []).map(o => ({ value: o, label: o })),
+                        ]}
+                      />
+                    ) : (
+                      <Input value={memberFieldAnswers[f.id] ?? ''}
+                        onChange={e => setMemberFieldAnswers(p => ({ ...p, [f.id]: e.target.value }))} />
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+            <DialogFooter className="pt-2">
+              <Button variant="outline" type="button" onClick={() => setApplyOpen(false)} disabled={submitting}>Huỷ</Button>
+              <Button type="submit" disabled={submitting} className="bg-indigo-600 hover:bg-indigo-700">
+                {submitStatus === 'uploading' ? 'Đang tải file...'
+                  : submitStatus === 'submitting' ? 'Đang gửi...'
+                  : 'Gửi đơn đăng ký'}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
 

@@ -158,11 +158,25 @@ export const createAssignment = (
   }).then(r => r.data.data)
 }
 
+export const updateAssignment = (id: number, dto: { title: string; description?: string; priority: string; deadline?: string }) =>
+  api.put<ApiResponse<AssignmentItem>>(`/v1/operations/assignments/${id}`, dto).then(r => r.data.data)
+
 export const updateAssignmentStatus = (id: number, status: string) =>
   api.patch<ApiResponse<AssignmentItem>>(`/v1/operations/assignments/${id}/status`, { status }).then(r => r.data.data)
 
 export const deleteAssignment = (id: number) =>
   api.delete(`/v1/operations/assignments/${id}`)
+
+export const addAssignmentAttachments = (id: number, files: File[]) => {
+  const form = new FormData()
+  files.forEach(f => form.append('files', f))
+  return api.post<ApiResponse<AssignmentItem>>(`/v1/operations/assignments/${id}/attachments`, form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }).then(r => r.data.data)
+}
+
+export const removeAssignmentAttachment = (id: number, url: string) =>
+  api.delete<ApiResponse<AssignmentItem>>(`/v1/operations/assignments/${id}/attachments`, { params: { url } }).then(r => r.data.data)
 
 export const getEventById = (id: number) =>
   api.get<ApiResponse<EventItem>>(`/v1/operations/events/${id}`).then(r => r.data.data)
@@ -225,6 +239,14 @@ export const uploadEventAttachment = (eventId: number, file: File, note?: string
 
 export const deleteEventAttachment = (eventId: number, attachmentId: number) =>
   api.delete(`/v1/operations/events/${eventId}/attachments/${attachmentId}`)
+
+// ── Registration Link ─────────────────────────────────────────────────────────
+
+export const getRegistrationLink = (eventId: number) =>
+  api.get<ApiResponse<string | null>>(`/v1/operations/events/${eventId}/registration-link`).then(r => r.data.data)
+
+export const saveRegistrationLink = (eventId: number, url: string | null) =>
+  api.put<ApiResponse<object>>(`/v1/operations/events/${eventId}/registration-link`, { url })
 
 // ── Sprints ───────────────────────────────────────────────────────────────────
 

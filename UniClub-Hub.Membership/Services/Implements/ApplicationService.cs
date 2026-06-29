@@ -1,9 +1,11 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using System.Text.Json;
+using UniClub_Hub.Membership.DTOs.Common;
 using UniClub_Hub.Membership.DTOs.Application;
 using UniClub_Hub.Membership.DTOs.Pipeline;
 using UniClub_Hub.Membership.Services.Interfaces;
+using UniClub_Hub.Shared.Common;
 using UniClub_Hub.Shared.Constants;
 using UniClub_Hub.Shared.Data;
 using UniClub_Hub.Shared.Email;
@@ -79,6 +81,81 @@ namespace UniClub_Hub.Membership.Services.Implements
                 a.ReviewerId != null ? reviewers.GetValueOrDefault(a.ReviewerId) : null));
         }
 
+        public async Task<PagedResult<AdminApplicationDto>> GetAllByClubPageAsync(int clubId, ApplicationListQuery request)
+        {
+            if (!await _db.Clubs.AnyAsync(c => c.Id == clubId))
+                throw new KeyNotFoundException($"Không tìm thấy CLB với ID {clubId}.");
+
+            var page = Math.Max(1, request.Page);
+            var pageSize = Math.Clamp(request.PageSize, 1, 100);
+            var query = _db
+                .Applications.AsNoTracking()
+                .Include(a => a.Club)
+                .Include(a => a.User)
+                .Include(a => a.CurrentStage)
+                .Where(a => a.ClubId == clubId);
+
+            if (!string.IsNullOrWhiteSpace(request.Search))
+            {
+                var s = request.Search.Trim().ToLower();
+                query = query.Where(a =>
+                    (a.User.FullName != null && a.User.FullName.ToLower().Contains(s)) ||
+                    (a.User.Email != null && a.User.Email.ToLower().Contains(s)) ||
+                    (a.User.StudentId != null && a.User.StudentId.ToLower().Contains(s)) ||
+                    (a.CurrentStage != null && a.CurrentStage.Name.ToLower().Contains(s)));
+            }
+
+            if (!string.IsNullOrWhiteSpace(request.Status) &&
+                Enum.TryParse<ApplicationStatus>(request.Status, true, out var parsedStatus))
+                query = query.Where(a => a.Status == parsedStatus);
+
+            if (request.StageId.HasValue)
+                query = query.Where(a => a.CurrentStageId == request.StageId);
+
+            if (request.DateFrom.HasValue)
+                query = query.Where(a => a.AppliedAt >= request.DateFrom.Value.Date);
+
+            if (request.DateTo.HasValue)
+            {
+                var nextDay = request.DateTo.Value.Date.AddDays(1);
+                query = query.Where(a => a.AppliedAt < nextDay);
+            }
+
+            var sortBy = request.SortBy.Trim().ToLower();
+            var desc = request.SortDir.Equals("desc", StringComparison.OrdinalIgnoreCase);
+            var orderedQuery = sortBy switch
+            {
+                "name" => desc ? query.OrderByDescending(a => a.User.FullName ?? a.User.Email) : query.OrderBy(a => a.User.FullName ?? a.User.Email),
+                "email" => desc ? query.OrderByDescending(a => a.User.Email) : query.OrderBy(a => a.User.Email),
+                "status" => desc ? query.OrderByDescending(a => a.Status) : query.OrderBy(a => a.Status),
+                "stage" => desc ? query.OrderByDescending(a => a.CurrentStage != null ? a.CurrentStage.Name : "") : query.OrderBy(a => a.CurrentStage != null ? a.CurrentStage.Name : ""),
+                _ => desc ? query.OrderByDescending(a => a.AppliedAt) : query.OrderBy(a => a.AppliedAt),
+            };
+            query = orderedQuery.ThenBy(a => a.Id);
+
+            var totalCount = await query.CountAsync();
+            var apps = await query
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            var reviewerIds = apps.Where(a => a.ReviewerId != null)
+                                  .Select(a => a.ReviewerId!).Distinct().ToList();
+            var reviewers = reviewerIds.Any()
+                ? await _db.Users.Where(u => reviewerIds.Contains(u.Id))
+                    .ToDictionaryAsync(u => u.Id, u => u.FullName ?? u.Email ?? u.Id)
+                : new Dictionary<string, string>();
+
+            return new PagedResult<AdminApplicationDto>
+            {
+                Items = apps.Select(a => ToAdminDto(a,
+                    a.ReviewerId != null ? reviewers.GetValueOrDefault(a.ReviewerId) : null)).ToList(),
+                TotalCount = totalCount,
+                Page = page,
+                PageSize = pageSize
+            };
+        }
+
         public async Task<ApplicationDto> SubmitAsync(
             int clubId,
             string userId,
@@ -107,6 +184,17 @@ namespace UniClub_Hub.Membership.Services.Implements
             );
             if (hasPending)
                 throw new InvalidOperationException("Bạn đang có đơn chờ duyệt cho CLB này.");
+
+            var lastRejected = await _db.Applications
+                .Where(a => a.ClubId == clubId && a.UserId == userId && a.Status == ApplicationStatus.Rejected)
+                .OrderByDescending(a => a.ReviewedAt ?? a.AppliedAt)
+                .Select(a => a.ReviewedAt ?? a.AppliedAt)
+                .FirstOrDefaultAsync();
+            if (lastRejected != default && DateTime.UtcNow - lastRejected < TimeSpan.FromHours(24))
+            {
+                var hoursLeft = Math.Ceiling((lastRejected.AddHours(24) - DateTime.UtcNow).TotalHours);
+                throw new InvalidOperationException($"Đơn của bạn đã bị từ chối gần đây. Vui lòng chờ thêm {hoursLeft} giờ trước khi đăng ký lại.");
+            }
 
             var application = new ClubApplication
             {

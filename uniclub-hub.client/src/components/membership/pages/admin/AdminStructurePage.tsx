@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { useDeferredEffect } from '@/hooks/useDeferredEffect'
 import { getAdminClubs, createAdminDepartment, updateAdminDepartment, deleteAdminDepartment } from '@/components/membership/services/adminApi'
 import { getDepartments } from '@/components/membership/services/clubApi'
 import type { ClubItem } from '@/components/membership/services/admin.types'
@@ -7,25 +8,11 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { toast } from 'sonner'
 import { Link } from 'react-router-dom'
-
-const D = {
-  border: '1.5px solid var(--c-ink)',
-  borderLight: '1px solid #e8e3d6',
-  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 var(--c-ink)`,
-  radius: 14,
-  pill: 999,
-  ink: 'var(--c-ink)',
-  inkDim: '#4a4651',
-  inkMuted: '#918c99',
-  bg: 'var(--c-bg)',
-  card: '#ffffff',
-  indigo: '#4f46e5',
-  violet: '#7c3aed',
-  red: '#ef4444',
-}
+import { D } from '@/components/shared/managementTheme'
+import { getApiErrorMessage } from '@/lib/apiError'
 
 const CLUB_PALETTES = [
-  { accent: '#4f46e5', light: '#ede9fe' },
+  { accent: '#1d4ed8', light: '#ede9fe' },
   { accent: '#0ea5e9', light: '#e0f2fe' },
   { accent: '#10b981', light: '#d1fae5' },
   { accent: '#f59e0b', light: '#fef9c3' },
@@ -36,9 +23,9 @@ const CLUB_PALETTES = [
 type DeptsByClub = Record<number, DepartmentItem[]>
 
 const inputStyle: React.CSSProperties = {
-  width: '100%', height: 36, borderRadius: 8, border: '1px solid #e8e3d6',
-  padding: '0 12px', fontSize: 13, color: 'var(--c-ink)', outline: 'none',
-  background: 'var(--c-bg)', fontFamily: 'inherit', boxSizing: 'border-box',
+  width: '100%', height: 36, borderRadius: 8, border: '1px solid #dce6f4',
+  padding: '0 12px', fontSize: 13, color: '#0a2f6e', outline: 'none',
+  background: '#f4f7fc', fontFamily: 'inherit', boxSizing: 'border-box',
 }
 const labelStyle: React.CSSProperties = { fontSize: 12, fontWeight: 700, color: '#4a4651', display: 'block', marginBottom: 4 }
 
@@ -58,7 +45,7 @@ export default function AdminStructurePage() {
   const [searchName, setSearchName] = useState('')
   const [searchCode, setSearchCode] = useState('')
 
-  useEffect(() => {
+  useDeferredEffect(() => {
     setLoading(true)
     getAdminClubs()
       .then(async (clubList) => {
@@ -107,8 +94,8 @@ export default function AdminStructurePage() {
       }
       setDialogOpen(false)
       setRefreshKey(k => k + 1)
-    } catch (err: any) {
-      toast.error(err.response?.data?.message ?? 'Thao tác thất bại.')
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'Thao tác thất bại.'))
     } finally {
       setSaving(false)
     }
@@ -121,8 +108,8 @@ export default function AdminStructurePage() {
       toast.success('Đã xoá ban.')
       setDeleteTarget(null)
       setRefreshKey(k => k + 1)
-    } catch (err: any) {
-      toast.error(err.response?.data?.message ?? 'Xoá thất bại.')
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'Xoá thất bại.'))
     }
   }
 

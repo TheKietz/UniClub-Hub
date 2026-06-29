@@ -1,3 +1,5 @@
+using UniClub_Hub.Shared.Enums;
+
 namespace UniClub_Hub.Operations.DTOs.Kanban
 {
     public class KanbanColumnDto
@@ -9,6 +11,8 @@ namespace UniClub_Hub.Operations.DTOs.Kanban
         public string Name { get; set; } = null!;
         public string? Color { get; set; }
         public int SortOrder { get; set; }
+        public ClubTaskStatus Status { get; set; }
+        public bool IsSystem { get; set; }
         public int TaskCount { get; set; }
     }
 
@@ -19,6 +23,8 @@ namespace UniClub_Hub.Operations.DTOs.Kanban
         public int? SprintId { get; set; }
         public int? DepartmentId { get; set; }
         public int? SortOrder { get; set; }
+        // Optional: status a custom column maps to. Defaults to Doing when omitted.
+        public ClubTaskStatus? Status { get; set; }
     }
 
     public class UpdateKanbanColumnDto

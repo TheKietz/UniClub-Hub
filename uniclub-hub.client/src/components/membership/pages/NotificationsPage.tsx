@@ -1,34 +1,26 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
+import { useDeferredEffect } from '@/hooks/useDeferredEffect'
 import { useNavigate } from 'react-router-dom'
-import { CalendarDays, Check, CheckCircle2, ClipboardCheck, FileText, ListTodo, Megaphone, Star } from 'lucide-react'
-import { getNotifications, getNotificationUnreadCount, markAllNotificationsRead, markNotificationRead } from '@/components/membership/services/notificationApi'
+import { CalendarDays, Check, CheckCircle2, ClipboardCheck, Clock, FileText, ListTodo, Megaphone, Star, Trash2, UserPlus } from 'lucide-react'
+import { deleteNotification, getNotifications, getNotificationUnreadCount, markAllNotificationsRead, markNotificationRead } from '@/components/membership/services/notificationApi'
 import type { NotificationItem, NotificationType } from '@/components/membership/services/notificationApi'
 import { LoadMoreBar } from '@/components/shared/LoadMoreBar'
+import { D } from '@/components/shared/managementTheme'
 import { useAuth } from '@/contexts/AuthContext'
 import { CLUB_ROLES, MEMBERSHIP_STATUS } from '@/types/auth'
 import type { UserMembership } from '@/types/auth'
 
 type FilterKey = 'all' | 'unread' | 'application' | 'task' | 'event' | 'system'
 
-const D = {
-  border: '1.5px solid var(--c-ink)',
-  borderLight: '1px solid #e8e3d6',
-  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 var(--c-ink)`,
-  pill: 999,
-  ink: 'var(--c-ink)',
-  inkDim: '#4a4651',
-  inkMuted: '#918c99',
-  bg: 'var(--c-bg)',
-  card: '#ffffff',
-  lemon: '#facc15',
-  indigo: '#4f46e5',
-}
-
 const TYPE_META: Record<NotificationType, { label: string; color: string; Icon: typeof Star }> = {
   Application: { label: 'Duyệt đơn', color: '#8b3ff2', Icon: ClipboardCheck },
-  Task: { label: 'Nhiệm vụ', color: '#4f46e5', Icon: ListTodo },
+  Task: { label: 'Nhiệm vụ', color: '#1d4ed8', Icon: ListTodo },
   Event: { label: 'Sự kiện', color: '#f59e0b', Icon: CalendarDays },
   System: { label: 'Hệ thống', color: '#10b981', Icon: Megaphone },
+  TaskAssigned: { label: 'Được giao việc', color: '#4f46e5', Icon: UserPlus },
+  TaskStatusUpdated: { label: 'Cập nhật việc', color: '#4f46e5', Icon: ListTodo },
+  DeadlineReminder: { label: 'Sắp đến hạn', color: '#f97316', Icon: Clock },
+  AssignmentReceived: { label: 'Phiếu giao việc', color: '#8b3ff2', Icon: ClipboardCheck },
 }
 
 const FILTERS: { key: FilterKey; label: string }[] = [
@@ -87,17 +79,18 @@ export default function NotificationsPage() {
   const [loadingMore, setLoadingMore] = useState(false)
   const [filter, setFilter] = useState<FilterKey>('all')
 
-  useEffect(() => {
+  useDeferredEffect((isCancelled) => {
     setLoading(true)
     Promise.all([getNotifications(1), getNotificationUnreadCount()])
       .then(([list, count]) => {
+        if (isCancelled()) return
         setItems(list.items ?? [])
         setTotal(list.totalCount ?? 0)
         setUnreadCount(count)
         setPage(1)
       })
-      .catch(() => { setItems([]); setTotal(0) })
-      .finally(() => setLoading(false))
+      .catch(() => { if (!isCancelled()) { setItems([]); setTotal(0) } })
+      .finally(() => { if (!isCancelled()) setLoading(false) })
   }, [])
 
   const filtered = useMemo(
@@ -134,14 +127,17 @@ export default function NotificationsPage() {
     setUnreadCount(0)
   }
 
-  async function handleNotificationClick(item: NotificationItem) {
-    if (!item.isRead) {
-      await markNotificationRead(item.id).catch(() => {})
-      setItems(prev => prev.map(n => n.id === item.id ? { ...n, isRead: true } : n))
-      setUnreadCount(prev => Math.max(0, prev - 1))
-    }
-    const link = item.link ?? deriveLink(item.type, user?.memberships ?? [])
+  async function handleOpen(item: NotificationItem) {
+    await markRead(item)
+    const link = item.navigationUrl ?? item.link ?? deriveLink(item.type, user?.memberships ?? [])
     if (link) navigate(link)
+  }
+
+  async function removeNotification(item: NotificationItem) {
+    await deleteNotification(item.id).catch(() => {})
+    setItems(prev => prev.filter(n => n.id !== item.id))
+    setTotal(prev => Math.max(0, prev - 1))
+    if (!item.isRead) setUnreadCount(prev => Math.max(0, prev - 1))
   }
 
   function renderGroup(label: string, groupItems: NotificationItem[]) {
@@ -160,10 +156,11 @@ export default function NotificationsPage() {
             const meta = TYPE_META[item.type] ?? TYPE_META.System
             const Icon = meta.Icon
             return (
-              <button
+              <div
                 key={item.id}
-                type="button"
-                onClick={() => handleNotificationClick(item)}
+                role="button"
+                tabIndex={0}
+                onClick={() => handleOpen(item)}
                 style={{
                   width: '100%', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 14,
                   padding: '14px 18px', borderRadius: 16, border: D.border,
@@ -210,12 +207,26 @@ export default function NotificationsPage() {
                   )}
                 </span>
 
-                {!item.isRead ? (
-                  <span style={{ width: 9, height: 9, borderRadius: 999, background: '#ff563f', flexShrink: 0 }} />
-                ) : (
-                  <CheckCircle2 size={16} color={D.inkMuted} style={{ flexShrink: 0, opacity: 0.65 }} />
-                )}
-              </button>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+                  {!item.isRead ? (
+                    <span style={{ width: 9, height: 9, borderRadius: 999, background: '#ff563f' }} />
+                  ) : (
+                    <CheckCircle2 size={16} color={D.inkMuted} style={{ opacity: 0.65 }} />
+                  )}
+                  <button
+                    type="button"
+                    aria-label="Xóa thông báo"
+                    onClick={e => { e.stopPropagation(); removeNotification(item) }}
+                    style={{
+                      width: 30, height: 30, borderRadius: 8, border: 'none',
+                      background: 'transparent', color: D.inkMuted, cursor: 'pointer',
+                      display: 'grid', placeItems: 'center', fontFamily: 'inherit',
+                    }}
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </span>
+              </div>
             )
           })}
         </div>

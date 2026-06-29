@@ -5,7 +5,6 @@ using UniClub_Hub.Membership.DTOs.Department;
 using UniClub_Hub.Membership.DTOs.Membership;
 using UniClub_Hub.Membership.Services.Interfaces;
 using UniClub_Hub.Shared.Common;
-using UniClub_Hub.Shared.Constants;
 
 namespace UniClub_Hub.Server.Controllers.Membership
 {
@@ -14,12 +13,10 @@ namespace UniClub_Hub.Server.Controllers.Membership
     public class DepartmentsController : ControllerBase
     {
         private readonly IDepartmentService _departmentService;
-        private readonly IClubPermissionService _permissions;
 
-        public DepartmentsController(IDepartmentService departmentService, IClubPermissionService permissions)
+        public DepartmentsController(IDepartmentService departmentService)
         {
             _departmentService = departmentService;
-            _permissions = permissions;
         }
 
         [HttpGet]
@@ -54,12 +51,13 @@ namespace UniClub_Hub.Server.Controllers.Membership
         [Authorize]
         public async Task<IActionResult> Create(int clubId, [FromBody] CreateDepartmentDto dto)
         {
-            if (!await CanManageAsync(clubId)) return Forbid();
+            var (userId, isSuperAdmin) = GetRequester();
             try
             {
-                var result = await _departmentService.CreateAsync(clubId, dto);
+                var result = await _departmentService.CreateAsync(clubId, dto, userId, isSuperAdmin);
                 return Ok(ApiResponse<AdminDepartmentDto>.Ok(result, "Tạo ban thành công."));
             }
+            catch (UnauthorizedAccessException) { return Forbid(); }
             catch (KeyNotFoundException ex) { return NotFound(ApiResponse<object>.Fail(ex.Message)); }
             catch (InvalidOperationException ex) { return BadRequest(ApiResponse<object>.Fail(ex.Message)); }
         }
@@ -68,12 +66,13 @@ namespace UniClub_Hub.Server.Controllers.Membership
         [Authorize]
         public async Task<IActionResult> Update(int clubId, int id, [FromBody] UpdateDepartmentDto dto)
         {
-            if (!await CanManageAsync(clubId)) return Forbid();
+            var (userId, isSuperAdmin) = GetRequester();
             try
             {
-                var result = await _departmentService.UpdateAsync(clubId, id, dto);
+                var result = await _departmentService.UpdateAsync(clubId, id, dto, userId, isSuperAdmin);
                 return Ok(ApiResponse<AdminDepartmentDto>.Ok(result, "Cập nhật ban thành công."));
             }
+            catch (UnauthorizedAccessException) { return Forbid(); }
             catch (KeyNotFoundException ex) { return NotFound(ApiResponse<object>.Fail(ex.Message)); }
             catch (InvalidOperationException ex) { return BadRequest(ApiResponse<object>.Fail(ex.Message)); }
         }
@@ -82,12 +81,13 @@ namespace UniClub_Hub.Server.Controllers.Membership
         [Authorize]
         public async Task<IActionResult> Delete(int clubId, int id)
         {
-            if (!await CanManageAsync(clubId)) return Forbid();
+            var (userId, isSuperAdmin) = GetRequester();
             try
             {
-                await _departmentService.DeleteAsync(clubId, id);
-                return Ok(ApiResponse<object>.Ok(null, "Xóa ban thành công."));
+                await _departmentService.DeleteAsync(clubId, id, userId, isSuperAdmin);
+                return Ok(ApiResponse<object>.Ok(null!, "Xóa ban thành công."));
             }
+            catch (UnauthorizedAccessException) { return Forbid(); }
             catch (KeyNotFoundException ex) { return NotFound(ApiResponse<object>.Fail(ex.Message)); }
             catch (InvalidOperationException ex) { return BadRequest(ApiResponse<object>.Fail(ex.Message)); }
         }
@@ -96,21 +96,18 @@ namespace UniClub_Hub.Server.Controllers.Membership
         [Authorize]
         public async Task<IActionResult> SetLead(int clubId, int id, [FromBody] SetDeptLeadDto dto)
         {
-            if (!await CanManageAsync(clubId)) return Forbid();
+            var (userId, isSuperAdmin) = GetRequester();
             try
             {
-                await _departmentService.SetLeadAsync(clubId, id, dto.MembershipId);
+                await _departmentService.SetLeadAsync(clubId, id, dto.MembershipId, userId, isSuperAdmin);
                 var result = await _departmentService.GetByIdAsync(clubId, id);
                 return Ok(ApiResponse<DepartmentDto>.Ok(result, "Cập nhật trưởng ban thành công."));
             }
+            catch (UnauthorizedAccessException) { return Forbid(); }
             catch (KeyNotFoundException ex) { return NotFound(ApiResponse<object>.Fail(ex.Message)); }
         }
 
-        private async Task<bool> CanManageAsync(int clubId)
-        {
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
-            var isSuperAdmin = User.IsInRole("SUPER_ADMIN");
-            return await _permissions.HasPermissionAsync(clubId, userId, isSuperAdmin, ClubPermissions.DepartmentsManage);
-        }
+        private (string UserId, bool IsSuperAdmin) GetRequester() =>
+            (User.FindFirstValue(ClaimTypes.NameIdentifier)!, User.IsInRole("SUPER_ADMIN"));
     }
 }

@@ -10,12 +10,16 @@ using UniClub_Hub.Membership;
 using UniClub_Hub.Operations;
 using UniClub_Hub.Portal;
 using UniClub_Hub.Server.Hubs;
+using UniClub_Hub.Server.Services;
+using UniClub_Hub.Operations.Services.Interfaces;
 using UniClub_Hub.Shared.AI;
 using UniClub_Hub.Shared.Common.Storage;
 using UniClub_Hub.Shared.Data;
 using UniClub_Hub.Shared.Email;
 using UniClub_Hub.Shared.Models;
 using CloudinaryDotNet;
+using UniClub_Hub.Shared.Common.Interfaces;
+using UniClub_Hub.Membership.Services.Implements;
 
 // Npgsql 6+ requires DateTimeOffset values sent to timestamptz to be UTC.
 // This switch lets Npgsql accept any offset and convert to UTC on write,
@@ -112,6 +116,19 @@ builder.Services.AddMemoryCache();
 builder.Services.AddHttpClient();
 builder.Services.AddRateLimiter(options =>
 {
+    if (builder.Environment.IsEnvironment("Testing"))
+    {
+        static System.Threading.RateLimiting.RateLimitPartition<string> NoLimit(
+            Microsoft.AspNetCore.Http.HttpContext _) =>
+            System.Threading.RateLimiting.RateLimitPartition.GetNoLimiter(string.Empty);
+
+        options.AddPolicy("auth:login", NoLimit);
+        options.AddPolicy("auth:register", NoLimit);
+        options.AddPolicy("auth:forgot", NoLimit);
+        options.AddPolicy("auth:resend", NoLimit);
+        return;
+    }
+
     options.RejectionStatusCode = 429;
 
     static System.Threading.RateLimiting.RateLimitPartition<string> ByIp(
@@ -130,6 +147,12 @@ builder.Services.AddRateLimiter(options =>
     options.AddPolicy("auth:forgot",     ctx => ByIp(ctx, 5,  60));
     options.AddPolicy("auth:resend",     ctx => ByIp(ctx, 5,  60));
 });
+if (builder.Environment.IsEnvironment("Testing"))
+{
+    builder.Services.AddScoped<IFileStorageService, UniClub_Hub.Server.Testing.TestingFileStorageService>();
+}
+else
+{
 var cloudinaryAccount = new Account(
     builder.Configuration["Cloudinary:CloudName"],
     builder.Configuration["Cloudinary:ApiKey"],
@@ -137,10 +160,15 @@ var cloudinaryAccount = new Account(
 );
 builder.Services.AddSingleton(new Cloudinary(cloudinaryAccount));
 builder.Services.AddScoped<IFileStorageService, CloudinaryStorageService>();
+}
 builder.Services.AddScoped<IEmailService, SendGridEmailService>();
+builder.Services.AddScoped<IKanbanHubNotifier, KanbanHubNotifier>();
+builder.Services.AddScoped<UniClub_Hub.Shared.Common.Interfaces.IRealtimeNotifier, RealtimeNotifier>();
+builder.Services.AddScoped<UniClub_Hub.Shared.Common.Interfaces.INotificationService, NotificationService>();
 builder.Services.AddMembershipServices();
 builder.Services.AddOperationsServices();
 builder.Services.AddPortalServices();
+builder.Services.AddHostedService<UniClub_Hub.Server.BackgroundServices.ReminderHostedService>();
 
 var app = builder.Build();
 
@@ -181,8 +209,19 @@ app.UseCors("AllowReactApp");
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
+
+// API responses không được cache ở trình duyệt — tránh F5 hiện data cũ (vd Settings vừa lưu)
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path.StartsWithSegments("/api"))
+        context.Response.Headers.CacheControl = "no-store";
+    await next();
+});
+
 app.MapControllers();
 app.MapHub<KanbanHub>("/hubs/kanban");
 app.MapFallbackToFile("/index.html");
 
 app.Run();
+
+public partial class Program { }

@@ -1136,6 +1136,9 @@ namespace UniClub_Hub.Shared.Migrations
                     b.Property<int?>("DepartmentId")
                         .HasColumnType("integer");
 
+                    b.Property<bool>("IsSystem")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("text");
@@ -1144,6 +1147,9 @@ namespace UniClub_Hub.Shared.Migrations
                         .HasColumnType("integer");
 
                     b.Property<int?>("SprintId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Status")
                         .HasColumnType("integer");
 
                     b.Property<DateTime?>("UpdatedAt")
@@ -1161,6 +1167,114 @@ namespace UniClub_Hub.Shared.Migrations
                     b.HasIndex("SprintId");
 
                     b.ToTable("KanbanColumns");
+                });
+
+            modelBuilder.Entity("UniClub_Hub.Shared.Models.KpiConfig", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ClubId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamptz");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClubId")
+                        .IsUnique();
+
+                    b.ToTable("KpiConfigs");
+                });
+
+            modelBuilder.Entity("UniClub_Hub.Shared.Models.KpiCriteria", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("DisplayName")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<bool>("IsEnabled")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
+                    b.Property<int>("KpiConfigId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("MetricKey")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasDefaultValue("TaskCompletion");
+
+                    b.Property<int>("Weight")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("KpiConfigId", "MetricKey")
+                        .IsUnique();
+
+                    b.ToTable("KpiCriteria");
+                });
+
+            modelBuilder.Entity("UniClub_Hub.Shared.Models.KpiGradeConfig", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Color")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<int>("DisplayOrder")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.Property<int>("KpiConfigId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Label")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<int>("MinScore")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("KpiConfigId", "MinScore")
+                        .IsUnique();
+
+                    b.ToTable("KpiGradeConfigs");
                 });
 
             modelBuilder.Entity("UniClub_Hub.Shared.Models.LandingPage", b =>
@@ -1245,6 +1359,9 @@ namespace UniClub_Hub.Shared.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("Body")
+                        .HasColumnType("text");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamptz");
 
@@ -1256,6 +1373,12 @@ namespace UniClub_Hub.Shared.Migrations
 
                     b.Property<string>("Message")
                         .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int?>("RelatedEntityId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("RelatedEntityType")
                         .HasColumnType("text");
 
                     b.Property<string>("Title")
@@ -2145,6 +2268,39 @@ namespace UniClub_Hub.Shared.Migrations
                     b.Navigation("Sprint");
                 });
 
+            modelBuilder.Entity("UniClub_Hub.Shared.Models.KpiConfig", b =>
+                {
+                    b.HasOne("UniClub_Hub.Shared.Models.Club", "Club")
+                        .WithMany()
+                        .HasForeignKey("ClubId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Club");
+                });
+
+            modelBuilder.Entity("UniClub_Hub.Shared.Models.KpiCriteria", b =>
+                {
+                    b.HasOne("UniClub_Hub.Shared.Models.KpiConfig", "KpiConfig")
+                        .WithMany("Criteria")
+                        .HasForeignKey("KpiConfigId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("KpiConfig");
+                });
+
+            modelBuilder.Entity("UniClub_Hub.Shared.Models.KpiGradeConfig", b =>
+                {
+                    b.HasOne("UniClub_Hub.Shared.Models.KpiConfig", "KpiConfig")
+                        .WithMany("Grades")
+                        .HasForeignKey("KpiConfigId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("KpiConfig");
+                });
+
             modelBuilder.Entity("UniClub_Hub.Shared.Models.LandingPage", b =>
                 {
                     b.HasOne("UniClub_Hub.Shared.Models.Club", "Club")
@@ -2472,6 +2628,13 @@ namespace UniClub_Hub.Shared.Migrations
                     b.Navigation("Posts");
 
                     b.Navigation("Tasks");
+                });
+
+            modelBuilder.Entity("UniClub_Hub.Shared.Models.KpiConfig", b =>
+                {
+                    b.Navigation("Criteria");
+
+                    b.Navigation("Grades");
                 });
 
             modelBuilder.Entity("UniClub_Hub.Shared.Models.Sprint", b =>

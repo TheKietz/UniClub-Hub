@@ -1,26 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { useDeferredEffect } from '@/hooks/useDeferredEffect'
 import { getAdminResignations, reviewAdminResignation } from '@/components/membership/services/clubApi'
 import type { ResignationRequestItem, ReviewResignationDto } from '@/components/membership/services/club.types'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { toast } from 'sonner'
-
-const D = {
-  border: '1.5px solid var(--c-ink)',
-  borderLight: '1px solid #e8e3d6',
-  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 var(--c-ink)`,
-  radius: 14,
-  pill: 999,
-  ink: 'var(--c-ink)',
-  inkDim: '#4a4651',
-  inkMuted: '#918c99',
-  bg: 'var(--c-bg)',
-  card: '#ffffff',
-  lemon: '#facc15',
-  indigo: '#4f46e5',
-  emerald: '#10b981',
-  amber: '#f59e0b',
-  red: '#ef4444',
-}
+import { D } from '@/components/shared/managementTheme'
+import { getApiErrorMessage } from '@/lib/apiError'
 
 const STATUS_CONFIG: Record<string, { label: string; bg: string; color: string }> = {
   Pending:  { label: 'Chờ duyệt', bg: '#fef3c7', color: '#b45309' },
@@ -45,7 +30,7 @@ export default function AdminResignationPage() {
   const [refreshKey, setRefreshKey] = useState(0)
   const [hoverRow, setHoverRow] = useState<number | null>(null)
 
-  useEffect(() => {
+  useDeferredEffect(() => {
     setLoading(true)
     getAdminResignations()
       .then(setRequests)
@@ -62,8 +47,8 @@ export default function AdminResignationPage() {
       toast.success(status === 'Approved' ? 'Đã chấp thuận đơn từ chức.' : 'Đã từ chối đơn.')
       setSelected(null)
       setRefreshKey(k => k + 1)
-    } catch (err: any) {
-      toast.error(err.response?.data?.message ?? 'Thao tác thất bại.')
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'Thao tác thất bại.'))
     } finally {
       setReviewing(false)
     }

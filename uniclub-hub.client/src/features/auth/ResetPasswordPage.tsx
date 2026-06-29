@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import api from '@/lib/axiosInstance'
+import { getApiErrorMessage } from '@/lib/apiError'
 import { C } from '@/components/public/publicComponents'
 import { Eye, EyeOff } from 'lucide-react'
 import AuthShell from './AuthShell'
@@ -100,8 +101,8 @@ export default function ResetPasswordPage() {
     try {
       await api.post('/auth/reset-password', { email, token, newPassword: password })
       setDone(true)
-    } catch (err: any) {
-      setError(err.response?.data?.message ?? 'Đặt lại mật khẩu thất bại. Link có thể đã hết hạn.')
+    } catch (err: unknown) {
+      setError(getApiErrorMessage(err, 'Đặt lại mật khẩu thất bại. Link có thể đã hết hạn.'))
     } finally {
       setLoading(false)
     }

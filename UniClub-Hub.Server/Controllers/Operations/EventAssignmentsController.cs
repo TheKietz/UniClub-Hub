@@ -2,7 +2,6 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
-using UniClub_Hub.Membership.Services.Interfaces;
 using UniClub_Hub.Operations.Services.Interfaces;
 using UniClub_Hub.Shared.Common;
 using UniClub_Hub.Shared.Data;
@@ -15,7 +14,7 @@ namespace UniClub_Hub.Server.Controllers.Operations
     [Authorize]
     public class EventAssignmentsController(
         IEventAssignmentService assignmentService,
-        INotificationService notificationService,
+        UniClub_Hub.Shared.Common.Interfaces.INotificationService notificationService,
         UniClubDbContext db) : ControllerBase
     {
         // GET /api/v1/operations/assignments?eventId=X
@@ -65,7 +64,7 @@ namespace UniClub_Hub.Server.Controllers.Operations
                     eventId, clubId, title, description,
                     parsedPriority, parsedDeadline, actorId, files);
 
-                await NotifyClubAdminsAsync(clubId, result.EventName ?? $"Sự kiện #{eventId}", title);
+                await NotifyClubAdminsAsync(clubId, result.Id, result.EventName ?? $"Sự kiện #{eventId}", title);
 
                 return CreatedAtAction(nameof(GetByEvent), new { eventId },
                     ApiResponse<object>.Ok(result, "Phiếu giao việc đã được tạo."));
@@ -78,6 +77,61 @@ namespace UniClub_Hub.Server.Controllers.Operations
             {
                 return NotFound(ApiResponse<object>.Fail(ex.Message));
             }
+        }
+
+        [HttpPut("{id:int}")]
+        public async Task<IActionResult> Update(int id, [FromBody] UpdateAssignmentDto dto)
+        {
+            if (string.IsNullOrWhiteSpace(dto.Title))
+                return BadRequest(ApiResponse<object>.Fail("Tên phiếu giao việc không được để trống."));
+
+            if (!Enum.TryParse<TaskPriority>(dto.Priority, true, out var parsedPriority))
+                parsedPriority = TaskPriority.Medium;
+
+            DateTimeOffset? parsedDeadline = null;
+            if (!string.IsNullOrEmpty(dto.Deadline) && DateTimeOffset.TryParse(dto.Deadline, out var dl))
+                parsedDeadline = dl.ToUniversalTime();
+
+            try
+            {
+                var result = await assignmentService.UpdateAsync(id, dto.Title, dto.Description, parsedPriority, parsedDeadline);
+                return Ok(ApiResponse<object>.Ok(result, "Đã cập nhật phiếu giao việc."));
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ApiResponse<object>.Fail(ex.Message));
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(ApiResponse<object>.Fail(ex.Message));
+            }
+        }
+
+        [HttpPost("{id:int}/attachments")]
+        [Consumes("multipart/form-data")]
+        public async Task<IActionResult> AddAttachments(int id)
+        {
+            var files = Request.Form.Files;
+            if (files.Count == 0)
+                return BadRequest(ApiResponse<object>.Fail("Vui lòng chọn file để tải lên."));
+            try
+            {
+                var result = await assignmentService.AddAttachmentsAsync(id, files);
+                return Ok(ApiResponse<object>.Ok(result, "Đã tải lên file."));
+            }
+            catch (InvalidOperationException ex) { return BadRequest(ApiResponse<object>.Fail(ex.Message)); }
+            catch (KeyNotFoundException ex) { return NotFound(ApiResponse<object>.Fail(ex.Message)); }
+        }
+
+        [HttpDelete("{id:int}/attachments")]
+        public async Task<IActionResult> RemoveAttachment(int id, [FromQuery] string url)
+        {
+            try
+            {
+                var result = await assignmentService.RemoveAttachmentAsync(id, url);
+                return Ok(ApiResponse<object>.Ok(result, "Đã xóa file đính kèm."));
+            }
+            catch (KeyNotFoundException ex) { return NotFound(ApiResponse<object>.Fail(ex.Message)); }
         }
 
         [HttpPatch("{id:int}/status")]
@@ -108,7 +162,7 @@ namespace UniClub_Hub.Server.Controllers.Operations
             }
         }
 
-        private async Task NotifyClubAdminsAsync(int clubId, string eventName, string assignmentTitle)
+        private async Task NotifyClubAdminsAsync(int clubId, int assignmentId, string eventName, string assignmentTitle)
         {
             try
             {
@@ -126,7 +180,9 @@ namespace UniClub_Hub.Server.Controllers.Operations
                         uid,
                         "Phiếu giao việc mới từ Admin trường",
                         $"Sự kiện \"{eventName}\" có phiếu giao việc mới: \"{assignmentTitle}\". Vào Hộp thư để xử lý.",
-                        NotificationType.Task);
+                        NotificationType.AssignmentReceived,
+                        relatedEntityType: "Assignment",
+                        relatedEntityId: assignmentId);
                 }
             }
             catch
@@ -134,6 +190,14 @@ namespace UniClub_Hub.Server.Controllers.Operations
                 // Non-fatal
             }
         }
+    }
+
+    public class UpdateAssignmentDto
+    {
+        public string Title { get; set; } = string.Empty;
+        public string? Description { get; set; }
+        public string Priority { get; set; } = "Medium";
+        public string? Deadline { get; set; }
     }
 
     public class UpdateAssignmentStatusDto

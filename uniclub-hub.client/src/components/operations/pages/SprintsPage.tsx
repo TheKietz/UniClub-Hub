@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { toast } from "sonner";
-import { Plus, ChevronDown, ChevronRight, MoreHorizontal, Zap, GripVertical } from "lucide-react";
+import { Plus, ChevronDown, ChevronRight, MoreHorizontal, Zap, GripVertical, Search, X } from "lucide-react";
 import {
   DragDropContext, Droppable, Draggable, type DropResult,
 } from "@hello-pangea/dnd";
@@ -11,7 +11,7 @@ import {
   getKanbanColumns, getUrgentTasks,
 } from "../services/operationsApi";
 import type {
-  SprintItem, TaskItem, TaskStatus, SprintStatus,
+  SprintItem, TaskItem, TaskStatus, TaskPriority, SprintStatus,
   UpdateSprintDto, KanbanColumnItem, UrgentTaskItem,
 } from "../services/operations.types";
 import { useTasks } from "../context/TasksContext";
@@ -27,36 +27,13 @@ function sortedCols(columns: KanbanColumnItem[]) {
   return [...columns].sort((a, b) => a.sortOrder - b.sortOrder);
 }
 
-function nameToStatus(name: string): TaskStatus {
-  const lc = name.toLowerCase();
-  if (lc.includes("hoàn") || lc.includes("done") || lc.includes("xong")) return 'Done';
-  if (lc.includes("đang") || lc.includes("doing")) return 'Doing';
-  return 'Todo';
-}
-
-function inferStatus(colId: number, columns: KanbanColumnItem[]): TaskStatus {
-  const col = columns.find(c => c.id === colId);
-  if (col) {
-    const lc = col.name.toLowerCase();
-    if (lc.includes("hoàn") || lc.includes("done") || lc.includes("xong")) return 'Done';
-    if (lc.includes("đang") || lc.includes("doing")) return 'Doing';
-  }
-  const sc = sortedCols(columns);
-  const idx = sc.findIndex(c => c.id === colId);
-  if (idx === sc.length - 1) return 'Done';
-  if (idx === 0) return 'Todo';
-  return 'Doing';
-}
-
 function currentColumn(task: TaskItem, columns: KanbanColumnItem[]): KanbanColumnItem | undefined {
   if (task.kanbanColumnId) return columns.find(c => c.id === task.kanbanColumnId);
+  // Fallback for tasks not yet pinned to a column: match the column whose
+  // exact status equals the task's status (prefer a system column).
   const sc = sortedCols(columns);
-  // Use name-based matching first (same logic as Board) so fallback is consistent
-  const byName = sc.find(c => nameToStatus(c.name) === task.status);
-  if (byName) return byName;
-  if (task.status === 'Done') return sc.at(-1);
-  if (task.status === 'Doing') return sc[Math.floor(sc.length / 2)] ?? sc[0];
-  return sc[0];
+  return sc.find(c => c.isSystem && c.status === task.status)
+    ?? sc.find(c => c.status === task.status);
 }
 
 function colBg(col: KanbanColumnItem, columns: KanbanColumnItem[]): string {
@@ -96,7 +73,7 @@ function computeRisk(task: TaskItem): 'high' | 'none' {
 const SPRINT_STATUS_BADGE: Record<SprintStatus, { bg: string; color: string; label: string }> = {
   Planning:  { bg: '#E0E7FF', color: '#4338CA', label: 'Lên kế hoạch' },
   Active:    { bg: '#DCFCE7', color: '#15803D', label: 'Đang chạy' },
-  Completed: { bg: '#F3F4F6', color: '#6B7280', label: 'Hoàn thành' },
+  Completed: { bg: '#F3F4F6', color: '#6B7280', label: 'Đã hoàn thành' },
   Cancelled: { bg: '#FEE2E2', color: '#DC2626', label: 'Đã hủy' },
 };
 
@@ -335,7 +312,7 @@ function TaskRow({ task, columns, canManage, dragHandleProps, onOpen, onStatusCh
                           onMouseEnter={e => (e.currentTarget.style.background = '#FFFBE0')}
                           onMouseLeave={e => (e.currentTarget.style.background = 'none')}
                           onClick={() => {
-                            onStatusChange(task.id, col.id, inferStatus(col.id, columns));
+                            onStatusChange(task.id, col.id, col.status);
                             setStatusOpen(false);
                           }}
                         >
@@ -473,9 +450,10 @@ function SprintSection({
   const [menuOpen, setMenuOpen] = useState(false);
   const [creating, setCreating] = useState(false);
 
-  const todo  = tasks.filter(t => t.status === 'Todo').length;
-  const doing = tasks.filter(t => t.status === 'Doing').length;
-  const done  = tasks.filter(t => t.status === 'Done').length;
+  const todo   = tasks.filter(t => t.status === 'Todo').length;
+  const doing  = tasks.filter(t => t.status === 'Doing').length;
+  const review = tasks.filter(t => t.status === 'Reviewing').length;
+  const done   = tasks.filter(t => t.status === 'Done').length;
   const badge = SPRINT_STATUS_BADGE[sprint.status];
 
   const headerBg = sprint.status === 'Active' ? '#FFE500' : sprint.status === 'Planning' ? 'white' : '#F0F0F0';
@@ -504,6 +482,7 @@ function SprintSection({
         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
           <span style={{ padding: '2px 8px', border: '2px solid #0A0A0A', background: '#F5F5F5', color: '#0A0A0A', fontWeight: 900, fontSize: 11, borderRadius: 0 }}>{todo}</span>
           <span style={{ padding: '2px 8px', border: '2px solid #0A0A0A', background: '#3B4EFF', color: 'white', fontWeight: 900, fontSize: 11, borderRadius: 0 }}>{doing}</span>
+          <span style={{ padding: '2px 8px', border: '2px solid #0A0A0A', background: '#8B5CF6', color: 'white', fontWeight: 900, fontSize: 11, borderRadius: 0 }}>{review}</span>
           <span style={{ padding: '2px 8px', border: '2px solid #0A0A0A', background: '#00C853', color: 'white', fontWeight: 900, fontSize: 11, borderRadius: 0 }}>{done}</span>
         </div>
 
@@ -516,7 +495,7 @@ function SprintSection({
             onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'translate(-1px,-1px)'; (e.currentTarget as HTMLButtonElement).style.boxShadow = '5px 5px 0 #555'; }}
             onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.transform = ''; (e.currentTarget as HTMLButtonElement).style.boxShadow = '3px 3px 0 #555'; }}
           >
-            <Zap size={11} /> Start sprint
+            <Zap size={11} /> Bắt đầu
           </button>
         )}
         {sprint.status === 'Active' && canManage && (
@@ -528,7 +507,7 @@ function SprintSection({
             onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.transform = 'translate(-1px,-1px)'}
             onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.transform = ''}
           >
-            Complete sprint
+            Đang chạy
           </button>
         )}
         {(sprint.status === 'Completed' || sprint.status === 'Cancelled') && (
@@ -598,7 +577,7 @@ function SprintSection({
 
               {tasks.length === 0 && !creating && !snapshot.isDraggingOver && (
                 <div style={{ padding: '12px 16px', fontSize: 13, color: '#AAA', fontStyle: 'italic', fontWeight: 700 }}>
-                  Chưa có công việc trong sprint này.
+                  Chưa có công việc trong tuần công việc này.
                 </div>
               )}
               {tasks.map((task, idx) => (
@@ -667,6 +646,34 @@ function BacklogSection({
   const [collapsed, setCollapsed] = useState(false);
   const [creating, setCreating] = useState(false);
 
+  // ── Search + filter state ───────────────────────────────────────────────────
+  const [search, setSearch] = useState('');
+  const [priorityFilter, setPriorityFilter] = useState<'all' | TaskPriority>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | TaskStatus>('all');
+
+  const q = search.trim().toLowerCase();
+  const hasFilter = q !== '' || priorityFilter !== 'all' || statusFilter !== 'all';
+
+  const visibleTasks = tasks.filter(t => {
+    if (q && !t.title.toLowerCase().includes(q) && !(t.assigneeName?.toLowerCase().includes(q))) return false;
+    if (priorityFilter !== 'all' && t.priority !== priorityFilter) return false;
+    if (statusFilter !== 'all' && t.status !== statusFilter) return false;
+    return true;
+  });
+
+  function clearFilters() {
+    setSearch('');
+    setPriorityFilter('all');
+    setStatusFilter('all');
+  }
+
+  const selectStyle: React.CSSProperties = {
+    appearance: 'none', WebkitAppearance: 'none', MozAppearance: 'none',
+    padding: '5px 26px 5px 10px', fontSize: 11, fontWeight: 800, color: '#0A0A0A',
+    background: 'white', border: '2px solid #0A0A0A', borderRadius: 0, cursor: 'pointer',
+    outline: 'none',
+  };
+
   return (
     <div style={{ marginBottom: SPRINT_LAYOUT.sectionGap }}>
       <div style={{
@@ -679,8 +686,10 @@ function BacklogSection({
         }}>
           {collapsed ? <ChevronRight size={13} color="white" /> : <ChevronDown size={13} color="white" />}
         </button>
-        <span style={{ fontSize: 13, fontWeight: 900, color: '#0A0A0A' }}>Backlog</span>
-        <span style={{ fontSize: 12, color: '#888', fontWeight: 600 }}>({tasks.length} công việc)</span>
+        <span style={{ fontSize: 13, fontWeight: 900, color: '#0A0A0A' }}>Kho công việc</span>
+        <span style={{ fontSize: 12, color: '#888', fontWeight: 600 }}>
+          {hasFilter ? `(${visibleTasks.length}/${tasks.length} công việc)` : `(${tasks.length} công việc)`}
+        </span>
         <div style={{ flex: 1 }} />
         {canManage && (
           <button type="button" onClick={onCreateSprint} style={{
@@ -690,13 +699,70 @@ function BacklogSection({
             onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.background = '#FFFBE0'}
             onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.background = 'white'}
           >
-            Tạo sprint
+            Tạo tuần công việc
           </button>
         )}
       </div>
 
       {!collapsed && (
-        <Droppable droppableId="backlog">
+        <>
+          {/* ── Search + filter toolbar ──────────────────────────────── */}
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
+            padding: '8px 12px', background: '#F5F5F0',
+            border: '2px solid #0A0A0A', borderTop: 'none',
+          }}>
+            <div style={{ position: 'relative', flex: '1 1 220px', minWidth: 180 }}>
+              <Search size={13} style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', color: '#888', pointerEvents: 'none' }} />
+              <input
+                type="text"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Tìm theo tên hoặc người làm..."
+                style={{
+                  width: '100%', padding: '6px 28px 6px 28px', fontSize: 12, fontWeight: 600,
+                  border: '2px solid #0A0A0A', borderRadius: 0, outline: 'none',
+                  background: 'white', color: '#0A0A0A', boxSizing: 'border-box',
+                }}
+              />
+              {search && (
+                <button type="button" onClick={() => setSearch('')} title="Xóa tìm kiếm" style={{
+                  position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)',
+                  width: 18, height: 18, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: 'none', border: 'none', cursor: 'pointer', color: '#888',
+                }}>
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+
+            <select value={priorityFilter} onChange={e => setPriorityFilter(e.target.value as 'all' | TaskPriority)} style={selectStyle}>
+              <option value="all">Ưu tiên</option>
+              <option value="High">Cao</option>
+              <option value="Medium">Trung bình</option>
+              <option value="Low">Thấp</option>
+            </select>
+
+            <select value={statusFilter} onChange={e => setStatusFilter(e.target.value as 'all' | TaskStatus)} style={selectStyle}>
+              <option value="all">Trạng thái</option>
+              <option value="Todo">Cần làm</option>
+              <option value="Doing">Đang làm</option>
+              <option value="Reviewing">Reviewing</option>
+              <option value="Done">Hoàn thành</option>
+            </select>
+
+            {hasFilter && (
+              <button type="button" onClick={clearFilters} style={{
+                display: 'flex', alignItems: 'center', gap: 4, padding: '5px 10px',
+                fontSize: 11, fontWeight: 800, color: '#0A0A0A',
+                background: '#FFE500', border: '2px solid #0A0A0A', borderRadius: 0, cursor: 'pointer',
+              }}>
+                <X size={12} /> Xóa lọc
+              </button>
+            )}
+          </div>
+
+          <Droppable droppableId="backlog">
           {(provided, snapshot) => (
             <div
               ref={provided.innerRef}
@@ -718,7 +784,12 @@ function BacklogSection({
                   Backlog trống. Thêm công việc chưa được lên sprint.
                 </div>
               )}
-              {tasks.map((task, idx) => (
+              {tasks.length > 0 && visibleTasks.length === 0 && !snapshot.isDraggingOver && (
+                <div style={{ padding: '12px 16px', fontSize: 13, color: '#AAA', fontStyle: 'italic', fontWeight: 700 }}>
+                  Không có công việc nào khớp với bộ lọc.
+                </div>
+              )}
+              {visibleTasks.map((task, idx) => (
                 <Draggable key={task.id} draggableId={`task-${task.id}`} index={idx}>
                   {(prov, snap) => (
                     <div
@@ -759,7 +830,8 @@ function BacklogSection({
               ))}
             </div>
           )}
-        </Droppable>
+          </Droppable>
+        </>
       )}
     </div>
   );
@@ -834,11 +906,11 @@ export default function SprintsPage() {
     const today = new Date().toISOString();
     const inTwoWeeks = new Date(Date.now() + 14 * 86400000).toISOString();
     try {
-      await createSprint(clubId, { name: `Sprint ${n}`, startDate: today, endDate: inTwoWeeks, departmentId });
+      await createSprint(clubId, { name: `Tuần công việc ${n}`, startDate: today, endDate: inTwoWeeks, departmentId });
       const r = await getSprints({ clubId, departmentId, pageSize: 100 });
       setSprints(r.items);
-      toast.success(`Đã tạo Sprint ${n}`);
-    } catch { toast.error('Không thể tạo sprint'); }
+      toast.success(`Đã tạo tuần công việc ${n}`);
+    } catch { toast.error('Không thể tạo tuần công việc'); }
     finally { setCreating(false); }
   }
 
@@ -861,8 +933,8 @@ export default function SprintsPage() {
         status: 'Active',
       } as UpdateSprintDto);
       setSprints(prev => prev.map(x => x.id === s.id ? updated : x));
-      toast.success('Sprint đã bắt đầu');
-    } catch { toast.error('Không thể bắt đầu sprint'); }
+      toast.success('Tuần công việc đã bắt đầu');
+    } catch { toast.error('Không thể bắt đầu tuần công việc'); }
   }
 
   function handleComplete(id: number) {
@@ -896,18 +968,18 @@ export default function SprintsPage() {
       } as UpdateSprintDto);
       setSprints(prev => prev.map(x => x.id === s.id ? updated : x));
       await reloadTasks();
-      toast.success('Sprint đã hoàn thành');
-    } catch { toast.error('Không thể hoàn thành sprint'); }
+      toast.success('Tuần công việc đã hoàn thành');
+    } catch { toast.error('Không thể hoàn thành tuần công việc'); }
   }
 
   async function handleDeleteSprint(id: number) {
     const s = sprints.find(x => x.id === id);
-    if (!s || !confirm(`Xóa sprint "${s.name}"?`)) return;
+    if (!s || !confirm(`Xóa tuần công việc "${s.name}"?`)) return;
     try {
       await deleteSprint(id);
       setSprints(prev => prev.filter(x => x.id !== id));
-      toast.success('Đã xóa sprint');
-    } catch { toast.error('Không thể xóa sprint'); }
+      toast.success('Đã xóa tuần công việc');
+    } catch { toast.error('Không thể xóa tuần công việc'); }
   }
 
   async function handleEditSprint(data: { name: string; goal?: string; startDate: string; endDate: string }) {
@@ -917,10 +989,10 @@ export default function SprintsPage() {
         ...data, status: editSprint.status,
       } as UpdateSprintDto);
       setSprints(prev => prev.map(x => x.id === editSprint.id ? updated : x));
-      toast.success('Đã cập nhật sprint');
+      toast.success('Đã cập nhật tuần công việc');
       setEditSprintOpen(false);
       setEditSprint(null);
-    } catch { toast.error('Không thể cập nhật sprint'); }
+    } catch { toast.error('Không thể cập nhật tuần công việc'); }
   }
 
   // ── Task actions ────────────────────────────────────────────────────────────
@@ -987,9 +1059,13 @@ export default function SprintsPage() {
     return (order[a.status] ?? 99) - (order[b.status] ?? 99);
   });
 
+  // Completed sprints render below the backlog; everything else above it.
+  const activeSprints    = sortedSprints.filter(s => s.status !== 'Completed');
+  const completedSprints = sortedSprints.filter(s => s.status === 'Completed');
+
   if (loading || tasksLoading) {
     return (
-      <div style={{ padding: 32, textAlign: 'center', background: '#FAFAF0', minHeight: '100%' }}>
+      <div style={{ padding: 32, textAlign: 'center', background: 'var(--c-bg)', minHeight: '100%' }}>
         <div style={{ width: 32, height: 32, border: '3px solid #FFE500', borderTop: '3px solid #0A0A0A', borderRadius: '50%', margin: '0 auto 12px', animation: 'spin 1s linear infinite' }} />
         <p style={{ fontWeight: 800, color: '#888', fontSize: 13, textTransform: 'uppercase', letterSpacing: '.08em' }}>Đang tải...</p>
       </div>
@@ -998,11 +1074,11 @@ export default function SprintsPage() {
 
   return (
     <DragDropContext onDragEnd={onDragEnd}>
-      <div style={{ padding: `24px ${SPRINT_LAYOUT.pageX}px 32px`, background: '#FAFAF0', minHeight: '100%', boxSizing: 'border-box' }}>
+      <div style={{ padding: `24px ${SPRINT_LAYOUT.pageX}px 32px`, background: 'var(--c-bg)', minHeight: '100%', boxSizing: 'border-box' }}>
         {/* ── Header ──────────────────────────────────────────────── */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
           <div>
-            <h1 style={{ fontSize: 22, fontWeight: 900, color: '#0A0A0A', margin: 0, letterSpacing: '-0.01em' }}>Backlog</h1>
+            <h1 style={{ fontSize: 22, fontWeight: 900, color: '#0A0A0A', margin: 0, letterSpacing: '-0.01em' }}>Quản lý công việc</h1>
             <p style={{ fontSize: 12, color: '#888', marginTop: 4, fontWeight: 600 }}>
               {tasks.length} công việc · {sprints.length} sprint
             </p>
@@ -1025,7 +1101,7 @@ export default function SprintsPage() {
                 opacity: creating ? 0.6 : 1,
               }}
             >
-              <Plus size={15} /> {creating ? 'Đang tạo...' : 'Tạo sprint'}
+              <Plus size={15} /> {creating ? 'Đang tạo...' : 'Tạo tuần công việc'}
             </button>
           )}
         </div>
@@ -1088,8 +1164,8 @@ export default function SprintsPage() {
           </div>
         )}
 
-        {/* ── Sprint sections ──────────────────────────────────────── */}
-        {sortedSprints.map(sprint => (
+        {/* ── Sprint sections (active / planning) ──────────────────── */}
+        {activeSprints.map(sprint => (
           <SprintSection
             key={sprint.id}
             sprint={sprint}
@@ -1119,6 +1195,25 @@ export default function SprintsPage() {
           onTaskCreated={async () => { await reloadTasks(); await load(); }}
           onCreateSprint={handleDirectCreateSprint}
         />
+
+        {/* ── Completed sprints (below the backlog) ────────────────── */}
+        {completedSprints.map(sprint => (
+          <SprintSection
+            key={sprint.id}
+            sprint={sprint}
+            tasks={tasksForSprint(sprint.id)}
+            columns={columns}
+            canManage={canManage}
+            departmentId={departmentId}
+            onEdit={s => { setEditSprint(s); setEditSprintOpen(true); }}
+            onDelete={handleDeleteSprint}
+            onStart={handleStart}
+            onComplete={handleComplete}
+            onOpenTask={t => { setActiveTask(t); setTaskModalOpen(true); }}
+            onStatusChange={handleStatusChange}
+            onTaskCreated={async () => { await reloadTasks(); await load(); }}
+          />
+        ))}
 
         {/* ── Modals ───────────────────────────────────────────────── */}
         <CompleteSprintModal
@@ -1204,7 +1299,7 @@ function EditSprintInline({ sprint, onClose, onSave }: {
         </div>
         <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div>
-            <label style={labelStyle}>Tên sprint *</label>
+            <label style={labelStyle}>Tên tuần công việc *</label>
             <input type="text" value={name} onChange={e => setName(e.target.value)} style={inputStyle} />
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>

@@ -1,26 +1,15 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { useDeferredEffect } from '@/hooks/useDeferredEffect'
 import { useParams } from 'react-router-dom'
 import { getClubResignations, reviewClubResignation } from '@/components/membership/services/clubApi'
 import type { ResignationRequestItem, ReviewResignationDto } from '@/components/membership/services/club.types'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { toast } from 'sonner'
-
-const D = {
-  border: '1.5px solid var(--c-ink)',
-  borderLight: '1px solid #e8e3d6',
-  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 var(--c-ink)`,
-  radius: 14,
-  pill: 999,
-  ink: 'var(--c-ink)',
-  inkDim: '#4a4651',
-  inkMuted: '#918c99',
-  bg: 'var(--c-bg)',
-  card: '#ffffff',
-  lemon: '#facc15',
-  indigo: '#4f46e5',
-  emerald: '#10b981',
-  red: '#ef4444',
-}
+import { D } from '@/components/shared/managementTheme'
+import { PermissionDenied } from '@/components/shared/Can'
+import { useClubPermissions } from '@/hooks/useClubPermissions'
+import { CLUB_PERMISSIONS } from '@/constants/clubPermissions'
+import { getApiErrorMessage } from '@/lib/apiError'
 
 const STATUS_CONFIG: Record<string, { label: string; bg: string; color: string }> = {
   Pending:  { label: 'Chờ duyệt', bg: '#fef3c7', color: '#b45309' },
@@ -38,6 +27,9 @@ const STATUS_TABS = [
 export default function ResignationPage() {
   const { clubId } = useParams<{ clubId: string }>()
   const id = Number(clubId)
+  const clubPermissions = useClubPermissions(id)
+  const canView = clubPermissions.canAny(CLUB_PERMISSIONS.RESIGNATIONS_VIEW, CLUB_PERMISSIONS.RESIGNATIONS_REVIEW)
+  const canReview = clubPermissions.can(CLUB_PERMISSIONS.RESIGNATIONS_REVIEW)
 
   const [requests, setRequests] = useState<ResignationRequestItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -48,7 +40,7 @@ export default function ResignationPage() {
   const [refreshKey, setRefreshKey] = useState(0)
   const [hoverRow, setHoverRow] = useState<number | null>(null)
 
-  useEffect(() => {
+  useDeferredEffect(() => {
     setLoading(true)
     getClubResignations(id)
       .then(setRequests)
@@ -65,8 +57,8 @@ export default function ResignationPage() {
       toast.success(status === 'Approved' ? 'Đã chấp thuận đơn từ chức.' : 'Đã từ chối đơn.')
       setSelected(null)
       setRefreshKey(k => k + 1)
-    } catch (err: any) {
-      toast.error(err.response?.data?.message ?? 'Thao tác thất bại.')
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'Thao tác thất bại.'))
     } finally {
       setReviewing(false)
     }
@@ -77,6 +69,9 @@ export default function ResignationPage() {
     acc[r.status] = (acc[r.status] ?? 0) + 1
     return acc
   }, {} as Record<string, number>)
+
+  if (!clubPermissions.loading && !canView)
+    return <PermissionDenied />
 
   return (
     <div style={{ padding: '28px 32px', minHeight: '100%', background: D.bg, fontFamily: "'Be Vietnam Pro', sans-serif" }}>
@@ -173,7 +168,7 @@ export default function ResignationPage() {
                     <button
                       onClick={() => { setSelected(r); setReviewNote('') }}
                       style={{ padding: '4px 10px', borderRadius: 6, fontSize: 12, fontWeight: 600, border: D.borderLight, background: D.card, color: D.indigo, cursor: 'pointer', fontFamily: 'inherit' }}>
-                      {r.status === 'Pending' ? 'Duyệt' : 'Xem'}
+                      {r.status === 'Pending' && canReview ? 'Duyệt' : 'Xem'}
                     </button>
                   </td>
                 </tr>
@@ -212,7 +207,7 @@ export default function ResignationPage() {
                 </div>
               )}
 
-              {selected.status === 'Pending' && (
+              {selected.status === 'Pending' && canReview && (
                 <div>
                   <label style={{ fontSize: 11, fontWeight: 700, color: D.inkMuted, textTransform: 'uppercase', letterSpacing: '.04em', display: 'block', marginBottom: 6 }}>
                     Ghi chú phản hồi <span style={{ textTransform: 'none', fontWeight: 400, letterSpacing: 0 }}>(tuỳ chọn)</span>
@@ -225,7 +220,7 @@ export default function ResignationPage() {
             </div>
           )}
           <DialogFooter style={{ display: 'flex', gap: 8, flexWrap: 'wrap', paddingTop: 8 }}>
-            {selected?.status === 'Pending' && (
+            {selected?.status === 'Pending' && canReview && (
               <>
                 <button disabled={reviewing} onClick={() => handleReview('Approved')}
                   style={{ background: D.emerald, color: '#fff', border: D.border, boxShadow: D.shadow(2,2), padding: '8px 16px', borderRadius: D.pill, fontSize: 12, fontWeight: 700, cursor: reviewing ? 'not-allowed' : 'pointer', opacity: reviewing ? 0.7 : 1, fontFamily: 'inherit' }}>
