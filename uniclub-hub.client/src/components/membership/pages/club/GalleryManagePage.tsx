@@ -2,9 +2,11 @@ import { useEffect, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import {
-  getGallery, uploadImages, addVideo, updateGalleryItem, deleteGalleryItem,
+  getGallery, uploadImages, uploadVideo, updateGalleryItem, deleteGalleryItem,
   type GalleryItem,
 } from '@/components/membership/services/galleryApi'
+import { useAuth } from '@/contexts/AuthContext'
+import { CLUB_ROLES, MEMBERSHIP_STATUS } from '@/types/auth'
 
 const D = {
   border: '1.5px solid #15131a',
@@ -35,16 +37,28 @@ export default function GalleryManagePage() {
   const { clubId } = useParams<{ clubId: string }>()
   const id = Number(clubId)
 
+  const { user } = useAuth()
+  const membership = user?.memberships.find(m =>
+    m.clubId === id &&
+    (m.status === MEMBERSHIP_STATUS.ACTIVE || m.status === MEMBERSHIP_STATUS.PROBATION))
+  const isDeptLead = membership?.clubRole === CLUB_ROLES.DEPT_LEAD
+
   const [items, setItems] = useState<GalleryItem[]>([])
   const [loading, setLoading] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [deletingId, setDeletingId] = useState<number | null>(null)
 
+  // Image modal
+  const [imageModal, setImageModal] = useState(false)
+  const [imageFiles, setImageFiles] = useState<File[]>([])
+  const [imageDesc, setImageDesc] = useState('')
+
   // Video modal
   const [videoModal, setVideoModal] = useState(false)
-  const [videoUrl, setVideoUrl] = useState('')
+  const [videoFile, setVideoFile] = useState<File | null>(null)
   const [videoDesc, setVideoDesc] = useState('')
   const [addingVideo, setAddingVideo] = useState(false)
+  const videoFileInputRef = useRef<HTMLInputElement>(null)
 
   // Edit description
   const [editId, setEditId] = useState<number | null>(null)
@@ -70,34 +84,35 @@ export default function GalleryManagePage() {
 
   useEffect(() => { load() }, [id])
 
-  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(e.target.files ?? [])
-    if (!files.length) return
+  async function handleUploadImages() {
+    if (!imageFiles.length) { toast.error('Chưa chọn ảnh'); return }
     setUploading(true)
     try {
-      const uploaded = await uploadImages(id, files)
+      const uploaded = await uploadImages(id, imageFiles, imageDesc.trim() || undefined)
       setItems(prev => [...uploaded, ...prev])
+      setImageModal(false)
+      setImageFiles([])
+      setImageDesc('')
       toast.success(`Đã upload ${uploaded.length} ảnh`)
     } catch {
       toast.error('Upload ảnh thất bại')
     } finally {
       setUploading(false)
-      e.target.value = ''
     }
   }
 
   async function handleAddVideo() {
-    if (!videoUrl.trim()) { toast.error('Nhập URL video'); return }
+    if (!videoFile) { toast.error('Chưa chọn file video'); return }
     setAddingVideo(true)
     try {
-      const item = await addVideo(id, videoUrl.trim(), videoDesc.trim() || undefined)
+      const item = await uploadVideo(id, videoFile, videoDesc.trim() || undefined)
       setItems(prev => [item, ...prev])
       setVideoModal(false)
-      setVideoUrl('')
+      setVideoFile(null)
       setVideoDesc('')
-      toast.success('Đã thêm video')
+      toast.success('Đã upload video')
     } catch {
-      toast.error('Thêm video thất bại')
+      toast.error('Upload video thất bại')
     } finally {
       setAddingVideo(false)
     }
@@ -160,7 +175,7 @@ export default function GalleryManagePage() {
               + Video
             </button>
             <button
-              onClick={() => fileInputRef.current?.click()}
+              onClick={() => setImageModal(true)}
               disabled={uploading}
               style={{
                 height: 38, padding: '0 20px', borderRadius: D.pill, border: D.border,
@@ -229,7 +244,7 @@ export default function GalleryManagePage() {
 
                       {/* Description / Actions */}
                       <div style={{ padding: '8px 10px' }}>
-                        {editId === item.id ? (
+                        {editId === item.id && !isDeptLead ? (
                           <div>
                             <input
                               value={editDesc}
@@ -261,31 +276,33 @@ export default function GalleryManagePage() {
                         ) : (
                           <div>
                             <div style={{
-                              fontSize: 11, color: D.inkMuted, marginBottom: 6,
+                              fontSize: 11, color: D.inkMuted, marginBottom: isDeptLead ? 0 : 6,
                               minHeight: 16, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                             }}>
                               {item.description || <span style={{ fontStyle: 'italic', opacity: 0.5 }}>Chưa có mô tả</span>}
                             </div>
-                            <div style={{ display: 'flex', gap: 4 }}>
-                              <button
-                                onClick={() => { setEditId(item.id); setEditDesc(item.description ?? '') }}
-                                style={{
-                                  flex: 1, height: 26, borderRadius: 6, border: D.borderLight,
-                                  background: D.bg, color: D.inkDim, fontSize: 11, fontWeight: 600,
-                                  cursor: 'pointer', fontFamily: 'inherit',
-                                }}
-                              >Sửa</button>
-                              <button
-                                onClick={() => handleDelete(item)}
-                                disabled={deletingId === item.id}
-                                style={{
-                                  flex: 1, height: 26, borderRadius: 6, border: `1px solid ${D.red}`,
-                                  background: '#fff5f5', color: D.red, fontSize: 11, fontWeight: 600,
-                                  cursor: 'pointer', fontFamily: 'inherit',
-                                  opacity: deletingId === item.id ? 0.5 : 1,
-                                }}
-                              >Xóa</button>
-                            </div>
+                            {!isDeptLead && (
+                              <div style={{ display: 'flex', gap: 4 }}>
+                                <button
+                                  onClick={() => { setEditId(item.id); setEditDesc(item.description ?? '') }}
+                                  style={{
+                                    flex: 1, height: 26, borderRadius: 6, border: D.borderLight,
+                                    background: D.bg, color: D.inkDim, fontSize: 11, fontWeight: 600,
+                                    cursor: 'pointer', fontFamily: 'inherit',
+                                  }}
+                                >Sửa</button>
+                                <button
+                                  onClick={() => handleDelete(item)}
+                                  disabled={deletingId === item.id}
+                                  style={{
+                                    flex: 1, height: 26, borderRadius: 6, border: `1px solid ${D.red}`,
+                                    background: '#fff5f5', color: D.red, fontSize: 11, fontWeight: 600,
+                                    cursor: 'pointer', fontFamily: 'inherit',
+                                    opacity: deletingId === item.id ? 0.5 : 1,
+                                  }}
+                                >Xóa</button>
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
@@ -321,17 +338,19 @@ export default function GalleryManagePage() {
                           <div style={{ fontSize: 11, color: D.inkDim, marginTop: 2 }}>{item.description}</div>
                         )}
                       </div>
-                      <button
-                        onClick={() => handleDelete(item)}
-                        disabled={deletingId === item.id}
-                        style={{
-                          height: 28, padding: '0 12px', borderRadius: D.pill,
-                          border: `1px solid ${D.red}`, background: '#fff5f5',
-                          color: D.red, fontSize: 12, fontWeight: 600,
-                          cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0,
-                          opacity: deletingId === item.id ? 0.5 : 1,
-                        }}
-                      >Xóa</button>
+                      {!isDeptLead && (
+                        <button
+                          onClick={() => handleDelete(item)}
+                          disabled={deletingId === item.id}
+                          style={{
+                            height: 28, padding: '0 12px', borderRadius: D.pill,
+                            border: `1px solid ${D.red}`, background: '#fff5f5',
+                            color: D.red, fontSize: 12, fontWeight: 600,
+                            cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0,
+                            opacity: deletingId === item.id ? 0.5 : 1,
+                          }}
+                        >Xóa</button>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -340,15 +359,95 @@ export default function GalleryManagePage() {
           </>
         )}
 
-        {/* Hidden file input */}
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          multiple
-          style={{ display: 'none' }}
-          onChange={handleFileChange}
-        />
+        {/* Image upload modal */}
+        {imageModal && (
+          <div style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50,
+          }} onClick={() => { setImageModal(false); setImageFiles([]); setImageDesc('') }}>
+            <div style={{
+              background: D.card, borderRadius: D.radius, border: D.border,
+              boxShadow: D.shadow(5, 5), padding: 28, width: 460,
+            }} onClick={e => e.stopPropagation()}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                <h2 style={{ fontSize: 16, fontWeight: 800, color: D.ink, margin: 0 }}>Upload ảnh</h2>
+                <button onClick={() => { setImageModal(false); setImageFiles([]); setImageDesc('') }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, color: D.inkMuted }}>✕</button>
+              </div>
+
+              <div style={{ marginBottom: 20 }}>
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  style={{
+                    border: `2px dashed ${imageFiles.length ? D.indigo : '#e8e3d6'}`,
+                    borderRadius: 10, padding: '18px 16px', textAlign: 'center',
+                    cursor: 'pointer', background: imageFiles.length ? '#f0f0ff' : D.bg,
+                    transition: 'all .15s',
+                  }}
+                >
+                  {imageFiles.length ? (
+                    <div>
+                      <div style={{ fontSize: 20, marginBottom: 4 }}>🖼️</div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: D.indigo }}>
+                        {imageFiles.length} ảnh đã chọn
+                      </div>
+                      <div style={{ fontSize: 11, color: D.inkMuted, marginTop: 2 }}>
+                        {imageFiles.map(f => f.name).join(', ').slice(0, 60)}{imageFiles.map(f => f.name).join(', ').length > 60 ? '...' : ''}
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <div style={{ fontSize: 28, marginBottom: 6 }}>🖼️</div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: D.inkDim }}>Nhấn để chọn ảnh</div>
+                      <div style={{ fontSize: 11, color: D.inkMuted, marginTop: 2 }}>JPG, PNG, WebP... — có thể chọn nhiều ảnh</div>
+                    </div>
+                  )}
+                </div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  style={{ display: 'none' }}
+                  onChange={e => setImageFiles(Array.from(e.target.files ?? []))}
+                />
+              </div>
+
+              <div style={{ marginBottom: 20 }}>
+                <label style={labelStyle}>Mô tả (tùy chọn)</label>
+                <input
+                  value={imageDesc}
+                  onChange={e => setImageDesc(e.target.value)}
+                  placeholder="Mô tả ngắn về ảnh..."
+                  style={inputStyle}
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+                <button
+                  onClick={() => { setImageModal(false); setImageFiles([]); setImageDesc('') }}
+                  style={{
+                    height: 36, padding: '0 18px', borderRadius: D.pill, border: D.border,
+                    background: D.bg, color: D.inkDim, fontWeight: 600, fontSize: 13,
+                    cursor: 'pointer', fontFamily: 'inherit',
+                  }}
+                >Hủy</button>
+                <button
+                  onClick={handleUploadImages}
+                  disabled={uploading || !imageFiles.length}
+                  style={{
+                    height: 36, padding: '0 20px', borderRadius: D.pill, border: D.border,
+                    background: uploading || !imageFiles.length ? D.inkMuted : D.indigo, color: '#fff',
+                    fontWeight: 700, fontSize: 13,
+                    cursor: uploading || !imageFiles.length ? 'not-allowed' : 'pointer',
+                    fontFamily: 'inherit', boxShadow: uploading ? 'none' : D.shadow(),
+                  }}
+                >
+                  {uploading ? 'Đang upload...' : 'Upload ảnh'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Video modal */}
         {videoModal && (
@@ -362,21 +461,43 @@ export default function GalleryManagePage() {
             }} onClick={e => e.stopPropagation()}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
                 <h2 style={{ fontSize: 16, fontWeight: 800, color: D.ink, margin: 0 }}>Thêm video</h2>
-                <button onClick={() => setVideoModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, color: D.inkMuted }}>✕</button>
+                <button onClick={() => { setVideoModal(false); setVideoFile(null); setVideoDesc('') }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 18, color: D.inkMuted }}>✕</button>
               </div>
 
               <div style={{ marginBottom: 14 }}>
-                <label style={labelStyle}>URL Video</label>
-                <input
-                  value={videoUrl}
-                  onChange={e => setVideoUrl(e.target.value)}
-                  placeholder="https://youtube.com/watch?v=... hoặc link trực tiếp"
-                  style={inputStyle}
-                  autoFocus
-                />
-                <div style={{ fontSize: 11, color: D.inkMuted, marginTop: 4 }}>
-                  Hỗ trợ YouTube, Google Drive hoặc URL file video trực tiếp
+                <label style={labelStyle}>File video</label>
+                <div
+                  onClick={() => videoFileInputRef.current?.click()}
+                  style={{
+                    border: `2px dashed ${videoFile ? D.indigo : '#e8e3d6'}`,
+                    borderRadius: 10, padding: '18px 16px', textAlign: 'center',
+                    cursor: 'pointer', background: videoFile ? '#f0f0ff' : D.bg,
+                    transition: 'all .15s',
+                  }}
+                >
+                  {videoFile ? (
+                    <div>
+                      <div style={{ fontSize: 20, marginBottom: 4 }}>🎬</div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: D.indigo }}>{videoFile.name}</div>
+                      <div style={{ fontSize: 11, color: D.inkMuted, marginTop: 2 }}>
+                        {(videoFile.size / 1024 / 1024).toFixed(1)} MB
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <div style={{ fontSize: 28, marginBottom: 6 }}>📹</div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: D.inkDim }}>Nhấn để chọn file video</div>
+                      <div style={{ fontSize: 11, color: D.inkMuted, marginTop: 2 }}>MP4, WebM, MOV...</div>
+                    </div>
+                  )}
                 </div>
+                <input
+                  ref={videoFileInputRef}
+                  type="file"
+                  accept="video/*"
+                  style={{ display: 'none' }}
+                  onChange={e => setVideoFile(e.target.files?.[0] ?? null)}
+                />
               </div>
 
               <div style={{ marginBottom: 20 }}>
@@ -391,7 +512,7 @@ export default function GalleryManagePage() {
 
               <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
                 <button
-                  onClick={() => setVideoModal(false)}
+                  onClick={() => { setVideoModal(false); setVideoFile(null); setVideoDesc('') }}
                   style={{
                     height: 36, padding: '0 18px', borderRadius: D.pill, border: D.border,
                     background: D.bg, color: D.inkDim, fontWeight: 600, fontSize: 13,

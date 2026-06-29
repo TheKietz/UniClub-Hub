@@ -10,6 +10,7 @@ namespace UniClub_Hub.Shared.Common.Storage
         private readonly Cloudinary _cloudinary;
 
         private static readonly string[] ImageTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+        private static readonly string[] VideoExtensions = [".mp4", ".webm", ".mov", ".avi", ".mkv", ".wmv", ".flv", ".m4v"];
 
         public CloudinaryStorageService(Cloudinary cloudinary)
         {
@@ -41,10 +42,20 @@ namespace UniClub_Hub.Shared.Common.Storage
                     Transformation = new Transformation().Quality("auto").FetchFormat("auto")
                 };
                 var result = await _cloudinary.UploadAsync(uploadParams);
-
                 if (result.Error != null)
                     throw new InvalidOperationException($"Upload thất bại: {result.Error.Message}");
-
+                return result.SecureUrl.ToString();
+            }
+            else if (file.ContentType.StartsWith("video/"))
+            {
+                var uploadParams = new VideoUploadParams
+                {
+                    File = new FileDescription(file.FileName, stream),
+                    Folder = $"uniclub/{folder}",
+                };
+                var result = await _cloudinary.UploadAsync(uploadParams);
+                if (result.Error != null)
+                    throw new InvalidOperationException($"Upload thất bại: {result.Error.Message}");
                 return result.SecureUrl.ToString();
             }
             else
@@ -55,10 +66,8 @@ namespace UniClub_Hub.Shared.Common.Storage
                     Folder = $"uniclub/{folder}"
                 };
                 var result = await _cloudinary.UploadAsync(uploadParams);
-
                 if (result.Error != null)
                     throw new InvalidOperationException($"Upload thất bại: {result.Error.Message}");
-
                 return result.SecureUrl.ToString();
             }
         }
@@ -81,13 +90,13 @@ namespace UniClub_Hub.Shared.Common.Storage
             var fileWithExtension = segments[^1]; 
             var publicId = string.Join("/", segments[startIndex..]).Split('.')[0];
 
-            // 2. Xác định ResourceType (Mặc định là Image, nếu đuôi không thuộc ImageTypes thì chỉnh thành Raw)
             var extension = Path.GetExtension(fileWithExtension).ToLower();
-            var isImage = extension == ".jpg" || extension == ".jpeg" || extension == ".png" || extension == ".webp" || extension == ".gif";
+            var isImage = extension is ".jpg" or ".jpeg" or ".png" or ".webp" or ".gif";
+            var isVideo = VideoExtensions.Contains(extension);
 
             var deletionParams = new DeletionParams(publicId)
             {
-                ResourceType = isImage ? ResourceType.Image : ResourceType.Raw // Fix triệt để lỗi không xóa được file tài liệu
+                ResourceType = isImage ? ResourceType.Image : isVideo ? ResourceType.Video : ResourceType.Raw
             };
 
             var result = await _cloudinary.DestroyAsync(deletionParams);

@@ -2,6 +2,17 @@ import { Play, X } from 'lucide-react'
 import { useState } from 'react'
 import type { ClubLandingData, MediaItem, PortalTheme } from '../../services/portal.types'
 
+function getVideoThumbnail(url: string): string | null {
+  try {
+    if (!url.includes('cloudinary.com')) return null
+    return url
+      .replace('/video/upload/', '/video/upload/so_auto/')
+      .replace(/\.[^./]+$/, '.jpg')
+  } catch {
+    return null
+  }
+}
+
 interface Props {
   data: ClubLandingData
   style: string
@@ -31,9 +42,7 @@ function GalleryGrid({ data, theme }: { data: ClubLandingData; theme: PortalThem
               className="aspect-square rounded-xl border-2 border-black overflow-hidden relative group focus:outline-none transition-all duration-100 hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-none"
               style={{ boxShadow: '3px 3px 0 #003087' }}>
               {item.mediaType === 'Video' ? (
-                <div className="w-full h-full bg-zinc-900 flex items-center justify-center">
-                  <Play size={28} className="text-white opacity-80" />
-                </div>
+                <VideoThumb url={item.mediaUrl} iconSize={28} />
               ) : (
                 <img src={item.mediaUrl} alt={item.description ?? ''}
                   className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
@@ -65,9 +74,8 @@ function GalleryMasonry({ data, theme }: { data: ClubLandingData; theme: PortalT
               className="w-full rounded-xl border-2 border-black overflow-hidden mb-3 group focus:outline-none block transition-all duration-100 hover:translate-x-0.5 hover:translate-y-0.5 hover:shadow-none"
               style={{ breakInside: 'avoid', boxShadow: '3px 3px 0 #003087' }}>
               {item.mediaType === 'Video' ? (
-                <div className="w-full flex items-center justify-center bg-zinc-900"
-                  style={{ height: `${160 + (i % 3) * 40}px` }}>
-                  <Play size={32} className="text-white opacity-70" />
+                <div style={{ height: `${160 + (i % 3) * 40}px` }}>
+                  <VideoThumb url={item.mediaUrl} iconSize={32} />
                 </div>
               ) : (
                 <img src={item.mediaUrl} alt={item.description ?? ''}
@@ -109,11 +117,7 @@ function GalleryFilm({ data, theme }: { data: ClubLandingData; theme: PortalThem
               className="rounded-xl flex-shrink-0 overflow-hidden relative group focus:outline-none border-2 border-white/20 transition-all duration-200 hover:border-white/60 hover:scale-[1.03]"
               style={{ width: 240, height: 160 }}>
               {item.mediaType === 'Video' ? (
-                <div className="w-full h-full bg-zinc-800 flex items-center justify-center">
-                  <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
-                    <Play size={22} className="text-white ml-1" />
-                  </div>
-                </div>
+                <VideoThumb url={item.mediaUrl} iconSize={22} rounded />
               ) : (
                 <img src={item.mediaUrl} alt={item.description ?? ''}
                   className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
@@ -134,6 +138,28 @@ function GalleryFilm({ data, theme }: { data: ClubLandingData; theme: PortalThem
   )
 }
 
+function VideoThumb({ url, iconSize, rounded }: { url: string; iconSize: number; rounded?: boolean }) {
+  const thumb = getVideoThumbnail(url)
+  return (
+    <div className="relative w-full h-full">
+      {thumb ? (
+        <img src={thumb} alt="" className="w-full h-full object-cover" />
+      ) : (
+        <div className="w-full h-full bg-zinc-800" />
+      )}
+      <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+        {rounded ? (
+          <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
+            <Play size={iconSize} className="text-white ml-1" />
+          </div>
+        ) : (
+          <Play size={iconSize} className="text-white opacity-80" />
+        )}
+      </div>
+    </div>
+  )
+}
+
 function Lightbox({ item, onClose, theme, dark }: { item: MediaItem; onClose: () => void; theme: PortalTheme; dark?: boolean }) {
   return (
     <div className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center p-4" onClick={onClose}>
@@ -150,7 +176,7 @@ function Lightbox({ item, onClose, theme, dark }: { item: MediaItem; onClose: ()
         onClick={e => e.stopPropagation()}
         style={{ boxShadow: '8px 8px 0 rgba(255,255,255,0.15)' }}>
         {item.mediaType === 'Video' ? (
-          <video src={item.mediaUrl} controls autoPlay className="w-full max-h-[80vh]" />
+          <video src={item.mediaUrl} controls className="w-full max-h-[80vh]" />
         ) : (
           <img src={item.mediaUrl} alt={item.description ?? ''}
             className="w-full object-contain max-h-[80vh]" />

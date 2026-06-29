@@ -128,10 +128,6 @@ function ApplySplit({ data, theme }: { data: ClubLandingData; theme: PortalTheme
               style={{ backgroundColor: theme.primaryColor, boxShadow: '4px 4px 0 #003087' }}>
               Đăng ký ngay <ArrowRight size={15} />
             </Link>
-            <a href="#about"
-              className="rounded-xl inline-flex items-center border-2 border-black font-black uppercase tracking-wider text-sm px-6 py-3 text-black hover:bg-zinc-50 transition-colors">
-              Tìm hiểu thêm
-            </a>
           </div>
         </div>
       </div>

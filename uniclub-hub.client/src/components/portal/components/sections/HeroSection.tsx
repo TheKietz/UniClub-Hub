@@ -77,10 +77,6 @@ function HeroDefault({ data, theme }: { data: ClubLandingData; theme: PortalThem
             style={{ backgroundColor: theme.primaryColor, boxShadow: '4px 4px 0 #fff' }}>
             Đăng ký tham gia →
           </Link>
-          <a href="#about"
-            className="rounded-xl border-2 border-white/60 bg-transparent text-white font-black uppercase tracking-wider text-sm px-7 py-3 hover:bg-white/10 transition-colors">
-            Tìm hiểu thêm ↓
-          </a>
         </div>
       </div>
     </section>

@@ -19,7 +19,7 @@ namespace UniClub_Hub.Membership.Services.Implements
                 .ToListAsync();
         }
 
-        public async Task<IEnumerable<GalleryItemResponse>> UploadImagesAsync(int clubId, IList<IFormFile> files)
+        public async Task<IEnumerable<GalleryItemResponse>> UploadImagesAsync(int clubId, IList<IFormFile> files, string? description)
         {
             if (!await db.Clubs.AnyAsync(c => c.Id == clubId))
                 throw new KeyNotFoundException("Không tìm thấy CLB.");
@@ -36,6 +36,7 @@ namespace UniClub_Hub.Membership.Services.Implements
                     ClubId = clubId,
                     MediaUrl = url,
                     MediaType = Shared.Enums.MediaType.Image,
+                    Description = description?.Trim(),
                 };
                 db.MediaGalleries.Add(item);
                 await db.SaveChangesAsync();
@@ -43,6 +44,26 @@ namespace UniClub_Hub.Membership.Services.Implements
             }
 
             return results;
+        }
+
+        public async Task<GalleryItemResponse> UploadVideoAsync(int clubId, IFormFile file, string? description)
+        {
+            if (!await db.Clubs.AnyAsync(c => c.Id == clubId))
+                throw new KeyNotFoundException("Không tìm thấy CLB.");
+
+            var url = await storage.UploadAsync(file, "gallery")
+                ?? throw new InvalidOperationException("Upload video thất bại.");
+
+            var item = new MediaGallery
+            {
+                ClubId = clubId,
+                MediaUrl = url,
+                MediaType = Shared.Enums.MediaType.Video,
+                Description = description?.Trim(),
+            };
+            db.MediaGalleries.Add(item);
+            await db.SaveChangesAsync();
+            return ToResponse(item);
         }
 
         public async Task<GalleryItemResponse> AddVideoAsync(int clubId, AddVideoRequest dto)

@@ -26,14 +26,14 @@ namespace UniClub_Hub.Server.Controllers.Membership
         // Upload one or more images
         [HttpPost("upload")]
         [Authorize]
-        public async Task<IActionResult> Upload(int clubId, [FromForm] IFormFileCollection files)
+        public async Task<IActionResult> Upload(int clubId, [FromForm] IFormFileCollection files, [FromForm] string? description = null)
         {
-            if (!await IsClubAdminOrSuperAdminAsync(clubId)) return Forbid();
+            if (!await IsMemberOrAdminAsync(clubId)) return Forbid();
             if (files.Count == 0) return BadRequest(ApiResponse<object>.Fail("Chưa chọn file."));
 
             try
             {
-                var result = await galleryService.UploadImagesAsync(clubId, files.ToList());
+                var result = await galleryService.UploadImagesAsync(clubId, files.ToList(), description);
                 return Ok(ApiResponse<IEnumerable<GalleryItemResponse>>.Ok(result, $"Đã upload {result.Count()} ảnh."));
             }
             catch (KeyNotFoundException ex)
@@ -42,27 +42,24 @@ namespace UniClub_Hub.Server.Controllers.Membership
             }
         }
 
-        // Add video by URL
-        [HttpPost("video")]
+        // Upload video file
+        [HttpPost("upload-video")]
         [Authorize]
-        public async Task<IActionResult> AddVideo(int clubId, [FromBody] AddVideoRequest dto)
+        public async Task<IActionResult> UploadVideo(int clubId, IFormFile file, [FromForm] string? description = null)
         {
-            if (!await IsClubAdminOrSuperAdminAsync(clubId)) return Forbid();
-            if (string.IsNullOrWhiteSpace(dto.Url))
-                return BadRequest(ApiResponse<object>.Fail("URL video không được để trống."));
+            if (!await IsMemberOrAdminAsync(clubId)) return Forbid();
+            if (file == null || file.Length == 0) return BadRequest(ApiResponse<object>.Fail("Chưa chọn file video."));
 
             try
             {
-                var result = await galleryService.AddVideoAsync(clubId, dto);
-                return Ok(ApiResponse<GalleryItemResponse>.Ok(result, "Đã thêm video."));
+                var result = await galleryService.UploadVideoAsync(clubId, file, description);
+                return Ok(ApiResponse<GalleryItemResponse>.Ok(result, "Đã upload video."));
             }
-            catch (KeyNotFoundException ex)
-            {
-                return NotFound(ApiResponse<object>.Fail(ex.Message));
-            }
+            catch (KeyNotFoundException ex) { return NotFound(ApiResponse<object>.Fail(ex.Message)); }
+            catch (InvalidOperationException ex) { return BadRequest(ApiResponse<object>.Fail(ex.Message)); }
         }
 
-        // Update description
+        // Update description — CLUB_ADMIN only
         [HttpPut("{id}")]
         [Authorize]
         public async Task<IActionResult> Update(int clubId, int id, [FromBody] UpdateGalleryItemRequest dto)
@@ -80,7 +77,7 @@ namespace UniClub_Hub.Server.Controllers.Membership
             }
         }
 
-        // Delete
+        // Delete — CLUB_ADMIN only
         [HttpDelete("{id}")]
         [Authorize]
         public async Task<IActionResult> Delete(int clubId, int id)
@@ -98,6 +95,17 @@ namespace UniClub_Hub.Server.Controllers.Membership
             }
         }
 
+        private async Task<bool> IsMemberOrAdminAsync(int clubId)
+        {
+            if (User.IsInRole("SUPER_ADMIN")) return true;
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (userId == null) return false;
+            return await db.ClubMemberships.AnyAsync(m =>
+                m.ClubId == clubId && m.UserId == userId &&
+                (m.ClubRole == ClubRole.CLUB_ADMIN || m.ClubRole == ClubRole.DEPT_LEAD) &&
+                (m.Status == MembershipStatus.Active || m.Status == MembershipStatus.Probation));
+        }
+
         private async Task<bool> IsClubAdminOrSuperAdminAsync(int clubId)
         {
             if (User.IsInRole("SUPER_ADMIN")) return true;
@@ -105,7 +113,8 @@ namespace UniClub_Hub.Server.Controllers.Membership
             if (userId == null) return false;
             return await db.ClubMemberships.AnyAsync(m =>
                 m.ClubId == clubId && m.UserId == userId &&
-                m.ClubRole == ClubRole.CLUB_ADMIN && m.Status == MembershipStatus.Active);
+                m.ClubRole == ClubRole.CLUB_ADMIN &&
+                (m.Status == MembershipStatus.Active || m.Status == MembershipStatus.Probation));
         }
     }
 }

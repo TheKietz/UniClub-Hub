@@ -359,6 +359,9 @@ namespace UniClub_Hub.Membership.Services.Implements
 
         // ── Helpers ───────────────────────────────────────────────────────
 
+        private static DateTime Utc(DateTime dt) =>
+            DateTime.SpecifyKind(dt, DateTimeKind.Utc);
+
         private static ApplicationDto ToDto(ClubApplication a) =>
             new()
             {
@@ -366,8 +369,8 @@ namespace UniClub_Hub.Membership.Services.Implements
                 ClubId = a.ClubId,
                 ClubName = a.Club?.Name ?? "",
                 Status = a.Status,
-                AppliedAt = a.AppliedAt,
-                ReviewedAt = a.ReviewedAt,
+                AppliedAt = Utc(a.AppliedAt),
+                ReviewedAt = a.ReviewedAt.HasValue ? Utc(a.ReviewedAt.Value) : null,
                 ReviewNote = a.ReviewNote,
             };
 
@@ -378,9 +381,9 @@ namespace UniClub_Hub.Membership.Services.Implements
                 ClubId = a.ClubId,
                 ClubName = a.Club?.Name ?? "",
                 Status = a.Status,
-                AppliedAt = a.AppliedAt,
+                AppliedAt = Utc(a.AppliedAt),
                 ReviewNote = a.ReviewNote,
-                ReviewedAt = a.ReviewedAt,
+                ReviewedAt = a.ReviewedAt.HasValue ? Utc(a.ReviewedAt.Value) : null,
                 ReviewerName = reviewerName,
                 UserId = a.UserId,
                 FullName = a.User?.FullName ?? a.User?.Email ?? "",
@@ -429,7 +432,12 @@ namespace UniClub_Hub.Membership.Services.Implements
             }
 
             application.CurrentStageId = nextStage.Id;
-            application.Status = ApplicationStatus.Reviewing;
+            application.Status = application.Status switch
+            {
+                ApplicationStatus.Pending   => ApplicationStatus.Interview,
+                ApplicationStatus.Interview => ApplicationStatus.Reviewing,
+                _                           => ApplicationStatus.Reviewing,
+            };
             application.ReviewNote = req.ReviewNote;
             application.ReviewedAt = DateTime.UtcNow;
             application.ReviewerId = reviewerId;

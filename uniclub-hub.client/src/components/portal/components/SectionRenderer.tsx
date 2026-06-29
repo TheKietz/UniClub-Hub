@@ -8,6 +8,7 @@ import PostsSection from './sections/PostsSection'
 import GallerySection from './sections/GallerySection'
 import ApplySection from './sections/ApplySection'
 import ContactSection from './sections/ContactSection'
+import { Rv } from '@/components/public/publicComponents'
 
 interface Props {
   config: SectionConfig
@@ -18,16 +19,22 @@ interface Props {
 export default function SectionRenderer({ config, data, theme }: Props) {
   const props = { data, style: config.style, theme }
 
-  switch (config.id) {
-    case 'hero':        return <HeroSection        {...props} />
-    case 'about':       return <AboutSection       {...props} />
-    case 'stats':       return <StatsSection       {...props} />
-    case 'departments': return <DepartmentsSection {...props} />
-    case 'events':      return <EventsSection      {...props} />
-    case 'posts':       return <PostsSection       {...props} />
-    case 'gallery':     return <GallerySection     {...props} />
-    case 'apply':       return <ApplySection       {...props} />
-    case 'contact':     return <ContactSection     {...props} />
-    default:            return null
-  }
+  const section = (() => {
+    switch (config.id) {
+      case 'hero':        return <HeroSection        {...props} />
+      case 'about':       return <AboutSection       {...props} />
+      case 'stats':       return <StatsSection       {...props} />
+      case 'departments': return <DepartmentsSection {...props} />
+      case 'events':      return <EventsSection      {...props} />
+      case 'posts':       return <PostsSection       {...props} />
+      case 'gallery':     return <GallerySection     {...props} />
+      case 'apply':       return <ApplySection       {...props} />
+      case 'contact':     return <ContactSection     {...props} />
+      default:            return null
+    }
+  })()
+
+  if (!section) return null
+  if (config.id === 'hero') return section
+  return <Rv>{section}</Rv>
 }

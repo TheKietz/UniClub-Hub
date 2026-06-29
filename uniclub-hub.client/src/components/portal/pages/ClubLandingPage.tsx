@@ -180,6 +180,17 @@ export default function ClubLandingPage() {
     }
   }, [clubId])
 
+  // Scroll to hash section after data loads (e.g. #posts from ClubDetailPage link)
+  useEffect(() => {
+    if (loading || !data) return
+    const hash = window.location.hash.slice(1)
+    if (!hash) return
+    const el = document.getElementById(hash)
+    if (el) {
+      setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100)
+    }
+  }, [loading, data])
+
   usePortalSEO({
     title: data ? `${data.club.name} | UniClub Hub` : 'UniClub Hub',
     description: data?.landingPage.introduction ?? data?.club.description,
