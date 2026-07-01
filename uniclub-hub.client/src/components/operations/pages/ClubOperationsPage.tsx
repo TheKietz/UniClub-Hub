@@ -19,8 +19,8 @@ import { FilterSelect } from '@/components/shared/FilterSelect';
 
 const TABS = [
   { id: 'overview',   label: 'Tổng quan',  icon: '◇', memberAllowed: true  },
-  { id: 'mytasks',    label: 'Task',        icon: '✓', memberAllowed: true  },
-  { id: 'sprints',    label: 'Công việc',     icon: '≡', memberAllowed: true  },
+  { id: 'mytasks',    label: 'Cá nhân',        icon: '✓', memberAllowed: true  },
+  { id: 'sprints',    label: 'Kho công việc',     icon: '≡', memberAllowed: true  },
   { id: 'board',      label: 'Bảng',       icon: '▦', memberAllowed: true  },
   { id: 'deadlines',  label: 'Deadlines',   icon: '⊖', memberAllowed: true  },
   { id: 'workload',   label: 'Phân công',  icon: '◎', memberAllowed: false },

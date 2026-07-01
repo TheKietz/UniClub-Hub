@@ -117,7 +117,7 @@ export default function CompleteSprintModal({
                 value={destination}
                 onChange={setDestination}
                 options={[
-                  { value: 'backlog', label: 'Backlog' },
+                  { value: 'backlog', label: 'Kho công việc' },
                   ...otherSprints.map(s => ({ value: String(s.id), label: s.name })),
                 ]}
                 maxMenuHeight={260}

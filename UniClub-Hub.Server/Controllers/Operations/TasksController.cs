@@ -248,7 +248,21 @@ namespace UniClub_Hub.Server.Controllers.Operations
             return Ok(ApiResponse<List<UrgentTaskResponse>>.Ok(result));
         }
 
+        /// <summary>Dự báo trễ deadline: các công việc đang chậm tiến độ và sắp đến hạn.</summary>
+        [HttpGet("at-risk")]
+        public async Task<IActionResult> GetAtRiskTasks(
+            [FromQuery] int clubId,
+            [FromQuery] int? departmentId = null)
+        {
+            var result = await intelligenceService.GetAtRiskTasksAsync(clubId, departmentId);
+            return Ok(ApiResponse<List<AtRiskTaskResponse>>.Ok(result));
+        }
+
         // ── Comments ──────────────────────────────────────────────────────────────
+
+        // Resolve the club a task belongs to, for scoping realtime broadcasts.
+        private Task<int?> GetTaskClubIdAsync(int taskId) =>
+            db.Tasks.AsNoTracking().Where(t => t.Id == taskId).Select(t => (int?)t.ClubId).FirstOrDefaultAsync();
 
         [HttpGet("{id:int}/comments")]
         [AllowAnonymous]
@@ -265,6 +279,10 @@ namespace UniClub_Hub.Server.Controllers.Operations
             try
             {
                 var result = await commentService.AddAsync(id, userId, dto);
+                var clubId = await GetTaskClubIdAsync(id);
+                if (clubId.HasValue)
+                    await hubContext.Clients.Group(SignalRGroups.Club(clubId.Value))
+                        .SendAsync(SignalREvents.CommentAdded, result);
                 return Ok(ApiResponse<TaskCommentDto>.Ok(result, "Thêm bình luận thành công."));
             }
             catch (KeyNotFoundException ex)
@@ -301,6 +319,14 @@ namespace UniClub_Hub.Server.Controllers.Operations
 
         // ── Attachments ───────────────────────────────────────────────────────────
 
+        private async Task BroadcastAttachmentAsync(int taskId, TaskAttachmentDto attachment)
+        {
+            var clubId = await GetTaskClubIdAsync(taskId);
+            if (clubId.HasValue)
+                await hubContext.Clients.Group(SignalRGroups.Club(clubId.Value))
+                    .SendAsync(SignalREvents.AttachmentUploaded, attachment);
+        }
+
         [HttpGet("{id:int}/attachments")]
         [AllowAnonymous]
         public async Task<IActionResult> GetAttachments(int id)
@@ -314,6 +340,7 @@ namespace UniClub_Hub.Server.Controllers.Operations
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
             var result = await attachmentService.AddLinkAsync(id, userId, dto);
+            await BroadcastAttachmentAsync(id, result);
             return Ok(ApiResponse<TaskAttachmentDto>.Ok(result, "Thêm liên kết thành công."));
         }
 
@@ -324,6 +351,7 @@ namespace UniClub_Hub.Server.Controllers.Operations
             try
             {
                 var result = await attachmentService.UploadFileAsync(id, userId, file, note);
+                await BroadcastAttachmentAsync(id, result);
                 return Ok(ApiResponse<TaskAttachmentDto>.Ok(result, "Tải lên thành công."));
             }
             catch (UnauthorizedAccessException ex) { return Forbid(ex.Message); }

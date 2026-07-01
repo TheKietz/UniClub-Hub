@@ -42,7 +42,7 @@ function TaskListCard({ task, onClick }: { task: TaskItem; onClick: () => void }
     Todo:  { bg: '#f3f4f6', color: D.inkDim, label: 'Chưa làm' },
     Doing: { bg: '#dbeafe', color: '#1e40af', label: 'Đang làm' },
     Done:  { bg: '#d1fae5', color: '#065f46', label: 'Hoàn thành' },
-    Reviewing: { label: "Đang duyệt", bg: "#fef9c3", text: "#a16207" },
+    Reviewing: { label: "Đang duyệt", bg: "#fef9c3", color: "#a16207" },
   }[task.status] ?? { bg: '#f3f4f6', color: D.inkDim, label: task.status }
 
   return (

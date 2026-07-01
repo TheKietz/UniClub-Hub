@@ -13,7 +13,7 @@ import type {
   PersonalKpiData, DepartmentKpiData,
   EventRegistrationItem, RegisterMemberForEventDto, UpdateAttendanceDto,
   EventAttachmentItem,
-  AssignmentSuggestion, UrgentTaskItem,
+  AssignmentSuggestion, UrgentTaskItem, AtRiskTaskItem,
   AssignmentItem,
 } from './operations.types'
 
@@ -283,6 +283,17 @@ export const getDepartmentKpi = (departmentId: number, params: {
 }) =>
   api.get<ApiResponse<DepartmentKpiData>>(`/v1/operations/kpi/departments/${departmentId}`, { params }).then(r => r.data.data)
 
+// ── Export reports (returns the raw axios response; res.data is a Blob) ─────────
+
+export const exportTasksReport = (params: { clubId: number; from?: string; to?: string; format: 'xlsx' | 'pdf' }) =>
+  api.get('/v1/operations/export/tasks', { params, responseType: 'blob' })
+
+export const exportDepartmentKpiReport = (departmentId: number, params: { clubId: number; from?: string; to?: string }) =>
+  api.get(`/v1/operations/export/kpi/departments/${departmentId}`, { params, responseType: 'blob' })
+
+export const exportAuditLogsReport = (params: { clubId: number; from?: string; to?: string }) =>
+  api.get('/v1/operations/export/audit-logs', { params, responseType: 'blob' })
+
 // ── Intelligence ──────────────────────────────────────────────────────────────
 
 export const getSuggestAssignees = (params: {
@@ -294,3 +305,6 @@ export const getUrgentTasks = (params: {
   clubId: number; departmentId?: number; sprintId?: number
 }) =>
   api.get<ApiResponse<UrgentTaskItem[]>>('/v1/operations/tasks/urgent-tasks', { params }).then(r => r.data.data)
+
+export const getAtRiskTasks = (params: { clubId: number; departmentId?: number }) =>
+  api.get<ApiResponse<AtRiskTaskItem[]>>('/v1/operations/tasks/at-risk', { params }).then(r => r.data.data)

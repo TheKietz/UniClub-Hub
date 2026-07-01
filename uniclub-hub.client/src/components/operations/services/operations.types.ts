@@ -403,3 +403,15 @@ export interface UrgentTaskItem {
   urgencyIndex: number
   urgencyReason: string
 }
+
+export interface AtRiskTaskItem {
+  taskId: number
+  title: string
+  assigneeName?: string
+  deadline?: string
+  progress: number
+  expectedProgress: number
+  daysRemaining: number
+  priority: TaskPriority
+  status: TaskStatus
+}

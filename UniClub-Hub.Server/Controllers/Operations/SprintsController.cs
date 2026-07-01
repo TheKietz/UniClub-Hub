@@ -1,16 +1,21 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using System.Security.Claims;
 using UniClub_Hub.Operations.DTOs.Sprint;
 using UniClub_Hub.Operations.Services.Interfaces;
+using UniClub_Hub.Server.Hubs;
 using UniClub_Hub.Shared.Common;
+using UniClub_Hub.Shared.Constants;
 
 namespace UniClub_Hub.Server.Controllers.Operations
 {
     [ApiController]
     [Route("api/v1/operations/sprints")]
     [Authorize]
-    public class SprintsController(ISprintService sprintService) : ControllerBase
+    public class SprintsController(
+        ISprintService sprintService,
+        IHubContext<KanbanHub> hubContext) : ControllerBase
     {
         [HttpGet]
         [AllowAnonymous]
@@ -69,6 +74,9 @@ namespace UniClub_Hub.Server.Controllers.Operations
             try
             {
                 var result = await sprintService.UpdateAsync(id, dto, userId);
+                await hubContext.Clients
+                    .Group(SignalRGroups.Club(result.ClubId))
+                    .SendAsync(SignalREvents.SprintStatusChanged, result);
                 return Ok(ApiResponse<SprintDto>.Ok(result, "Cập nhật thành công."));
             }
             catch (UnauthorizedAccessException ex)

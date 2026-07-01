@@ -169,6 +169,14 @@ namespace UniClub_Hub.Operations.Services.Implements
         {
             await GuardEventNotCompletedAsync(dto.EventId);
 
+            // A sub-task must reference an existing parent.
+            if (dto.ParentId.HasValue)
+            {
+                var parentExists = await db.Tasks.AnyAsync(t => t.Id == dto.ParentId.Value && !t.IsDeleted);
+                if (!parentExists)
+                    throw new KeyNotFoundException($"Parent task {dto.ParentId} not found.");
+            }
+
             // When created inside a specific column, inherit that column's exact status.
             var status = ClubTaskStatus.Todo;
             if (dto.KanbanColumnId.HasValue)
@@ -262,7 +270,8 @@ namespace UniClub_Hub.Operations.Services.Implements
             }
 
             task.Status = dto.Status;
-            task.Progress = dto.Progress;
+            // A completed task is always 100% done, regardless of the value sent.
+            task.Progress = dto.Status == ClubTaskStatus.Done ? 100 : dto.Progress;
             task.KanbanColumnId = dto.KanbanColumnId;
 
             if (dto.Status == ClubTaskStatus.Done && task.CompletedAt == null)

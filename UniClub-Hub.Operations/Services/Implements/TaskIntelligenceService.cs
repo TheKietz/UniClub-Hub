@@ -208,5 +208,61 @@ namespace UniClub_Hub.Operations.Services.Implements
 
             return [.. results.OrderByDescending(r => r.UrgencyIndex).Take(3)];
         }
+
+        // ── Feature: Dự báo trễ deadline (rule-based) ──────────────────────────
+        public async Task<List<AtRiskTaskResponse>> GetAtRiskTasksAsync(int clubId, int? departmentId)
+        {
+            var query = db.Tasks
+                .AsNoTracking()
+                .Where(t => t.ClubId == clubId && !t.IsDeleted
+                            && t.Status != ClubTaskStatus.Done
+                            && t.Deadline != null);
+
+            if (departmentId.HasValue)
+                query = query.Where(t => t.DepartmentId == departmentId);
+
+            var tasks = await query
+                .Select(t => new
+                {
+                    t.Id,
+                    t.Title,
+                    t.Priority,
+                    t.Status,
+                    t.Progress,
+                    t.Deadline,
+                    t.StartDate,
+                    t.CreatedAt,
+                    AssigneeName = t.Assignee != null ? t.Assignee.FullName : null,
+                })
+                .ToListAsync();
+
+            var now = DateTimeOffset.UtcNow;
+            var results = new List<AtRiskTaskResponse>();
+
+            foreach (var t in tasks)
+            {
+                // Fall back to creation date when an explicit start date is missing.
+                var start = t.StartDate ?? new DateTimeOffset(DateTime.SpecifyKind(t.CreatedAt, DateTimeKind.Utc));
+                var (expected, daysRemaining, atRisk) =
+                    DeadlineRisk.Evaluate(start, t.Deadline!.Value, t.Progress, t.Status, now);
+
+                if (!atRisk) continue;
+
+                results.Add(new AtRiskTaskResponse
+                {
+                    TaskId = t.Id,
+                    Title = t.Title,
+                    AssigneeName = t.AssigneeName,
+                    Deadline = t.Deadline,
+                    Progress = t.Progress,
+                    ExpectedProgress = expected,
+                    DaysRemaining = daysRemaining,
+                    Priority = t.Priority,
+                    Status = t.Status,
+                });
+            }
+
+            return [.. results.OrderBy(r => r.DaysRemaining)];
+        }
     }
 }

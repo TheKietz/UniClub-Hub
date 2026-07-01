@@ -2,10 +2,12 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useParams } from "react-router-dom";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
 import { RefreshCw, Plus, Check, X, Image } from "lucide-react";
 import { DragDropContext } from "@hello-pangea/dnd";
 import type { DropResult } from "@hello-pangea/dnd";
 import KanbanColumn from "../components/kanban/KanbanColumn";
+import KanbanNotificationBell from "../components/kanban/KanbanNotificationBell";
 import TaskDetailModal from "../components/task/TaskDetailModal";
 import {
   updateTaskStatus, getSprints,
@@ -128,6 +130,7 @@ export default function KanbanPage() {
   const clubId = Number(clubIdParam ?? 1);
 
   const { tasks: allTasks, patchTask, addTask, removeTask, reloadTasks, departmentId } = useTasks();
+  const { user } = useAuth();
   const [columns, setColumns] = useState<KanbanColumnItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -306,9 +309,20 @@ export default function KanbanPage() {
     conn.on(SIGNALR_EVENTS.TASK_STATUS_UPDATED, (u: TaskItem) => patchTask(u));
     conn.on(SIGNALR_EVENTS.TASK_CREATED,        (c: TaskItem) => addTask(c));
     conn.on(SIGNALR_EVENTS.TASK_DELETED,        (id: number)  => removeTask(id));
+    // Sprint 5 — extended realtime coverage (skip self-triggered comment/attachment toasts).
+    conn.on(SIGNALR_EVENTS.SPRINT_STATUS_CHANGED, (s: { name?: string }) =>
+      toast.info(`Sprint "${s?.name ?? ''}" đã cập nhật trạng thái`));
+    conn.on(SIGNALR_EVENTS.ASSIGNMENT_RECEIVED, () =>
+      toast.info('CLB nhận phiếu giao việc mới'));
+    conn.on(SIGNALR_EVENTS.COMMENT_ADDED, (c: { userId?: string }) => {
+      if (c?.userId !== user?.id) toast.info('Có bình luận mới trên công việc');
+    });
+    conn.on(SIGNALR_EVENTS.ATTACHMENT_UPLOADED, (a: { userId?: string }) => {
+      if (a?.userId !== user?.id) toast.info('Có tệp đính kèm mới trên công việc');
+    });
     conn.start().then(() => conn.invoke(HUB_METHODS.JOIN_CLUB, clubId)).catch(() => {});
     return () => { conn.invoke(HUB_METHODS.LEAVE_CLUB, clubId).catch(() => {}); conn.stop(); };
-  }, [clubId]);
+  }, [clubId, user?.id]);
 
   useEffect(() => { if (addingColumn) newColRef.current?.focus(); }, [addingColumn]);
 
@@ -473,6 +487,9 @@ export default function KanbanPage() {
                 <span>Nền</span>
               </button>
             </div>
+
+            {/* ── Kanban notification bell ─────────────────────────────────── */}
+            <KanbanNotificationBell clubId={clubId} />
 
             {/* Hidden file input for local image upload */}
             <input

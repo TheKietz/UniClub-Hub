@@ -28,6 +28,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\UniClub-Hub.Membership\UniClub-Hub.Membership.csproj" />
+    <ProjectReference Include="..\UniClub-Hub.Operations\UniClub-Hub.Operations.csproj" />
     <ProjectReference Include="..\UniClub-Hub.Server\UniClub-Hub.API.csproj" />
     <ProjectReference Include="..\UniClub-Hub.Shared\UniClub-Hub.Shared.csproj" />
   </ItemGroup>

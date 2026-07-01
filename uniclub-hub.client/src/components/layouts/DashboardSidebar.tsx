@@ -38,10 +38,11 @@ function getClubColor(id: number) {
 const MEMBER_NAV: NavItem[] = [
   { to: '/dashboard', icon: '◇', label: 'Dashboard', end: true },
   { to: '/notifications', icon: '◑', label: 'Thông báo' },
-  { to: '/profile', icon: '◐', label: 'Hồ sơ cá nhân', dividerAfter: true },
+  { to: '/profile', icon: '◐', label: 'Hồ sơ cá nhân'},
+  { to: '/my-kpi', icon: '▦', label: 'KPI của tôi', dividerAfter: true  },
   { to: '/my-activity', icon: '↗', label: 'Hoạt động của tôi' },
   { to: '/my-history', icon: '◎', label: 'Lịch sử thành viên', dividerAfter: true },
-  { to: '/support', icon: '◉', label: 'Hỗ trợ' },
+  { to: '/support', icon: '◉', label: 'Hỗ trợ' },  
 ]
 
 const ADMIN_NAV: NavItem[] = [

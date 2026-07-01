@@ -1,21 +1,22 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import {
   X, Plus, Trash2, Paperclip, CheckSquare, Square, ChevronRight,
   Link2, Upload, AlignLeft, MessageSquare, Eye, EyeOff,
-  Tag, Calendar, User, ChevronDown, Check,
+  Tag, Calendar, User, ChevronDown, Check, GitBranch,
 } from "lucide-react";
 import {
-  createTask, updateTask, deleteTask,
+  createTask, updateTask, deleteTask, getTasks,
   getTaskComments, addTaskComment, updateTaskComment, deleteTaskComment,
   getTaskAttachments, addTaskAttachmentLink, deleteTaskAttachment, uploadTaskAttachmentFile,
   getAuditLogs, getTaskAssignees, assignTask, unassignTask,
 } from "../../services/operationsApi";
 import type {
   TaskItem, TaskCommentItem, TaskAttachmentItem, AuditLogItem,
-  CreateTaskDto, TaskPriority, KanbanColumnItem,
+  CreateTaskDto, TaskPriority, KanbanColumnItem, TaskAssigneeItem,
 } from "../../services/operations.types";
 import { getClubMembers } from "../../../membership/services/clubApi";
 import type { MemberItem } from "../../../membership/services/club.types";
@@ -85,7 +86,7 @@ type FeedEntry =
   | { kind: "comment";  id: number; userName: string; content: string; time: string }
   | { kind: "activity"; userName: string; action: string; time: string }
 
-type Panel = "add" | "label" | "date" | "member" | "attach" | null
+type Panel = "add" | "label" | "date" | "member" | "attach" | "depend" | null
 
 /* ── Shared styles ─────────────────────────────────────────────────────────── */
 
@@ -108,6 +109,30 @@ const actionBtnStyle = (active: boolean): React.CSSProperties => ({
   boxShadow: active ? 'none' : D.shadow(2, 2),
   transition: 'background .1s, color .1s',
 })
+
+function ActionTip({ text, children }: { text: string; children: React.ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [pos, setPos] = useState<{ x: number; y: number } | null>(null)
+  const show = () => {
+    const r = ref.current?.getBoundingClientRect()
+    if (r) setPos({ x: r.left + r.width / 2, y: r.top })
+  }
+  return (
+    <div ref={ref} style={{ display: 'inline-flex' }}
+      onMouseEnter={show}
+      onMouseLeave={() => setPos(null)}
+    >
+      {children}
+      {pos && createPortal(
+        <div style={{ position: 'fixed', left: pos.x, top: pos.y - 6, transform: 'translate(-50%, -100%)', background: '#1e293b', color: '#fff', borderRadius: 6, padding: '6px 10px', fontSize: 11, whiteSpace: 'nowrap', zIndex: 9999, pointerEvents: 'none', boxShadow: '0 2px 8px rgba(0,0,0,.25)' }}>
+          {text}
+          <div style={{ position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)', width: 0, height: 0, borderLeft: '5px solid transparent', borderRight: '5px solid transparent', borderTop: '5px solid #1e293b' }} />
+        </div>,
+        document.body
+      )}
+    </div>
+  )
+}
 
 /* ── Component ─────────────────────────────────────────────────────────────── */
 
@@ -166,7 +191,19 @@ export default function TaskDetailModal({
   const fileRef = useRef<HTMLInputElement>(null)
 
   const [members,      setMembers]      = useState<MemberItem[]>([])
+  const [assignees,    setAssignees]    = useState<TaskAssigneeItem[]>([])
   const [memberSearch, setMemberSearch] = useState("")
+
+  // ── Depend panel state ────────────────────────────────────────────────────
+  const [dependTab,          setDependTab]         = useState<'subtask' | 'parent'>('subtask')
+  const [subTaskTitle,       setSubTaskTitle]       = useState("")
+  const [savingSubTask,      setSavingSubTask]      = useState(false)
+  const [subTasks,           setSubTasks]           = useState<TaskItem[]>([])
+  const [subTasksLoading,    setSubTasksLoading]    = useState(false)
+  const [parentSearch,       setParentSearch]       = useState("")
+  const [parentTasksAll,     setParentTasksAll]     = useState<TaskItem[]>([])
+  const [parentTasksLoading, setParentTasksLoading] = useState(false)
+  const [linkingParent,      setLinkingParent]      = useState(false)
 
   // ── Close panel on outside click ──────────────────────────────────────────
   useEffect(() => {
@@ -182,17 +219,19 @@ export default function TaskDetailModal({
     setPanel(prev => prev === p ? null : p), [])
 
   // ── Load ──────────────────────────────────────────────────────────────────
+  // Only members who can manage assignees have the roster (MembersView) permission.
+  // Regular members would get a 403; they display assignees from getTaskAssignees instead.
   useEffect(() => {
-    if (!open) return
+    if (!open || !canManageAssignees) return
     getClubMembers(clubId, { departmentId, status: "Active" }).then(setMembers).catch(() => {
       toast.error("Không thể tải danh sách thành viên")
     })
-  }, [open, clubId, departmentId])
+  }, [open, clubId, departmentId, canManageAssignees])
 
   useEffect(() => {
     if (open && task) {
       getTaskAssignees(task.id)
-        .then(list => setAssignedUsers(list.map(a => a.userId)))
+        .then(list => { setAssignees(list); setAssignedUsers(list.map(a => a.userId)) })
         .catch(() => {})
     }
   }, [task?.id, open])
@@ -206,7 +245,7 @@ export default function TaskDetailModal({
         .catch(() => {})
       setChecklists(loadCL(task.id))
     } else {
-      setComments([]); setAttachments([]); setActivityLogs([]); setChecklists([]); setPendingFiles([])
+      setComments([]); setAttachments([]); setActivityLogs([]); setChecklists([]); setPendingFiles([]); setAssignees([])
     }
   }, [task, open, clubId])
 
@@ -235,6 +274,22 @@ export default function TaskDetailModal({
   useEffect(() => {
     if (addingGroupId) newItemRef.current?.focus()
   }, [addingGroupId])
+
+  useEffect(() => {
+    if (panel !== "depend" || !task) return
+    setSubTasksLoading(true)
+    getTasks({ clubId, parentId: task.id, pageSize: 50 })
+      .then(r => setSubTasks(r.items))
+      .catch(() => {})
+      .finally(() => setSubTasksLoading(false))
+    setParentTasksLoading(true)
+    getTasks({ clubId, departmentId: task.departmentId ?? departmentId, pageSize: 100 })
+      .then(r => setParentTasksAll(
+        r.items.filter(t => t.id !== task.id && t.parentId == null && t.status !== 'Done')
+      ))
+      .catch(() => {})
+      .finally(() => setParentTasksLoading(false))
+  }, [panel, task?.id])
 
   // ── Save / Delete ──────────────────────────────────────────────────────────
   const handleSave = async () => {
@@ -274,6 +329,70 @@ export default function TaskDetailModal({
     try { await deleteTask(task.id); toast.success("Đã xóa"); onSaved(); onClose() }
     catch { toast.error("Không thể xóa") }
     finally { setDeleting(false) }
+  }
+
+  // ── Depend handlers ────────────────────────────────────────────────────────
+  const handleCreateSubTask = async () => {
+    if (!task || !subTaskTitle.trim()) return
+    setSavingSubTask(true)
+    try {
+      const created = await createTask(clubId, {
+        title: subTaskTitle.trim(),
+        priority: task.priority,
+        parentId: task.id,
+        departmentId: task.departmentId,
+        sprintId: task.sprintId,
+        kanbanColumnId: task.kanbanColumnId,
+      })
+      toast.success("Đã tạo task con")
+      setSubTaskTitle("")
+      setSubTasks(prev => [...prev, created])
+      onSaved()
+    } catch { toast.error("Không thể tạo task con") }
+    finally { setSavingSubTask(false) }
+  }
+
+  const handleLinkParent = async (parentTaskId: number) => {
+    if (!task) return
+    setLinkingParent(true)
+    try {
+      await updateTask(task.id, {
+        title: task.title,
+        description: task.description,
+        priority: task.priority,
+        startDate: task.startDate,
+        deadline: task.deadline,
+        departmentId: task.departmentId,
+        sprintId: task.sprintId,
+        kanbanColumnId: task.kanbanColumnId,
+        parentId: parentTaskId,
+      })
+      toast.success("Đã liên kết task cha")
+      setParentSearch("")
+      onSaved()
+    } catch { toast.error("Không thể liên kết task cha") }
+    finally { setLinkingParent(false) }
+  }
+
+  const handleUnlinkParent = async () => {
+    if (!task) return
+    setLinkingParent(true)
+    try {
+      await updateTask(task.id, {
+        title: task.title,
+        description: task.description,
+        priority: task.priority,
+        startDate: task.startDate,
+        deadline: task.deadline,
+        departmentId: task.departmentId,
+        sprintId: task.sprintId,
+        kanbanColumnId: task.kanbanColumnId,
+        parentId: undefined,
+      })
+      toast.success("Đã hủy liên kết task cha")
+      onSaved()
+    } catch { toast.error("Không thể hủy liên kết") }
+    finally { setLinkingParent(false) }
   }
 
   // ── Date panel ─────────────────────────────────────────────────────────────
@@ -429,9 +548,15 @@ export default function TaskDetailModal({
   // ── Derived ────────────────────────────────────────────────────────────────
   const currentColumn      = columns.find(c => c.id === kanbanColumnId)
   const activePriority     = PRIORITY_LABELS.find(l => l.value === priority)
-  const assignedMemberObjs = assignedUsers
-    .map(id => members.find(m => m.userId === id))
-    .filter(Boolean) as MemberItem[]
+  // Resolve assignee display info from the roster when available (managers),
+  // otherwise fall back to the task assignee payload so regular members still
+  // see who is assigned without needing the club member list.
+  const assignedMemberObjs = assignedUsers.map(id => {
+    const m = members.find(x => x.userId === id)
+    if (m) return { userId: m.userId, fullName: m.fullName, email: m.email }
+    const a = assignees.find(x => x.userId === id)
+    return { userId: id, fullName: a?.fullName, email: a?.email }
+  })
   const unassignedMembers  = members.filter(m => !assignedUsers.includes(m.userId))
   const hasDate = !!(startDate || deadline)
 
@@ -445,6 +570,7 @@ export default function TaskDetailModal({
   return (
     <Dialog open={open} onOpenChange={v => !v && onClose()}>
       <DialogContent
+        showCloseButton={false}
         style={{ maxWidth: 1000, width: '95vw', maxHeight: '92vh', overflow: 'hidden', padding: 0, gap: 0, borderRadius: D.radius, border: D.border, boxShadow: D.shadow(8, 8), fontFamily: "'Be Vietnam Pro', sans-serif", display: 'flex', flexDirection: 'column' }}
         className="!max-w-[1000px] !w-[95vw]"
       >
@@ -472,6 +598,14 @@ export default function TaskDetailModal({
                 <Trash2 size={15} />
               </button>
             )}
+            <button type="button" onClick={onClose}
+              title="Đóng"
+              style={{ padding: 6, borderRadius: 6, border: 'none', background: 'transparent', cursor: 'pointer', color: D.inkMuted, display: 'flex', alignItems: 'center' }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = D.ink; (e.currentTarget as HTMLElement).style.background = '#e8e3d6' }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = D.inkMuted; (e.currentTarget as HTMLElement).style.background = 'transparent' }}
+            >
+              <X size={16} />
+            </button>
           </div>
         </div>
 
@@ -497,46 +631,71 @@ export default function TaskDetailModal({
             <div ref={panelRef} style={{ position: 'relative' }}>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
 
-                {/* + Thêm */}
-                <button type="button" onClick={() => togglePanel("add")}
-                  style={actionBtnStyle(panel === "add")}>
-                  <Plus size={13} /> Thêm <ChevronDown size={11} />
-                </button>
-
-                {/* Nhãn */}
-                <button type="button" onClick={() => togglePanel("label")}
-                  style={panel === "label"
-                    ? actionBtnStyle(true)
-                    : activePriority
-                      ? { ...actionBtnStyle(false), background: activePriority.color + '22', color: activePriority.color, border: `1.5px solid ${activePriority.color}66` }
-                      : actionBtnStyle(false)
-                  }>
-                  <Tag size={13} /> Nhãn
-                </button>
-
-                {/* Ngày */}
-                <button type="button" onClick={() => togglePanel("date")}
-                  style={panel === "date"
-                    ? actionBtnStyle(true)
-                    : hasDate
-                      ? { ...actionBtnStyle(false), background: '#fef3c7', color: '#92400e', border: '1.5px solid #fcd34d' }
-                      : actionBtnStyle(false)
-                  }>
-                  <Calendar size={13} />
-                  {deadline ? new Date(deadline).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" }) : "Ngày"}
-                </button>
-
-                {/* Việc cần làm */}
-                {isEdit && (
-                  <button type="button" onClick={addChecklist} style={actionBtnStyle(false)}>
-                    <CheckSquare size={13} /> Việc cần làm
+                <ActionTip text="Xem tất cả tuỳ chọn thêm vào thẻ">
+                  <button type="button" onClick={() => togglePanel("add")} style={actionBtnStyle(panel === "add")}>
+                    <Plus size={13} /> Thêm <ChevronDown size={11} />
                   </button>
+                </ActionTip>
+
+                <ActionTip text="Đặt mức độ ưu tiên cho công việc">
+                  <button type="button" onClick={() => togglePanel("label")}
+                    style={panel === "label"
+                      ? actionBtnStyle(true)
+                      : activePriority
+                        ? { ...actionBtnStyle(false), background: activePriority.color + '22', color: activePriority.color, border: `1.5px solid ${activePriority.color}66` }
+                        : actionBtnStyle(false)
+                    }>
+                    <Tag size={13} /> Nhãn
+                  </button>
+                </ActionTip>
+
+                <ActionTip text="Thiết lập ngày bắt đầu và hạn hoàn thành">
+                  <button type="button" onClick={() => togglePanel("date")}
+                    style={panel === "date"
+                      ? actionBtnStyle(true)
+                      : hasDate
+                        ? { ...actionBtnStyle(false), background: '#fef3c7', color: '#92400e', border: '1.5px solid #fcd34d' }
+                        : actionBtnStyle(false)
+                    }>
+                    <Calendar size={13} />
+                    {deadline ? new Date(deadline).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" }) : "Ngày"}
+                  </button>
+                </ActionTip>
+
+                {isEdit && (
+                  <ActionTip text="Thêm danh sách kiểm tra cho công việc">
+                    <button type="button" onClick={addChecklist} style={actionBtnStyle(false)}>
+                      <CheckSquare size={13} /> Việc cần làm
+                    </button>
+                  </ActionTip>
                 )}
 
-                {/* Đính kèm */}
-                <button type="button" onClick={() => togglePanel("attach")} style={actionBtnStyle(panel === "attach")}>
-                  <Paperclip size={13} /> Đính kèm
-                </button>
+                {isEdit && (
+                  <ActionTip text="Quản lý task con và task cha">
+                    <button type="button"
+                      onClick={() => { setDependTab('subtask'); togglePanel("depend") }}
+                      style={panel === "depend"
+                        ? actionBtnStyle(true)
+                        : (task?.subTaskCount ?? 0) > 0 || task?.parentId
+                          ? { ...actionBtnStyle(false), background: '#ede9fe', color: D.indigo, border: `1.5px solid ${D.indigo}55` }
+                          : actionBtnStyle(false)
+                      }>
+                      <GitBranch size={13} /> Phụ thuộc
+                      {(task?.subTaskCount ?? 0) > 0 && (
+                        <span style={{ background: D.indigo, color: '#fff', borderRadius: D.pill, fontSize: 10, fontWeight: 800, padding: '0 5px', minWidth: 16, textAlign: 'center', lineHeight: '16px' }}>
+                          {task!.subTaskCount}
+                        </span>
+                      )}
+                    </button>
+                  </ActionTip>
+                )}
+
+                <ActionTip text="Tải lên tệp hoặc thêm đường dẫn đính kèm">
+                  <button type="button" onClick={() => togglePanel("attach")} style={actionBtnStyle(panel === "attach")}>
+                    <Paperclip size={13} /> Đính kèm
+                  </button>
+                </ActionTip>
+
               </div>
 
               {/* ── Popovers ────────────────────────────────────────────────── */}
@@ -797,6 +956,135 @@ export default function TaskDetailModal({
                   </div>
                 </div>
               )}
+
+              {/* Việc phụ thuộc popover */}
+              {panel === "depend" && (() => {
+                const filteredParent = parentTasksAll.filter(t =>
+                  !parentSearch || t.title.toLowerCase().includes(parentSearch.toLowerCase())
+                )
+                const STATUS_LABEL: Record<string, string> = { Todo: 'Cần làm', Doing: 'Đang làm', Reviewing: 'Đang duyệt' }
+                return (
+                  <div style={{ ...popoverStyle, width: 340 }}>
+                    <div style={{ padding: '12px 16px', borderBottom: D.borderLight, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: D.ink, display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <GitBranch size={14} style={{ color: D.indigo }} /> Việc phụ thuộc
+                      </span>
+                      <button type="button" onClick={() => setPanel(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: D.inkMuted, display: 'flex', padding: 4 }}><X size={14} /></button>
+                    </div>
+
+                    {/* Tabs */}
+                    <div style={{ display: 'flex', borderBottom: D.borderLight }}>
+                      {(['subtask', 'parent'] as const).map(tab => (
+                        <button key={tab} type="button" onClick={() => setDependTab(tab)}
+                          style={{
+                            flex: 1, padding: '9px 0', fontSize: 12, fontWeight: 700, border: 'none', cursor: 'pointer',
+                            background: 'none', fontFamily: 'inherit',
+                            color: dependTab === tab ? D.indigo : D.inkMuted,
+                            borderBottom: dependTab === tab ? `2px solid ${D.indigo}` : '2px solid transparent',
+                          }}>
+                          {tab === 'subtask'
+                            ? <>Task con {subTasks.length > 0 && <span style={{ fontSize: 10, background: D.indigo, color: '#fff', borderRadius: D.pill, padding: '0 5px', marginLeft: 4 }}>{subTasks.length}</span>}</>
+                            : 'Task cha'}
+                        </button>
+                      ))}
+                    </div>
+
+                    <div style={{ padding: '12px 14px' }}>
+                      {dependTab === 'subtask' ? (
+                        <>
+                          {/* Existing subtasks list */}
+                          {subTasksLoading ? (
+                            <p style={{ fontSize: 11, color: D.inkMuted, margin: '0 0 10px', textAlign: 'center' }}>Đang tải...</p>
+                          ) : subTasks.length > 0 ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 2, maxHeight: 160, overflowY: 'auto', marginBottom: 10 }}>
+                              {subTasks.map(t => (
+                                <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderRadius: 8, background: D.bg, border: D.borderLight }}>
+                                  {t.status === 'Done'
+                                    ? <CheckSquare size={13} style={{ color: '#10b981', flexShrink: 0 }} />
+                                    : <Square size={13} style={{ color: D.inkMuted, flexShrink: 0 }} />}
+                                  <span style={{ fontSize: 12, color: t.status === 'Done' ? D.inkMuted : D.ink, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: t.status === 'Done' ? 'line-through' : 'none' }}>{t.title}</span>
+                                  <span style={{ fontSize: 10, color: D.inkMuted, flexShrink: 0 }}>{STATUS_LABEL[t.status] ?? t.status}</span>
+                                </div>
+                              ))}
+                            </div>
+                          ) : null}
+
+                          {/* Create new subtask */}
+                          <p style={{ fontSize: 10, fontWeight: 700, color: D.inkMuted, textTransform: 'uppercase', letterSpacing: '.05em', margin: '0 0 6px' }}>Thêm task con mới</p>
+                          <input
+                            type="text"
+                            placeholder="Tiêu đề task con..."
+                            value={subTaskTitle}
+                            onChange={e => setSubTaskTitle(e.target.value)}
+                            onKeyDown={e => e.key === 'Enter' && handleCreateSubTask()}
+                            style={{ ...inputStyle, marginBottom: 8 }}
+                            autoFocus
+                          />
+                          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                            <button type="button" onClick={() => setPanel(null)}
+                              style={{ padding: '6px 12px', fontSize: 12, color: D.inkMuted, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
+                              Hủy
+                            </button>
+                            <button type="button" onClick={handleCreateSubTask}
+                              disabled={!subTaskTitle.trim() || savingSubTask}
+                              style={{ padding: '6px 14px', background: D.indigo, color: '#fff', border: D.border, borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: subTaskTitle.trim() && !savingSubTask ? 'pointer' : 'not-allowed', opacity: subTaskTitle.trim() && !savingSubTask ? 1 : 0.5, fontFamily: 'inherit' }}>
+                              {savingSubTask ? 'Đang tạo...' : 'Tạo'}
+                            </button>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          {/* Current parent badge */}
+                          {task?.parentId && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', background: '#ede9fe', borderRadius: 8, border: `1px solid ${D.indigo}44`, marginBottom: 10 }}>
+                              <GitBranch size={12} style={{ color: D.indigo, flexShrink: 0 }} />
+                              <span style={{ fontSize: 12, color: D.indigo, flex: 1, fontWeight: 600 }}>Task cha hiện tại: #{task.parentId}</span>
+                              <button type="button" onClick={handleUnlinkParent} disabled={linkingParent}
+                                style={{ fontSize: 11, color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', padding: 0, fontWeight: 700 }}>
+                                {linkingParent ? '...' : 'Hủy'}
+                              </button>
+                            </div>
+                          )}
+
+                          {/* Search input */}
+                          <input
+                            type="text"
+                            placeholder="Tìm công việc theo tên..."
+                            value={parentSearch}
+                            onChange={e => setParentSearch(e.target.value)}
+                            style={{ ...inputStyle, marginBottom: 8 }}
+                            autoFocus
+                          />
+
+                          {/* List */}
+                          {parentTasksLoading ? (
+                            <p style={{ fontSize: 11, color: D.inkMuted, textAlign: 'center', margin: '8px 0' }}>Đang tải...</p>
+                          ) : filteredParent.length > 0 ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 2, maxHeight: 200, overflowY: 'auto' }}>
+                              {filteredParent.map(t => (
+                                <button key={t.id} type="button" onClick={() => handleLinkParent(t.id)}
+                                  disabled={linkingParent}
+                                  style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 10px', borderRadius: 8, background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit' }}
+                                  onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = D.bg}
+                                  onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'none'}
+                                >
+                                  <span style={{ fontSize: 10, color: D.inkMuted, flexShrink: 0, fontWeight: 700, minWidth: 28 }}>#{t.id}</span>
+                                  <span style={{ fontSize: 12, color: D.ink, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</span>
+                                  <span style={{ fontSize: 10, color: D.inkMuted, flexShrink: 0 }}>{STATUS_LABEL[t.status] ?? t.status}</span>
+                                </button>
+                              ))}
+                            </div>
+                          ) : (
+                            <p style={{ fontSize: 11, color: D.inkMuted, textAlign: 'center', margin: '8px 0' }}>
+                              {parentSearch ? 'Không tìm thấy công việc phù hợp' : 'Không có công việc nào trong ban'}
+                            </p>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )
+              })()}
             </div>
 
             {/* ── Member avatars ─────────────────────────────────────────────── */}
@@ -840,10 +1128,10 @@ export default function TaskDetailModal({
                 <AlignLeft size={14} style={{ color: D.inkMuted }} />
                 <span style={{ fontSize: 13, fontWeight: 700, color: D.inkDim }}>Mô tả</span>
               </div>
-              <textarea rows={4}
+              <textarea rows={8}
                 style={{
                   width: '100%', border: D.borderLight, borderRadius: 10, padding: '10px 12px',
-                  fontSize: 13, color: D.ink, resize: 'none', outline: 'none',
+                  fontSize: 13, color: D.ink, resize: 'vertical', minHeight: 140, outline: 'none',
                   background: D.bg, fontFamily: 'inherit', boxSizing: 'border-box',
                 }}
                 placeholder="Thêm mô tả chi tiết hơn..."

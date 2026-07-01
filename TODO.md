@@ -2,11 +2,11 @@
 
 ## Tổng hợp việc cần làm
 
-- [~] Sprint 1 — Hệ thống thông báo chủ động (in-app) + Nhắc việc tự động
-- [ ] Sprint 2 — Unit Test cho Service Layer
+- [x] Sprint 1 — Hệ thống thông báo chủ động (in-app) + Nhắc việc tự động
+- [~] Sprint 2 — Unit Test cho Service Layer
 - [ ] Sprint 3 — Trang KPI cá nhân đầy đủ (/my-kpi)
-- [ ] Sprint 4 — Export báo cáo Excel/PDF
-- [ ] Sprint 5 — Dự báo trễ deadline (rule-based) + Mở rộng SignalR
+- [~] Sprint 4 — Export báo cáo Excel/PDF
+- [~] Sprint 5 — Dự báo trễ deadline (rule-based) + Mở rộng SignalR
 
 ---
 
@@ -165,7 +165,7 @@
 **Mục tiêu:** Mỗi thành viên tự theo dõi được hiệu suất cá nhân.
 
 ### Backend
-- [ ] Mở rộng endpoint `GET /api/v1/operations/kpi/me` trả về:
+- [x] Mở rộng endpoint `GET /api/v1/operations/kpi/me` trả về:
   - Tổng số công việc: được giao / đã hoàn thành / đang thực hiện / trễ deadline
   - Tỷ lệ hoàn thành đúng hạn (%)
   - Tổng `EstimatedHours` vs `ActualHours` theo từng tháng
@@ -224,4 +224,12 @@
 - [ ] Gọi phát sóng tương ứng trong các Service (TaskService, SprintService, AssignmentService)
 - [ ] Frontend: cập nhật `useKanbanSignalR` để lắng nghe thêm các event mới
 
+### Feature mới phát sinh từ Sprint 2 (đưa vào Sprint 5)
+
+
+ - [ ] UpdateStatusAsync — thêm actor/permission check (AssignedMember vs UnassignedMember)
+ - [ ] ConvertToTask — implement method chuyển EventClubAssignment → ClubTask
+
+- Kèm test: ConvertToTask_WithPendingAssignment_ShouldCreateTaskAndSetInProgress
+- Kèm test: ConvertToTask_WithDoneAssignment_ShouldThrowValidationException
 ---
