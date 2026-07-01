@@ -9,6 +9,10 @@ namespace UniClub_Hub.Operations
     {
         public static IServiceCollection AddOperationsServices(this IServiceCollection services)
         {
+            // QuestPDF requires a license to be set once before any document is generated.
+            QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
+
+            services.AddScoped<IExportService, ExportService>();
             services.AddScoped<IEventService, EventService>();
             services.AddScoped<ITaskService, TaskService>();
             services.AddScoped<ISprintService, SprintService>();

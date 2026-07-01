@@ -1,10 +1,11 @@
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useParams } from 'react-router-dom'
 import { toast } from 'sonner'
-import { RefreshCw, Plus, ArrowRightLeft, Trash2, Download, Search } from 'lucide-react'
+import { RefreshCw, Plus, ArrowRightLeft, Trash2, Search } from 'lucide-react'
 import { getAuditLogs } from '../services/operationsApi'
 import type { AuditLogItem } from '../services/operations.types'
 import { FilterSelect } from '@/components/shared/FilterSelect'
+import ExportReportButton from '../components/ExportReportButton'
 import { D } from '@/components/shared/managementTheme'
 
 /* ── Design tokens ─────────────────────────────────────────────────────────── */
@@ -258,18 +259,7 @@ export default function ActivityLogPage() {
             style={{ width: 170 }}
           />
 
-          <button
-            type="button"
-            style={{
-              display: 'flex', alignItems: 'center', gap: 6,
-              background: D.card, color: D.inkDim, border: D.border,
-              boxShadow: D.shadow(2, 2), padding: '8px 14px',
-              borderRadius: D.pill, fontSize: 12, fontWeight: 600,
-              cursor: 'pointer', fontFamily: 'inherit',
-            }}
-          >
-            <Download size={13} /> Xuất nhật ký
-          </button>
+          <ExportReportButton clubId={clubId} variant="audit" />
 
           <button
             type="button"

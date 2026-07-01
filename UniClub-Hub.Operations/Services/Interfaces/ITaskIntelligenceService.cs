@@ -18,5 +18,11 @@ namespace UniClub_Hub.Operations.Services.Interfaces
         /// </summary>
         Task<List<UrgentTaskResponse>> GetUrgentTasksAsync(
             string userId, int clubId, int? departmentId, int? sprintId);
+
+        /// <summary>
+        /// Dự báo trễ deadline (rule-based): các Task đang chậm hơn tiến độ kỳ vọng
+        /// và còn ≤ 2 ngày đến hạn. Club-wide (không lọc theo người được giao).
+        /// </summary>
+        Task<List<AtRiskTaskResponse>> GetAtRiskTasksAsync(int clubId, int? departmentId);
     }
 }

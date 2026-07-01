@@ -15,6 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import {
   getEventById, updateEvent, deleteEvent,
   addEventSession, deleteEventSession, getTasks,
+  getEventRegistrations, registerEventMember, removeEventRegistration, updateEventAttendance,
 } from '../services/operationsApi'
 import EventDeptTasksBoard from '../components/event/EventDeptTasksBoard'
 import EventAttachmentsSection from '../components/event/EventAttachmentsSection'
@@ -24,8 +25,10 @@ import { FilterSelect } from '@/components/shared/FilterSelect'
 import type {
   EventItem, UpdateEventDto, EventStatus,
   CreateEventSessionDto, TaskItem,
+  EventRegistrationItem, AttendanceStatus,
 } from '../services/operations.types'
-import type { DepartmentItem } from '@/components/membership/services/club.types'
+import type { DepartmentItem, MemberItem } from '@/components/membership/services/club.types'
+import { getClubMembers } from '@/components/membership/services/clubApi'
 import { D } from '@/components/shared/managementTheme'
 
 /* ─── Design tokens ──────────────────────────────────────────────────────── */
@@ -417,6 +420,230 @@ function DeptSummaryTable({ eventId, clubId }: { eventId: number; clubId: number
   )
 }
 
+/* ─── Registration & Attendance Section ──────────────────────────────────── */
+
+const ATTENDANCE_CFG: Record<AttendanceStatus, { label: string; bg: string; color: string; border: string }> = {
+  Pending:   { label: 'Chưa điểm danh', bg: '#f3f4f6', color: '#374151', border: '#d1d5db' },
+  CheckedIn: { label: 'Đã đến',         bg: '#dcfce7', color: '#15803d', border: '#86efac' },
+  Absent:    { label: 'Vắng',           bg: '#fee2e2', color: '#dc2626', border: '#fca5a5' },
+}
+
+function RegistrationSection({ event, clubId, canManage }: { event: EventItem; clubId: number; canManage: boolean }) {
+  const [registrations, setRegistrations] = useState<EventRegistrationItem[]>([])
+  const [members, setMembers] = useState<MemberItem[]>([])
+  const [loading, setLoading] = useState(true)
+  const [showAdd, setShowAdd] = useState(false)
+  const [selectedId, setSelectedId] = useState('')
+  const [adding, setAdding] = useState(false)
+  const [updatingId, setUpdatingId] = useState<string | null>(null)
+
+  useEffect(() => {
+    Promise.all([
+      getEventRegistrations(event.id),
+      canManage ? getClubMembers(clubId, { status: 'Active' }) : Promise.resolve([] as MemberItem[]),
+    ])
+      .then(([regs, mems]) => { setRegistrations(regs); setMembers(mems) })
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [event.id, clubId, canManage])
+
+  const registeredIds = new Set(registrations.map(r => r.userId))
+  const unregistered = members.filter(m => !registeredIds.has(m.userId))
+
+  const checkedIn = registrations.filter(r => r.attendance === 'CheckedIn').length
+  const absent    = registrations.filter(r => r.attendance === 'Absent').length
+  const pending   = registrations.filter(r => r.attendance === 'Pending').length
+
+  async function handleAdd() {
+    if (!selectedId) { toast.error('Chọn thành viên để đăng ký'); return }
+    setAdding(true)
+    try {
+      const reg = await registerEventMember(event.id, { userId: selectedId })
+      setRegistrations(prev => [...prev, reg])
+      setSelectedId(''); setShowAdd(false)
+      toast.success('Đã đăng ký tham dự')
+    } catch { toast.error('Không thể đăng ký thành viên') }
+    finally { setAdding(false) }
+  }
+
+  async function handleRemove(userId: string) {
+    try {
+      await removeEventRegistration(event.id, userId)
+      setRegistrations(prev => prev.filter(r => r.userId !== userId))
+      toast.success('Đã hủy đăng ký')
+    } catch { toast.error('Không thể hủy đăng ký') }
+  }
+
+  async function handleAttendance(userId: string, attendance: AttendanceStatus) {
+    setUpdatingId(userId)
+    try {
+      await updateEventAttendance(event.id, userId, { attendance })
+      setRegistrations(prev => prev.map(r => r.userId === userId ? { ...r, attendance } : r))
+    } catch { toast.error('Không thể cập nhật điểm danh') }
+    finally { setUpdatingId(null) }
+  }
+
+  const totalPct = registrations.length > 0 ? Math.round(checkedIn / registrations.length * 100) : 0
+
+  return (
+    <div style={{ marginTop: 20, background: D.card, border: D.border, borderRadius: D.radius, boxShadow: D.shadow(), overflow: 'hidden' }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', borderBottom: D.borderLight }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <h2 style={{ fontSize: 13, fontWeight: 800, color: D.ink, margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Users size={14} style={{ color: D.indigo }} />
+            Danh sách tham dự
+            <span style={{ fontSize: 10, background: '#ede9fe', color: D.indigo, padding: '1px 6px', borderRadius: 4, fontWeight: 700 }}>{registrations.length}</span>
+          </h2>
+          {registrations.length > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+              {checkedIn > 0 && <span style={{ fontSize: 10, fontWeight: 700, background: '#dcfce7', color: '#15803d', border: '1px solid #86efac', borderRadius: 4, padding: '1px 7px' }}>{checkedIn} đã đến</span>}
+              {absent > 0   && <span style={{ fontSize: 10, fontWeight: 700, background: '#fee2e2', color: '#dc2626', border: '1px solid #fca5a5', borderRadius: 4, padding: '1px 7px' }}>{absent} vắng</span>}
+              {pending > 0  && <span style={{ fontSize: 10, fontWeight: 700, background: '#f3f4f6', color: '#374151', border: '1px solid #d1d5db', borderRadius: 4, padding: '1px 7px' }}>{pending} chờ</span>}
+            </div>
+          )}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {registrations.length > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <div style={{ width: 80, height: 5, borderRadius: 3, background: '#e8e3d6', overflow: 'hidden' }}>
+                <div style={{ height: '100%', borderRadius: 3, background: '#10b981', width: `${totalPct}%`, transition: 'width .3s' }} />
+              </div>
+              <span style={{ fontSize: 11, fontWeight: 700, color: D.inkMuted }}>{totalPct}%</span>
+            </div>
+          )}
+          {canManage && (
+            <button
+              type="button"
+              onClick={() => setShowAdd(v => !v)}
+              style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 800, color: showAdd ? '#fff' : D.indigo, background: showAdd ? D.indigo : 'transparent', border: `1.5px solid ${D.indigo}`, borderRadius: 7, padding: '4px 10px', cursor: 'pointer' }}
+            >
+              <Plus size={11} /> {showAdd ? 'Đóng' : 'Thêm thành viên'}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Add member panel */}
+      {showAdd && (
+        <div style={{ padding: '12px 20px', borderBottom: D.borderLight, background: '#f9f9fb', display: 'flex', alignItems: 'center', gap: 10 }}>
+          <select
+            value={selectedId}
+            onChange={e => setSelectedId(e.target.value)}
+            style={{ ...inputStyle, flex: 1, fontSize: 12, cursor: 'pointer' }}
+          >
+            <option value="">— Chọn thành viên —</option>
+            {unregistered.map(m => (
+              <option key={m.userId} value={m.userId}>{m.fullName ?? m.email}</option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={handleAdd}
+            disabled={adding || !selectedId}
+            style={{ padding: '7px 16px', fontSize: 12, fontWeight: 800, border: D.border, borderRadius: 8, background: adding ? '#6b7280' : D.ink, color: '#facc15', cursor: (adding || !selectedId) ? 'not-allowed' : 'pointer', boxShadow: D.shadow(2, 2), whiteSpace: 'nowrap', opacity: !selectedId ? 0.6 : 1, fontFamily: 'inherit' }}
+          >
+            {adding ? 'Đang thêm...' : 'Đăng ký'}
+          </button>
+          <button type="button" onClick={() => setShowAdd(false)} style={{ padding: '7px 12px', fontSize: 12, fontWeight: 700, border: D.border, borderRadius: 8, background: D.card, color: D.inkDim, cursor: 'pointer', fontFamily: 'inherit' }}>Hủy</button>
+        </div>
+      )}
+
+      {/* List */}
+      {loading ? (
+        <div style={{ padding: '40px 0', display: 'flex', justifyContent: 'center', color: D.inkMuted, fontSize: 13 }}>Đang tải...</div>
+      ) : registrations.length === 0 ? (
+        <div style={{ padding: '48px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+          <Users size={28} style={{ color: '#c4bfb0' }} />
+          <p style={{ color: D.inkMuted, fontSize: 13, margin: 0 }}>Chưa có thành viên nào đăng ký tham dự</p>
+        </div>
+      ) : (
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', fontSize: 13, borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ background: D.bg }}>
+                {['Thành viên', 'Đăng ký lúc', 'Trạng thái điểm danh', ...(canManage ? ['Thao tác'] : [])].map((h, i) => (
+                  <th key={i} style={{ padding: '9px 16px', fontSize: 10, fontWeight: 800, color: D.inkMuted, textTransform: 'uppercase', letterSpacing: '.06em', textAlign: 'left', borderBottom: D.borderLight, whiteSpace: 'nowrap' }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {registrations.map(reg => {
+                const att = ATTENDANCE_CFG[reg.attendance] ?? ATTENDANCE_CFG.Pending
+                const isUpdating = updatingId === reg.userId
+                const initial = (reg.userName || reg.email || '?').charAt(0).toUpperCase()
+                return (
+                  <tr key={reg.userId} style={{ borderBottom: D.borderLight }}>
+                    {/* Name */}
+                    <td style={{ padding: '12px 16px', minWidth: 180 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#ede9fe', border: '1.5px solid #c4b5fd', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 900, color: D.indigo, flexShrink: 0 }}>
+                          {initial}
+                        </div>
+                        <div style={{ minWidth: 0 }}>
+                          <p style={{ margin: 0, fontWeight: 700, color: D.ink, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 160 }}>{reg.userName || '—'}</p>
+                          {reg.email && <p style={{ margin: '1px 0 0', fontSize: 10, color: D.inkMuted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 160 }}>{reg.email}</p>}
+                        </div>
+                      </div>
+                    </td>
+                    {/* Registered at */}
+                    <td style={{ padding: '12px 16px', whiteSpace: 'nowrap', color: D.inkMuted, fontSize: 12 }}>
+                      {new Date(reg.registeredAt).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                    </td>
+                    {/* Attendance badge */}
+                    <td style={{ padding: '12px 16px' }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: D.pill, background: att.bg, color: att.color, border: `1.5px solid ${att.border}`, whiteSpace: 'nowrap' }}>
+                        {att.label}
+                      </span>
+                    </td>
+                    {/* Actions */}
+                    {canManage && (
+                      <td style={{ padding: '12px 16px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          {reg.attendance !== 'CheckedIn' && (
+                            <button
+                              type="button"
+                              onClick={() => handleAttendance(reg.userId, 'CheckedIn')}
+                              disabled={isUpdating}
+                              style={{ fontSize: 11, fontWeight: 700, padding: '4px 10px', border: '1.5px solid #86efac', borderRadius: 7, background: '#dcfce7', color: '#15803d', cursor: isUpdating ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap', opacity: isUpdating ? 0.6 : 1 }}
+                            >✓ Đã đến</button>
+                          )}
+                          {reg.attendance !== 'Absent' && (
+                            <button
+                              type="button"
+                              onClick={() => handleAttendance(reg.userId, 'Absent')}
+                              disabled={isUpdating}
+                              style={{ fontSize: 11, fontWeight: 700, padding: '4px 10px', border: '1.5px solid #fca5a5', borderRadius: 7, background: '#fee2e2', color: '#dc2626', cursor: isUpdating ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap', opacity: isUpdating ? 0.6 : 1 }}
+                            >✗ Vắng</button>
+                          )}
+                          {reg.attendance !== 'Pending' && (
+                            <button
+                              type="button"
+                              onClick={() => handleAttendance(reg.userId, 'Pending')}
+                              disabled={isUpdating}
+                              style={{ fontSize: 11, fontWeight: 700, padding: '4px 10px', border: '1.5px solid #d1d5db', borderRadius: 7, background: '#f3f4f6', color: '#374151', cursor: isUpdating ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap', opacity: isUpdating ? 0.6 : 1 }}
+                            >↺ Reset</button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleRemove(reg.userId)}
+                            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, border: '1.5px solid #fca5a5', borderRadius: 7, background: '#fff5f5', color: D.red, cursor: 'pointer', padding: 0, marginLeft: 4 }}
+                            title="Hủy đăng ký"
+                          ><Trash2 size={12} /></button>
+                        </div>
+                      </td>
+                    )}
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )
+}
+
 /* ─── Page ────────────────────────────────────────────────────────────────── */
 
 export default function EventDetailPage() {
@@ -764,6 +991,8 @@ export default function EventDetailPage() {
       {/* Department summary table */}
       <DeptSummaryTable eventId={event.id} clubId={clubId} />
 
+      {/* Registration & Attendance */}
+      <RegistrationSection event={event} clubId={clubId} canManage={canManage} />
 
       {/* Modals */}
       {editOpen && <EditModal open={editOpen} event={event} clubId={clubId} onClose={() => setEditOpen(false)} onSaved={updated => setEvent(updated)} />}

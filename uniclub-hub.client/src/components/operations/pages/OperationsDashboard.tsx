@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import {
-  LayoutDashboard, Layers, Calendar, BarChart2, Activity,
+  LayoutDashboard, Calendar, Activity,
   AlertTriangle, CheckSquare, Clock, ListTodo, Zap,
   Users, ArrowUpRight, Plus, ArrowRightLeft, Trash2,
   TrendingUp, CalendarClock, MapPin, PieChart as PieChartIcon,
@@ -12,27 +12,17 @@ import {
   CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
 import {
-  getTasks, getSprints, getEvents, getAuditLogs,
+  getTasks, getSprints, getEvents, getAuditLogs, getAtRiskTasks,
 } from "../services/operationsApi";
 import type {
-  SprintItem, EventItem, AuditLogItem, TaskItem,
+  SprintItem, EventItem, AuditLogItem, TaskItem, AtRiskTaskItem,
 } from "../services/operations.types";
 import { useTasks } from "../context/TasksContext";
 import StatCard from "../components/StatCard";
+import ExportReportButton from "../components/ExportReportButton";
 import { D } from '@/components/shared/managementTheme'
 
 /* ── Design tokens ─────────────────────────────────────────────────────────── */
-
-/* ── Nav cards ─────────────────────────────────────────────────────────────── */
-
-const NAV_CARD_DEFS = [
-  { label: "Kanban",    sub: "board",     icon: LayoutDashboard, color: D.indigo,  bg: "#eef2ff" },
-  { label: "Sprints",   sub: "sprints",   icon: Layers,          color: "#7c3aed", bg: "#f5f3ff" },
-  { label: "Sự kiện",   sub: "events",    icon: Calendar,        color: "#2563eb", bg: "#eff6ff" },
-  { label: "Phân công", sub: "workload",  icon: BarChart2,       color: D.amber,   bg: "#fffbeb" },
-  { label: "Gantt",     sub: "gantt",     icon: Activity,        color: "#0d9488", bg: "#f0fdfa" },
-  { label: "Cảnh báo",  sub: "deadlines", icon: AlertTriangle,   color: D.red,     bg: "#fef2f2" },
-]
 
 const ACTION_ICON: Record<string, React.ReactNode> = {
   Create: <Plus size={13} style={{ color: D.emerald }} />,
@@ -173,6 +163,7 @@ export default function OperationsDashboard() {
   const [eventCount, setEventCount] = useState(0)
   const [recentLogs, setRecentLogs] = useState<AuditLogItem[]>([])
   const [trendData, setTrendData] = useState<TrendPoint[]>([])
+  const [atRiskTasks, setAtRiskTasks] = useState<AtRiskTaskItem[]>([])
 
   useEffect(() => {
     setLoading(true)
@@ -181,8 +172,10 @@ export default function OperationsDashboard() {
       getSprints({ clubId, departmentId, pageSize: 50 }),
       getEvents({ clubId, pageSize: 50 }),
       getAuditLogs({ clubId, pageSize: 6 }),
+      getAtRiskTasks({ clubId, departmentId }).catch(() => [] as AtRiskTaskItem[]),
     ])
-      .then(([taskData, sprintData, eventData, auditData]) => {
+      .then(([taskData, sprintData, eventData, auditData, atRisk]) => {
+        setAtRiskTasks(atRisk)
         const tasks = taskData.items
         setTaskStats({
           total:     taskData.totalCount,
@@ -246,14 +239,17 @@ export default function OperationsDashboard() {
             Theo dõi tiến độ công việc, sự kiện và hoạt động của câu lạc bộ trong thời gian thực.
           </p>
         </div>
-        <button type="button" onClick={() => navigate(withClub("board"))}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700,
-            color: '#fff', background: D.ink, border: D.border, borderRadius: D.radius,
-            boxShadow: D.shadow(2, 2), padding: '9px 16px', cursor: 'pointer', fontFamily: 'inherit',
-          }}>
-          <LayoutDashboard size={15} /> Mở bảng Kanban
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+          <ExportReportButton clubId={clubId} variant="tasks" />
+          <button type="button" onClick={() => navigate(withClub("board"))}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700,
+              color: '#fff', background: D.ink, border: D.border, borderRadius: D.radius,
+              boxShadow: D.shadow(2, 2), padding: '9px 16px', cursor: 'pointer', fontFamily: 'inherit',
+            }}>
+            <LayoutDashboard size={15} /> Mở bảng Kanban
+          </button>
+        </div>
       </div>
 
       {/* ── Stats ───────────────────────────────────────────────────── */}
@@ -275,6 +271,38 @@ export default function OperationsDashboard() {
           </>
         )}
       </div>
+
+      {/* ── At-risk tasks (deadline forecast) ─────────────────────────── */}
+      {atRiskTasks.length > 0 && (
+        <div style={{ background: '#fff7ed', border: '2px solid #f97316', borderRadius: D.radius, boxShadow: D.shadow(), padding: '16px 20px', marginBottom: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+            <h2 style={{ fontSize: 14, fontWeight: 800, color: '#9a3412', display: 'flex', alignItems: 'center', gap: 8, margin: 0 }}>
+              <AlertTriangle size={16} style={{ color: '#f97316' }} />
+              Công việc có nguy cơ trễ ({atRiskTasks.length})
+            </h2>
+            <button type="button" onClick={() => navigate(withClub('deadlines'))}
+              style={{ fontSize: 12, fontWeight: 700, color: '#c2410c', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontFamily: 'inherit' }}>
+              Xem tất cả <ArrowUpRight size={13} />
+            </button>
+          </div>
+          <div style={{ display: 'grid', gap: 8 }}>
+            {atRiskTasks.slice(0, 4).map(t => (
+              <div key={t.taskId} onClick={() => navigate(withClub('board'))}
+                style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', background: '#fff', border: '1px solid #fed7aa', borderRadius: 10, cursor: 'pointer' }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontSize: 13, fontWeight: 700, color: D.ink, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</p>
+                  <p style={{ fontSize: 11, color: D.inkMuted, margin: '2px 0 0' }}>
+                    {t.assigneeName ?? 'Chưa giao'} · Tiến độ {t.progress}% / kỳ vọng {Math.round(t.expectedProgress)}%
+                  </p>
+                </div>
+                <span style={{ fontSize: 11, fontWeight: 800, color: '#c2410c', background: '#ffedd5', border: '1px solid #fdba74', borderRadius: 999, padding: '3px 10px', whiteSpace: 'nowrap' }}>
+                  {t.daysRemaining <= 0 ? 'Quá hạn' : `Còn ${Math.ceil(t.daysRemaining)} ngày`}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ── Charts row ────────────────────────────────────────────────── */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.4fr', gap: 16, marginBottom: 16, alignItems: 'stretch' }}>
@@ -581,30 +609,6 @@ export default function OperationsDashboard() {
             })}
           </div>
         )}
-      </div>
-
-      {/* ── Quick nav ─────────────────────────────────────────────────── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 12 }}>
-        {NAV_CARD_DEFS.map(({ label, sub, icon: Icon, color, bg }) => (
-          <button
-            key={sub}
-            type="button"
-            onClick={() => navigate(withClub(sub))}
-            style={{
-              display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 10,
-              background: D.card, border: D.border, borderRadius: D.radius, boxShadow: D.shadow(),
-              padding: '16px', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
-              transition: 'transform .12s, box-shadow .12s',
-            }}
-            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = 'translate(-2px,-2px)'; (e.currentTarget as HTMLElement).style.boxShadow = D.shadow(5, 5) }}
-            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = ''; (e.currentTarget as HTMLElement).style.boxShadow = D.shadow() }}
-          >
-            <div style={{ width: 38, height: 38, borderRadius: 8, background: bg, border: D.borderLight, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Icon size={20} style={{ color }} />
-            </div>
-            <span style={{ fontSize: 13, fontWeight: 800, color: D.ink }}>{label}</span>
-          </button>
-        ))}
       </div>
     </div>
   )

@@ -67,6 +67,8 @@ namespace UniClub_Hub.Operations.Services.Implements
             TaskPriority priority, DateTimeOffset? deadline,
             string actorId, IFormFileCollection? files)
         {
+            await ValidateDeadlineWithinEventAsync(eventId, deadline);
+
             var attachments = new List<AssignmentAttachmentInfo>();
 
             if (files != null)
@@ -112,26 +114,29 @@ namespace UniClub_Hub.Operations.Services.Implements
             return MapToDto(assignment, eventName, clubName);
         }
 
+        // A deadline must fall within the parent event's [StartTime, EndTime] window.
+        private async Task ValidateDeadlineWithinEventAsync(int eventId, DateTimeOffset? deadline)
+        {
+            if (!deadline.HasValue) return;
+
+            var ev = await db.Events.AsNoTracking()
+                .Where(e => e.Id == eventId)
+                .Select(e => new { e.StartTime, e.EndTime })
+                .FirstOrDefaultAsync();
+            if (ev == null) return;
+
+            if (ev.StartTime.HasValue && deadline < ev.StartTime)
+                throw new InvalidOperationException("Deadline không thể trước ngày bắt đầu sự kiện.");
+            if (ev.EndTime.HasValue && deadline > ev.EndTime)
+                throw new InvalidOperationException("Deadline không thể sau ngày kết thúc sự kiện.");
+        }
+
         public async Task<AssignmentDto> UpdateAsync(int id, string title, string? description, TaskPriority priority, DateTimeOffset? deadline)
         {
             var assignment = await db.EventClubAssignments.FindAsync(id)
                 ?? throw new KeyNotFoundException($"Assignment {id} not found.");
 
-            if (deadline.HasValue)
-            {
-                var ev = await db.Events.AsNoTracking()
-                    .Where(e => e.Id == assignment.EventId)
-                    .Select(e => new { e.Name, e.StartTime, e.EndTime })
-                    .FirstOrDefaultAsync();
-
-                if (ev != null)
-                {
-                    if (ev.StartTime.HasValue && deadline < ev.StartTime)
-                        throw new InvalidOperationException("Deadline không thể trước ngày bắt đầu sự kiện.");
-                    if (ev.EndTime.HasValue && deadline > ev.EndTime)
-                        throw new InvalidOperationException("Deadline không thể sau ngày kết thúc sự kiện.");
-                }
-            }
+            await ValidateDeadlineWithinEventAsync(assignment.EventId, deadline);
 
             assignment.Title = title.Trim();
             assignment.Description = description?.Trim();
