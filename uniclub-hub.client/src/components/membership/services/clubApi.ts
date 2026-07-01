@@ -1,4 +1,5 @@
 import api from '@/lib/axiosInstance'
+import { normalizePagedResult } from '@/lib/normalizePagedResult'
 import type {
   ClubDetail, ClubListItem, ClubStats, MonthlyGrowth, MemberItem, DepartmentItem,
   ApplicationItem, AddMemberDto, UpdateMemberDto, ReviewApplicationDto,
@@ -161,13 +162,17 @@ export const submitResignation = (clubId: number, dto: SubmitResignationDto) =>
   api.post<{ data: ResignationRequestItem }>(`${base(clubId)}/resignation-requests`, dto).then(r => r.data.data)
 
 export const getClubResignations = (clubId: number, params?: ResignationListQuery) =>
-  api.get<{ data: PagedResult<ResignationRequestItem> }>(`${base(clubId)}/resignation-requests`, { params }).then(r => r.data.data)
+  api
+    .get<{ data: PagedResult<ResignationRequestItem> | ResignationRequestItem[] }>(`${base(clubId)}/resignation-requests`, { params })
+    .then(r => normalizePagedResult(r.data.data))
 
 export const reviewClubResignation = (clubId: number, id: number, dto: ReviewResignationDto) =>
   api.patch<{ data: ResignationRequestItem }>(`${base(clubId)}/resignation-requests/${id}`, dto).then(r => r.data.data)
 
 export const getAdminResignations = (params?: ResignationListQuery) =>
-  api.get<{ data: PagedResult<ResignationRequestItem> }>('/admin/resignation-requests', { params }).then(r => r.data.data)
+  api
+    .get<{ data: PagedResult<ResignationRequestItem> | ResignationRequestItem[] }>('/admin/resignation-requests', { params })
+    .then(r => normalizePagedResult(r.data.data))
 
 export const reviewAdminResignation = (id: number, dto: ReviewResignationDto) =>
   api.patch<{ data: ResignationRequestItem }>(`/admin/resignation-requests/${id}`, dto).then(r => r.data.data)

@@ -47,6 +47,7 @@ import KpiDashboardPage from "@/components/membership/pages/club/KpiDashboardPag
 import MemberDashboard from "@/components/membership/pages/MemberDashboard";
 import ClubListPage from "@/components/membership/pages/ClubListPage";
 import MyActivityPage from "@/components/membership/pages/MyActivityPage";
+import MyKpiPage from "@/components/membership/pages/MyKpiPage";
 import SupportPage from "@/components/membership/pages/SupportPage";
 import SupportAdminPage from "@/components/membership/pages/admin/SupportAdminPage";
 import AdminResignationPage from "@/components/membership/pages/admin/AdminResignationPage";
@@ -143,6 +144,7 @@ export default function App() {
               <Route path="/notifications" element={<NotificationsPage />} />
               <Route path="/my-history" element={<MemberHistoryPage />} />
               <Route path="/my-activity" element={<MyActivityPage />} />
+              <Route path="/my-kpi" element={<MyKpiPage />} />
               <Route path="/support" element={<SupportPage />} />
               <Route path="/clubs/:clubId/operations" element={<ClubOperationsPage />} />
               <Route path="/clubs/:clubId/events/:id" element={<EventDetailPage />} />

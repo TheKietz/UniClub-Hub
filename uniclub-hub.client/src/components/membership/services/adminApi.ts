@@ -1,4 +1,5 @@
 import api from '@/lib/axiosInstance'
+import { normalizePagedResult } from '@/lib/normalizePagedResult'
 import type {
   SystemStats, MonthlyGrowth, UserItem, PagedResult, ClubItem, CategoryItem,
   CreateClubDto, UpdateClubDto, CreateCategoryDto, UserImportPreview,
@@ -153,7 +154,9 @@ export interface SupportTicketItem {
 }
 
 export const getSupportTickets = (params?: SupportListQuery) =>
-  api.get<{ data: PagedResult<SupportTicketItem> }>('/support', { params }).then(r => r.data.data)
+  api
+    .get<{ data: PagedResult<SupportTicketItem> | SupportTicketItem[] }>('/support', { params })
+    .then(r => normalizePagedResult(r.data.data))
 
 export const updateSupportRequest = (id: number, status: string, adminNote?: string | null) =>
   api.patch(`/support/${id}`, { status, adminNote: adminNote ?? null })

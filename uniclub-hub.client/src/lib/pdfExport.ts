@@ -1,11 +1,11 @@
 import jsPDF from 'jspdf'
-import html2canvas from 'html2canvas'
+import html2canvas from 'html2canvas-pro'
 
 export async function exportDashboardPdf(element: HTMLElement, filename: string) {
   const canvas = await html2canvas(element, {
     scale: 2,
     useCORS: true,
-    backgroundColor: '#f7f6f1',
+    backgroundColor: '#f4f7fc',
     logging: false,
   })
 

@@ -89,8 +89,8 @@ export default function SupportAdminPage() {
     getSupportTickets(buildQuery(1))
       .then(r => {
         if (isCancelled() || latestQueryKey.current !== querySignature) return
-        setTickets(r.items)
-        setTotalTickets(r.totalCount)
+        setTickets(r.items ?? [])
+        setTotalTickets(r.totalCount ?? 0)
       })
       .catch(() => {
         if (!isCancelled() && latestQueryKey.current === querySignature)

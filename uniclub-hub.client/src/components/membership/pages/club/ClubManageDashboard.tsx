@@ -9,6 +9,7 @@ import {
 } from '@/components/shared/DashboardCharts'
 import { exportDashboardPdf } from '@/lib/pdfExport'
 import { D } from '@/components/shared/managementTheme'
+import { toast } from 'sonner'
 
 const MONTH_OPTIONS = [
   { value: 3, label: '3 tháng' },
@@ -127,6 +128,8 @@ export default function ClubManageDashboard() {
     try {
       const date = new Date().toLocaleDateString('vi-VN').replace(/\//g, '-')
       await exportDashboardPdf(contentRef.current, `bao-cao-clb-${clubId}-${date}.pdf`)
+    } catch {
+      toast.error('Không thể xuất PDF. Vui lòng thử lại.')
     } finally {
       setExporting(false)
     }

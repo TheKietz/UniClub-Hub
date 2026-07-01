@@ -9,6 +9,7 @@ import {
 } from '@/components/shared/DashboardCharts'
 import { exportDashboardPdf } from '@/lib/pdfExport'
 import { D } from '@/components/shared/managementTheme'
+import { toast } from 'sonner'
 
 const BAR_COLORS = ['#1d4ed8', '#7c3aed', '#ec4899', '#38bdf8', '#14b8a6', '#ff5a3c']
 type AlertItem = { message: string; link: string; linkLabel: string }
@@ -103,6 +104,8 @@ export default function DashboardPage() {
     try {
       const date = new Date().toLocaleDateString('vi-VN').replace(/\//g, '-')
       await exportDashboardPdf(contentRef.current, `bao-cao-he-thong-${date}.pdf`)
+    } catch {
+      toast.error('Không thể xuất PDF. Vui lòng thử lại.')
     } finally {
       setExporting(false)
     }

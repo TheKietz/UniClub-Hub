@@ -101,8 +101,8 @@ export default function ResignationPage() {
     getClubResignations(id, buildQuery(1))
       .then(r => {
         if (isCancelled() || latestQueryKey.current !== querySignature) return
-        setRequests(r.items)
-        setTotalRequests(r.totalCount)
+        setRequests(r.items ?? [])
+        setTotalRequests(r.totalCount ?? 0)
       })
       .catch(() => {
         if (!isCancelled() && latestQueryKey.current === querySignature)
