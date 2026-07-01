@@ -32,7 +32,7 @@ public class ResignationServicePagedTests : DbTestBase
 
         var service = PagedServiceTestHelpers.CreateResignationService(db);
 
-        var search = await service.GetByClubAsync(1, "reviewer", false, new ResignationListQuery { Search = "AN003", Page = 1, PageSize = 20 });
+        var search = await service.GetByClubAsync(1, "reviewer", false, new ResignationListQuery { Search = "gamma", Page = 1, PageSize = 20 });
         var pending = await service.GetByClubAsync(1, "reviewer", false, new ResignationListQuery { Status = "Pending", Page = 1, PageSize = 20 });
 
         Assert.Single(search.Items);
