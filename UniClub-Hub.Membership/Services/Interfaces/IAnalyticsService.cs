@@ -7,5 +7,6 @@ namespace UniClub_Hub.Membership.Services.Interfaces
         Task RecordViewAsync(int clubId, string? ip, string? userAgent, string? path);
         Task<AnalyticsOverviewResponse> GetOverviewAsync(int clubId);
         Task<IEnumerable<DailyViewResponse>> GetDailyViewsAsync(int clubId, int days = 30);
+        Task<ContentStatsResponse> GetContentStatsAsync(int clubId);
     }
 }

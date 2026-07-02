@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using UniClub_Hub.Membership.DTOs.Analytics;
 using UniClub_Hub.Membership.Services.Interfaces;
 using UniClub_Hub.Shared.Data;
+using UniClub_Hub.Shared.Enums;
 using UniClub_Hub.Shared.Models;
 
 namespace UniClub_Hub.Membership.Services.Implements
@@ -85,6 +86,45 @@ namespace UniClub_Hub.Membership.Services.Implements
                         Count = found?.Count ?? 0,
                     };
                 });
+        }
+
+        public async Task<ContentStatsResponse> GetContentStatsAsync(int clubId)
+        {
+            var posts = await db.Posts
+                .Where(p => p.ClubId == clubId)
+                .Select(p => new { p.Id, p.Title, p.Status, p.Category, p.CreatedAt })
+                .ToListAsync();
+
+            var media = await db.MediaGalleries
+                .Where(m => m.ClubId == clubId)
+                .Select(m => m.MediaType)
+                .ToListAsync();
+
+            var recentPosts = posts
+                .OrderByDescending(p => p.CreatedAt)
+                .Take(5)
+                .Select(p => new PostStatItem
+                {
+                    Id = p.Id,
+                    Title = p.Title,
+                    Status = p.Status.ToString(),
+                    Category = p.Category.ToString(),
+                    CreatedAt = DateTime.SpecifyKind(p.CreatedAt, DateTimeKind.Utc),
+                })
+                .ToList();
+
+            return new ContentStatsResponse
+            {
+                TotalPosts = posts.Count,
+                PublishedPosts = posts.Count(p => p.Status == PostStatus.Published),
+                PendingPosts = posts.Count(p => p.Status == PostStatus.PendingReview),
+                DraftPosts = posts.Count(p => p.Status == PostStatus.Draft),
+                RejectedPosts = posts.Count(p => p.Status == PostStatus.Rejected),
+                TotalMedia = media.Count,
+                ImageCount = media.Count(m => m == MediaType.Image),
+                VideoCount = media.Count(m => m == MediaType.Video),
+                RecentPosts = recentPosts,
+            };
         }
     }
 }

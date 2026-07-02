@@ -5,9 +5,6 @@ import {
   ArrowUpDown, Eye, GripVertical, ImagePlus,
   Plus, Trash2, X,
 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import {
   getLandingPageSettings, upsertLandingPageSettings, uploadHeroImage,
   type LandingPageSettings,
@@ -17,28 +14,14 @@ import { DEFAULT_LAYOUT } from '@/components/portal/services/portal.types'
 import { getClubLandingPage } from '@/components/portal/services/portal.api'
 import SectionRenderer from '@/components/portal/components/SectionRenderer'
 import type { PreviewBroadcast } from '@/components/portal/pages/LandingPagePreviewPage'
+import { D } from '@/components/shared/managementTheme'
 
-// ── Design tokens (matches ClubSettingsPage) ────────────────────────────────
-const D = {
-  border: '1.5px solid #15131a',
-  borderLight: '1px solid #e8e3d6',
-  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 #15131a`,
-  radius: 14,
-  pill: 999,
-  ink: '#15131a',
-  inkDim: '#4a4651',
-  inkMuted: '#918c99',
-  bg: '#f7f6f1',
-  card: '#ffffff',
-  indigo: '#4f46e5',
-  red: '#ef4444',
-}
 const inputStyle: React.CSSProperties = {
-  width: '100%', height: 36, borderRadius: 8, border: '1px solid #e8e3d6',
-  padding: '0 12px', fontSize: 13, color: '#15131a', outline: 'none',
-  background: '#f7f6f1', fontFamily: 'inherit', boxSizing: 'border-box',
+  width: '100%', height: 36, borderRadius: 8, border: D.borderLight,
+  padding: '0 12px', fontSize: 13, color: D.ink, outline: 'none',
+  background: D.bg, fontFamily: 'inherit', boxSizing: 'border-box',
 }
-const labelStyle: React.CSSProperties = { fontSize: 12, fontWeight: 700, color: '#4a4651', display: 'block', marginBottom: 4 }
+const labelStyle: React.CSSProperties = { fontSize: 12, fontWeight: 700, color: D.inkDim, display: 'block', marginBottom: 4 }
 
 // ── Section metadata ────────────────────────────────────────────────────────
 
@@ -239,14 +222,6 @@ export default function LandingPageManagePage() {
 
   // ── Section ordering ─────────────────────────────────────────────────────
 
-  function moveSection(idx: number, dir: -1 | 1) {
-    const next = [...sections]
-    const target = idx + dir
-    if (target < 0 || target >= next.length) return
-    ;[next[idx], next[target]] = [next[target], next[idx]]
-    setSections(next.map((s, i) => ({ ...s, order: i })))
-  }
-
   function toggleVisible(idx: number) {
     setSections(prev => prev.map((s, i) => i === idx ? { ...s, visible: !s.visible } : s))
   }
@@ -355,7 +330,7 @@ export default function LandingPageManagePage() {
         </div>
 
         {/* Tabs */}
-        <div style={{ display: 'flex', borderBottom: '2px solid #e8e3d6' }}>
+        <div style={{ display: 'flex', borderBottom: D.borderLight }}>
           {([['content','Nội dung'],['social','Mạng xã hội'],['design','Giao diện & Layout']] as [Tab,string][]).map(([tab, label]) => (
             <button key={tab} onClick={() => setActiveTab(tab)} style={{
               padding: '9px 18px', fontSize: 13,

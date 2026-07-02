@@ -89,7 +89,6 @@ function clubNav(id: string, role?: string, isSuperAdmin = false, perms: ClubPer
 
   if (!isSuperAdmin && role === CLUB_ROLES.DEPT_LEAD) {
     return [
-      { to: `/clubs/${id}/manage/members`, icon: '◐', label: 'Thành viên' },
       { to: `/clubs/${id}/manage/posts`, icon: '✦', label: 'Bài viết & Tin tức' },
       { to: `/clubs/${id}/manage/gallery`, icon: '◈', label: 'Thư viện ảnh & Video' },
     ]

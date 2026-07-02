@@ -9,26 +9,12 @@ import {
 import RichTextEditor from '@/components/shared/RichTextEditor'
 import { useAuth } from '@/contexts/AuthContext'
 import { CLUB_ROLES, MEMBERSHIP_STATUS } from '@/types/auth'
+import { D as managementTheme } from '@/components/shared/managementTheme'
 
-const D = {
-  border: '1.5px solid #15131a',
-  borderLight: '1px solid #e8e3d6',
-  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 #15131a`,
-  radius: 14,
-  pill: 999,
-  ink: '#15131a',
-  inkDim: '#4a4651',
-  inkMuted: '#918c99',
-  bg: '#f7f6f1',
-  card: '#ffffff',
-  indigo: '#4f46e5',
-  red: '#ef4444',
-  green: '#10b981',
-  amber: '#d97706',
-}
+const D = { ...managementTheme, green: managementTheme.emerald }
 
 const inputStyle: React.CSSProperties = {
-  width: '100%', height: 36, borderRadius: 8, border: '1px solid #e8e3d6',
+  width: '100%', height: 36, borderRadius: 8, border: D.borderLight,
   padding: '0 12px', fontSize: 13, color: D.ink, outline: 'none',
   background: D.bg, fontFamily: 'inherit', boxSizing: 'border-box',
 }
@@ -92,6 +78,7 @@ export default function PostsManagePage() {
   // Reject dialog
   const [rejectTarget, setRejectTarget] = useState<PostResponse | null>(null)
   const [rejectNote, setRejectNote] = useState('')
+  const [deleteTarget, setDeleteTarget] = useState<PostResponse | null>(null)
 
   const thumbInputRef = useRef<HTMLInputElement>(null)
   const [uploadingThumb, setUploadingThumb] = useState<number | null>(null)
@@ -164,11 +151,11 @@ export default function PostsManagePage() {
   }
 
   async function handleDelete(post: PostResponse) {
-    if (!window.confirm(`Xóa bài viết "${post.title}"?`)) return
     setActionId(post.id)
     try {
       await deletePost(id, post.id)
       toast.success('Đã xóa bài viết')
+      setDeleteTarget(null)
       load(page)
     } catch {
       toast.error('Xóa bài viết thất bại')
@@ -235,8 +222,8 @@ export default function PostsManagePage() {
   const totalPages = Math.ceil(total / PAGE_SIZE)
 
   return (
-    <div style={{ background: D.bg, minHeight: '100vh', padding: 28, fontFamily: "'Be Vietnam Pro', sans-serif" }}>
-      <div style={{ maxWidth: 1060, margin: '0 auto' }}>
+    <div style={{ minHeight: '100%', background: D.bg, padding: '28px 32px', fontFamily: "'Be Vietnam Pro', sans-serif" }}>
+      <div>
 
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24 }}>
@@ -323,7 +310,7 @@ export default function PostsManagePage() {
                     onClick={() => setForm(f => ({ ...f, publishDirectly: !f.publishDirectly }))}
                     style={{
                       width: 44, height: 24, borderRadius: D.pill, border: D.border,
-                      background: form.publishDirectly ? D.green : '#e8e3d6',
+                      background: form.publishDirectly ? D.green : '#dce6f4',
                       cursor: 'pointer', position: 'relative', transition: 'background .2s', padding: 0, flexShrink: 0,
                     }}
                   >
@@ -390,7 +377,7 @@ export default function PostsManagePage() {
                 <div
                   style={{
                     width: 72, height: 50, borderRadius: 8, border: D.borderLight,
-                    background: '#f0ede8', flexShrink: 0, overflow: 'hidden',
+                    background: D.bg, flexShrink: 0, overflow: 'hidden',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     cursor: canEdit ? 'pointer' : 'default', position: 'relative',
                   }}
@@ -492,7 +479,7 @@ export default function PostsManagePage() {
 
                   {/* Delete */}
                   {canDelete && (
-                    <button onClick={() => handleDelete(post)} disabled={busy} style={{
+                    <button onClick={() => setDeleteTarget(post)} disabled={busy} style={{
                       height: 30, padding: '0 12px', borderRadius: D.pill, border: `1.5px solid ${D.red}`,
                       background: '#fff5f5', color: D.red, fontWeight: 600, fontSize: 12,
                       cursor: busy ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: busy ? 0.5 : 1,
@@ -534,6 +521,35 @@ export default function PostsManagePage() {
             e.target.value = ''
           }}
         />
+
+        {/* Delete dialog */}
+        {deleteTarget && (
+          <div style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 9999,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
+          }} onClick={() => setDeleteTarget(null)}>
+            <div style={{
+              background: '#fff', borderRadius: 16, border: D.border, boxShadow: D.shadow(6, 6),
+              padding: 28, width: '100%', maxWidth: 420,
+            }} onClick={e => e.stopPropagation()}>
+              <h3 style={{ margin: '0 0 6px', fontSize: 16, fontWeight: 800, color: D.ink }}>Xóa bài viết?</h3>
+              <p style={{ margin: '0 0 16px', fontSize: 13, color: D.inkMuted, lineHeight: 1.5 }}>
+                Bạn có chắc chắn muốn xóa "{deleteTarget.title}"? Hành động này không thể hoàn tác.
+              </p>
+              <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+                <button onClick={() => setDeleteTarget(null)} style={{
+                  height: 36, padding: '0 18px', borderRadius: D.pill, border: D.border,
+                  background: D.bg, color: D.inkDim, fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit',
+                }}>Hủy</button>
+                <button onClick={() => handleDelete(deleteTarget)} disabled={actionId === deleteTarget.id} style={{
+                  height: 36, padding: '0 20px', borderRadius: D.pill, border: `1.5px solid ${D.red}`,
+                  background: D.red, color: '#fff', fontWeight: 700, fontSize: 13,
+                  cursor: actionId === deleteTarget.id ? 'not-allowed' : 'pointer', fontFamily: 'inherit', boxShadow: actionId === deleteTarget.id ? 'none' : D.shadow(),
+                }}>{actionId === deleteTarget.id ? 'Đang xóa...' : 'Xóa'}</button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Reject dialog */}
         {rejectTarget && (

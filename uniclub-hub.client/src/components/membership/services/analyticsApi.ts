@@ -16,6 +16,26 @@ export interface DailyView {
   count: number;
 }
 
+export interface PostStatItem {
+  id: number;
+  title: string;
+  status: string;
+  category: string;
+  createdAt: string;
+}
+
+export interface ContentStats {
+  totalPosts: number;
+  publishedPosts: number;
+  pendingPosts: number;
+  draftPosts: number;
+  rejectedPosts: number;
+  totalMedia: number;
+  imageCount: number;
+  videoCount: number;
+  recentPosts: PostStatItem[];
+}
+
 const base = (clubId: number) => `/clubs/${clubId}/analytics`;
 
 export const getAnalyticsOverview = (clubId: number) =>
@@ -25,3 +45,6 @@ export const getDailyViews = (clubId: number, days = 30) =>
   api.get<{ data: DailyView[] }>(`${base(clubId)}/daily-views`, {
     params: { days },
   });
+
+export const getContentStats = (clubId: number) =>
+  api.get<{ data: ContentStats }>(`${base(clubId)}/content-stats`);

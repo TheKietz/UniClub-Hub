@@ -139,9 +139,9 @@ namespace UniClub_Hub.Portal.Services.Implements
                 })
                 .ToListAsync();
 
-            // Gallery
+            // Gallery — only published items visible on public landing page
             var gallery = await db.MediaGalleries
-                .Where(g => g.ClubId == clubId)
+                .Where(g => g.ClubId == clubId && g.Status == MediaStatus.Published)
                 .OrderByDescending(g => g.Id)
                 .Take(20)
                 .Select(g => new MediaItemDto

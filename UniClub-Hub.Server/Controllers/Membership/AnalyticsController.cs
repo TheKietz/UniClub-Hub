@@ -37,6 +37,16 @@ namespace UniClub_Hub.Server.Controllers.Membership
             return Ok(ApiResponse<IEnumerable<DailyViewResponse>>.Ok(result));
         }
 
+        // GET /api/clubs/{clubId}/analytics/content-stats
+        [HttpGet("content-stats")]
+        public async Task<IActionResult> GetContentStats(int clubId)
+        {
+            if (!await IsClubAdminOrSuperAdmin(clubId)) return Forbid();
+
+            var result = await analytics.GetContentStatsAsync(clubId);
+            return Ok(ApiResponse<ContentStatsResponse>.Ok(result));
+        }
+
         private async Task<bool> IsClubAdminOrSuperAdmin(int clubId)
         {
             if (User.IsInRole("SUPER_ADMIN")) return true;
