@@ -1,6 +1,8 @@
+using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using UniClub_Hub.Operations.DTOs.Task;
 using UniClub_Hub.Operations.Services.Implements;
+using UniClub_Hub.Operations.Services.Interfaces;
 using UniClub_Hub.Shared.Common.Interfaces;
 using UniClub_Hub.Shared.Data;
 using UniClub_Hub.Shared.Enums;
@@ -29,7 +31,11 @@ public class TaskServiceTests : DbTestBase
         await db.SaveChangesAsync();
 
         var notifications = new Mock<INotificationService>();
-        return (new TaskService(db, notifications.Object), db);
+        return (new TaskService(
+            db,
+            notifications.Object,
+            Mock.Of<IContributionAwardService>(),
+            NullLogger<TaskService>.Instance), db);
     }
 
     [Fact]

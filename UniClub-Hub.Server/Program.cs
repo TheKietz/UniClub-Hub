@@ -182,6 +182,14 @@ builder.Services.AddHostedService<UniClub_Hub.Server.BackgroundServices.Reminder
 
 var app = builder.Build();
 
+if (!app.Environment.IsEnvironment("Testing"))
+{
+    using var migrationScope = app.Services.CreateScope();
+    await migrationScope.ServiceProvider
+        .GetRequiredService<UniClubDbContext>()
+        .Database.MigrateAsync();
+}
+
 if (app.Environment.IsDevelopment())
 {
     await UniClub_Hub.Server.Data.DbSeeder.SeedAsync(app.Services);

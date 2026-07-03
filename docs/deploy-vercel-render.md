@@ -1,12 +1,34 @@
 # Deploy — UniClub-Hub (Vercel FE + Render API)
 
+## Runbook — deploy lần đầu (thứ tự bắt buộc)
+
+1. **Deploy Render trước** — Render Dashboard → **New** → **Blueprint** → chọn repo (`render.yaml`). Chờ Web Service **uniclub-hub-api** chạy xong → ghi lại domain tạm (vd. `https://uniclub-hub-api.onrender.com`).
+2. **Set env trên Render** (các biến `sync: false` trong Blueprint — set tay trên dashboard):
+   - `ConnectionStrings__DefaultConnection` (Render Postgres → **Connect**)
+   - `JWT_KEY` (≥ 32 ký tự)
+   - `Cors__AllowedOrigins` — tạm: `https://localhost:54610` hoặc domain Vercel nếu đã biết
+   - `AppUrl` — tạm: domain Render hoặc localhost dev
+   - `Auth__CrossOriginCookies` = `true` (bắt buộc khi FE và API khác domain)
+   - `Cloudinary__*`, `SendGrid__*`, `Gemini__*` (secret thật)
+3. **Migration tự chạy** khi container API khởi động — **không cần** `dotnet ef database update` tay. Kiểm tra log Render: container start thành công, `/health` trả `{ "status": "ok" }`.
+4. **Deploy Vercel** — import repo, **Root Directory** = `uniclub-hub.client`, set Production env:
+   - `VITE_API_BASE_URL` = `https://<render-domain>/api`
+   - `VITE_API_ORIGIN` = `https://<render-domain>`
+   - `VITE_GOOGLE_CLIENT_ID` (nếu dùng Google login)
+5. **Quay lại Render** — cập nhật `Cors__AllowedOrigins` và `AppUrl` thành **domain Vercel thật** (bước dễ quên nhất). Redeploy hoặc chờ service reload env.
+6. **Test cuối** — checklist ở cuối file này (health, login, refresh cookie, email link, SignalR).
+
+> **Lưu ý:** Bước 5 phải làm sau khi có domain Vercel — nếu set CORS sai origin, login/refresh cookie cross-site sẽ fail.
+
+---
+
 ## Kiến trúc production
 
 | Thành phần | Nền tảng | Ghi chú |
 |------------|----------|---------|
 | **Frontend** (React/Vite) | **Vercel** | SPA, env `VITE_API_*` trỏ sang Render |
 | **Backend** (ASP.NET API + SignalR) | **Render** | Docker image từ `Dockerfile` (API-only) |
-| **PostgreSQL** | Render Postgres hoặc managed DB | Migration chạy tay |
+| **PostgreSQL** | Render Postgres hoặc managed DB | Migration tự chạy lúc container start |
 
 Dev local vẫn dùng `dotnet run` + `npm run dev` (Vite proxy `/api` → backend).
 
@@ -24,16 +46,7 @@ Dev local vẫn dùng `dotnet run` + `npm run dev` (Vite proxy `/api` → backen
    - `Auth__CrossOriginCookies` = `true` (bắt buộc khi FE và API khác domain)
    - Cloudinary, SendGrid, Gemini… (secret thật)
 
-4. Chạy migration (một lần, trên máy local):
-
-```bash
-dotnet ef database update \
-  --project UniClub-Hub.Shared \
-  --startup-project UniClub-Hub.Server \
-  --connection "Host=...;Port=5432;Database=uniclub;Username=...;Password=..."
-```
-
-(Lấy connection string từ Render Postgres → **Connect**.)
+Migration được áp dụng tự động khi container khởi động (`Program.cs` gọi `Database.MigrateAsync()`). Không cần chạy tay từ máy local.
 
 ### Cách B — Web Service thủ công
 
@@ -84,6 +97,7 @@ docker compose up --build
 
 - API: http://localhost:8080/health  
 - FE dev: `cd uniclub-hub.client && npm run dev` → https://localhost:54610 (proxy `/api`)
+- Migration tự chạy khi container `api` start (giống Render).
 
 ---
 
@@ -92,6 +106,8 @@ docker compose up --build
 `.github/workflows/cd.yml` build **backend-only** Docker image, smoke test `/health`.
 
 Push tag `v*` + secret `DOCKER_REGISTRY` để push image (tùy chọn).
+
+Render và Vercel deploy qua push-to-deploy riêng — GitHub Actions **không** tự deploy lên hai nền tảng này.
 
 ---
 

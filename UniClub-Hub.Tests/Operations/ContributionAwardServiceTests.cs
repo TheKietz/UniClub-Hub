@@ -1,7 +1,9 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
+using Moq;
 using UniClub_Hub.Operations.DTOs.Task;
 using UniClub_Hub.Operations.Services.Implements;
+using UniClub_Hub.Shared.Common.Interfaces;
 using UniClub_Hub.Shared.Constants;
 using UniClub_Hub.Shared.Data;
 using UniClub_Hub.Shared.Enums;
@@ -38,7 +40,8 @@ public class ContributionAwardServiceTests : DbTestBase
             Assert.Equal(ContributionPoints.TaskHigh, c.Points);
             Assert.Equal(1, c.TaskId);
         });
-        Assert.Equal(["u1", "u2"], contributions.Select(c => c.UserId).ToArray());
+        var userIds = contributions.Select(c => c.UserId).OrderBy(x => x).ToList();
+        Assert.Equal(new List<string> { "u1", "u2" }, userIds);
     }
 
     [Fact]
@@ -46,7 +49,11 @@ public class ContributionAwardServiceTests : DbTestBase
     {
         await using var db = await SeedTaskAsync(done: true, existingContribution: true);
         var awardService = new ContributionAwardService(db);
-        var taskService = new TaskService(db, awardService, NullLogger<TaskService>.Instance);
+        var taskService = new TaskService(
+            db,
+            Mock.Of<INotificationService>(),
+            awardService,
+            NullLogger<TaskService>.Instance);
 
         await taskService.UpdateStatusAsync(1, new UpdateTaskStatusDto
         {
