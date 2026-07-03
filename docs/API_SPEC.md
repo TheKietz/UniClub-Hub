@@ -4,7 +4,10 @@
 
 ## 1. Quy ước (bắt buộc)
 
-- **URL:** `/api/v1/[module]/[resource]` — ví dụ `/api/v1/membership/members`, `/api/v1/operations/tasks`.
+- **URL:** prefix `/api` — **không** dùng `/api/v1` thống nhất toàn project.
+  - **Membership / Admin / shared:** route theo resource, ví dụ `/api/auth`, `/api/clubs/{clubId}/members`, `/api/admin/users`.
+  - **Operations:** `/api/v1/operations/...` (module Đề tài 2 đã áp `v1`).
+  - Envelope, pagination, DTO vẫn bắt buộc; versioning URL đầy đủ có thể làm sau nếu có client bên ngoài.
 - **Response envelope:**
   ```json
   { "data": <payload>, "message": "string", "success": true }
@@ -19,31 +22,35 @@
 
 Controllers ở `UniClub-Hub.Server/Controllers/`, gom theo area.
 
-### Membership (Đề tài 1) — `/api/v1/membership/...`
-| Resource              | Controller                          |
-| --------------------- | ----------------------------------- |
-| Auth (login/register/refresh/forgot) | `AuthController`             |
-| Clubs                 | `ClubsController`                   |
-| Club memberships      | `ClubMembershipsController`         |
-| Departments           | `DepartmentsController`             |
-| Club positions        | `ClubPositionsController`           |
-| Club permissions      | `ClubPermissionsController`         |
-| Applications (đơn gia nhập) | `ApplicationsController`      |
-| Recruitment pipeline  | `PipelineController`                |
-| Resignation requests  | `ResignationRequestsController`     |
-| KPI                   | `KpiController`                     |
-| Categories            | `CategoriesController`              |
-| Notifications         | `NotificationsController`           |
-| Notification prefs    | `NotificationPreferencesController` |
-| Support tickets       | `SupportController`                 |
-| Stats                 | `StatsController`                   |
-| Club audit logs       | `ClubAuditLogsController`           |
-| Import / Export       | `ImportController`, `ExportController`, `AdminImportController` |
-| Users                 | `UsersController`                   |
-| Uploads               | `UploadsController`                 |
+### Membership (Đề tài 1) — route thực tế (không có prefix `/api/v1/membership`)
 
-### Admin (module dùng chung) — `/api/v1/admin/...`
-`AdminUsersController`, `AdminClubsController`, `AdminDepartmentsController`, `AdminCategoriesController`, `SystemSettingsController`.
+| Resource | Base route | Controller |
+| -------- | ---------- | ---------- |
+| Auth (login/register/refresh/forgot) | `/api/auth` | `AuthController` |
+| Clubs | `/api/clubs` | `ClubsController` |
+| Club memberships | `/api/clubs/{clubId}/members` | `ClubMembershipsController` |
+| Departments | `/api/clubs/{clubId}/departments` | `DepartmentsController` |
+| Club positions | `/api/clubs/{clubId}/positions` | `ClubPositionsController` |
+| Club permissions | `/api/club-permissions` | `ClubPermissionsController` |
+| Applications (đơn gia nhập) | `/api/clubs/{clubId}/applications` | `ApplicationsController` |
+| Recruitment pipeline | `/api/clubs/{clubId}/pipeline` | `PipelineController` |
+| Resignation requests | `/api/clubs/{clubId}/resignation-requests`, `/api/admin/resignation-requests` | `ResignationRequestsController` |
+| KPI | `/api/clubs/{clubId}/kpi` | `KpiController` |
+| Categories | `/api/categories` | `CategoriesController` |
+| Notifications | `/api/notifications` | `NotificationsController` |
+| Notification prefs | `/api/membership/...` | `NotificationPreferencesController` |
+| Support tickets | `/api/support` | `SupportController` |
+| Stats | `/api/admin/stats`, `/api/clubs/{clubId}/stats` | `StatsController` |
+| Club audit logs | `/api/clubs/{clubId}/audit-logs` | `ClubAuditLogsController` |
+| Import (club members) | `/api/clubs/{clubId}/members/...` | `ImportController` |
+| Export | `/api/clubs/{clubId}/members/export`, `.../applications/export` | `ExportController` |
+| Admin import | `/api/admin/import` | `AdminImportController` |
+| Users | `/api/users` | `UsersController` |
+| Uploads | `/api/uploads/...` | `UploadsController` |
+
+### Admin (module dùng chung) — `/api/admin/...` (không có `v1`)
+
+`AdminUsersController` (`/api/admin/users`), `AdminClubsController`, `AdminDepartmentsController`, `AdminCategoriesController`, `SystemSettingsController` (`/api/admin/settings`).
 
 ### Operations (Đề tài 2) — `/api/v1/operations/...`
 `TasksController`, `TaskAssigneesController`, `SprintsController`, `KanbanColumnsController`, `EventsController`, `AuditLogsController`. Realtime qua SignalR Hub (`UniClub-Hub.Server/Hubs/KanbanHub.cs`).
