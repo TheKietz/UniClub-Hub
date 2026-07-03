@@ -18,10 +18,13 @@ namespace UniClub_Hub.Membership.Services.Implements
 {
     public class AuthService : IAuthService
     {
+        public const string GoogleHttpClientName = "AuthService.Google";
+
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly RoleManager<IdentityRole> _roleManager;
         private readonly UniClubDbContext _db;
         private readonly IConfiguration _config;
+        private readonly IHttpClientFactory _httpClientFactory;
 
         private readonly ISystemSettingService _settings;
 
@@ -30,16 +33,18 @@ namespace UniClub_Hub.Membership.Services.Implements
             RoleManager<IdentityRole> roleManager,
             UniClubDbContext db,
             IConfiguration config,
-            ISystemSettingService settings)
+            ISystemSettingService settings,
+            IHttpClientFactory httpClientFactory)
         {
             _userManager = userManager;
             _roleManager = roleManager;
             _db = db;
             _config = config;
             _settings = settings;
+            _httpClientFactory = httpClientFactory;
         }
 
-        public async Task<AuthResponseDto> RegisterAsync(RegisterDto dto)
+        public async Task RegisterAsync(RegisterDto dto)
         {
             await EnsureRegistrationAllowedAsync(dto.Email);
 
@@ -75,8 +80,6 @@ namespace UniClub_Hub.Membership.Services.Implements
                 await _roleManager.CreateAsync(new IdentityRole("USER"));
 
             await _userManager.AddToRoleAsync(user, SystemRole.User);
-
-            return await BuildAuthResponseAsync(user);
         }
 
         public async Task<AuthResponseDto> LoginAsync(LoginDto dto)
@@ -95,11 +98,13 @@ namespace UniClub_Hub.Membership.Services.Implements
 
         public async Task<AuthResponseDto> GoogleLoginAsync(string accessToken)
         {
-            using var http = new HttpClient();
-            http.DefaultRequestHeaders.Authorization =
-                new AuthenticationHeaderValue("Bearer", accessToken);
+            var http = _httpClientFactory.CreateClient(GoogleHttpClientName);
+            using var request = new HttpRequestMessage(
+                HttpMethod.Get,
+                "https://www.googleapis.com/oauth2/v3/userinfo");
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
 
-            var response = await http.GetAsync("https://www.googleapis.com/oauth2/v3/userinfo");
+            var response = await http.SendAsync(request);
             if (!response.IsSuccessStatusCode)
                 throw new UnauthorizedAccessException("Google token không hợp lệ.");
 
@@ -110,6 +115,9 @@ namespace UniClub_Hub.Membership.Services.Implements
                 ? emailProp.GetString() : null;
             if (string.IsNullOrEmpty(email))
                 throw new UnauthorizedAccessException("Không lấy được email từ Google.");
+
+            if (!root.TryGetProperty("email_verified", out var verifiedProp) || !verifiedProp.GetBoolean())
+                throw new UnauthorizedAccessException("Email Google chưa được xác thực.");
 
             var name = root.TryGetProperty("name", out var nameProp) ? nameProp.GetString() : null;
             var picture = root.TryGetProperty("picture", out var picProp) ? picProp.GetString() : null;
@@ -162,6 +170,9 @@ namespace UniClub_Hub.Membership.Services.Implements
             // Thu hồi token cũ, cấp cặp token mới (rotation)
             stored.RevokedAt = DateTime.UtcNow;
             await _db.SaveChangesAsync();
+
+            if (stored.User == null)
+                throw new UnauthorizedAccessException("Refresh token không hợp lệ.");
 
             return await BuildAuthResponseAsync(stored.User);
         }

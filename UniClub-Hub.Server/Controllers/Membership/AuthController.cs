@@ -146,7 +146,7 @@ namespace UniClub_Hub.Server.Controllers.Membership
             try
             {
                 var result = await _authService.RefreshTokenAsync(refreshToken);
-                SetRefreshTokenCookie(result.RefreshToken, rememberMe: true);
+                SetRefreshTokenCookie(result.RefreshToken, IsRememberMeRefresh());
                 return Ok(ApiResponse<AuthResponseDto>.Ok(result, "Làm mới token thành công."));
             }
             catch (UnauthorizedAccessException ex)
@@ -203,7 +203,11 @@ namespace UniClub_Hub.Server.Controllers.Membership
 
             var logoUrl = await _settings.GetValueAsync("system.logo_url");
             var html = EmailTemplates.PasswordReset(user.FullName ?? user.Email!, resetLink, logoUrl);
-            await _emailService.SendAsync(dto.Email, "Đặt lại mật khẩu – UniClub Hub", html);
+            try
+            {
+                await _emailService.SendAsync(dto.Email, "Đặt lại mật khẩu – UniClub Hub", html);
+            }
+            catch { }
 
             return Ok(ApiResponse<object>.Ok(null!, "Nếu email tồn tại, hướng dẫn đặt lại mật khẩu đã được gửi."));
         }
@@ -215,13 +219,20 @@ namespace UniClub_Hub.Server.Controllers.Membership
             if (user == null || user.IsDeleted)
                 return BadRequest(ApiResponse<object>.Fail("Yêu cầu không hợp lệ."));
 
-            var token = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(dto.Token));
-            var result = await _userManager.ResetPasswordAsync(user, token, dto.NewPassword);
-
-            if (!result.Succeeded)
+            try
             {
-                var errors = string.Join(", ", result.Errors.Select(e => e.Description));
-                return BadRequest(ApiResponse<object>.Fail($"Đặt lại mật khẩu thất bại: {errors}"));
+                var token = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(dto.Token));
+                var result = await _userManager.ResetPasswordAsync(user, token, dto.NewPassword);
+
+                if (!result.Succeeded)
+                {
+                    var errors = string.Join(", ", result.Errors.Select(e => e.Description));
+                    return BadRequest(ApiResponse<object>.Fail($"Đặt lại mật khẩu thất bại: {errors}"));
+                }
+            }
+            catch
+            {
+                return BadRequest(ApiResponse<object>.Fail("Liên kết đặt lại mật khẩu không hợp lệ hoặc đã hết hạn."));
             }
 
             return Ok(ApiResponse<object>.Ok(null!, "Mật khẩu đã được đặt lại thành công."));
@@ -229,30 +240,55 @@ namespace UniClub_Hub.Server.Controllers.Membership
 
         // ── Helpers ───────────────────────────────────────────────────────────
 
-        private void SetRefreshTokenCookie(string token, bool rememberMe)
+        private bool IsRememberMeRefresh() =>
+            Request.Cookies["refreshRememberMe"] == "1";
+
+        private CookieOptions RefreshCookieOptions(bool rememberMe)
         {
             var options = new CookieOptions
             {
                 HttpOnly = true,
                 Secure = true,
-                SameSite = SameSiteMode.Strict,
+                SameSite = RefreshTokenSameSite,
                 Path = "/api/auth",
             };
 
             if (rememberMe)
                 options.Expires = DateTimeOffset.UtcNow.AddDays(30);
-            // rememberMe = false → không set Expires → session cookie (hết khi đóng browser)
 
+            return options;
+        }
+
+        private SameSiteMode RefreshTokenSameSite =>
+            _config.GetValue("Auth:CrossOriginCookies", false)
+                ? SameSiteMode.None
+                : SameSiteMode.Strict;
+
+        private void SetRefreshTokenCookie(string token, bool rememberMe)
+        {
+            var options = RefreshCookieOptions(rememberMe);
             Response.Cookies.Append("refreshToken", token, options);
+
+            if (rememberMe)
+                Response.Cookies.Append("refreshRememberMe", "1", options);
+            else
+                ClearRememberMeCookie();
         }
 
         private void ClearRefreshTokenCookie()
         {
-            Response.Cookies.Delete("refreshToken", new CookieOptions
+            var options = RefreshCookieOptions(rememberMe: false);
+            Response.Cookies.Delete("refreshToken", options);
+            ClearRememberMeCookie();
+        }
+
+        private void ClearRememberMeCookie()
+        {
+            Response.Cookies.Delete("refreshRememberMe", new CookieOptions
             {
                 HttpOnly = true,
                 Secure = true,
-                SameSite = SameSiteMode.Strict,
+                SameSite = RefreshTokenSameSite,
                 Path = "/api/auth",
             });
         }
