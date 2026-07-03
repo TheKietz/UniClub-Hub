@@ -66,7 +66,6 @@ import EventListPage from "@/components/operations/pages/EventListPage";
 import GanttPage from "@/components/operations/pages/GanttPage";
 import CalendarPage from "@/components/operations/pages/CalendarPage";
 import ClubOperationsPage from "@/components/operations/pages/ClubOperationsPage";
-import UniversityEventsPage from "@/components/operations/pages/UniversityEventsPage";
 import UniversityEventDetailPage from "@/components/operations/pages/UniversityEventDetailPage";
 import InboxPage from "@/components/operations/pages/InboxPage";
 import { TasksProvider } from "@/components/operations/context/TasksContext";
@@ -122,7 +121,7 @@ export default function App() {
               <Route path="/admin/settings" element={<SystemSettingsPage />} />
               <Route path="/admin/notification-preferences" element={<AdminNotificationPreferencePage />} />
               <Route path="/admin/report" element={<AdminReportPage />} />
-              <Route path="/admin/events" element={<UniversityEventsPage />} />
+              <Route path="/admin/events" element={<EventListPage />} />
               <Route path="/admin/events/:id" element={<UniversityEventDetailPage />} />
             </Route>
           </Route>
