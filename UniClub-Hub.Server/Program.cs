@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -61,6 +62,11 @@ builder
     .AddEntityFrameworkStores<UniClubDbContext>()
     .AddDefaultTokenProviders();
 
+var corsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
+    ?? builder.Configuration["Cors:AllowedOrigins"]?
+        .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+    ?? ["https://localhost:54610", "http://localhost:54610"];
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy(
@@ -68,7 +74,7 @@ builder.Services.AddCors(options =>
         policy =>
         {
             policy
-                .WithOrigins("https://localhost:54610", "http://localhost:54610")
+                .WithOrigins(corsOrigins)
                 .AllowAnyHeader()
                 .AllowAnyMethod()
                 .AllowCredentials();
@@ -109,6 +115,12 @@ builder
 
 builder.Services.AddAuthorization();
 builder.Services.AddHttpContextAccessor();
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.KnownNetworks.Clear();
+    options.KnownProxies.Clear();
+});
 builder.Services.Configure<GeminiOptions>(builder.Configuration.GetSection("Gemini"));
 builder.Services.AddHttpClient<IAiModelClient, GeminiAiModelClient>();
 
@@ -186,6 +198,8 @@ else
     }
 }
 
+app.UseForwardedHeaders();
+
 app.UseDefaultFiles();
 app.UseStaticFiles();
 
@@ -195,7 +209,11 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
+var configuredUrls = builder.Configuration["ASPNETCORE_URLS"] ?? string.Empty;
+if (configuredUrls.Contains("https", StringComparison.OrdinalIgnoreCase))
+{
+    app.UseHttpsRedirection();
+}
 app.UseCors("AllowReactApp");
 app.UseRateLimiter();
 app.UseAuthentication();
@@ -208,6 +226,8 @@ app.Use(async (context, next) =>
         context.Response.Headers.CacheControl = "no-store";
     await next();
 });
+
+app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 
 app.MapControllers();
 app.MapHub<KanbanHub>("/hubs/kanban");

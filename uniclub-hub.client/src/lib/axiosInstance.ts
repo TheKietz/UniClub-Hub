@@ -1,6 +1,7 @@
 import axios from 'axios'
+import { apiUrl, API_BASE_URL } from './apiConfig'
 
-const api = axios.create({ baseURL: '/api', withCredentials: true })
+const api = axios.create({ baseURL: API_BASE_URL, withCredentials: true })
 
 /** Trang public — không redirect /login khi refresh token thất bại */
 function isPublicPath(pathname: string): boolean {
@@ -44,7 +45,7 @@ api.interceptors.response.use(
 
       try {
         // RefreshToken nằm trong HttpOnly cookie — axios tự gửi nhờ withCredentials
-        const { data } = await axios.post('/api/auth/refresh', {}, { withCredentials: true })
+        const { data } = await axios.post(apiUrl('/auth/refresh'), {}, { withCredentials: true })
         const { accessToken } = data.data
 
         localStorage.setItem('accessToken', accessToken)
