@@ -30,6 +30,9 @@ namespace UniClub_Hub.Membership.Services.Interfaces
         // Bổ nhiệm Trưởng CLB (dùng bởi ClubService khi tạo CLB mới)
         Task<MemberDto> AssignClubAdminAsync(int clubId, string userId);
 
+        /// <summary>Kiểm tra CLB chưa vượt giới hạn thành viên Active/Probation.</summary>
+        Task EnsureMemberCapacityAsync(int clubId);
+
         // Custom member fields
         Task<List<MemberFieldDef>> GetMemberFieldSchemaAsync(int clubId);
         Task<List<MemberFieldDef>> UpdateMemberFieldSchemaAsync(int clubId, List<MemberFieldDef> fields, string requestUserId, bool isSuperAdmin);

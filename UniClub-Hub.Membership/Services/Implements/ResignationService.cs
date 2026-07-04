@@ -202,6 +202,9 @@ namespace UniClub_Hub.Membership.Services.Implements
                 isSuperAdmin,
                 ClubPermissions.ResignationsReview);
 
+            if (reviewerId == request.UserId)
+                throw new InvalidOperationException("Bạn không thể tự duyệt đơn từ chức của chính mình.");
+
             if (request.Status != ResignationStatus.Pending)
                 throw new InvalidOperationException("Đơn này đã được xử lý.");
 

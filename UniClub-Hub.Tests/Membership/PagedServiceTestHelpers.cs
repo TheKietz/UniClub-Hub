@@ -123,7 +123,13 @@ internal static class PagedServiceTestHelpers
 
     public static ApplicationService CreateApplicationService(
         UniClubDbContext db,
-        Mock<IClubPermissionService> permissions)
+        Mock<IClubPermissionService> permissions) =>
+        CreateApplicationService(db, permissions, CreateClubMembershipService(db));
+
+    public static ApplicationService CreateApplicationService(
+        UniClubDbContext db,
+        Mock<IClubPermissionService> permissions,
+        ClubMembershipService membershipService)
     {
         var dispatch = new Mock<INotificationDispatchService>();
         dispatch.Setup(d => d.FireAsync(It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<Dictionary<string, string>>()))
@@ -137,7 +143,8 @@ internal static class PagedServiceTestHelpers
             config,
             Mock.Of<ISystemSettingService>(),
             dispatch.Object,
-            permissions.Object);
+            permissions.Object,
+            membershipService);
     }
 
     public static ClubService CreateClubServiceWithMembership(UniClubDbContext db)

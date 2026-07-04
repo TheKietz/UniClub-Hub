@@ -136,6 +136,27 @@ public class ResignationServiceWorkflowTests : DbTestBase
         Assert.Equal(MembershipStatus.Active, membership.Status);
     }
 
+    [Fact]
+    public async Task ReviewAsync_WhenReviewerIsApplicant_ThrowsInvalidOperation()
+    {
+        await using var db = Fx.CreateDbContext();
+        SeedClub(db);
+        db.Users.Add(PagedServiceTestHelpers.User(1));
+        db.Departments.Add(PagedServiceTestHelpers.Department(1, 1, "Ban Su kien"));
+        db.ClubMemberships.Add(PagedServiceTestHelpers.Membership(
+            1, "u1", role: ClubRole.DEPT_LEAD, departmentId: 1));
+        db.ResignationRequests.Add(PagedServiceTestHelpers.Resignation(1, "u1", 1));
+        await db.SaveChangesAsync();
+
+        var service = PagedServiceTestHelpers.CreateResignationService(db);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.ReviewAsync(1, new ReviewResignationDto
+            {
+                Status = ResignationStatus.Approved
+            }, "u1", isSuperAdmin: true));
+    }
+
     private static void SeedClub(UniClub_Hub.Shared.Data.UniClubDbContext db)
     {
         db.Clubs.Add(PagedServiceTestHelpers.Club(1, "Test Club", "TEST"));

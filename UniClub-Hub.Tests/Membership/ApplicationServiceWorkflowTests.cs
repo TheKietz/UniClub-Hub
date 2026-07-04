@@ -1,6 +1,10 @@
 using Microsoft.EntityFrameworkCore;
+using Moq;
 using UniClub_Hub.Membership.DTOs.Application;
+using UniClub_Hub.Membership.DTOs.Membership;
 using UniClub_Hub.Membership.DTOs.Pipeline;
+using UniClub_Hub.Membership.Services.Implements;
+using UniClub_Hub.Membership.Services.Interfaces;
 using UniClub_Hub.Shared.Enums;
 using UniClub_Hub.Shared.Models;
 using UniClub_Hub.Tests.Infrastructure;
@@ -111,6 +115,38 @@ public class ApplicationServiceWorkflowTests : DbTestBase
         Assert.Equal(ApplicationStatus.Reviewing, result.Status);
         Assert.Equal("Screening", result.CurrentStageName);
         Assert.Equal(1, db.Applications.Find(1)!.CurrentStageId);
+    }
+
+    [Fact]
+    public async Task ReviewAsync_WhenClubAtMemberLimit_ThrowsInvalidOperation()
+    {
+        await using var db = Fx.CreateDbContext();
+        SeedClubWithPipeline(db);
+        db.Users.Add(PagedServiceTestHelpers.User(1, "Applicant", "app@uef.edu.vn", "S001"));
+        db.Users.Add(PagedServiceTestHelpers.User(2, "Existing", "existing@uef.edu.vn", "S002"));
+        db.ClubMemberships.Add(PagedServiceTestHelpers.Membership(1, "u2"));
+        db.Applications.Add(PagedServiceTestHelpers.Application(1, "u1", status: ApplicationStatus.Reviewing, stageId: 2));
+        await db.SaveChangesAsync();
+
+        var dispatch = new Mock<INotificationDispatchService>();
+        dispatch.Setup(d => d.FireAsync(It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<Dictionary<string, string>>()))
+            .Returns(Task.CompletedTask);
+
+        var settings = new Mock<ISystemSettingService>();
+        settings.Setup(s => s.GetValueAsync("club.max_members")).ReturnsAsync((string?)"1");
+
+        var membershipService = new ClubMembershipService(
+            db, dispatch.Object, settings.Object, Mock.Of<IClubPermissionService>());
+
+        var service = PagedServiceTestHelpers.CreateApplicationService(
+            db, PagedServiceTestHelpers.CreatePermissivePermissionMock(), membershipService);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.ReviewAsync(
+                1, 1,
+                new ReviewApplicationDto { Status = ApplicationStatus.Accepted, ReviewNote = "OK" },
+                "reviewer",
+                isSuperAdmin: true));
     }
 
     private static void SeedClubWithPipeline(UniClub_Hub.Shared.Data.UniClubDbContext db)
