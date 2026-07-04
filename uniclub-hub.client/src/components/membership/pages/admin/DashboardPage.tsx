@@ -141,6 +141,7 @@ export default function DashboardPage() {
   const appSegments = [
     { val: stats.applications.pending, color: D.amber },
     { val: stats.applications.interview, color: D.sky },
+    { val: stats.applications.reviewing, color: '#7c3aed' },
     { val: stats.applications.accepted, color: D.emerald },
     { val: stats.applications.rejected, color: D.red },
   ]
@@ -224,6 +225,7 @@ export default function DashboardPage() {
               {[
                 { l: 'Chờ duyệt', v: stats.applications.pending, c: D.amber },
                 { l: 'Phỏng vấn', v: stats.applications.interview, c: D.sky },
+                { l: 'Đang xét', v: stats.applications.reviewing, c: '#7c3aed' },
                 { l: 'Đã duyệt', v: stats.applications.accepted, c: D.emerald },
                 { l: 'Từ chối', v: stats.applications.rejected, c: D.red },
               ].map(item => (

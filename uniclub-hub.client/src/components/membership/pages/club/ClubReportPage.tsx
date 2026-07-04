@@ -284,6 +284,7 @@ export default function ClubReportPage() {
               rows={[
                 ['Chờ duyệt', stats.applications.pending, '—'],
                 ['Đang phỏng vấn', stats.applications.interview, '—'],
+                ['Đang xét', stats.applications.reviewing, '—'],
                 ['Đã chấp nhận', stats.applications.accepted,
                   acceptanceRate !== null ? `${acceptanceRate}% tỉ lệ duyệt` : '—'],
                 ['Bị từ chối', stats.applications.rejected, '—'],

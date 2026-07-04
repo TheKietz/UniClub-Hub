@@ -75,4 +75,23 @@ public class StatsServiceTests : DbTestBase
         Assert.Equal(1, stats.Applications.Rejected);
         Assert.Equal(1, stats.TotalDepartments);
     }
+
+    [Fact]
+    public async Task GetSystemStatsAsync_IncludesReviewingApplications()
+    {
+        await using var db = Fx.CreateDbContext();
+        db.Clubs.Add(PagedServiceTestHelpers.Club(1, "Test Club", "TEST"));
+        db.Users.Add(PagedServiceTestHelpers.User(1));
+        db.Applications.AddRange(
+            PagedServiceTestHelpers.Application(1, "u1", clubId: 1, status: ApplicationStatus.Reviewing),
+            PagedServiceTestHelpers.Application(2, "u1", clubId: 1, status: ApplicationStatus.Pending));
+        await db.SaveChangesAsync();
+
+        var service = new StatsService(db);
+        var stats = await service.GetSystemStatsAsync();
+
+        Assert.Equal(1, stats.Applications.Reviewing);
+        Assert.Equal(1, stats.Applications.Pending);
+        Assert.Equal(2, stats.Applications.Total);
+    }
 }

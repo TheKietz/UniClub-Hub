@@ -6,6 +6,10 @@ namespace UniClub_Hub.Membership.Services.Roles
 {
     public static class RoleSuggestionRules
     {
+        private const double ExcellentThreshold = 90;
+        private const double GoodThreshold = 75;
+        private const double AcceptableThreshold = 60;
+
         public static RoleSuggestionDto BuildRuleBasedSuggestion(
             ClubMembership membership,
             RoleSuggestionContext context)
@@ -15,18 +19,19 @@ namespace UniClub_Hub.Membership.Services.Roles
                 ? (double)context.Tasks.Done / context.Tasks.Total
                 : 0;
 
+            var kpiScore = context.Kpi?.TotalScore;
             var kpiGrade = context.Kpi?.Grade;
             bool hasStrongPerformance;
             double deptLeadConfidenceBase;
 
-            if (kpiGrade != null)
+            if (kpiScore.HasValue)
             {
-                hasStrongPerformance = kpiGrade is "Xuất sắc" or "Tốt";
-                deptLeadConfidenceBase = kpiGrade switch
+                hasStrongPerformance = kpiScore.Value >= GoodThreshold;
+                deptLeadConfidenceBase = kpiScore.Value switch
                 {
-                    "Xuất sắc" => 0.85,
-                    "Tốt" => 0.72,
-                    "Đạt" => 0.55,
+                    >= ExcellentThreshold => 0.85,
+                    >= GoodThreshold => 0.72,
+                    >= AcceptableThreshold => 0.55,
                     _ => 0.30,
                 };
             }
@@ -41,14 +46,14 @@ namespace UniClub_Hub.Membership.Services.Roles
                 p.Name.Contains("lead", StringComparison.OrdinalIgnoreCase) ||
                 p.Name.Contains("phụ trách", StringComparison.OrdinalIgnoreCase));
 
-            if (holdsDeptLeadPosition && kpiGrade is "Xuất sắc" or "Tốt")
+            if (holdsDeptLeadPosition && kpiScore >= GoodThreshold)
                 deptLeadConfidenceBase = Math.Min(deptLeadConfidenceBase + 0.08, 0.95);
 
             var preferredDepartment = PickDepartment(context);
             var suggestions = new List<RoleSuggestionItemDto>();
 
             bool canSuggestDeptLead =
-                kpiGrade != "Cần cải thiện"
+                !(kpiScore.HasValue && kpiScore.Value < AcceptableThreshold)
                 && preferredDepartment is not null
                 && !context.CurrentDeptLeadDepartmentIds.Contains(preferredDepartment.Id)
                 && membership.ClubRole != ClubRole.CLUB_ADMIN
@@ -63,18 +68,18 @@ namespace UniClub_Hub.Membership.Services.Roles
                     DepartmentId = preferredDepartment!.Id,
                     DepartmentName = preferredDepartment.Name,
                     Confidence = ClampConfidence(deptLeadConfidenceBase),
-                    Reason = BuildDeptLeadReason(context, kpiGrade, holdsDeptLeadPosition),
+                    Reason = BuildDeptLeadReason(context, kpiScore, kpiGrade, holdsDeptLeadPosition, preferredDepartment),
                 });
             }
 
             if (preferredDepartment is not null)
             {
-                var memberConfidence = kpiGrade switch
+                var memberConfidence = kpiScore switch
                 {
-                    "Xuất sắc" => 0.80,
-                    "Tốt" => 0.74,
-                    "Đạt" => 0.65,
-                    "Cần cải thiện" => 0.50,
+                    >= ExcellentThreshold => 0.80,
+                    >= GoodThreshold => 0.74,
+                    >= AcceptableThreshold => 0.65,
+                    < AcceptableThreshold when kpiScore.HasValue => 0.50,
                     _ => hasStrongPerformance ? 0.74 : 0.58,
                 };
 
@@ -118,7 +123,7 @@ namespace UniClub_Hub.Membership.Services.Roles
                 MemberName = membership.User.FullName ?? membership.User.Email ?? membership.UserId,
                 AiEnabled = false,
                 Source = "Rules",
-                Summary = BuildRuleBasedSummary(kpiGrade, hasStrongPerformance, activeDays),
+                Summary = BuildRuleBasedSummary(kpiScore, kpiGrade, hasStrongPerformance, activeDays),
                 Signals = signals,
                 Suggestions = suggestions.Take(3).ToList(),
             };
@@ -155,15 +160,17 @@ namespace UniClub_Hub.Membership.Services.Roles
 
         private static string BuildDeptLeadReason(
             RoleSuggestionContext context,
+            double? kpiScore,
             string? kpiGrade,
-            bool holdsDeptLeadPosition)
+            bool holdsDeptLeadPosition,
+            DepartmentSignal preferredDepartment)
         {
             var parts = new List<string>();
-            if (kpiGrade is "Xuất sắc" or "Tốt")
+            if (kpiScore >= GoodThreshold && !string.IsNullOrWhiteSpace(kpiGrade))
                 parts.Add($"kết quả KPI {kpiGrade.ToLowerInvariant()}");
             if (holdsDeptLeadPosition)
                 parts.Add("đang giữ vị trí có trách nhiệm lãnh đạo");
-            if (!context.CurrentDeptLeadDepartmentIds.Contains(context.Member.DepartmentId ?? -1))
+            if (!context.CurrentDeptLeadDepartmentIds.Contains(preferredDepartment.Id))
                 parts.Add("ban này chưa có trưởng ban đang hoạt động");
 
             return parts.Count > 0
@@ -171,15 +178,15 @@ namespace UniClub_Hub.Membership.Services.Roles
                 : "Thành viên có tín hiệu đóng góp tốt và ban này chưa có trưởng ban đang hoạt động.";
         }
 
-        private static string BuildRuleBasedSummary(string? kpiGrade, bool hasStrongPerformance, int activeDays)
+        private static string BuildRuleBasedSummary(double? kpiScore, string? kpiGrade, bool hasStrongPerformance, int activeDays)
         {
-            if (kpiGrade == "Xuất sắc")
-                return "Thành viên đạt kết quả KPI xuất sắc — đủ điều kiện xem xét vai trò lãnh đạo.";
-            if (kpiGrade == "Tốt")
-                return "Thành viên có kết quả KPI tốt và thâm niên đủ để đảm nhận trách nhiệm cao hơn.";
-            if (kpiGrade == "Đạt")
+            if (kpiScore >= ExcellentThreshold)
+                return $"Thành viên đạt kết quả KPI {(kpiGrade ?? "xuất sắc").ToLowerInvariant()} — đủ điều kiện xem xét vai trò lãnh đạo.";
+            if (kpiScore >= GoodThreshold)
+                return $"Thành viên có kết quả KPI {(kpiGrade ?? "tốt").ToLowerInvariant()} và thâm niên đủ để đảm nhận trách nhiệm cao hơn.";
+            if (kpiScore >= AcceptableThreshold)
                 return "Thành viên đạt KPI ở mức cơ bản; nên tiếp tục theo dõi trước khi nâng vai trò.";
-            if (kpiGrade == "Cần cải thiện")
+            if (kpiScore.HasValue)
                 return "KPI hiện tại cần cải thiện — không khuyến nghị nâng vai trò lúc này.";
             if (hasStrongPerformance && activeDays >= 30)
                 return "Gợi ý được tạo bằng luật nội bộ dựa trên dữ liệu đóng góp và công việc.";

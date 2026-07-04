@@ -202,8 +202,6 @@ namespace UniClub_Hub.Membership.Services.Implements
                 .ThenBy(g => g.DisplayOrder)
                 .ToList();
 
-            KpiCalculator.ValidateTotalWeight(config.Criteria);
-
             var memberQuery = _db.ClubMemberships
                 .AsNoTracking()
                 .Where(m =>
@@ -212,9 +210,6 @@ namespace UniClub_Hub.Membership.Services.Implements
 
             if (departmentId.HasValue)
                 memberQuery = memberQuery.Where(m => m.DepartmentId == departmentId);
-
-            if (!string.IsNullOrEmpty(onlyUserId))
-                memberQuery = memberQuery.Where(m => m.UserId == onlyUserId);
 
             var members = await memberQuery
                 .Include(m => m.User)
@@ -295,8 +290,6 @@ namespace UniClub_Hub.Membership.Services.Implements
                         if (isOnTime) stats.OnTimeDone += 1;
                     }
 
-                    if (task.Deadline.HasValue && task.Deadline.Value < DateTimeOffset.UtcNow && task.Status != ClubTaskStatus.Done)
-                        stats.Overdue += 1;
                 }
             }
 
@@ -358,6 +351,9 @@ namespace UniClub_Hub.Membership.Services.Implements
             for (var i = 0; i < results.Count; i++)
                 results[i].Rank = i + 1;
 
+            if (!string.IsNullOrEmpty(onlyUserId))
+                results = results.Where(r => r.UserId == onlyUserId).ToList();
+
             return new KpiResultsDto
             {
                 ClubId = clubId,
@@ -397,6 +393,7 @@ namespace UniClub_Hub.Membership.Services.Implements
             var changed = false;
             foreach (var item in DefaultCriteria().Where(c => !existingKeys.Contains(c.MetricKey)))
             {
+                item.IsEnabled = false;
                 config.Criteria.Add(item);
                 changed = true;
             }

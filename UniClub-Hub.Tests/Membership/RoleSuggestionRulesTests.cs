@@ -73,6 +73,29 @@ public class RoleSuggestionRulesTests
     }
 
     [Fact]
+    public void BuildRuleBasedSuggestion_WithCustomGradeLabelAndHighScore_UsesScoreThresholds()
+    {
+        var membership = CreateMembership();
+        var context = new RoleSuggestionContext(
+            Club: new ClubSignal(1, "CLB Test", "Desc"),
+            Member: new MemberSignal(
+                1, "u1", "Test Member", "S001", "CNTT", ClubRole.MEMBER.ToString(),
+                1, "Ban Kỹ thuật", MembershipStatus.Active.ToString(),
+                DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-60)), null),
+            Departments: [new DepartmentSignal(1, "Ban Kỹ thuật", "Tech team")],
+            CurrentDeptLeadDepartmentIds: [],
+            Contribution: new ContributionSignal(10, 1, []),
+            Tasks: new TaskSignal(0, 0, 0, 0),
+            Application: null,
+            Kpi: new KpiSignal(95, "A", 1, []),
+            Positions: []);
+
+        var result = RoleSuggestionRules.BuildRuleBasedSuggestion(membership, context);
+
+        Assert.Contains(result.Suggestions, s => s.Role == ClubRole.DEPT_LEAD);
+    }
+
+    [Fact]
     public void BuildRuleBasedSuggestion_WithXuatSacAndOpenDepartment_IncludesDeptLeadWithHighConfidence()
     {
         var membership = CreateMembership();

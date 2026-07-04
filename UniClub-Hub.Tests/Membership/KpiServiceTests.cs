@@ -172,6 +172,44 @@ public class KpiServiceTests : DbTestBase
     }
 
     [Fact]
+    public async Task GetMyResultAsync_WhenAnotherMemberHasMoreTasks_WorkloadNotAlways100AndRankReflectsClub()
+    {
+        var db = Fx.CreateDbContext();
+        var perm = new Mock<IClubPermissionService>();
+        db.Clubs.Add(new Club { Id = 1, Name = "CLB Test", Code = "TEST" });
+        db.Users.Add(new ApplicationUser { Id = "u1", UserName = "u1", Email = "u1@test.com", NormalizedEmail = "U1@TEST.COM", NormalizedUserName = "U1", SecurityStamp = "x1" });
+        db.Users.Add(new ApplicationUser { Id = "u2", UserName = "u2", Email = "u2@test.com", NormalizedEmail = "U2@TEST.COM", NormalizedUserName = "U2", SecurityStamp = "x2" });
+        db.ClubMemberships.Add(new ClubMembership { Id = 1, UserId = "u1", ClubId = 1, Status = MembershipStatus.Active, JoinedDate = DateOnly.FromDateTime(DateTime.UtcNow), ClubRole = ClubRole.MEMBER });
+        db.ClubMemberships.Add(new ClubMembership { Id = 2, UserId = "u2", ClubId = 1, Status = MembershipStatus.Active, JoinedDate = DateOnly.FromDateTime(DateTime.UtcNow), ClubRole = ClubRole.MEMBER });
+
+        var now = DateTimeOffset.UtcNow;
+        for (var i = 1; i <= 2; i++)
+            db.Tasks.Add(new ClubTask
+            {
+                Id = i, ClubId = 1, Title = $"Task u1 {i}",
+                AssignedTo = "u1", Status = ClubTaskStatus.Done, Progress = 100,
+                CreatedAt = DateTime.UtcNow, CompletedAt = now.AddMinutes(-1), Deadline = now.AddDays(1)
+            });
+        for (var i = 3; i <= 8; i++)
+            db.Tasks.Add(new ClubTask
+            {
+                Id = i, ClubId = 1, Title = $"Task u2 {i}",
+                AssignedTo = "u2", Status = ClubTaskStatus.Done, Progress = 100,
+                CreatedAt = DateTime.UtcNow, CompletedAt = now.AddMinutes(-1), Deadline = now.AddDays(1)
+            });
+        await db.SaveChangesAsync();
+
+        var svc = new KpiService(db, perm.Object);
+        var u1 = await svc.GetMyResultAsync(1, null, null, "u1", isSuperAdmin: true);
+        var clubResults = await svc.GetResultsAsync(1, null, null, null, "u1", isSuperAdmin: true);
+
+        var workloadMetric = u1.Metrics.First(m => m.MetricKey == KpiMetricKey.Workload);
+        Assert.True(workloadMetric.RawScore < 100);
+        Assert.Equal(2, u1.Rank);
+        Assert.Equal("u2", clubResults.Members[0].UserId);
+    }
+
+    [Fact]
     public async Task UpdateCriteriaAsync_WithEmptyList_ThrowsInvalidOperation()
     {
         var (svc, _) = await SetupAsync();

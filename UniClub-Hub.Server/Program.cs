@@ -122,7 +122,8 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
     options.KnownProxies.Clear();
 });
 builder.Services.Configure<GeminiOptions>(builder.Configuration.GetSection("Gemini"));
-builder.Services.AddHttpClient<IAiModelClient, GeminiAiModelClient>();
+builder.Services.AddHttpClient<IAiModelClient, GeminiAiModelClient>()
+    .ConfigureHttpClient(client => client.Timeout = TimeSpan.FromSeconds(20));
 
 builder.Services.AddRateLimiter(options =>
 {
@@ -196,7 +197,6 @@ if (app.Environment.IsDevelopment())
 }
 else
 {
-    // Production: chỉ tạo roles, không seed sample data
     using var scope = app.Services.CreateScope();
     var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
     foreach (var role in new[] { "SUPER_ADMIN", "USER" })
@@ -204,6 +204,9 @@ else
         if (!await roleManager.RoleExistsAsync(role))
             await roleManager.CreateAsync(new IdentityRole(role));
     }
+
+    var db = scope.ServiceProvider.GetRequiredService<UniClubDbContext>();
+    await UniClub_Hub.Server.Data.NotificationPreferenceSeeder.SeedDefaultsAsync(db);
 }
 
 app.UseForwardedHeaders();

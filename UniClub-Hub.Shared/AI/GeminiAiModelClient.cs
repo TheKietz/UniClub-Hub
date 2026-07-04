@@ -44,8 +44,10 @@ namespace UniClub_Hub.Shared.AI
 
             var baseUrl = _options.BaseUrl.TrimEnd('/');
             var model = Uri.EscapeDataString(_options.Model);
-            var apiKey = Uri.EscapeDataString(_options.ApiKey!);
-            var requestUri = $"{baseUrl}/v1beta/models/{model}:generateContent?key={apiKey}";
+            var requestUri = $"{baseUrl}/v1beta/models/{model}:generateContent";
+
+            using var httpRequest = new HttpRequestMessage(HttpMethod.Post, requestUri);
+            httpRequest.Headers.Add("x-goog-api-key", _options.ApiKey);
 
             var request = new GeminiGenerateContentRequest(
                 [
@@ -61,12 +63,9 @@ namespace UniClub_Hub.Shared.AI
                 new GeminiGenerationConfig(_options.Temperature, "application/json")
             );
 
-            using var response = await _httpClient.PostAsJsonAsync(
-                requestUri,
-                request,
-                JsonOptions,
-                cancellationToken
-            );
+            httpRequest.Content = JsonContent.Create(request, options: JsonOptions);
+
+            using var response = await _httpClient.SendAsync(httpRequest, cancellationToken);
 
             var responseText = await response.Content.ReadAsStringAsync(cancellationToken);
             if (!response.IsSuccessStatusCode)

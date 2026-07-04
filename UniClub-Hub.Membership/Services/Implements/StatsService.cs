@@ -157,6 +157,7 @@ namespace UniClub_Hub.Membership.Services.Implements
             {
                 Pending = Get(ApplicationStatus.Pending),
                 Interview = Get(ApplicationStatus.Interview),
+                Reviewing = Get(ApplicationStatus.Reviewing),
                 Accepted = Get(ApplicationStatus.Accepted),
                 Rejected = Get(ApplicationStatus.Rejected)
             };

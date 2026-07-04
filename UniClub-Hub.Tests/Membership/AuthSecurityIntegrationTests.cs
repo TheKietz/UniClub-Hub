@@ -253,4 +253,113 @@ public class AuthSecurityIntegrationTests : DbTestBase
         user.EmailConfirmed = true;
         await db.SaveChangesAsync();
     }
+
+    [Fact]
+    public async Task Login_WhenUserLocked_ReturnsUnauthorized()
+    {
+        const string email = "locked.user@uef.edu.vn";
+        const string password = "123456";
+
+        var register = await _client.PostAsJsonAsync("/api/auth/register", new RegisterDto
+        {
+            Email = email,
+            Password = password,
+            FullName = "Locked User",
+            StudentId = "SV300",
+            Major = "CNTT",
+        });
+        Assert.Equal(HttpStatusCode.OK, register.StatusCode);
+        await ConfirmEmailAsync(email);
+
+        await using (var scope = _factory.Services.CreateAsyncScope())
+        {
+            var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+            var user = await userManager.FindByEmailAsync(email);
+            Assert.NotNull(user);
+            await userManager.SetLockoutEnabledAsync(user!, true);
+            await userManager.SetLockoutEndDateAsync(user!, DateTimeOffset.MaxValue);
+        }
+
+        var login = await _client.PostAsJsonAsync("/api/auth/login", new LoginDto
+        {
+            Email = email,
+            Password = password,
+        });
+
+        Assert.Equal(HttpStatusCode.Unauthorized, login.StatusCode);
+    }
+
+    [Fact]
+    public async Task Refresh_WhenUserLocked_ReturnsUnauthorized()
+    {
+        const string email = "locked.refresh@uef.edu.vn";
+        const string password = "123456";
+
+        var register = await _client.PostAsJsonAsync("/api/auth/register", new RegisterDto
+        {
+            Email = email,
+            Password = password,
+            FullName = "Locked Refresh",
+            StudentId = "SV301",
+            Major = "CNTT",
+        });
+        Assert.Equal(HttpStatusCode.OK, register.StatusCode);
+        await ConfirmEmailAsync(email);
+
+        var login = await _client.PostAsJsonAsync("/api/auth/login", new LoginDto
+        {
+            Email = email,
+            Password = password,
+        });
+        Assert.Equal(HttpStatusCode.OK, login.StatusCode);
+
+        await using (var scope = _factory.Services.CreateAsyncScope())
+        {
+            var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+            var user = await userManager.FindByEmailAsync(email);
+            Assert.NotNull(user);
+            await userManager.SetLockoutEnabledAsync(user!, true);
+            await userManager.SetLockoutEndDateAsync(user!, DateTimeOffset.MaxValue);
+        }
+
+        var refresh = await _client.PostAsync("/api/auth/refresh", null);
+        Assert.Equal(HttpStatusCode.Unauthorized, refresh.StatusCode);
+    }
+
+    [Fact]
+    public async Task Login_AfterUnlock_Succeeds()
+    {
+        const string email = "unlock.user@uef.edu.vn";
+        const string password = "123456";
+
+        var register = await _client.PostAsJsonAsync("/api/auth/register", new RegisterDto
+        {
+            Email = email,
+            Password = password,
+            FullName = "Unlock User",
+            StudentId = "SV302",
+            Major = "CNTT",
+        });
+        Assert.Equal(HttpStatusCode.OK, register.StatusCode);
+        await ConfirmEmailAsync(email);
+
+        await using (var scope = _factory.Services.CreateAsyncScope())
+        {
+            var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+            var user = await userManager.FindByEmailAsync(email);
+            Assert.NotNull(user);
+            await userManager.SetLockoutEnabledAsync(user!, true);
+            await userManager.SetLockoutEndDateAsync(user!, DateTimeOffset.MaxValue);
+            await userManager.SetLockoutEndDateAsync(user!, null);
+            await userManager.ResetAccessFailedCountAsync(user!);
+        }
+
+        var login = await _client.PostAsJsonAsync("/api/auth/login", new LoginDto
+        {
+            Email = email,
+            Password = password,
+        });
+
+        Assert.Equal(HttpStatusCode.OK, login.StatusCode);
+    }
 }

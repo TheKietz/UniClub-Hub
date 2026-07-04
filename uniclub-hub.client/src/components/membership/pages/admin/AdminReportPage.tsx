@@ -181,6 +181,7 @@ export default function AdminReportPage() {
               rows={[
                 ['Chờ duyệt', stats.applications.pending, stats.applications.total > 0 ? `${Math.round(stats.applications.pending / stats.applications.total * 100)}%` : '—'],
                 ['Đang phỏng vấn', stats.applications.interview, stats.applications.total > 0 ? `${Math.round(stats.applications.interview / stats.applications.total * 100)}%` : '—'],
+                ['Đang xét', stats.applications.reviewing, stats.applications.total > 0 ? `${Math.round(stats.applications.reviewing / stats.applications.total * 100)}%` : '—'],
                 ['Đã chấp nhận', stats.applications.accepted, acceptanceRate !== null ? `${acceptanceRate}% tỉ lệ duyệt` : '—'],
                 ['Bị từ chối', stats.applications.rejected, ''],
                 ['Tổng cộng', stats.applications.total, ''],

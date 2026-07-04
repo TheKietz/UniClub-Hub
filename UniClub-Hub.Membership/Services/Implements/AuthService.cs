@@ -90,6 +90,9 @@ namespace UniClub_Hub.Membership.Services.Implements
             if (!await _userManager.CheckPasswordAsync(user, dto.Password))
                 throw new UnauthorizedAccessException("Email hoặc mật khẩu không đúng.");
 
+            if (await _userManager.IsLockedOutAsync(user))
+                throw new UnauthorizedAccessException("Tài khoản đã bị khoá.");
+
             if (!user.EmailConfirmed)
                 throw new UnauthorizedAccessException("EMAIL_NOT_CONFIRMED");
 
@@ -153,6 +156,10 @@ namespace UniClub_Hub.Membership.Services.Implements
             {
                 throw new UnauthorizedAccessException("Tài khoản đã bị vô hiệu hóa.");
             }
+            else if (await _userManager.IsLockedOutAsync(user))
+            {
+                throw new UnauthorizedAccessException("Tài khoản đã bị khoá.");
+            }
 
             return await BuildAuthResponseAsync(user);
         }
@@ -167,12 +174,19 @@ namespace UniClub_Hub.Membership.Services.Implements
             if (!stored.IsActive)
                 throw new UnauthorizedAccessException("Refresh token đã hết hạn hoặc bị thu hồi.");
 
+            if (stored.User == null)
+                throw new UnauthorizedAccessException("Refresh token không hợp lệ.");
+
+            if (await _userManager.IsLockedOutAsync(stored.User))
+            {
+                stored.RevokedAt = DateTime.UtcNow;
+                await _db.SaveChangesAsync();
+                throw new UnauthorizedAccessException("Tài khoản đã bị khoá.");
+            }
+
             // Thu hồi token cũ, cấp cặp token mới (rotation)
             stored.RevokedAt = DateTime.UtcNow;
             await _db.SaveChangesAsync();
-
-            if (stored.User == null)
-                throw new UnauthorizedAccessException("Refresh token không hợp lệ.");
 
             return await BuildAuthResponseAsync(stored.User);
         }

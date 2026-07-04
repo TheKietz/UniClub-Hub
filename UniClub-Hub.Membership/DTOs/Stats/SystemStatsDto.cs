@@ -24,9 +24,10 @@ namespace UniClub_Hub.Membership.DTOs.Stats
     {
         public int Pending { get; set; }
         public int Interview { get; set; }
+        public int Reviewing { get; set; }
         public int Accepted { get; set; }
         public int Rejected { get; set; }
-        public int Total => Pending + Interview + Accepted + Rejected;
+        public int Total => Pending + Interview + Reviewing + Accepted + Rejected;
     }
 
     public class CategoryStatDto

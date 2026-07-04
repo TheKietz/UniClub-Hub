@@ -144,7 +144,6 @@ namespace UniClub_Hub.Membership.Services.Kpi
         public int Total { get; set; }
         public int Done { get; set; }
         public int OnTimeDone { get; set; }
-        public int Overdue { get; set; }
         public double ProgressSum { get; set; }
     }
 }

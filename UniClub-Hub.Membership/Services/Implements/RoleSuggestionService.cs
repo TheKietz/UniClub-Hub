@@ -44,6 +44,8 @@ namespace UniClub_Hub.Membership.Services.Implements
             CancellationToken cancellationToken = default
         )
         {
+            await EnsureCanSuggestAsync(clubId, requesterUserId, isSuperAdmin);
+
             var membership =
                 await _db
                     .ClubMemberships.AsNoTracking()
@@ -55,8 +57,6 @@ namespace UniClub_Hub.Membership.Services.Implements
                         cancellationToken
                     )
                 ?? throw new KeyNotFoundException("Không tìm thấy thành viên này trong CLB.");
-
-            await EnsureCanSuggestAsync(clubId, requesterUserId, isSuperAdmin);
 
             var context = await BuildContextAsync(membership, cancellationToken);
             var fallback = RoleSuggestionRules.BuildRuleBasedSuggestion(membership, context);
@@ -320,17 +320,17 @@ namespace UniClub_Hub.Membership.Services.Implements
 
             Dữ liệu đầu vào bao gồm:
             - member: thông tin cơ bản, vai trò hiện tại, thâm niên
-            - kpi: điểm KPI tổng hợp, xếp loại (Xuất sắc/Tốt/Đạt/Cần cải thiện), breakdown từng tiêu chí (3 tháng gần nhất)
+            - kpi: điểm KPI tổng hợp (totalScore), xếp loại (grade — label do CLB tự đặt), rank trong CLB, breakdown từng tiêu chí (3 tháng gần nhất)
             - positions: danh sách vị trí (position) thành viên đang giữ trong CLB
             - contribution: điểm đóng góp thủ công
             - tasks: thống kê hoàn thành công việc
             - departments: danh sách ban và trạng thái trưởng ban
 
-            Hướng dẫn sử dụng KPI:
-            - "Xuất sắc" (≥90đ): ưu tiên đề xuất DEPT_LEAD nếu có ban trống trưởng
-            - "Tốt" (75-89đ): có thể đề xuất DEPT_LEAD với điều kiện thêm (thâm niên, ban trống)
-            - "Đạt" (60-74đ): chỉ đề xuất MEMBER, không đề xuất DEPT_LEAD
-            - "Cần cải thiện" (<60đ): gợi ý tập trung cải thiện KPI, không đề xuất nâng vai trò
+            Hướng dẫn sử dụng KPI (dựa trên totalScore, không phụ thuộc label grade):
+            - ≥90 điểm: ưu tiên đề xuất DEPT_LEAD nếu có ban trống trưởng
+            - 75-89 điểm: có thể đề xuất DEPT_LEAD với điều kiện thêm (thâm niên, ban trống)
+            - 60-74 điểm: chỉ đề xuất MEMBER, không đề xuất DEPT_LEAD
+            - <60 điểm: gợi ý tập trung cải thiện KPI, không đề xuất nâng vai trò
             - Nếu kpi=null: suy luận từ contribution và tasks
 
             Hướng dẫn sử dụng positions:
