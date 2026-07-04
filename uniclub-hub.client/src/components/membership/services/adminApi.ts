@@ -103,9 +103,9 @@ export const updateSetting = (key: string, value: string) =>
 export const toggleSettingEnabled = (key: string, enabled: boolean) =>
   api.patch(`/admin/settings/${key}/enabled`, { enabled })
 export const getPublicContactInfo = () =>
-  api.get<{ data: Record<string, string> }>('/admin/settings/contact').then(r => r.data.data)
+  api.get<{ data: Record<string, string> }>('/admin/settings/contact').then(r => r.data.data ?? {})
 export const getPublicSettings = () =>
-  api.get<{ data: Record<string, string> }>('/admin/settings/public').then(r => r.data.data)
+  api.get<{ data: Record<string, string> }>('/admin/settings/public').then(r => r.data.data ?? {})
 
 // ── Users import/export ────────────────────────────────────────────────────
 

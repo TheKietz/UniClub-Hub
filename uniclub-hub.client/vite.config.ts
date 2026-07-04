@@ -9,11 +9,10 @@ import child_process from 'child_process';
 import { env } from 'process';
 
 const isDockerBuild = env.VITE_DOCKER_BUILD === '1';
-const isDevServer = process.argv.includes('dev') || process.argv.includes('serve');
 
-let devServerConfig: Record<string, unknown> | undefined;
+function buildDevServerConfig(): Record<string, unknown> | undefined {
+    if (isDockerBuild) return undefined;
 
-if (isDevServer && !isDockerBuild) {
     const baseFolder =
         env.APPDATA !== undefined && env.APPDATA !== ''
             ? `${env.APPDATA}/ASP.NET/https`
@@ -44,7 +43,7 @@ if (isDevServer && !isDockerBuild) {
     const target = env.ASPNETCORE_HTTPS_PORT ? `https://localhost:${env.ASPNETCORE_HTTPS_PORT}` :
         env.ASPNETCORE_URLS ? env.ASPNETCORE_URLS.split(';')[0] : 'https://localhost:7274';
 
-    devServerConfig = {
+    return {
         proxy: {
             '^/api': {
                 target,
@@ -65,7 +64,7 @@ if (isDevServer && !isDockerBuild) {
 }
 
 // https://vitejs.dev/config/
-export default defineConfig({
+export default defineConfig(({ command }) => ({
     plugins: [plugin(), tailwindcss()],
     resolve: {
         alias: {
@@ -73,5 +72,5 @@ export default defineConfig({
             html2canvas: path.resolve(path.dirname(fileURLToPath(import.meta.url)), 'node_modules/html2canvas-pro/dist/html2canvas-pro.esm.js'),
         }
     },
-    server: devServerConfig,
-})
+    server: command === 'serve' ? buildDevServerConfig() : undefined,
+}))

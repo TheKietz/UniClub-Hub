@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
+using System.Text;
 using UniClub_Hub.Membership.DTOs.Membership;
 using UniClub_Hub.Membership.Services.Implements;
 using UniClub_Hub.Shared.Common;
@@ -31,7 +32,8 @@ namespace UniClub_Hub.Server.Controllers.Membership
             }
             catch (UnauthorizedAccessException) { return Forbid(); }
             catch (InvalidOperationException ex) { return BadRequest(ApiResponse<object>.Fail(ex.Message)); }
-            catch (KeyNotFoundException ex)      { return NotFound(ApiResponse<object>.Fail(ex.Message)); }
+            catch (ArgumentException ex) { return BadRequest(ApiResponse<object>.Fail(ex.Message)); }
+            catch (KeyNotFoundException ex) { return NotFound(ApiResponse<object>.Fail(ex.Message)); }
         }
 
         /// <summary>Confirm import — lưu các dòng hợp lệ vào DB</summary>
@@ -45,6 +47,9 @@ namespace UniClub_Hub.Server.Controllers.Membership
                 return Ok(ApiResponse<ImportResultDto>.Ok(result, $"Đã thêm {result.Imported} thành viên."));
             }
             catch (UnauthorizedAccessException) { return Forbid(); }
+            catch (InvalidOperationException ex) { return BadRequest(ApiResponse<object>.Fail(ex.Message)); }
+            catch (ArgumentException ex) { return BadRequest(ApiResponse<object>.Fail(ex.Message)); }
+            catch (KeyNotFoundException ex) { return NotFound(ApiResponse<object>.Fail(ex.Message)); }
         }
 
         /// <summary>Tải file template Excel</summary>
@@ -52,7 +57,7 @@ namespace UniClub_Hub.Server.Controllers.Membership
         public IActionResult DownloadTemplate(int clubId)
         {
             var csv = "Email,ClubRole,Ban\nexample@uef.edu.vn,MEMBER,Ban Truyền thông\n";
-            var bytes = System.Text.Encoding.UTF8.GetBytes(csv);
+            var bytes = new UTF8Encoding(true).GetBytes(csv);
             return File(bytes, "text/csv", $"template-import-members-club{clubId}.csv");
         }
 

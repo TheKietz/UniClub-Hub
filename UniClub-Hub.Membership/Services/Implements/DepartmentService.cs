@@ -14,17 +14,20 @@ namespace UniClub_Hub.Membership.Services.Implements
         private readonly INotificationService _notifications;
         private readonly ISystemSettingService _settings;
         private readonly IClubPermissionService _permissions;
+        private readonly IClubMembershipService _membershipService;
 
         public DepartmentService(
             UniClubDbContext db,
             INotificationService notifications,
             ISystemSettingService settings,
-            IClubPermissionService permissions)
+            IClubPermissionService permissions,
+            IClubMembershipService membershipService)
         {
             _db = db;
             _notifications = notifications;
             _settings = settings;
             _permissions = permissions;
+            _membershipService = membershipService;
         }
 
         public async Task<IEnumerable<DepartmentDto>> GetAllAsync(int clubId)
@@ -117,6 +120,28 @@ namespace UniClub_Hub.Membership.Services.Implements
                 .FirstOrDefaultAsync(d => d.ClubId == clubId && d.Id == id)
                 ?? throw new KeyNotFoundException($"Không tìm thấy ban với ID {id} trong CLB này.");
 
+            // Gỡ position assignments và positions của ban trước khi xoá
+            var deptPositionIds = await _db.ClubPositions
+                .IgnoreQueryFilters()
+                .Where(p => p.DepartmentId == id)
+                .Select(p => p.Id)
+                .ToListAsync();
+
+            if (deptPositionIds.Count > 0)
+            {
+                var memberPositions = await _db.ClubMemberPositions
+                    .IgnoreQueryFilters()
+                    .Where(mp => deptPositionIds.Contains(mp.PositionId))
+                    .ToListAsync();
+                _db.ClubMemberPositions.RemoveRange(memberPositions);
+
+                var positions = await _db.ClubPositions
+                    .IgnoreQueryFilters()
+                    .Where(p => p.DepartmentId == id)
+                    .ToListAsync();
+                _db.ClubPositions.RemoveRange(positions);
+            }
+
             // Lấy tất cả thành viên đang hoạt động trong ban
             var affected = await _db.ClubMemberships
                 .Where(m => m.DepartmentId == id &&
@@ -149,25 +174,10 @@ namespace UniClub_Hub.Membership.Services.Implements
             bool isSuperAdmin)
         {
             await EnsureCanManageAsync(clubId, requesterUserId, isSuperAdmin);
-            var department = await _db.Departments.FirstOrDefaultAsync(d => d.ClubId == clubId && d.Id == deptId)
+            _ = await _db.Departments.FirstOrDefaultAsync(d => d.ClubId == clubId && d.Id == deptId)
                 ?? throw new KeyNotFoundException($"Không tìm thấy ban với ID {deptId} trong CLB này.");
 
-            // Hạ trưởng ban cũ
-            var oldLead = await _db.ClubMemberships.FirstOrDefaultAsync(m =>
-                m.DepartmentId == deptId && m.ClubRole == ClubRole.DEPT_LEAD);
-            if (oldLead != null)
-                oldLead.ClubRole = ClubRole.MEMBER;
-
-            // Bổ nhiệm trưởng ban mới
-            if (membershipId.HasValue)
-            {
-                var newLead = await _db.ClubMemberships.FirstOrDefaultAsync(m =>
-                    m.Id == membershipId.Value && m.DepartmentId == deptId)
-                    ?? throw new KeyNotFoundException("Thành viên không thuộc ban này.");
-                newLead.ClubRole = ClubRole.DEPT_LEAD;
-            }
-
-            await _db.SaveChangesAsync();
+            await _membershipService.SetDepartmentLeadAsync(clubId, deptId, membershipId);
         }
 
         // ── Helpers ───────────────────────────────────────────────────────
@@ -206,7 +216,7 @@ namespace UniClub_Hub.Membership.Services.Implements
                 Description = d.Description,
                 MemberCount = d.Members!.Count(m => m.Status == MembershipStatus.Active || m.Status == MembershipStatus.Probation),
                 DeptLeadMembershipId = lead?.Id,
-                DeptLeadName = lead?.User?.FullName ?? lead?.User?.Email,
+                DeptLeadName = lead?.User?.FullName,
             };
         }
 
@@ -221,7 +231,7 @@ namespace UniClub_Hub.Membership.Services.Implements
                 Description = d.Description,
                 MemberCount = d.Members!.Count(m => m.Status == MembershipStatus.Active || m.Status == MembershipStatus.Probation),
                 DeptLeadMembershipId = lead?.Id,
-                DeptLeadName = lead?.User?.FullName ?? lead?.User?.Email,
+                DeptLeadName = lead?.User?.FullName,
                 CreatedAt = d.CreatedAt,
                 CreatedBy = d.CreatedBy,
                 UpdatedAt = d.UpdatedAt,

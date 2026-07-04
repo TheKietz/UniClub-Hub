@@ -1,4 +1,3 @@
-using UniClub_Hub.Shared.Enums;
 using ClosedXML.Excel;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
@@ -6,21 +5,27 @@ using UniClub_Hub.Membership.DTOs.Membership;
 using UniClub_Hub.Membership.Services.Interfaces;
 using UniClub_Hub.Shared.Constants;
 using UniClub_Hub.Shared.Data;
+using UniClub_Hub.Shared.Enums;
 using UniClub_Hub.Shared.Models;
 
 namespace UniClub_Hub.Membership.Services.Implements
 {
     public class ImportService
     {
+        private const string ImportRole = "MEMBER";
+
         private readonly UniClubDbContext _db;
         private readonly IClubPermissionService _permissions;
+        private readonly IClubMembershipService _membershipService;
 
-        private static readonly string[] ValidRoles = ["MEMBER", "DEPT_LEAD", "CLUB_ADMIN"];
-
-        public ImportService(UniClubDbContext db, IClubPermissionService permissions)
+        public ImportService(
+            UniClubDbContext db,
+            IClubPermissionService permissions,
+            IClubMembershipService membershipService)
         {
             _db = db;
             _permissions = permissions;
+            _membershipService = membershipService;
         }
 
         public async Task<ImportPreviewDto> PreviewAsync(
@@ -30,51 +35,58 @@ namespace UniClub_Hub.Membership.Services.Implements
             bool isSuperAdmin)
         {
             await EnsureCanImportExportAsync(clubId, requesterUserId, isSuperAdmin);
+            EnsureFileProvided(file);
+
             var rows = ParseFile(file);
             var preview = new ImportPreviewDto { TotalRows = rows.Count };
 
-            var club = await _db.Clubs.FindAsync(clubId);
-            if (club == null) throw new KeyNotFoundException("Không tìm thấy CLB.");
+            if (!await _db.Clubs.AnyAsync(c => c.Id == clubId))
+                throw new KeyNotFoundException("Không tìm thấy CLB.");
 
-            var departments = await _db.Departments
+            var departmentNames = (await _db.Departments
                 .Where(d => d.ClubId == clubId)
                 .Select(d => d.Name.ToLower())
-                .ToListAsync();
+                .ToListAsync())
+                .ToHashSet();
 
-            var existingEmails = await _db.ClubMemberships
-                .Where(m => m.ClubId == clubId && (m.Status == MembershipStatus.Active || m.Status == MembershipStatus.Probation))
-                .Include(m => m.User)
+            var existingMemberEmails = (await _db.ClubMemberships
+                .Where(m => m.ClubId == clubId &&
+                    (m.Status == MembershipStatus.Active || m.Status == MembershipStatus.Probation))
                 .Select(m => m.User.Email!.ToLower())
-                .ToListAsync();
+                .ToListAsync())
+                .ToHashSet();
 
-            var usersByEmail = await _db.Users
+            var userLookup = await _db.Users
                 .Where(u => u.Email != null)
                 .Select(u => new { Email = u.Email!.ToLower(), u.FullName })
-                .ToListAsync();
-            var userLookup = usersByEmail.ToDictionary(u => u.Email, u => u.FullName);
+                .ToDictionaryAsync(u => u.Email, u => u.FullName);
+
+            var userEmails = userLookup.Keys.ToHashSet();
+            var seenInFile = new HashSet<string>();
 
             foreach (var row in rows)
             {
-                var email = row.Email?.Trim().ToLower() ?? "";
+                var error = ValidateRow(
+                    row.Email,
+                    row.ClubRole,
+                    row.DepartmentName,
+                    departmentNames,
+                    existingMemberEmails,
+                    seenInFile,
+                    userEmails,
+                    out var normalizedEmail);
 
-                if (string.IsNullOrEmpty(email))
-                { row.Error = "Email không được để trống."; row.IsValid = false; preview.InvalidRows.Add(row); continue; }
+                if (error != null)
+                {
+                    row.Error = error;
+                    row.IsValid = false;
+                    preview.InvalidRows.Add(row);
+                    continue;
+                }
 
-                if (!userLookup.TryGetValue(email, out var fullName))
-                { row.Error = "Người dùng không tồn tại trong hệ thống."; row.IsValid = false; preview.InvalidRows.Add(row); continue; }
-
-                row.FullName = fullName;
-
-                if (existingEmails.Contains(email))
-                { row.Error = "Đã là thành viên của CLB này."; row.IsValid = false; preview.InvalidRows.Add(row); continue; }
-
-                if (!string.IsNullOrEmpty(row.ClubRole) && !ValidRoles.Contains(row.ClubRole.ToUpper()))
-                { row.Error = $"Vai trò không hợp lệ: {row.ClubRole}. Chỉ chấp nhận: MEMBER, DEPT_LEAD, CLUB_ADMIN."; row.IsValid = false; preview.InvalidRows.Add(row); continue; }
-
-                if (!string.IsNullOrEmpty(row.DepartmentName) && !departments.Contains(row.DepartmentName.ToLower()))
-                { row.Error = $"Ban '{row.DepartmentName}' không tồn tại trong CLB."; row.IsValid = false; preview.InvalidRows.Add(row); continue; }
-
-                row.ClubRole = (row.ClubRole?.ToUpper()) ?? "MEMBER";
+                row.Email = normalizedEmail!;
+                row.FullName = userLookup[normalizedEmail!];
+                row.ClubRole = ImportRole;
                 row.IsValid = true;
                 preview.ValidRows.Add(row);
             }
@@ -91,59 +103,143 @@ namespace UniClub_Hub.Membership.Services.Implements
             await EnsureCanImportExportAsync(clubId, requesterUserId, isSuperAdmin);
             var result = new ImportResultDto();
 
+            if (!await _db.Clubs.AnyAsync(c => c.Id == clubId))
+                throw new KeyNotFoundException("Không tìm thấy CLB.");
+
             var departments = await _db.Departments
                 .Where(d => d.ClubId == clubId)
                 .ToListAsync();
 
-            var userIds = await _db.Users
-                .Where(u => u.Email != null && request.Rows.Select(r => r.Email.ToLower()).Contains(u.Email.ToLower()))
-                .Select(u => new { u.Id, Email = u.Email!.ToLower() })
-                .ToListAsync();
-            var userLookup = userIds.ToDictionary(u => u.Email, u => u.Id);
+            var departmentNames = departments
+                .Select(d => d.Name.ToLower())
+                .ToHashSet();
 
-            var existingUserIds = await _db.ClubMemberships
-                .Where(m => m.ClubId == clubId && (m.Status == MembershipStatus.Active || m.Status == MembershipStatus.Probation))
-                .Select(m => m.UserId)
-                .ToListAsync();
+            var userLookup = await _db.Users
+                .Where(u => u.Email != null)
+                .Select(u => new { u.Id, Email = u.Email!.ToLower() })
+                .ToDictionaryAsync(u => u.Email, u => u.Id);
+
+            var existingMemberEmails = (await _db.ClubMemberships
+                .Where(m => m.ClubId == clubId &&
+                    (m.Status == MembershipStatus.Active || m.Status == MembershipStatus.Probation))
+                .Select(m => m.User.Email!.ToLower())
+                .ToListAsync())
+                .ToHashSet();
+
+            var pendingEmails = new HashSet<string>();
+            var userEmails = userLookup.Keys.ToHashSet();
+            var batchPending = 0;
 
             foreach (var row in request.Rows)
             {
-                var email = row.Email.ToLower();
-                if (!userLookup.TryGetValue(email, out var userId))
-                { result.Errors.Add($"{row.Email}: Không tìm thấy user."); result.Skipped++; continue; }
+                var error = ValidateRow(
+                    row.Email,
+                    row.ClubRole,
+                    row.DepartmentName,
+                    departmentNames,
+                    existingMemberEmails,
+                    pendingEmails,
+                    userEmails,
+                    out var normalizedEmail);
 
-                if (existingUserIds.Contains(userId))
-                { result.Skipped++; continue; }
+                if (error != null)
+                {
+                    result.Errors.Add($"{row.Email}: {error}");
+                    result.Skipped++;
+                    continue;
+                }
+
+                if (!userLookup.TryGetValue(normalizedEmail!, out var userId))
+                {
+                    result.Errors.Add($"{row.Email}: Không tìm thấy user.");
+                    result.Skipped++;
+                    continue;
+                }
+
+                try
+                {
+                    await _membershipService.EnsureMemberCapacityAsync(clubId, batchPending);
+                }
+                catch (InvalidOperationException ex)
+                {
+                    result.Errors.Add(ex.Message);
+                    break;
+                }
 
                 int? deptId = null;
-                if (!string.IsNullOrEmpty(row.DepartmentName))
+                if (!string.IsNullOrWhiteSpace(row.DepartmentName))
                 {
                     var dept = departments.FirstOrDefault(d =>
                         d.Name.Equals(row.DepartmentName, StringComparison.OrdinalIgnoreCase));
-                    if (dept != null) deptId = dept.Id;
+                    deptId = dept?.Id;
                 }
 
                 _db.ClubMemberships.Add(new ClubMembership
                 {
                     UserId = userId,
                     ClubId = clubId,
-                    ClubRole = Enum.Parse<ClubRole>(row.ClubRole?.ToUpper() ?? "MEMBER"),
+                    ClubRole = ClubRole.MEMBER,
                     DepartmentId = deptId,
                     JoinedDate = DateOnly.FromDateTime(DateTime.UtcNow),
                     Status = MembershipStatus.Active,
                 });
 
+                existingMemberEmails.Add(normalizedEmail!);
                 result.Imported++;
+                batchPending++;
             }
 
-            await _db.SaveChangesAsync();
+            if (result.Imported > 0)
+                await _db.SaveChangesAsync();
+
             return result;
+        }
+
+        private static string? ValidateRow(
+            string? email,
+            string? clubRole,
+            string? departmentName,
+            HashSet<string> departmentNamesLower,
+            HashSet<string> existingMemberEmails,
+            HashSet<string> seenInFile,
+            HashSet<string> knownUserEmails,
+            out string? normalizedEmail)
+        {
+            normalizedEmail = email?.Trim().ToLower();
+
+            if (string.IsNullOrEmpty(normalizedEmail))
+                return "Email không được để trống.";
+
+            if (!seenInFile.Add(normalizedEmail))
+                return "Email bị trùng trong file.";
+
+            if (!knownUserEmails.Contains(normalizedEmail))
+                return "Người dùng không tồn tại trong hệ thống.";
+
+            if (existingMemberEmails.Contains(normalizedEmail))
+                return "Đã là thành viên của CLB này.";
+
+            var role = (clubRole?.Trim().ToUpper()) ?? ImportRole;
+            if (role != ImportRole)
+                return "Import chỉ hỗ trợ vai trò MEMBER. Bổ nhiệm vai trò đặc biệt qua flow bổ nhiệm.";
+
+            if (!string.IsNullOrWhiteSpace(departmentName) &&
+                !departmentNamesLower.Contains(departmentName.Trim().ToLower()))
+                return $"Ban '{departmentName}' không tồn tại trong CLB.";
+
+            return null;
+        }
+
+        private static void EnsureFileProvided(IFormFile? file)
+        {
+            if (file == null || file.Length == 0)
+                throw new ArgumentException("File import không được để trống.");
         }
 
         private static List<ImportRowResult> ParseFile(IFormFile file)
         {
             var ext = Path.GetExtension(file.FileName).ToLower();
-            if (ext == ".xlsx" || ext == ".xls")
+            if (ext is ".xlsx" or ".xls")
                 return ParseExcel(file);
             if (ext == ".csv")
                 return ParseCsv(file);
@@ -168,15 +264,15 @@ namespace UniClub_Hub.Membership.Services.Implements
             for (int r = 2; r <= lastRow; r++)
             {
                 var email = ws.Cell(r, 1).GetString().Trim();
-                var role  = ws.Cell(r, 2).GetString().Trim();
-                var dept  = ws.Cell(r, 3).GetString().Trim();
+                var role = ws.Cell(r, 2).GetString().Trim();
+                var dept = ws.Cell(r, 3).GetString().Trim();
                 if (string.IsNullOrWhiteSpace(email) && string.IsNullOrWhiteSpace(role) && string.IsNullOrWhiteSpace(dept))
                     continue;
                 rows.Add(new ImportRowResult
                 {
                     RowNumber = r,
                     Email = email,
-                    ClubRole = string.IsNullOrEmpty(role) ? "MEMBER" : role,
+                    ClubRole = string.IsNullOrEmpty(role) ? ImportRole : role,
                     DepartmentName = string.IsNullOrEmpty(dept) ? null : dept,
                 });
             }
@@ -187,7 +283,7 @@ namespace UniClub_Hub.Membership.Services.Implements
         {
             var rows = new List<ImportRowResult>();
             using var reader = new StreamReader(file.OpenReadStream());
-            reader.ReadLine(); // skip header
+            reader.ReadLine();
             int rowNum = 2;
             while (!reader.EndOfStream)
             {
@@ -198,8 +294,10 @@ namespace UniClub_Hub.Membership.Services.Implements
                 {
                     RowNumber = rowNum,
                     Email = parts.Length > 0 ? parts[0].Trim().Trim('"') : "",
-                    ClubRole = parts.Length > 1 && !string.IsNullOrWhiteSpace(parts[1]) ? parts[1].Trim().Trim('"') : "MEMBER",
-                    DepartmentName = parts.Length > 2 && !string.IsNullOrWhiteSpace(parts[2]) ? parts[2].Trim().Trim('"') : null,
+                    ClubRole = parts.Length > 1 && !string.IsNullOrWhiteSpace(parts[1])
+                        ? parts[1].Trim().Trim('"') : ImportRole,
+                    DepartmentName = parts.Length > 2 && !string.IsNullOrWhiteSpace(parts[2])
+                        ? parts[2].Trim().Trim('"') : null,
                 });
                 rowNum++;
             }

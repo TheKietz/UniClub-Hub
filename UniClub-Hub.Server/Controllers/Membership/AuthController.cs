@@ -229,6 +229,12 @@ namespace UniClub_Hub.Server.Controllers.Membership
                     var errors = string.Join(", ", result.Errors.Select(e => e.Description));
                     return BadRequest(ApiResponse<object>.Fail($"Đặt lại mật khẩu thất bại: {errors}"));
                 }
+
+                if (!user.EmailConfirmed)
+                {
+                    user.EmailConfirmed = true;
+                    await _userManager.UpdateAsync(user);
+                }
             }
             catch
             {

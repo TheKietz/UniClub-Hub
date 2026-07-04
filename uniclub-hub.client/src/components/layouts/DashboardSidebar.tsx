@@ -36,7 +36,7 @@ function getClubColor(id: number) {
 }
 
 const MEMBER_NAV: NavItem[] = [
-  { to: '/dashboard', icon: '◇', label: 'Dashboard', end: true },
+  { to: '/dashboard', icon: '◇', label: 'Tổng quan', end: true },
   { to: '/notifications', icon: '◑', label: 'Thông báo' },
   { to: '/profile', icon: '◐', label: 'Hồ sơ cá nhân'},
   { to: '/my-kpi', icon: '▦', label: 'KPI của tôi', dividerAfter: true  },

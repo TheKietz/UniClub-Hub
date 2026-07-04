@@ -16,7 +16,6 @@ namespace UniClub_Hub.Membership.DTOs.Membership
         public List<ImportUserRowResult> ValidRows { get; set; } = [];
         public List<ImportUserRowResult> InvalidRows { get; set; } = [];
         public int TotalRows { get; set; }
-        public string DefaultPassword { get; set; } = "UniClub@2026";
     }
 
     public class ImportUserConfirmRequest

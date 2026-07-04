@@ -22,7 +22,7 @@ namespace UniClub_Hub.Server.Controllers.Membership
         public IActionResult DownloadTemplate()
         {
             var csv = "Email,HoTen,MaSoSinhVien,Nganh\nexample@uef.edu.vn,Nguyễn Văn A,2151000001,Công nghệ thông tin\n";
-            var bytes = System.Text.Encoding.UTF8.GetBytes(csv);
+            var bytes = new System.Text.UTF8Encoding(true).GetBytes(csv);
             return File(bytes, "text/csv", "template-import-users.csv");
         }
 
@@ -35,6 +35,7 @@ namespace UniClub_Hub.Server.Controllers.Membership
                 return Ok(ApiResponse<ImportUserPreviewDto>.Ok(result));
             }
             catch (InvalidOperationException ex) { return BadRequest(ApiResponse<object>.Fail(ex.Message)); }
+            catch (ArgumentException ex) { return BadRequest(ApiResponse<object>.Fail(ex.Message)); }
         }
 
         [HttpPost("users/confirm")]

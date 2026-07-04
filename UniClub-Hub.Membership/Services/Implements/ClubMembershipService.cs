@@ -206,7 +206,7 @@ namespace UniClub_Hub.Membership.Services.Implements
         public async Task<MemberDto> AssignClubAdminAsync(int clubId, string userId) =>
             await AssignClubAdminCoreAsync(clubId, userId, membershipId: null);
 
-        public async Task EnsureMemberCapacityAsync(int clubId)
+        public async Task EnsureMemberCapacityAsync(int clubId, int pendingAdds = 0)
         {
             await EnsureClubExistsAsync(clubId);
 
@@ -218,8 +218,43 @@ namespace UniClub_Hub.Membership.Services.Implements
                 m.ClubId == clubId &&
                 (m.Status == MembershipStatus.Active || m.Status == MembershipStatus.Probation));
 
-            if (currentCount >= maxMembers)
+            if (currentCount + pendingAdds >= maxMembers)
                 throw new InvalidOperationException($"CLB đã đạt giới hạn {maxMembers} thành viên.");
+        }
+
+        public async Task SetDepartmentLeadAsync(int clubId, int departmentId, int? membershipId)
+        {
+            await EnsureDepartmentBelongsToClubAsync(clubId, departmentId);
+
+            var currentLead = await _db.ClubMemberships
+                .FirstOrDefaultAsync(m => m.DepartmentId == departmentId
+                    && m.ClubRole == ClubRole.DEPT_LEAD
+                    && m.Status == MembershipStatus.Active);
+
+            if (!membershipId.HasValue)
+            {
+                if (currentLead != null)
+                {
+                    currentLead.ClubRole = ClubRole.MEMBER;
+                    await _db.SaveChangesAsync();
+                }
+                return;
+            }
+
+            var membership = await _db.ClubMemberships.FirstOrDefaultAsync(m =>
+                m.Id == membershipId.Value && m.ClubId == clubId)
+                ?? throw new KeyNotFoundException("Không tìm thấy thành viên này trong CLB.");
+
+            if (membership.Status is not (MembershipStatus.Active or MembershipStatus.Probation))
+                throw new InvalidOperationException("Chỉ có thể bổ nhiệm thành viên đang hoạt động.");
+
+            if (currentLead != null && currentLead.Id != membership.Id)
+            {
+                currentLead.ClubRole = ClubRole.MEMBER;
+                await _db.SaveChangesAsync();
+            }
+
+            await AssignDepartmentLeadAsync(clubId, departmentId, membership.UserId, membership.Id);
         }
 
         private async Task<MemberDto> AssignClubAdminCoreAsync(int clubId, string userId, int? membershipId)

@@ -163,6 +163,8 @@ namespace UniClub_Hub.Membership.Services.Implements
             return await GetByIdAsync(clubId, positionId, requesterUserId, isSuperAdmin);
         }
 
+        // Self-view + DEPT_LEAD same-dept allowed via EnsureCanViewMemberPositionsAsync (no org-chart permission required).
+        // Note: future "position của tôi" profile page can reuse this endpoint for the requester's own membershipId.
         public async Task<MemberPositionsDto> GetMemberPositionsAsync(
             int clubId,
             int membershipId,
@@ -184,6 +186,8 @@ namespace UniClub_Hub.Membership.Services.Implements
             bool isSuperAdmin
         )
         {
+            await EnsureCanAssignMemberPositionsAsync(clubId, requesterUserId, isSuperAdmin);
+
             var targetMembership = await LoadMembershipAsync(clubId, membershipId);
             var requestedPositionIds = dto.PositionIds.Distinct().ToList();
             var requestedPositions = await _db.ClubPositions
@@ -208,7 +212,7 @@ namespace UniClub_Hub.Membership.Services.Implements
                 .Where(mp => mp.MembershipId == membershipId)
                 .ToListAsync();
 
-            if (await IsClubAdminOrSuperAdminAsync(clubId, requesterUserId, isSuperAdmin))
+            if (await CanAssignPositionsAsAdminAsync(clubId, requesterUserId, isSuperAdmin))
             {
                 var existingPositionIds = existingAssignments.Select(mp => mp.PositionId).ToHashSet();
 
@@ -289,16 +293,12 @@ namespace UniClub_Hub.Membership.Services.Implements
                 .Include(m => m.Department)
                 .FirstAsync(m => m.Id == membershipId && m.ClubId == clubId);
 
-            var positions = await _db.ClubMemberPositions
+            var positions = await _db.ClubPositions
                 .AsNoTracking()
-                .Where(mp => mp.MembershipId == membershipId)
-                .Include(mp => mp.Position)
-                    .ThenInclude(p => p.Department)
-                .Include(mp => mp.Position)
-                    .ThenInclude(p => p.Permissions)
-                .Include(mp => mp.Position)
-                    .ThenInclude(p => p.MemberPositions)
-                .Select(mp => mp.Position)
+                .Include(p => p.Department)
+                .Include(p => p.Permissions)
+                .Include(p => p.MemberPositions)
+                .Where(p => p.MemberPositions!.Any(mp => mp.MembershipId == membershipId))
                 .ToListAsync();
 
             return new MemberPositionsDto
@@ -377,17 +377,39 @@ namespace UniClub_Hub.Membership.Services.Implements
             throw new UnauthorizedAccessException();
         }
 
-        private async Task<bool> IsClubAdminOrSuperAdminAsync(
+        private async Task EnsureCanAssignMemberPositionsAsync(
             int clubId,
             string requesterUserId,
             bool isSuperAdmin
         )
         {
-            return await _permissions.HasPermissionAsync(
+            if (await CanAssignPositionsAsAdminAsync(clubId, requesterUserId, isSuperAdmin))
+                return;
+
+            var requesterMembership = await GetActiveMembershipAsync(clubId, requesterUserId);
+            if (
+                requesterMembership?.ClubRole == ClubRole.DEPT_LEAD
+                && requesterMembership.DepartmentId.HasValue
+            )
+            {
+                return;
+            }
+
+            throw new UnauthorizedAccessException();
+        }
+
+        private async Task<bool> CanAssignPositionsAsAdminAsync(
+            int clubId,
+            string requesterUserId,
+            bool isSuperAdmin
+        )
+        {
+            return await _permissions.HasAnyPermissionAsync(
                 clubId,
                 requesterUserId,
                 isSuperAdmin,
-                ClubPermissions.PositionsManage
+                ClubPermissions.PositionsManage,
+                ClubPermissions.PositionAssignmentsManage
             );
         }
 

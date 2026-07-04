@@ -68,7 +68,7 @@ namespace UniClub_Hub.Membership.Services.Implements
             {
                 var csv = BuildCsv(headers, members.Select((m, i) => new object?[]
                     { i + 1, m.FullName, m.Email, m.StudentId, m.Major, m.ClubRole, m.Department, m.JoinedDate, m.Status }));
-                return (Encoding.UTF8.GetBytes(csv), "text/csv", $"members_{club.Code}.csv");
+                return (ToCsvBytes(csv), "text/csv", $"members_{club.Code}.csv");
             }
 
             using var wb = new XLWorkbook();
@@ -143,7 +143,7 @@ namespace UniClub_Hub.Membership.Services.Implements
             {
                 var csv = BuildCsv(headers, applications.Select((a, i) => new object?[]
                     { i + 1, a.FullName, a.Email, a.StudentId, a.AppliedAt, a.Stage, a.Status }));
-                return (Encoding.UTF8.GetBytes(csv), "text/csv", $"applications_{club.Code}{suffix}.csv");
+                return (ToCsvBytes(csv), "text/csv", $"applications_{club.Code}{suffix}.csv");
             }
 
             using var wb = new XLWorkbook();
@@ -200,7 +200,7 @@ namespace UniClub_Hub.Membership.Services.Implements
             {
                 var csv = BuildCsv(headers, users.Select((u, i) => new object?[]
                     { i + 1, u.FullName, u.Email, u.StudentId, u.Major, rolesByUser.GetValueOrDefault(u.Id, ""), u.IsLocked ? "Locked" : "Active" }));
-                return (Encoding.UTF8.GetBytes(csv), "text/csv", $"users_{date}.csv");
+                return (ToCsvBytes(csv), "text/csv", $"users_{date}.csv");
             }
 
             using var wb = new XLWorkbook();
@@ -226,14 +226,21 @@ namespace UniClub_Hub.Membership.Services.Implements
             request ??= new AdminClubListQuery();
             var query = _db.Clubs
                 .AsNoTracking()
-                .Include(c => c.Category)
-                .Include(c => c.ClubMemberships)
                 .AsQueryable();
 
             query = ApplyClubFilters(query, request);
             query = ApplyClubSort(query, request.SortBy, request.SortDir);
 
             var clubs = await query
+                .Select(c => new
+                {
+                    c.Name,
+                    c.Code,
+                    CategoryName = c.Category != null ? c.Category.Name : "",
+                    Status = c.Status.ToString(),
+                    MemberCount = c.ClubMemberships!.Count(m => m.Status == MembershipStatus.Active),
+                    CreatedAt = c.CreatedAt.ToString("dd/MM/yyyy"),
+                })
                 .ToListAsync();
 
             string[] headers = ["STT", "Tên CLB", "Mã", "Lĩnh vực", "Trạng thái", "Thành viên", "Ngày tạo"];
@@ -241,14 +248,11 @@ namespace UniClub_Hub.Membership.Services.Implements
 
             if (format == "csv")
             {
-                var csv = BuildCsv(headers, clubs.Select((c, i) => new object?[] {
-                    i + 1, c.Name, c.Code,
-                    c.Category?.Name ?? "",
-                    c.Status.ToString(),
-                    c.ClubMemberships!.Count(m => m.Status == MembershipStatus.Active),
-                    c.CreatedAt.ToString("dd/MM/yyyy")
+                var csv = BuildCsv(headers, clubs.Select((c, i) => new object?[]
+                {
+                    i + 1, c.Name, c.Code, c.CategoryName, c.Status, c.MemberCount, c.CreatedAt
                 }));
-                return (Encoding.UTF8.GetBytes(csv), "text/csv", $"clubs_{date}.csv");
+                return (ToCsvBytes(csv), "text/csv", $"clubs_{date}.csv");
             }
 
             using var wb = new XLWorkbook();
@@ -260,10 +264,10 @@ namespace UniClub_Hub.Membership.Services.Implements
                 ws.Cell(i + 2, 1).Value = i + 1;
                 ws.Cell(i + 2, 2).Value = c.Name;
                 ws.Cell(i + 2, 3).Value = c.Code;
-                ws.Cell(i + 2, 4).Value = c.Category?.Name ?? "";
-                ws.Cell(i + 2, 5).Value = c.Status.ToString();
-                ws.Cell(i + 2, 6).Value = c.ClubMemberships!.Count(m => m.Status == MembershipStatus.Active);
-                ws.Cell(i + 2, 7).Value = c.CreatedAt.ToString("dd/MM/yyyy");
+                ws.Cell(i + 2, 4).Value = c.CategoryName;
+                ws.Cell(i + 2, 5).Value = c.Status;
+                ws.Cell(i + 2, 6).Value = c.MemberCount;
+                ws.Cell(i + 2, 7).Value = c.CreatedAt;
             }
             ws.Columns().AdjustToContents();
             return (ToBytes(wb), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"clubs_{date}.xlsx");
@@ -497,11 +501,19 @@ namespace UniClub_Hub.Membership.Services.Implements
             return sb.ToString();
         }
 
+        private static byte[] ToCsvBytes(string csv) =>
+            new UTF8Encoding(encoderShouldEmitUTF8Identifier: true).GetBytes(csv);
+
         private static string EscapeCsv(string? value)
         {
             if (string.IsNullOrEmpty(value)) return "";
+
+            if (value[0] is '=' or '+' or '-' or '@')
+                value = $"'{value}";
+
             if (value.Contains(',') || value.Contains('"') || value.Contains('\n'))
                 return $"\"{value.Replace("\"", "\"\"")}\"";
+
             return value;
         }
     }
