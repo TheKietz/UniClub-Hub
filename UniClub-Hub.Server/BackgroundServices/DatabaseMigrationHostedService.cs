@@ -23,19 +23,35 @@ public sealed class DatabaseMigrationHostedService(
         using var scope = scopeFactory.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<UniClubDbContext>();
 
+        Exception? lastError = null;
+
         for (var attempt = 1; attempt <= 12; attempt++)
         {
             try
             {
                 await db.Database.MigrateAsync(cancellationToken);
                 logger.LogInformation("Database migration completed.");
+                lastError = null;
                 break;
             }
-            catch (Exception ex) when (attempt < 12 && !cancellationToken.IsCancellationRequested)
+            catch (Exception ex)
             {
-                logger.LogWarning(ex, "Migration attempt {Attempt}/12 failed; retrying in 5s...", attempt);
-                await Task.Delay(TimeSpan.FromSeconds(5), cancellationToken);
+                lastError = ex;
+                if (attempt < 12 && !cancellationToken.IsCancellationRequested)
+                {
+                    logger.LogWarning(ex, "Migration attempt {Attempt}/12 failed; retrying in 5s...", attempt);
+                    await Task.Delay(TimeSpan.FromSeconds(5), cancellationToken);
+                }
             }
+        }
+
+        if (lastError is not null)
+        {
+            logger.LogError(
+                lastError,
+                "Database migration failed after all retries. API will start but DB operations will fail "
+                + "until ConnectionStrings__DefaultConnection is fixed on Render.");
+            return;
         }
 
         if (env.IsDevelopment())

@@ -45,6 +45,7 @@ Dev local vẫn dùng `dotnet run` + `npm run dev` (Vite proxy `/api` → backen
    - `AppUrl` = `https://your-app.vercel.app` (link trong email xác thực / reset mật khẩu)
    - `Auth__CrossOriginCookies` = `true` (bắt buộc khi FE và API khác domain)
    - Cloudinary, SendGrid, Gemini… (secret thật)
+   - **Kiểm tra DB link:** `ConnectionStrings__DefaultConnection` phải có giá trị (Render tự gán từ `uniclub-hub-db`). Nếu trống/sai → vào DB **Connections** → copy **Internal Connection String** → dán vào env API.
 
 Migration chạy nền sau khi Kestrel bind cổng (`DatabaseMigrationHostedService`). Render inject biến `PORT` — app bind theo `PORT`, không hardcode 8080. Không cần chạy `dotnet ef database update` tay.
 

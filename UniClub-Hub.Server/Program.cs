@@ -21,6 +21,7 @@ using UniClub_Hub.Shared.Models;
 using CloudinaryDotNet;
 using UniClub_Hub.Shared.Common.Interfaces;
 using UniClub_Hub.Membership.Services.Implements;
+using UniClub_Hub.Server.Data;
 
 // Npgsql 6+ requires DateTimeOffset values sent to timestamptz to be UTC.
 // This switch lets Npgsql accept any offset and convert to UTC on write,
@@ -41,8 +42,10 @@ builder.Services.AddControllers()
 builder.Services.AddSignalR()
     .AddJsonProtocol(o => o.PayloadSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
+var postgresConnection = PostgresConnectionResolver.Resolve(builder.Configuration);
+
 builder.Services.AddDbContext<UniClubDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"))
+    options.UseNpgsql(postgresConnection)
 );
 
 builder
