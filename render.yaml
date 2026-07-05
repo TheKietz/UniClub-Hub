@@ -16,8 +16,7 @@ services:
     envVars:
       - key: ASPNETCORE_ENVIRONMENT
         value: Production
-      - key: ASPNETCORE_URLS
-        value: http://+:8080
+      # Render injects PORT; Program.cs binds Kestrel to it (do not hardcode 8080).
       - key: Auth__CrossOriginCookies
         value: "true"
       - key: Jwt__Key

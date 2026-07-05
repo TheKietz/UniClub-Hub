@@ -28,6 +28,12 @@
     "FromAddress": "noreply@yourdomain.com"
   },
   "AppUrl": "https://your-domain.com",
+  "Gemini": {
+    "ApiKey": "YOUR_GEMINI_API_KEY",
+    "Model": "gemini-flash-latest",
+    "BaseUrl": "https://generativelanguage.googleapis.com",
+    "Temperature": 0.2
+  },
   "Logging": {
     "LogLevel": {
       "Default": "Information",

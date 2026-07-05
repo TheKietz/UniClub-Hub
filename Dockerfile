@@ -25,12 +25,11 @@ RUN apk add --no-cache curl
 
 COPY --from=build /app/publish ./
 
-ENV ASPNETCORE_ENVIRONMENT=Production \
-    ASPNETCORE_URLS=http://+:8080
+ENV ASPNETCORE_ENVIRONMENT=Production
 
 EXPOSE 8080
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
-    CMD curl -fsS http://127.0.0.1:8080/health >/dev/null || exit 1
+HEALTHCHECK --interval=30s --timeout=5s --start-period=90s --retries=3 \
+    CMD sh -c 'curl -fsS "http://127.0.0.1:${PORT:-8080}/health" >/dev/null || exit 1'
 
 ENTRYPOINT ["dotnet", "UniClub-Hub.API.dll"]

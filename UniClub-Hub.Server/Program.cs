@@ -29,6 +29,11 @@ AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Render (and similar PaaS) inject PORT — must bind to it, not a fixed 8080.
+var port = Environment.GetEnvironmentVariable("PORT");
+if (!string.IsNullOrWhiteSpace(port))
+    builder.WebHost.UseUrls($"http://+:{port}");
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddControllers()
@@ -179,35 +184,10 @@ builder.Services.AddScoped<UniClub_Hub.Shared.Common.Interfaces.INotificationSer
 builder.Services.AddMembershipServices();
 builder.Services.AddOperationsServices();
 builder.Services.AddPortalServices();
+builder.Services.AddHostedService<UniClub_Hub.Server.BackgroundServices.DatabaseMigrationHostedService>();
 builder.Services.AddHostedService<UniClub_Hub.Server.BackgroundServices.ReminderHostedService>();
 
 var app = builder.Build();
-
-if (!app.Environment.IsEnvironment("Testing"))
-{
-    using var migrationScope = app.Services.CreateScope();
-    await migrationScope.ServiceProvider
-        .GetRequiredService<UniClubDbContext>()
-        .Database.MigrateAsync();
-}
-
-if (app.Environment.IsDevelopment())
-{
-    await UniClub_Hub.Server.Data.DbSeeder.SeedAsync(app.Services);
-}
-else
-{
-    using var scope = app.Services.CreateScope();
-    var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
-    foreach (var role in new[] { "SUPER_ADMIN", "USER" })
-    {
-        if (!await roleManager.RoleExistsAsync(role))
-            await roleManager.CreateAsync(new IdentityRole(role));
-    }
-
-    var db = scope.ServiceProvider.GetRequiredService<UniClubDbContext>();
-    await UniClub_Hub.Server.Data.NotificationPreferenceSeeder.SeedDefaultsAsync(db);
-}
 
 app.UseForwardedHeaders();
 

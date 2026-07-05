@@ -46,7 +46,7 @@ Dev local vẫn dùng `dotnet run` + `npm run dev` (Vite proxy `/api` → backen
    - `Auth__CrossOriginCookies` = `true` (bắt buộc khi FE và API khác domain)
    - Cloudinary, SendGrid, Gemini… (secret thật)
 
-Migration được áp dụng tự động khi container khởi động (`Program.cs` gọi `Database.MigrateAsync()`). Không cần chạy tay từ máy local.
+Migration chạy nền sau khi Kestrel bind cổng (`DatabaseMigrationHostedService`). Render inject biến `PORT` — app bind theo `PORT`, không hardcode 8080. Không cần chạy `dotnet ef database update` tay.
 
 ### Cách B — Web Service thủ công
 
