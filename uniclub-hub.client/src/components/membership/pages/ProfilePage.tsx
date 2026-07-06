@@ -3,7 +3,7 @@ import { useRef, useState, useEffect } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { updateUserAvatar, updateUserProfile } from '@/components/membership/services/userApi'
 import { toast } from 'sonner'
-import { Camera, ChevronDown } from 'lucide-react'
+import { Camera, ChevronDown, Loader2 } from 'lucide-react'
 import MajorSelect from '@/components/shared/MajorSelect'
 import { D } from '@/components/shared/managementTheme'
 import { getApiErrorMessage } from '@/lib/apiError'
@@ -73,6 +73,7 @@ export default function ProfilePage() {
   const { user, refreshUser } = useAuth()
   const fileRef = useRef<HTMLInputElement>(null)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
   const [form, setForm] = useState({
@@ -87,11 +88,23 @@ export default function ProfilePage() {
   const field = (key: keyof typeof form) =>
     (e: React.ChangeEvent<HTMLInputElement>) => setForm(p => ({ ...p, [key]: e.target.value }))
 
+  useEffect(() => {
+    return () => {
+      if (avatarPreview) URL.revokeObjectURL(avatarPreview)
+    }
+  }, [avatarPreview])
+
   async function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
     if (!['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type)) { toast.error('Chỉ chấp nhận ảnh jpg, png, webp, gif.'); return }
     if (file.size > 5 * 1024 * 1024) { toast.error('File không được vượt quá 5MB.'); return }
+
+    const preview = URL.createObjectURL(file)
+    setAvatarPreview(prev => {
+      if (prev) URL.revokeObjectURL(prev)
+      return preview
+    })
     setUploadingAvatar(true)
     try {
       await updateUserAvatar(file)
@@ -101,6 +114,10 @@ export default function ProfilePage() {
       toast.error(getApiErrorMessage(err, 'Upload thất bại.'))
     } finally {
       setUploadingAvatar(false)
+      setAvatarPreview(prev => {
+        if (prev) URL.revokeObjectURL(prev)
+        return null
+      })
       e.target.value = ''
     }
   }
@@ -149,21 +166,32 @@ export default function ProfilePage() {
               <p style={{ fontSize: 13, fontWeight: 700, color: D.ink, margin: 0 }}>Ảnh đại diện</p>
             </div>
             <div style={{ padding: '28px 18px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, textAlign: 'center' }}>
-              <div style={{ position: 'relative', flexShrink: 0 }}>
-                {user?.avatarUrl
-                  ? <img src={user.avatarUrl} alt="" style={{ width: 116, height: 116, borderRadius: '50%', objectFit: 'cover', border: D.border }} />
+              <div style={{ position: 'relative', flexShrink: 0, width: 116, height: 116 }}>
+                {avatarPreview || user?.avatarUrl
+                  ? <img src={avatarPreview ?? user!.avatarUrl!} alt="" style={{ width: 116, height: 116, borderRadius: '50%', objectFit: 'cover', border: D.border, opacity: uploadingAvatar ? 0.85 : 1, transition: 'opacity .2s' }} />
                   : <div style={{ width: 116, height: 116, borderRadius: '50%', background: avatarColor, border: D.border, display: 'grid', placeItems: 'center', color: '#fff', fontSize: 42, fontWeight: 900, letterSpacing: '-.04em' }}>{initials}</div>
                 }
-                <button type="button" onClick={() => fileRef.current?.click()} disabled={uploadingAvatar} style={{ position: 'absolute', bottom: 2, right: 2, width: 34, height: 34, borderRadius: '50%', background: D.indigo, color: '#fff', border: D.border, display: 'grid', placeItems: 'center', cursor: 'pointer', boxShadow: '0 0 0 3px #fff' }}>
-                  {uploadingAvatar ? <span style={{ fontSize: 12 }}>⟳</span> : <Camera size={15} />}
+                {uploadingAvatar && (
+                  <div style={{
+                    position: 'absolute', inset: 0, borderRadius: '50%',
+                    background: 'rgba(15, 23, 42, 0.5)',
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6,
+                    color: '#fff',
+                  }}>
+                    <Loader2 size={28} className="animate-spin" />
+                    <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.02em' }}>Đang tải...</span>
+                  </div>
+                )}
+                <button type="button" onClick={() => fileRef.current?.click()} disabled={uploadingAvatar} style={{ position: 'absolute', bottom: 2, right: 2, width: 34, height: 34, borderRadius: '50%', background: D.indigo, color: '#fff', border: D.border, display: 'grid', placeItems: 'center', cursor: uploadingAvatar ? 'not-allowed' : 'pointer', opacity: uploadingAvatar ? 0.65 : 1, boxShadow: '0 0 0 3px #fff' }}>
+                  {uploadingAvatar ? <Loader2 size={15} className="animate-spin" /> : <Camera size={15} />}
                 </button>
               </div>
-              <input ref={fileRef} type="file" hidden accept="image/jpeg,image/png,image/webp,image/gif" onChange={handleAvatarChange} />
+              <input ref={fileRef} type="file" hidden accept="image/jpeg,image/png,image/webp,image/gif" onChange={handleAvatarChange} disabled={uploadingAvatar} />
               <div style={{ maxWidth: '100%' }}>
                 <p style={{ fontSize: 18, fontWeight: 900, color: D.ink, margin: 0, letterSpacing: '-.02em', lineHeight: 1.2 }}>{user?.fullName ?? '—'}</p>
                 <p style={{ fontSize: 14, color: D.inkMuted, marginTop: 6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user?.email}</p>
-                <button type="button" onClick={() => fileRef.current?.click()} style={{ fontSize: 13, fontWeight: 800, color: D.indigo, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', marginTop: 10, padding: 0 }}>
-                  Đổi ảnh đại diện
+                <button type="button" onClick={() => fileRef.current?.click()} disabled={uploadingAvatar} style={{ fontSize: 13, fontWeight: 800, color: uploadingAvatar ? D.inkMuted : D.indigo, background: 'none', border: 'none', cursor: uploadingAvatar ? 'not-allowed' : 'pointer', fontFamily: 'inherit', marginTop: 10, padding: 0 }}>
+                  {uploadingAvatar ? 'Đang tải ảnh lên...' : 'Đổi ảnh đại diện'}
                 </button>
               </div>
             </div>
