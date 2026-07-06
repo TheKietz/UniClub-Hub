@@ -400,6 +400,7 @@ export default function ClubSettingsPage() {
         <>
           <div style={{ display: resolvedTab === 'form' ? 'block' : 'none' }}>
             <FormSchemaPage
+              isActive={resolvedTab === 'form'}
               onDirtyChange={dirty => setTabDirty('form', dirty)}
               onBindHandles={handles => bindTabHandles('form', handles)}
             />

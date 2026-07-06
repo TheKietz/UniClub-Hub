@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { getFormSchema, getMemberFieldSchema, updateMemberFieldSchema } from '@/components/membership/services/clubApi'
+import { getFormSchema, getMemberFieldSchema, updateFormSchema, updateMemberFieldSchema } from '@/components/membership/services/clubApi'
 import type { FormField, MemberFieldDef, MemberFieldType } from '@/components/membership/services/club.types'
+import { syncMemberFieldsToFormSchema } from '@/lib/memberFieldFormSync'
 import { toast } from 'sonner'
 import { ChevronDown } from 'lucide-react'
 import { D } from '@/components/shared/managementTheme'
@@ -131,21 +132,7 @@ export default function MemberFieldsPage({ onDirtyChange, onBindHandles }: Setti
       .finally(() => setLoading(false))
   }, [id])
 
-  function getLinkedQuestion(fieldId: string): FormField | undefined {
-    return formFields.find(f => f.linkedFieldId === fieldId)
-  }
-
   function removeField(index: number) {
-    const field = fields[index]
-    const linked = getLinkedQuestion(field.id)
-    if (linked) {
-      const label = linked.label.trim() || 'chưa đặt tên'
-      const ok = window.confirm(
-        `Trường này đang được liên kết với câu hỏi «${label}» trong Form đăng ký. `
-        + 'Xóa trường sẽ khiến câu hỏi mất kết nối (câu hỏi không bị xóa). Tiếp tục?',
-      )
-      if (!ok) return
-    }
     setFields(prev => prev.filter((_, idx) => idx !== index))
   }
 
@@ -194,8 +181,11 @@ export default function MemberFieldsPage({ onDirtyChange, onBindHandles }: Setti
     setSaving(true)
     try {
       await updateMemberFieldSchema(id, fields)
+      const syncedForm = syncMemberFieldsToFormSchema(fields, formFields)
+      await updateFormSchema(id, { fields: syncedForm })
+      setFormFields(syncedForm)
       setBaseline(JSON.stringify(fields))
-      toast.success('Đã lưu cấu hình trường thông tin thành viên.')
+      toast.success('Đã lưu — trường sẽ hiển thị trên Form đăng ký.')
       return true
     } catch {
       toast.error('Lưu thất bại.')
@@ -203,7 +193,7 @@ export default function MemberFieldsPage({ onDirtyChange, onBindHandles }: Setti
     } finally {
       setSaving(false)
     }
-  }, [fields, id])
+  }, [fields, formFields, id])
 
   useEffect(() => {
     onBindHandles?.({ save: handleSave, discard })
@@ -231,7 +221,9 @@ export default function MemberFieldsPage({ onDirtyChange, onBindHandles }: Setti
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20, gap: 16 }}>
         <div>
           <h1 style={{ fontSize: 24, fontWeight: 900, color: D.ink, letterSpacing: '-.025em', margin: 0 }}>Trường thông tin thành viên</h1>
-          <p style={{ fontSize: 13, color: D.inkMuted, marginTop: 4 }}>Định nghĩa các trường thông tin đặc thù cho CLB của bạn</p>
+          <p style={{ fontSize: 13, color: D.inkMuted, marginTop: 4 }}>
+            Định nghĩa thông tin tuỳ chọn theo CLB — tự động hiện trên Form đăng ký và lưu vào hồ sơ thành viên
+          </p>
         </div>
         <button onClick={() => void handleSave()} disabled={saving} style={{
           background: D.ink, color: '#ffffff', border: D.border, boxShadow: D.shadow(2, 2),
@@ -250,7 +242,7 @@ export default function MemberFieldsPage({ onDirtyChange, onBindHandles }: Setti
       }}>
         <span style={{ fontSize: 16 }}>🗂</span>
         <span>
-          <strong>{fields.length}</strong> trường · Hiển thị trong hồ sơ từng thành viên và có thể tìm kiếm
+          <strong>{fields.length}</strong> trường · Tự động đưa vào Form đăng ký khi ứng viên nộp đơn
         </span>
       </div>
 
@@ -264,7 +256,6 @@ export default function MemberFieldsPage({ onDirtyChange, onBindHandles }: Setti
         )}
         {fields.map((field, i) => {
           const ts = TYPE_STYLE[field.type] ?? TYPE_STYLE.text
-          const linkedQuestion = getLinkedQuestion(field.id)
           return (
             <div key={field.id} style={{ background: D.card, border: D.border, borderRadius: D.radius, boxShadow: D.shadow(), padding: '18px 20px' }}>
               {/* Card header */}
@@ -277,15 +268,12 @@ export default function MemberFieldsPage({ onDirtyChange, onBindHandles }: Setti
                 <span style={{ fontSize: 14, fontWeight: 700, color: D.ink, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   Trường {i + 1}
                 </span>
-                {linkedQuestion && (
-                  <span style={{
-                    fontSize: 10, fontWeight: 700, color: D.indigo, background: '#eef2ff',
-                    padding: '3px 8px', borderRadius: D.pill, flexShrink: 0, maxWidth: 180,
-                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                  }} title={`Đã liên kết với câu hỏi «${linkedQuestion.label || 'chưa đặt tên'}»`}>
-                    ↔ Form đăng ký
-                  </span>
-                )}
+                <span style={{
+                  fontSize: 10, fontWeight: 700, color: D.indigo, background: '#eef2ff',
+                  padding: '3px 8px', borderRadius: D.pill, flexShrink: 0,
+                }}>
+                  ↔ Form đăng ký
+                </span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 2, flexShrink: 0 }}>
                   <button onClick={() => moveField(i, -1)} disabled={i === 0}
                     style={{ width: 26, height: 26, borderRadius: 6, background: 'none', border: 'none', cursor: i === 0 ? 'not-allowed' : 'pointer', color: D.inkMuted, opacity: i === 0 ? 0.25 : 0.7, display: 'grid', placeItems: 'center', fontSize: 14 }}>↑</button>
@@ -301,11 +289,6 @@ export default function MemberFieldsPage({ onDirtyChange, onBindHandles }: Setti
               <div style={{ marginBottom: 14 }}>
                 <label style={labelS}>Tên trường <span style={{ color: '#ef4444' }}>*</span></label>
                 <input value={field.label} onChange={e => updateField(i, { label: e.target.value })} placeholder="VD: Tech stack, Nhạc cụ, Dự án đã làm..." style={inputS} />
-                {linkedQuestion && (
-                  <p style={{ margin: '6px 0 0', fontSize: 12, color: D.inkMuted }}>
-                    Đã liên kết với câu hỏi «{linkedQuestion.label || 'chưa đặt tên'}» — thu thập qua Form đăng ký, không hiện riêng khi nộp đơn.
-                  </p>
-                )}
               </div>
 
               {/* Type + Required */}

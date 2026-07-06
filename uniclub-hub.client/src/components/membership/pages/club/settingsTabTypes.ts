@@ -6,4 +6,5 @@ export type SettingsTabHandles = {
 export type SettingsTabChildProps = {
   onDirtyChange?: (dirty: boolean) => void
   onBindHandles?: (handles: SettingsTabHandles | null) => void
+  isActive?: boolean
 }
