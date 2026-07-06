@@ -982,11 +982,15 @@ namespace UniClub_Hub.Server.Data
 
                 if (linhTechLeadMemberships.Count > 1)
                 {
+                    var resignedMembership = linhTechLeadMemberships[1];
+                    resignedMembership.Status = MembershipStatus.Resigned;
+                    resignedMembership.ResignedDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-10));
+
                     db.ResignationRequests.Add(new ResignationRequest
                     {
                         UserId = linhId,
                         ClubId = techClubId,
-                        MembershipId = linhTechLeadMemberships[1].Id,
+                        MembershipId = resignedMembership.Id,
                         Preference = ResignationPreference.LeaveClub,
                         Status = ResignationStatus.Approved,
                         RequestedAt = DateTime.UtcNow.AddDays(-12),

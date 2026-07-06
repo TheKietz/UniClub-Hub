@@ -43,25 +43,26 @@ export default function MyActivityPage() {
   const [tab, setTab] = useState<Tab>('CLB của tôi')
   const [applications, setApplications] = useState<ApplicationItem[]>([])
   const [resignations, setResignations] = useState<ResignationRequestItem[]>([])
-  const [loading, setLoading] = useState(false)
+  const [appsLoading, setAppsLoading] = useState(false)
+  const [resignsLoading, setResignsLoading] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
 
+  // Prefetch cả hai danh sách khi vào trang để badge tab hiển thị đúng ngay từ đầu.
   useDeferredEffect((isCancelled) => {
-    if (tab === 'Đơn ứng tuyển' && applications.length === 0) {
-      setLoading(true)
-      getUserApplications(user!.id)
-        .then(data => { if (!isCancelled()) setApplications(data) })
-        .catch(() => toast.error('Không thể tải đơn ứng tuyển.'))
-        .finally(() => { if (!isCancelled()) setLoading(false) })
-    }
-    if (tab === 'Đơn từ chức' && resignations.length === 0) {
-      setLoading(true)
-      getUserResignations(user!.id)
-        .then(data => { if (!isCancelled()) setResignations(data) })
-        .catch(() => toast.error('Không thể tải đơn từ chức.'))
-        .finally(() => { if (!isCancelled()) setLoading(false) })
-    }
-  }, [tab, user, applications.length, resignations.length], { enabled: Boolean(user) })
+    if (!user) return
+
+    setAppsLoading(true)
+    getUserApplications(user.id)
+      .then(data => { if (!isCancelled()) setApplications(data) })
+      .catch(() => toast.error('Không thể tải đơn ứng tuyển.'))
+      .finally(() => { if (!isCancelled()) setAppsLoading(false) })
+
+    setResignsLoading(true)
+    getUserResignations(user.id)
+      .then(data => { if (!isCancelled()) setResignations(data) })
+      .catch(() => toast.error('Không thể tải đơn từ chức.'))
+      .finally(() => { if (!isCancelled()) setResignsLoading(false) })
+  }, [user?.id])
 
   const memberships = user?.memberships ?? []
   const activeMemberships = memberships.filter(m => m.status === MEMBERSHIP_STATUS.ACTIVE || m.status === MEMBERSHIP_STATUS.PROBATION)
@@ -144,7 +145,7 @@ export default function MyActivityPage() {
 
       {/* Đơn ứng tuyển */}
       {tab === 'Đơn ứng tuyển' && (
-        loading ? <LoadingCard /> : applications.length === 0
+        appsLoading ? <LoadingCard /> : applications.length === 0
           ? <EmptyCard text="Bạn chưa nộp đơn ứng tuyển CLB nào." />
           : <div style={{ borderRadius: D.radius, overflow: 'hidden', background: D.card, border: D.border, boxShadow: D.shadow() }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
@@ -180,7 +181,7 @@ export default function MyActivityPage() {
 
       {/* Đơn từ chức */}
       {tab === 'Đơn từ chức' && (
-        loading ? <LoadingCard /> : resignations.length === 0
+        resignsLoading ? <LoadingCard /> : resignations.length === 0
           ? <EmptyCard text="Bạn chưa gửi đơn từ chức nào." />
           : <div style={{ borderRadius: D.radius, overflow: 'hidden', background: D.card, border: D.border, boxShadow: D.shadow() }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>

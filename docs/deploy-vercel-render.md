@@ -16,7 +16,8 @@
    - `VITE_API_ORIGIN` = `https://<render-domain>`
    - `VITE_GOOGLE_CLIENT_ID` (nếu dùng Google login)
 5. **Quay lại Render** — cập nhật `Cors__AllowedOrigins` và `AppUrl` thành **domain Vercel thật** (bước dễ quên nhất). Redeploy hoặc chờ service reload env.
-6. **Test cuối** — checklist ở cuối file này (health, login, refresh cookie, email link, SignalR).
+6. **(Tuỳ chọn) Seed demo data** — trên Render set `Seed__DemoData=true` → redeploy API. Seeder idempotent (chỉ thêm dữ liệu thiếu). Tài khoản demo: `admin@uef.edu.vn` / `Admin@123456` — **đổi mật khẩu sau khi seed**.
+7. **Test cuối** — checklist ở cuối file này (health, login, refresh cookie, email link, SignalR).
 
 > **Lưu ý:** Bước 5 phải làm sau khi có domain Vercel — nếu set CORS sai origin, login/refresh cookie cross-site sẽ fail.
 

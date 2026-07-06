@@ -111,6 +111,43 @@ public class ResignationServiceWorkflowTests : DbTestBase
     }
 
     [Fact]
+    public async Task ReviewAsync_WithApprovedLeaveClub_ResignsAllActiveMembershipRowsForUser()
+    {
+        await using var db = Fx.CreateDbContext();
+        SeedClub(db);
+        db.Users.Add(PagedServiceTestHelpers.User(1, "Dept Lead", "lead@uef.edu.vn", "S001"));
+        db.Departments.Add(PagedServiceTestHelpers.Department(1, 1, "Ban Ky thuat"));
+        db.Departments.Add(PagedServiceTestHelpers.Department(2, 1, "Ban Truyen thong"));
+        db.ClubMemberships.Add(PagedServiceTestHelpers.Membership(
+            1, "u1", role: ClubRole.DEPT_LEAD, departmentId: 1));
+        db.ClubMemberships.Add(PagedServiceTestHelpers.Membership(
+            2, "u1", role: ClubRole.DEPT_LEAD, departmentId: 2));
+        db.ClubMemberships.Add(PagedServiceTestHelpers.Membership(
+            3, "u1", role: ClubRole.MEMBER, departmentId: 2));
+        db.ResignationRequests.Add(new UniClub_Hub.Shared.Models.ResignationRequest
+        {
+            Id = 1,
+            UserId = "u1",
+            ClubId = 1,
+            MembershipId = 2,
+            Preference = ResignationPreference.LeaveClub,
+            Status = ResignationStatus.Pending,
+            RequestedAt = DateTime.UtcNow,
+        });
+        await db.SaveChangesAsync();
+
+        var service = PagedServiceTestHelpers.CreateResignationService(db);
+
+        await service.ReviewAsync(1, new ReviewResignationDto
+        {
+            Status = ResignationStatus.Approved
+        }, "reviewer", isSuperAdmin: true);
+
+        var memberships = await db.ClubMemberships.Where(m => m.UserId == "u1" && m.ClubId == 1).ToListAsync();
+        Assert.All(memberships, m => Assert.Equal(MembershipStatus.Resigned, m.Status));
+    }
+
+    [Fact]
     public async Task ReviewAsync_WithRejected_KeepsOriginalRole()
     {
         await using var db = Fx.CreateDbContext();

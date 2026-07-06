@@ -28,6 +28,9 @@
     "FromAddress": "noreply@yourdomain.com"
   },
   "AppUrl": "https://your-domain.com",
+  "Seed": {
+    "DemoData": false
+  },
   "Gemini": {
     "ApiKey": "YOUR_GEMINI_API_KEY",
     "Model": "gemini-flash-latest",

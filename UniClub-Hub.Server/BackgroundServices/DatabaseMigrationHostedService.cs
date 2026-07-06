@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using UniClub_Hub.Server.Data;
 using UniClub_Hub.Shared.Data;
 using UniClub_Hub.Shared.Models;
@@ -13,6 +14,7 @@ namespace UniClub_Hub.Server.BackgroundServices;
 public sealed class DatabaseMigrationHostedService(
     IServiceScopeFactory scopeFactory,
     IHostEnvironment env,
+    IConfiguration configuration,
     ILogger<DatabaseMigrationHostedService> logger) : IHostedService
 {
     public async Task StartAsync(CancellationToken cancellationToken)
@@ -54,8 +56,15 @@ public sealed class DatabaseMigrationHostedService(
             return;
         }
 
-        if (env.IsDevelopment())
+        var seedDemoData = env.IsDevelopment()
+            || configuration.GetValue("Seed:DemoData", false);
+
+        if (seedDemoData)
         {
+            logger.LogInformation(
+                env.IsDevelopment()
+                    ? "Running demo data seeder (Development)."
+                    : "Running demo data seeder (Seed:DemoData=true).");
             await DbSeeder.SeedAsync(scope.ServiceProvider);
             return;
         }

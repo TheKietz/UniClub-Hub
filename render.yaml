@@ -53,6 +53,9 @@ services:
         sync: false
       - key: Gemini__Model
         value: gemini-flash-latest
+      # Set to "true" once to seed demo CLB/users (idempotent). Env: Seed__DemoData
+      - key: Seed__DemoData
+        sync: false
 
 databases:
   - name: uniclub-hub-db

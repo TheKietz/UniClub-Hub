@@ -215,15 +215,27 @@ namespace UniClub_Hub.Membership.Services.Implements
 
             if (dto.Status == ResignationStatus.Approved)
             {
-                var membership = await _db.ClubMemberships.FindAsync(request.MembershipId)!;
                 if (request.Preference == ResignationPreference.LeaveClub)
                 {
-                    membership!.Status = MembershipStatus.Resigned;
-                    membership.ResignedDate = DateOnly.FromDateTime(DateTime.UtcNow);
+                    var resignedDate = DateOnly.FromDateTime(DateTime.UtcNow);
+                    var activeMemberships = await _db.ClubMemberships
+                        .Where(m =>
+                            m.ClubId == request.ClubId &&
+                            m.UserId == request.UserId &&
+                            (m.Status == MembershipStatus.Active || m.Status == MembershipStatus.Probation))
+                        .ToListAsync();
+
+                    foreach (var activeMembership in activeMemberships)
+                    {
+                        activeMembership.Status = MembershipStatus.Resigned;
+                        activeMembership.ResignedDate = resignedDate;
+                    }
                 }
-                else // BecomeMember
+                else
                 {
-                    membership!.ClubRole = ClubRole.MEMBER;
+                    var membership = await _db.ClubMemberships.FindAsync(request.MembershipId)
+                        ?? throw new KeyNotFoundException("Không tìm thấy thành viên liên kết với đơn từ chức.");
+                    membership.ClubRole = ClubRole.MEMBER;
                     membership.DepartmentId = null;
                 }
             }
