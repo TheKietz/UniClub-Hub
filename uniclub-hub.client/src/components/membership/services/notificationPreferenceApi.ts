@@ -12,6 +12,8 @@ export interface NotificationPreferenceItem {
   emailSubject?: string
   emailTemplate?: string
   isOverride?: boolean
+  globalInAppEnabled?: boolean
+  globalEmailEnabled?: boolean
 }
 
 export interface UpdateNotificationPreferenceRequest {

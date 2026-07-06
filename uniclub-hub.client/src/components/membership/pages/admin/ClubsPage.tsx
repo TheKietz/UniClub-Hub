@@ -324,12 +324,12 @@ export default function ClubsPage() {
                 <td style={{ padding: '12px 14px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
                     <Tooltip label="Sửa">
-                      <button onClick={() => openEdit(club)} style={{ width: 30, height: 30, borderRadius: 6, display: 'grid', placeItems: 'center', border: D.borderLight, background: D.card, color: D.indigo, cursor: 'pointer' }}>
+                      <button onClick={() => openEdit(club)} style={{ width: 30, height: 30, borderRadius: 7, display: 'grid', placeItems: 'center', border: D.border, background: '#eef2ff', color: D.indigo, cursor: 'pointer' }}>
                         <Pencil size={13} />
                       </button>
                     </Tooltip>
                     <Tooltip label="Xoá">
-                      <button onClick={() => setDeleteTarget(club)} style={{ width: 30, height: 30, borderRadius: 6, display: 'grid', placeItems: 'center', border: D.borderLight, background: D.card, color: D.red, cursor: 'pointer' }}>
+                      <button onClick={() => setDeleteTarget(club)} style={{ width: 30, height: 30, borderRadius: 7, display: 'grid', placeItems: 'center', border: D.border, background: '#fee2e2', color: D.red, cursor: 'pointer' }}>
                         <Trash2 size={13} />
                       </button>
                     </Tooltip>

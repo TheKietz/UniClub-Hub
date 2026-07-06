@@ -35,13 +35,49 @@ function getClubColor(id: number) {
   return CLUB_COLORS[id % CLUB_COLORS.length]
 }
 
+function SidebarUserAvatar({
+  initials,
+  avatarUrl,
+  size = 32,
+}: {
+  initials: string
+  avatarUrl?: string | null
+  size?: number
+}) {
+  const shared: React.CSSProperties = {
+    width: size,
+    height: size,
+    borderRadius: size,
+    flexShrink: 0,
+  }
+
+  if (avatarUrl) {
+    return <img src={avatarUrl} alt="" style={{ ...shared, objectFit: 'cover' }} />
+  }
+
+  return (
+    <div style={{
+      ...shared,
+      background: 'linear-gradient(135deg, #2563eb, #e11d48)',
+      display: 'grid',
+      placeItems: 'center',
+      color: '#fff',
+      fontSize: size * 0.375,
+      fontWeight: 800,
+    }}>
+      {initials}
+    </div>
+  )
+}
+
 const MEMBER_NAV: NavItem[] = [
-  { to: '/dashboard', icon: '◇', label: 'Dashboard', end: true },
+  { to: '/dashboard', icon: '◇', label: 'Tổng quan', end: true },
   { to: '/notifications', icon: '◑', label: 'Thông báo' },
-  { to: '/profile', icon: '◐', label: 'Hồ sơ cá nhân', dividerAfter: true },
+  { to: '/profile', icon: '◐', label: 'Hồ sơ cá nhân'},
+  { to: '/my-kpi', icon: '▦', label: 'KPI của tôi', dividerAfter: true  },
   { to: '/my-activity', icon: '↗', label: 'Hoạt động của tôi' },
   { to: '/my-history', icon: '◎', label: 'Lịch sử thành viên', dividerAfter: true },
-  { to: '/support', icon: '◉', label: 'Hỗ trợ' },
+  { to: '/support', icon: '◉', label: 'Hỗ trợ' },  
 ]
 
 const ADMIN_NAV: NavItem[] = [
@@ -493,12 +529,7 @@ export default function DashboardSidebar({ mode, clubId }: Props) {
       <div style={{ padding: '12px', borderTop: '1px solid rgba(255,255,255,.06)' }}>
         {collapsed ? (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-            <div title={user?.fullName ?? 'Người dùng'} style={{
-              width: 32, height: 32, borderRadius: 32, flexShrink: 0,
-              background: 'linear-gradient(135deg, #2563eb, #e11d48)',
-              display: 'grid', placeItems: 'center',
-              color: '#fff', fontSize: 12, fontWeight: 800,
-            }}>{initials}</div>
+            <SidebarUserAvatar initials={initials} avatarUrl={user?.avatarUrl} />
             <button onClick={handleLogout} title="Đăng xuất" style={{
               width: 28, height: 28, borderRadius: 6, border: 'none',
               background: 'transparent', color: 'rgba(255,255,255,.35)',
@@ -511,12 +542,7 @@ export default function DashboardSidebar({ mode, clubId }: Props) {
             display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px',
             borderRadius: 10, background: 'rgba(255,255,255,.04)',
           }}>
-            <div style={{
-              width: 32, height: 32, borderRadius: 32, flexShrink: 0,
-              background: 'linear-gradient(135deg, #2563eb, #e11d48)',
-              display: 'grid', placeItems: 'center',
-              color: '#fff', fontSize: 12, fontWeight: 800,
-            }}>{initials}</div>
+            <SidebarUserAvatar initials={initials} avatarUrl={user?.avatarUrl} />
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 12.5, fontWeight: 700, color: '#fff', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {user?.fullName ?? 'Người dùng'}

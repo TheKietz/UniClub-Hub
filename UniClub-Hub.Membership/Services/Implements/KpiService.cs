@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using UniClub_Hub.Membership.DTOs.Kpi;
 using UniClub_Hub.Membership.Services.Interfaces;
+using UniClub_Hub.Membership.Services.Kpi;
+using MemberTaskStats = UniClub_Hub.Membership.Services.Kpi.MemberTaskStats;
 using UniClub_Hub.Shared.Constants;
 using UniClub_Hub.Shared.Data;
 using UniClub_Hub.Shared.Enums;
@@ -46,7 +48,7 @@ namespace UniClub_Hub.Membership.Services.Implements
                 ClubPermissions.MemberKpiManage
             );
 
-            ValidateCriteriaPayload(criteria);
+            KpiCalculator.ValidateCriteriaPayload(criteria);
 
             var config = await GetOrCreateConfigEntityAsync(clubId);
             var byMetric = config.Criteria.ToDictionary(c => c.MetricKey);
@@ -66,7 +68,7 @@ namespace UniClub_Hub.Membership.Services.Implements
                 item.IsEnabled = dto.IsEnabled;
             }
 
-            ValidateTotalWeight(config.Criteria);
+            KpiCalculator.ValidateTotalWeight(config.Criteria);
             Touch(config, userId);
             await _db.SaveChangesAsync();
 
@@ -93,7 +95,7 @@ namespace UniClub_Hub.Membership.Services.Implements
                 ?? throw new KeyNotFoundException($"Không tìm thấy tiêu chí KPI {metricKey}.");
 
             criterion.IsEnabled = isEnabled;
-            ValidateTotalWeight(config.Criteria);
+            KpiCalculator.ValidateTotalWeight(config.Criteria);
             Touch(config, userId);
             await _db.SaveChangesAsync();
 
@@ -114,7 +116,7 @@ namespace UniClub_Hub.Membership.Services.Implements
                 ClubPermissions.MemberKpiManage
             );
 
-            ValidateGradesPayload(dto.Grades);
+            KpiCalculator.ValidateGradesPayload(dto.Grades);
 
             var config = await GetOrCreateConfigEntityAsync(clubId);
             var existingGrades = config.Grades.ToList();
@@ -189,7 +191,7 @@ namespace UniClub_Hub.Membership.Services.Implements
             string? onlyUserId
         )
         {
-            var (from, to, startDateTime, endDateTime, startOffset, endOffset) = NormalizePeriod(fromDate, toDate);
+            var (from, to, startDateTime, endDateTime, startOffset, endOffset) = KpiCalculator.NormalizePeriod(fromDate, toDate);
             var config = await GetOrCreateConfigEntityAsync(clubId);
             var criteria = config.Criteria
                 .Where(c => c.IsEnabled)
@@ -200,8 +202,6 @@ namespace UniClub_Hub.Membership.Services.Implements
                 .ThenBy(g => g.DisplayOrder)
                 .ToList();
 
-            ValidateTotalWeight(config.Criteria);
-
             var memberQuery = _db.ClubMemberships
                 .AsNoTracking()
                 .Where(m =>
@@ -210,9 +210,6 @@ namespace UniClub_Hub.Membership.Services.Implements
 
             if (departmentId.HasValue)
                 memberQuery = memberQuery.Where(m => m.DepartmentId == departmentId);
-
-            if (!string.IsNullOrEmpty(onlyUserId))
-                memberQuery = memberQuery.Where(m => m.UserId == onlyUserId);
 
             var members = await memberQuery
                 .Include(m => m.User)
@@ -293,8 +290,6 @@ namespace UniClub_Hub.Membership.Services.Implements
                         if (isOnTime) stats.OnTimeDone += 1;
                     }
 
-                    if (task.Deadline.HasValue && task.Deadline.Value < DateTimeOffset.UtcNow && task.Status != ClubTaskStatus.Done)
-                        stats.Overdue += 1;
                 }
             }
 
@@ -326,11 +321,11 @@ namespace UniClub_Hub.Membership.Services.Implements
                 contributions.TryGetValue(member.UserId, out var contributionPoints);
 
                 var metricScores = criteria
-                    .Select(c => ScoreMetric(c, stats, contributionPoints, maxTaskCount))
+                    .Select(c => KpiCalculator.ScoreMetric(c, stats, contributionPoints, maxTaskCount))
                     .ToList();
 
                 var totalScore = Math.Round(metricScores.Sum(m => m.WeightedScore), 1);
-                var grade = Grade(totalScore, grades);
+                var grade = KpiCalculator.Grade(totalScore, grades);
                 results.Add(new MemberKpiResultDto
                 {
                     MembershipId = member.MembershipId,
@@ -356,6 +351,9 @@ namespace UniClub_Hub.Membership.Services.Implements
             for (var i = 0; i < results.Count; i++)
                 results[i].Rank = i + 1;
 
+            if (!string.IsNullOrEmpty(onlyUserId))
+                results = results.Where(r => r.UserId == onlyUserId).ToList();
+
             return new KpiResultsDto
             {
                 ClubId = clubId,
@@ -365,44 +363,6 @@ namespace UniClub_Hub.Membership.Services.Implements
                 TotalMembers = results.Count,
                 AverageScore = Math.Round(results.Select(r => r.TotalScore).DefaultIfEmpty(0).Average(), 1),
                 Members = results,
-            };
-        }
-
-        private static KpiMetricScoreDto ScoreMetric(
-            KpiCriteria criterion,
-            MemberTaskStats stats,
-            int contributionPoints,
-            int maxTaskCount
-        )
-        {
-            var (raw, detail) = criterion.MetricKey switch
-            {
-                KpiMetricKey.TaskCompletion => Ratio(stats.Done, stats.Total, $"{stats.Done}/{stats.Total} task hoàn thành"),
-                KpiMetricKey.OnTimeCompletion => Ratio(stats.OnTimeDone, stats.Done, $"{stats.OnTimeDone}/{stats.Done} task hoàn thành đúng hạn"),
-                KpiMetricKey.AvgProgress => (
-                    stats.Total == 0 ? 0 : Clamp(stats.ProgressSum / stats.Total),
-                    stats.Total == 0 ? "Chưa có task trong kỳ" : $"Tiến độ trung bình {Math.Round(stats.ProgressSum / stats.Total, 1)}%"
-                ),
-                KpiMetricKey.ContributionPoints => (
-                    Clamp(contributionPoints),
-                    $"{contributionPoints} điểm đóng góp, tối đa tính 100"
-                ),
-                KpiMetricKey.Workload => (
-                    maxTaskCount == 0 ? 0 : Clamp((double)stats.Total / maxTaskCount * 100),
-                    $"{stats.Total}/{maxTaskCount} task so với người có workload cao nhất"
-                ),
-                _ => (0, "Không hỗ trợ tiêu chí này"),
-            };
-
-            raw = Math.Round(raw, 1);
-            return new KpiMetricScoreDto
-            {
-                MetricKey = criterion.MetricKey,
-                DisplayName = criterion.DisplayName,
-                Weight = criterion.Weight,
-                RawScore = raw,
-                WeightedScore = Math.Round(raw * criterion.Weight / 100, 1),
-                Detail = detail,
             };
         }
 
@@ -433,6 +393,7 @@ namespace UniClub_Hub.Membership.Services.Implements
             var changed = false;
             foreach (var item in DefaultCriteria().Where(c => !existingKeys.Contains(c.MetricKey)))
             {
+                item.IsEnabled = false;
                 config.Criteria.Add(item);
                 changed = true;
             }
@@ -526,59 +487,6 @@ namespace UniClub_Hub.Membership.Services.Implements
             },
         ];
 
-        private static void ValidateCriteriaPayload(List<UpdateKpiCriteriaDto> criteria)
-        {
-            if (criteria.Count == 0)
-                throw new InvalidOperationException("Danh sách tiêu chí KPI không được rỗng.");
-
-            var knownKeys = Enum.GetValues<KpiMetricKey>().ToHashSet();
-            var seen = new HashSet<KpiMetricKey>();
-
-            foreach (var item in criteria)
-            {
-                if (!knownKeys.Contains(item.MetricKey))
-                    throw new InvalidOperationException($"MetricKey {item.MetricKey} không hợp lệ.");
-                if (!seen.Add(item.MetricKey))
-                    throw new InvalidOperationException($"MetricKey {item.MetricKey} bị trùng.");
-                if (string.IsNullOrWhiteSpace(item.DisplayName))
-                    throw new InvalidOperationException("Tên hiển thị của tiêu chí không được rỗng.");
-                if (item.Weight < 0 || item.Weight > 100)
-                    throw new InvalidOperationException("Trọng số KPI phải nằm trong khoảng 0-100.");
-            }
-        }
-
-        private static void ValidateTotalWeight(IEnumerable<KpiCriteria> criteria)
-        {
-            var total = criteria.Where(c => c.IsEnabled).Sum(c => c.Weight);
-            if (total != 100)
-                throw new InvalidOperationException($"Tổng trọng số các tiêu chí đang bật phải bằng 100. Hiện tại: {total}.");
-        }
-
-        private static void ValidateGradesPayload(List<UpdateKpiGradeDto> grades)
-        {
-            if (grades.Count < 2)
-                throw new InvalidOperationException("Cần ít nhất 2 mức xếp loại KPI.");
-
-            var minScores = new HashSet<int>();
-            var hasFallback = false;
-            foreach (var grade in grades)
-            {
-                if (string.IsNullOrWhiteSpace(grade.Label))
-                    throw new InvalidOperationException("Tên mức xếp loại không được rỗng.");
-                if (grade.MinScore < 0 || grade.MinScore > 100)
-                    throw new InvalidOperationException("Ngưỡng điểm xếp loại phải nằm trong khoảng 0-100.");
-                if (!minScores.Add(grade.MinScore))
-                    throw new InvalidOperationException($"Ngưỡng điểm {grade.MinScore} bị trùng.");
-                if (grade.MinScore == 0)
-                    hasFallback = true;
-                if (!string.IsNullOrWhiteSpace(grade.Color) && grade.Color.Length > 20)
-                    throw new InvalidOperationException("Mã màu xếp loại không được vượt quá 20 ký tự.");
-            }
-
-            if (!hasFallback)
-                throw new InvalidOperationException("Cần có một mức xếp loại với MinScore = 0 để làm fallback.");
-        }
-
         private static KpiConfigDto MapConfig(KpiConfig config)
         {
             var criteria = config.Criteria
@@ -617,52 +525,10 @@ namespace UniClub_Hub.Membership.Services.Implements
             };
         }
 
-        private static (double score, string detail) Ratio(int numerator, int denominator, string detail)
-        {
-            if (denominator == 0) return (0, detail);
-            return (Clamp((double)numerator / denominator * 100), detail);
-        }
-
-        private static double Clamp(double value) => Math.Max(0, Math.Min(100, value));
-
-        private static KpiGradeConfig Grade(double score, List<KpiGradeConfig> grades) =>
-            grades
-                .OrderByDescending(g => g.MinScore)
-                .ThenBy(g => g.DisplayOrder)
-                .FirstOrDefault(g => score >= g.MinScore)
-            ?? grades.OrderBy(g => g.MinScore).First();
-
         private static void Touch(KpiConfig config, string userId)
         {
             config.UpdatedAt = DateTimeOffset.UtcNow;
             config.UpdatedBy = userId;
-        }
-
-        private static (
-            DateOnly from,
-            DateOnly to,
-            DateTime startDateTime,
-            DateTime endDateTime,
-            DateTimeOffset startOffset,
-            DateTimeOffset endOffset
-        ) NormalizePeriod(DateOnly? fromDate, DateOnly? toDate)
-        {
-            var today = DateOnly.FromDateTime(DateTime.UtcNow);
-            var from = fromDate ?? new DateOnly(today.Year, today.Month, 1);
-            var to = toDate ?? today;
-            if (from > to)
-                throw new InvalidOperationException("Ngày bắt đầu không được lớn hơn ngày kết thúc.");
-
-            var startDateTime = DateTime.SpecifyKind(from.ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc);
-            var endDateTime = DateTime.SpecifyKind(to.AddDays(1).ToDateTime(TimeOnly.MinValue), DateTimeKind.Utc);
-            return (
-                from,
-                to,
-                startDateTime,
-                endDateTime,
-                new DateTimeOffset(startDateTime),
-                new DateTimeOffset(endDateTime)
-            );
         }
 
         private sealed record MemberProjection(
@@ -686,14 +552,5 @@ namespace UniClub_Hub.Membership.Services.Implements
         );
 
         private sealed record TaskAssigneeProjection(int TaskId, string UserId);
-
-        private sealed class MemberTaskStats
-        {
-            public int Total { get; set; }
-            public int Done { get; set; }
-            public int OnTimeDone { get; set; }
-            public int Overdue { get; set; }
-            public double ProgressSum { get; set; }
-        }
     }
 }

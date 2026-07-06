@@ -26,5 +26,11 @@
     "ApiKey": "SG.YOUR_API_KEY_HERE",
     "FromName": "UniClub Hub",
     "FromAddress": "your-email@gmail.com"
+  },
+  "Gemini": {
+    "ApiKey": "YOUR_GEMINI_API_KEY",
+    "Model": "gemini-flash-latest",
+    "BaseUrl": "https://generativelanguage.googleapis.com",
+    "Temperature": 0.2
   }
 }

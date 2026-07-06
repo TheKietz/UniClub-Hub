@@ -131,17 +131,32 @@ export default function ClubReportPage() {
     <div style={{ padding: '28px 32px', minHeight: '100%', background: '#f4f7fc', fontFamily: "'Be Vietnam Pro', sans-serif" }}>
       <style>{`
         @media print {
+          html, body {
+            height: auto !important;
+            overflow: visible !important;
+            margin: 0;
+            padding: 0;
+            background: white;
+          }
           body * { visibility: hidden; }
           #club-report-printable, #club-report-printable * { visibility: visible; }
           #club-report-printable {
-            position: fixed;
-            top: 0; left: 0;
-            width: 100%;
-            padding: 12mm 16mm;
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            width: auto;
+            max-width: none;
+            margin: 0;
+            padding: 0;
             background: white;
+            border: none;
+            border-radius: 0;
+            box-shadow: none;
           }
+          #club-report-printable table tr { break-inside: avoid; page-break-inside: avoid; }
           .report-no-print { display: none !important; }
-          @page { size: A4; margin: 0; }
+          @page { size: A4; margin: 14mm 16mm; }
         }
       `}</style>
 
@@ -284,6 +299,7 @@ export default function ClubReportPage() {
               rows={[
                 ['Chờ duyệt', stats.applications.pending, '—'],
                 ['Đang phỏng vấn', stats.applications.interview, '—'],
+                ['Đang xét', stats.applications.reviewing, '—'],
                 ['Đã chấp nhận', stats.applications.accepted,
                   acceptanceRate !== null ? `${acceptanceRate}% tỉ lệ duyệt` : '—'],
                 ['Bị từ chối', stats.applications.rejected, '—'],

@@ -15,17 +15,20 @@ isolated feature modules that share one schema and one database.
 | Frontend | **React** (TypeScript, Vite) | `uniclub-hub.client/` |
 | Backend API | **ASP.NET Core** (.NET, single API host) | `UniClub-Hub.Server/` |
 | Persistence | **PostgreSQL** via EF Core (Npgsql) | `timestamptz`, JSONB columns |
-| Realtime | **SignalR** | Operations module only (`/hubs/kanban`) |
+| Realtime | **SignalR** | Operations module only (`/hubs/kanban`, via `IKanbanHubNotifier`) |
+| Background jobs | **IHostedService** | `ReminderHostedService` — deadline reminders |
 | Auth | ASP.NET Core Identity + JWT / Refresh tokens | System roles in `AspNetRoles` |
+| Tests | **xUnit** + Respawn + WebApplicationFactory | `UniClub-Hub.Tests/` (real Postgres fixture) |
 
 **Project layout (one solution `UniClub-Hub.sln`):**
 
 ```
 UniClub-Hub.Shared/        → Entities (Models/), Enums, Constants, DbContext, Migrations
-UniClub-Hub.Server/        → API host: Controllers/, Hubs/, Program.cs
+UniClub-Hub.Server/        → API host: Controllers/, Hubs/, BackgroundServices/, Program.cs
 UniClub-Hub.Membership/    → Module 1: clubs, org structure, members, KPI, RBAC
-UniClub-Hub.Operations/    → Module 2: events, tasks, sprints, Kanban/Gantt, realtime
+UniClub-Hub.Operations/    → Module 2: events, tasks, sprints, Kanban/Gantt, realtime, intelligence, export
 UniClub-Hub.Portal/        → Module 3: public landing page, CMS, registration, SEO
+UniClub-Hub.Tests/         → xUnit tests, mirrors module structure (Operations/, Membership/)
 uniclub-hub.client/        → React SPA
 ```
 
@@ -49,7 +52,7 @@ uniclub-hub.client/        → React SPA
 | Name, Description, Location, BannerUrl | text | |
 | StartTime, EndTime | timestamptz? | |
 | MaxParticipants | int? | |
-| Status | enum `EventStatus` | Draft, … |
+| Status | enum `EventStatus` | Draft / InProgress / Completed / Cancelled |
 | Budget | decimal? | |
 | Category | varchar(100)? | |
 | + Audit/SoftDelete | | CreatedAt/By, UpdatedAt/By, IsDeleted |
@@ -64,14 +67,46 @@ uniclub-hub.client/        → React SPA
 | EventId (FK) | int? | → Events |
 | DepartmentId (FK) | int? | → Departments (Ban-level) |
 | Title, Description | text | |
-| Priority | enum `TaskPriority` | Medium default |
-| Status | enum `ClubTaskStatus` | Todo → … |
+| Priority | enum `TaskPriority` | Low / Medium (default) / High |
+| Status | enum `ClubTaskStatus` | Todo / Doing / Done / Reviewing (Reviewing appended last = int 3; visual order via `KanbanColumn.SortOrder`) |
 | Progress | int | 0–100 |
 | Deadline, StartDate, CompletedAt | timestamptz? | |
 | EstimatedHours, ActualHours | float? | workload |
 | AssignedTo (FK) | string? | → ApplicationUser (primary assignee) |
 | KanbanColumnId (FK) | int? | → KanbanColumns |
 | + Audit/SoftDelete | | CreatedBy doubles as Creator FK |
+
+#### Task Dependency — how it works (current behavior)
+
+A dependency is a directed edge stored in `TaskDependency` (composite PK
+`TaskId` + `DependsOnTaskId`): **`TaskId` depends on `DependsOnTaskId`**, i.e. the
+prerequisite (`DependsOnTaskId`) must reach status `Done` before `TaskId` may proceed.
+Logic lives in `TaskService` (`AddDependencyAsync` / `UpdateStatusAsync` / read-side
+flagging); endpoints are `GET|POST|DELETE /api/v1/operations/tasks/{id}/dependencies`.
+
+**1. Creating a dependency** (`POST .../dependencies`, body `AddDependencyDto`) is rejected when:
+- either task does not exist → `404`;
+- the two tasks belong to **different clubs** → `400` ("phải thuộc cùng câu lạc bộ");
+- it is a **self-dependency** (`taskId == dependsOnTaskId`) → `400`;
+- the **direct reverse edge** already exists (the other task already depends on this one) → `400`;
+- the same edge already exists (deduplicated).
+
+> ⚠️ Cycle protection only checks the **immediate reverse edge** (1 level). A transitive
+> cycle (A→B→C→A) is **not** currently detected.
+
+**2. Enforcement on status change** (`PATCH .../status`): moving a task to **`Doing`** or
+**`Done`** is blocked while any prerequisite has `Status != Done`. The service throws and the
+API returns `400` listing the blockers
+(*"Công việc bị chặn bởi: …. Hoàn thành các công việc phụ thuộc trước."*).
+Moving to `Todo` is always allowed; reaching `Done` forces `Progress = 100` and stamps `CompletedAt`.
+
+**3. Read-side `IsBlocked` flag**: task list (`GET /tasks`) and detail (`GET /tasks/{id}`)
+compute `IsBlocked = (count of prerequisites whose Status != Done) > 0`, so the UI can show a
+"blocked" indicator and Gantt/Kanban can sequence accordingly. Dependency edges are also what the
+Gantt view uses to draw ordering links.
+
+Status changes broadcast `TaskStatusUpdated` over SignalR to the `club_{clubId}` group, so other
+clients see a task unblock in real time once its prerequisites complete.
 
 ### Sprints  (`Sprint`)
 | Column | Type | Notes |
@@ -82,7 +117,7 @@ uniclub-hub.client/        → React SPA
 | DepartmentId (FK) | int? | → Departments |
 | Name, Goal | text | |
 | StartDate, EndDate | timestamptz | |
-| Status | enum `SprintStatus` | Planning default |
+| Status | enum `SprintStatus` | Planning (default) / Active / Completed / Cancelled |
 | ReviewNotes | text (JSONB) | retrospective |
 
 ### TaskDependencies  (`TaskDependency`)
@@ -137,13 +172,14 @@ Task *───1 KanbanColumn
 ### Operations
 | Resource | Endpoints |
 |----------|-----------|
-| **Events** `/api/v1/operations/events` | `GET` list, `GET /{id}`, `POST`, `PUT /{id}`, `DELETE /{id}`; sub-resources: `/{id}/sessions`, `/{id}/staff`, `/{id}/registrations` (+`/attendance`), `/{id}/attachments` |
-| **Tasks** `/api/v1/operations/tasks` | `GET` (filterable, incl. `parentId`), `GET /{id}`, `POST`, `PUT /{id}`, `PATCH /{id}/status`, `DELETE /{id}`; `GET\|POST\|DELETE /{id}/dependencies`, `/{id}/comments`, `/{id}/attachments`; `GET /suggest-assignees`, `GET /urgent-tasks` |
+| **Events** `/api/v1/operations/events` | `GET` list, `GET /{id}`, `POST`, `PUT /{id}`, `DELETE /{id}`; sub-resources: `/{id}/sessions` (+`/reorder`), `/{id}/staff`, `/{id}/registrations` (+`/attendance`), `/{id}/attachments`, `GET\|PUT /{id}/registration-link` |
+| **Tasks** `/api/v1/operations/tasks` | `GET` (filterable, incl. `parentId`), `GET /{id}`, `POST`, `PUT /{id}`, `PATCH /{id}/status`, `DELETE /{id}`; `GET\|POST\|DELETE /{id}/dependencies`, `/{id}/comments`, `/{id}/attachments` (`/link` \| `/file`); intelligence: `GET /suggest-assignees`, `GET /urgent-tasks`, `GET /at-risk` |
 | **Task Assignees** `/api/v1/operations/tasks/{taskId}/assignees` | `GET`, `POST`, `DELETE /{userId}` |
 | **Sprints** `/api/v1/operations/sprints` | `GET`, `GET /{id}`, `POST`, `PUT /{id}`, `DELETE /{id}` |
 | **Kanban Columns** `/api/v1/operations/kanban-columns` | `GET`, `POST`, `PUT /{id}`, `DELETE /{id}`, `PATCH /reorder` |
 | **Event Assignments (Inbox)** `/api/v1/operations/assignments` | `GET ?eventId=`, `GET /inbox?clubId=` (club inbox), `POST`, `PUT /{id}`, `PATCH /{id}/status`, `DELETE /{id}` |
 | **KPI** `/api/v1/operations/kpi` | `GET /me`, `GET /departments/{departmentId}` |
+| **Export** `/api/v1/operations/export` | `GET /tasks?clubId=&from=&to=&format=xlsx\|pdf`, `GET /kpi/departments/{departmentId}`, `GET /audit-logs` (returns file) |
 | **Audit Logs** `/api/v1/operations/audit-logs` | `GET` |
 
 ### Membership
@@ -162,9 +198,22 @@ Task *───1 KanbanColumn
 | **Support** `/api/support`, **Stats** `/api`, **Uploads** `/api` | |
 
 ### Realtime (SignalR — Operations only)
-- Hub mapped at **`/hubs/kanban`** (`KanbanHub`).
-- Events (constants in `Shared/Constants/SignalREvents.cs`): `TaskStatusUpdated`, `TaskCreated`, `TaskDeleted`.
-- Group convention: `club_{clubId}`.
+- Hub mapped at **`/hubs/kanban`** (`KanbanHub`); clients call hub methods **`JoinClub(clubId)`** /
+  **`LeaveClub(clubId)`** to subscribe to their club group.
+- Group convention: **`club_{clubId}`** (all broadcasts are club-scoped).
+- Event names are `const` in `Shared/Constants/SignalREvents.cs`, mirrored on the frontend in
+  `src/lib/signalrEvents.ts` (`SIGNALR_EVENTS` + `HUB_METHODS`) — no hardcoded strings, per the
+  SignalR-contract rule. Current events:
+
+| Event | Fired when |
+|-------|-----------|
+| `TaskStatusUpdated` | a task changes status |
+| `TaskCreated` / `TaskDeleted` | task added / removed |
+| `EventTasksCleaned` | cascade soft-delete of an event's tasks |
+| `CommentAdded` / `AttachmentUploaded` | new comment / attachment on a task |
+| `SprintStatusChanged` | sprint status transition |
+| `AssignmentReceived` | a club receives a new work assignment (school → club) |
+| `NotificationReceived` | per-user in-app notification pushed |
 
 ---
 
@@ -180,6 +229,11 @@ The system models a top-down delegation chain:
 | **3. CLB → Ban** | The club lead routes a task to a department by setting `Task.DepartmentId`; department boards show only their slice. | `ClubTask.DepartmentId` (EventDeptTasksBoard) |
 | **4. Ban → Member** | The department lead assigns the task to one or more members. | `ClubTask.AssignedTo` (primary) + `TaskAssignees` (multi) |
 
+**Role scoping (per-club via `ClubMembership.ClubRole`):** `CLUB_ADMIN` → `DEPT_LEAD` → `MEMBER`.
+Management actions are gated by role — e.g. deleting a task requires `DEPT_LEAD` or `CLUB_ADMIN`
+(`RequireManagerRoleAsync`), otherwise the API returns `403`. System-wide roles (`SUPER_ADMIN`,
+`USER`) are separate and handled by ASP.NET Identity (`AspNetRoles`).
+
 **Subtask breakdown ("bóc tách việc con"):**
 - Implemented via the self-referencing **`ClubTask.ParentId`** → `SubTasks` tree.
 - A parent task can be decomposed into child tasks; each child is independently
@@ -193,3 +247,88 @@ The system models a top-down delegation chain:
 **Net effect:** work cascades School → Club → Department → Member, while `ParentId`
 recursion lets each level slice a received task into smaller owned units, and
 `TaskDependency` enforces ordering across the resulting graph.
+
+---
+
+## 5. Task Intelligence, KPI & Export (Operations add-ons)
+
+### Intelligence (rule-based, no external ML) — `TaskIntelligenceService`
+| Feature | Endpoint | Logic |
+|---------|----------|-------|
+| **Assignment suggestion** (Top-3 members) | `GET /tasks/suggest-assignees` | `Score = OnTimeRate*0.4 + ProductivityScore*0.3 − ActiveWorkloadHours*0.5` |
+| **Priority / urgent tasks** (Top-3 per member) | `GET /tasks/urgent-tasks` | `UrgencyIndex = 1/hoursToDeadline + PriorityWeight + dependentsWaiting*2` |
+| **Deadline-slip prediction** (club-wide) | `GET /tasks/at-risk` | `DeadlineRisk`: at risk when `Progress < expected%` **AND** `≤ 2 days` left |
+
+- `DeadlineRisk` (`Services/DeadlineRisk.cs`) is a shared static rule reused by both the
+  `at-risk` endpoint and `ReminderHostedService` (background deadline reminders).
+- DTOs: `AssignmentSuggestionResponse`, `UrgentTaskResponse`, `AtRiskTaskResponse`.
+
+### KPI — `KpiService`
+- `GET /kpi/me` (personal) and `GET /kpi/departments/{id}` (department roll-up),
+  derived from task completion / on-time stats. DTOs in `DTOs/Kpi/`.
+
+### Export — `ExportService`
+- `GET /export/tasks`, `/export/kpi/departments/{id}`, `/export/audit-logs` →
+  return a downloadable file in **xlsx** or **pdf** (`format` query), date-range filtered,
+  permission-checked (`Forbid` on unauthorized). Frontend trigger: `ExportReportButton.tsx`.
+
+### Notification engine
+Two delivery paths off a shared `INotificationService.SendAsync(...)`:
+- **Persisted** — a `Notification` row (typed by `NotificationType`, e.g. `TaskStatusUpdated`,
+  `DeadlineReminder`), read via Membership's `/api/notifications`.
+- **Realtime** — pushed to the user over SignalR as `NotificationReceived`; the frontend
+  `KanbanNotificationBell.tsx` renders the live in-app bell.
+- Triggers include task status changes (`TaskService`) and the background
+  **`ReminderHostedService`**: an hourly sweep over not-done tasks due within **48h** that sends an
+  *at-risk* warning (behind expected progress, via shared `DeadlineRisk`) or a *due-soon* reminder
+  (≤ 24h), de-duplicated per `(task, kind)` for the process lifetime to avoid spam.
+
+---
+
+## 6. Tests (Operations)
+
+`UniClub-Hub.Tests/` mirrors the module layout; per testing standards it uses a **real
+Postgres fixture + Respawn** reset (not EF InMemory).
+
+- `Infrastructure/`: `ApiFactory` (WebApplicationFactory), `DbTestBase`, `PostgresFixture`.
+- `Operations/`: `TaskServiceTests`, `KanbanColumnServiceTests`, `EventAssignmentServiceTests`.
+
+---
+
+## 7. Operations Frontend Pages (UI)
+
+Files live in `uniclub-hub.client/src/components/operations/pages/`. Wiring is in `App.tsx`.
+
+### Shell + tabbed workspace — `ClubOperationsPage`
+Route **`/clubs/:clubId/operations`**. It is a container that renders a top tab bar and swaps
+the active sub-page via the **`?view=`** query param, all wrapped in a single `TasksProvider`
+(shared task state) with a **department selector** in the header (`?dept=` supports notification
+deep-links). **Role-gated:** members see only member-allowed tabs; `DEPT_LEAD` / `CLUB_ADMIN`
+see all. Each tab maps to a page component:
+
+| Tab (`view`) | Label | Page | Purpose |
+|--------------|-------|------|---------|
+| `overview` | Tổng quan | `OperationsDashboard` | KPIs/stats + recent activity summary |
+| `mytasks` | Cá nhân | `MyTasksPage` | The current user's assigned tasks |
+| `sprints` | Kho công việc | `SprintsPage` | Sprint / work backlog management |
+| `board` | Bảng | `KanbanPage` | Kanban board (drag-drop, realtime via SignalR) |
+| `deadlines` | Deadlines | `DeadlinePage` | Deadline-focused / at-risk task view |
+| `workload` | Phân công | `WorkloadPage` | Per-member workload & assignment (lead-only) |
+| `gantt` | Biểu đồ | `GanttPage` | Gantt timeline with dependency links |
+| `calendar` | Lịch | `CalendarPage` | Calendar view of tasks/events |
+| `activity` | Hoạt động | `ActivityLogPage` | Audit / activity log (lead-only) |
+| `kpi` | KPI | `KpiPage` | Personal & department KPI dashboard |
+
+### Standalone routed pages
+| Page | Route(s) | Purpose |
+|------|----------|---------|
+| `EventListPage` | `manage/events` | List of the club's events |
+| `EventDetailPage` | `/clubs/:clubId/events/:id`, `manage/events/:id` | Event detail: sessions, staff, registrations, attachments, and the department task board (`EventDeptTasksBoard`) |
+| `InboxPage` | `manage/inbox` | Club inbox of incoming work assignments (*phiếu giao việc*) from university events |
+| `UniversityEventsPage` | `/admin/events` | Admin list of university/school-level events |
+| `UniversityEventDetailPage` | `/admin/events/:id`, `/events/university/:id` | University event detail + assign work to clubs (`EventClubAssignment`) |
+
+> `GanttPage`, `CalendarPage`, `InboxPage`, `EventListPage`/`EventDetailPage` are also reachable
+> directly under the `manage/*` admin layout (CLUB_ADMIN), in addition to the tabbed workspace.
+> Supporting UI: `components/` (kanban, task, sprint, event/`EventDeptTasksBoard`,
+> `ExportReportButton`, `KanbanNotificationBell`); data/state in `services/` + `context/TasksContext`.

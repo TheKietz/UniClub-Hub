@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using UniClub_Hub.Operations.DTOs.Event;
 using UniClub_Hub.Operations.Services.Interfaces;
 using UniClub_Hub.Shared.Common;
@@ -16,7 +17,9 @@ namespace UniClub_Hub.Operations.Services.Implements
         UniClubDbContext db,
         IFileStorageService fileStorage,
         UserManager<ApplicationUser> userManager,
-        IKanbanHubNotifier kanbanNotifier) : IEventService
+        IKanbanHubNotifier kanbanNotifier,
+        IContributionAwardService contributionAwardService,
+        ILogger<EventService> logger) : IEventService
     {
         private static readonly string[] AllowedExtensions =
         [
@@ -355,14 +358,39 @@ namespace UniClub_Hub.Operations.Services.Implements
                 .FirstOrDefaultAsync(er => er.EventId == eventId && er.UserId == userId)
                 ?? throw new KeyNotFoundException($"Registration not found.");
 
+            var previousAttendance = reg.Attendance;
+
             if (Enum.TryParse<AttendanceStatus>(dto.Attendance, true, out var status))
                 reg.Attendance = status;
 
-            if (status == AttendanceStatus.CheckedIn)
+            var shouldAwardContribution =
+                reg.Attendance == AttendanceStatus.CheckedIn && reg.CheckedInAt == null;
+            var shouldReverseContribution =
+                previousAttendance == AttendanceStatus.CheckedIn && reg.Attendance != AttendanceStatus.CheckedIn;
+
+            if (shouldAwardContribution)
                 reg.CheckedInAt ??= DateTimeOffset.UtcNow;
+            else if (shouldReverseContribution)
+                reg.CheckedInAt = null;
 
             if (dto.Note != null)
                 reg.Note = dto.Note;
+
+            try
+            {
+                if (shouldAwardContribution)
+                    await contributionAwardService.AwardEventCheckInAsync(eventId, userId);
+                else if (shouldReverseContribution)
+                    await contributionAwardService.ReverseEventCheckInAsync(eventId, userId);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(
+                    ex,
+                    "Contribution auto-award failed for event {EventId}, user {UserId}.",
+                    eventId,
+                    userId);
+            }
 
             await db.SaveChangesAsync();
         }
@@ -522,6 +550,7 @@ namespace UniClub_Hub.Operations.Services.Implements
             UserName = er.User?.FullName ?? er.User?.UserName ?? er.UserId,
             AvatarUrl = er.User?.AvatarUrl,
             Email = er.User?.Email,
+            StudentId = er.User?.StudentId,
             RegisteredAt = er.RegisteredAt,
             Attendance = er.Attendance.ToString(),
             CheckedInAt = er.CheckedInAt,

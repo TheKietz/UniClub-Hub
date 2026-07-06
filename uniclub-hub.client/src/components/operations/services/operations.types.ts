@@ -324,6 +324,7 @@ export interface EventRegistrationItem {
   userName: string
   avatarUrl?: string
   email?: string
+  studentId?: string
   registeredAt: string
   attendance: AttendanceStatus
   checkedInAt?: string
@@ -402,4 +403,16 @@ export interface UrgentTaskItem {
   hoursToDeadline: number
   urgencyIndex: number
   urgencyReason: string
+}
+
+export interface AtRiskTaskItem {
+  taskId: number
+  title: string
+  assigneeName?: string
+  deadline?: string
+  progress: number
+  expectedProgress: number
+  daysRemaining: number
+  priority: TaskPriority
+  status: TaskStatus
 }

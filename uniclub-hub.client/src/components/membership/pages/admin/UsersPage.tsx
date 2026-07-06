@@ -4,8 +4,6 @@ import { getUsers, lockUser, unlockUser, deleteUser, createUser, changeUserRole,
 import type { UserListQuery } from '@/components/membership/services/adminApi'
 import type { UserItem, UserImportPreview } from '@/components/membership/services/admin.types'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { toast } from 'sonner'
@@ -225,16 +223,21 @@ export default function UsersPage() {
     sortDir,
   }
 
-  function toggleSort(col: typeof sortBy) {
-    if (sortBy === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
-    else { setSortBy(col); setSortDir('asc') }
-  }
-
   const field = (key: keyof CreateForm) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm(p => ({ ...p, [key]: e.target.value }))
 
-    const thS: React.CSSProperties = { padding: '10px 14px', textAlign: 'left', fontSize: 12, fontWeight: 700, color: D.inkMuted, letterSpacing: '.02em', whiteSpace: 'nowrap' }
-  const tdS: React.CSSProperties = { padding: '12px 14px', fontSize: 13 }
+  const thS: React.CSSProperties = { padding: '10px 14px', textAlign: 'left', fontSize: 12, fontWeight: 700, color: D.inkMuted, letterSpacing: '.02em', whiteSpace: 'nowrap' }
+  const tdS: React.CSSProperties = { padding: '12px 14px', fontSize: 13, verticalAlign: 'middle' }
+  const labelStyle: React.CSSProperties = { display: 'block', fontSize: 12, fontWeight: 700, color: D.inkDim, marginBottom: 6 }
+  const inputStyle: React.CSSProperties = {
+    width: '100%', height: 36, borderRadius: 8, border: D.borderLight,
+    padding: '0 12px', fontSize: 13, color: D.ink, outline: 'none', background: D.bg,
+    fontFamily: 'inherit', boxSizing: 'border-box',
+  }
+  const tableActionBtn = (color: string, bg: string): React.CSSProperties => ({
+    width: 30, height: 30, borderRadius: 7, display: 'grid', placeItems: 'center',
+    border: D.border, background: bg, color, cursor: 'pointer', flexShrink: 0,
+  })
 
   return (
     <div style={{ padding: '28px 32px', minHeight: '100%', background: D.bg, fontFamily: "'Be Vietnam Pro', sans-serif" }}>
@@ -299,6 +302,21 @@ export default function UsersPage() {
           ]}
           style={{ width: 160 }}
         />
+        <FilterSelect
+          value={`${sortBy}-${sortDir}`}
+          onChange={v => {
+            const [col, dir] = v.split('-')
+            setSortBy(col as 'name' | 'email' | 'role')
+            setSortDir(dir as 'asc' | 'desc')
+          }}
+          options={[
+            { value: 'name-asc', label: 'Tên A → Z' },
+            { value: 'name-desc', label: 'Tên Z → A' },
+            { value: 'role-asc', label: 'Quyền A → Z' },
+            { value: 'role-desc', label: 'Quyền Z → A' },
+          ]}
+          style={{ width: 160 }}
+        />
         {hasFilter && (
           <button onClick={() => { setSearch(''); setStatusFilter(''); setRoleFilter('') }}
             style={{ fontSize: 12, color: D.indigo, fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
@@ -313,10 +331,10 @@ export default function UsersPage() {
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
           <thead>
             <tr style={{ background: D.bg, borderBottom: D.borderLight }}>
-              <th style={thS}><button onClick={() => toggleSort('name')} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', fontFamily: 'inherit', fontSize: 12, fontWeight: 700, color: D.inkMuted }}>Người dùng <span style={{ color: sortBy === 'name' ? D.indigo : '#ccc' }}>↕</span></button></th>
+              <th style={thS}>Người dùng</th>
               <th style={thS}>MSSV</th>
               <th style={thS}>Ngành</th>
-              <th style={thS}><button onClick={() => toggleSort('role')} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', fontFamily: 'inherit', fontSize: 12, fontWeight: 700, color: D.inkMuted }}>Quyền <span style={{ color: sortBy === 'role' ? D.indigo : '#ccc' }}>↕</span></button></th>
+              <th style={thS}>Quyền</th>
               <th style={thS}>Trạng thái</th>
               <th style={{ ...thS, textAlign: 'center' }}>Hành động</th>
             </tr>
@@ -356,14 +374,14 @@ export default function UsersPage() {
                     }}>{user.isLocked ? 'Đã khoá' : 'Hoạt động'}</span>
                   </td>
                   <td style={{ ...tdS, textAlign: 'center' }}>
-                    <div style={{ display: 'flex', justifyContent: 'center', gap: 4 }}>
-                      <button title={isSuperAdmin ? 'Hạ về Người dùng' : 'Nâng lên Super Admin'} onClick={() => handleChangeRole(user)} style={{ width: 28, height: 28, borderRadius: 6, display: 'grid', placeItems: 'center', background: 'transparent', border: 'none', cursor: 'pointer', color: isSuperAdmin ? D.inkMuted : D.violet }}>
+                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 6 }}>
+                      <button title={isSuperAdmin ? 'Hạ về Người dùng' : 'Nâng lên Super Admin'} onClick={() => handleChangeRole(user)} style={tableActionBtn(isSuperAdmin ? D.inkMuted : D.violet, isSuperAdmin ? D.bg : D.violetSoft)}>
                         {isSuperAdmin ? <ShieldOff size={14} /> : <ShieldCheck size={14} />}
                       </button>
-                      <button title={user.isLocked ? 'Mở khoá' : 'Khoá'} onClick={() => handleLock(user)} style={{ width: 28, height: 28, borderRadius: 6, display: 'grid', placeItems: 'center', background: 'transparent', border: 'none', cursor: 'pointer', color: user.isLocked ? D.emerald : D.amber }}>
+                      <button title={user.isLocked ? 'Mở khoá' : 'Khoá'} onClick={() => handleLock(user)} style={tableActionBtn(user.isLocked ? D.emerald : D.amber, user.isLocked ? '#dcfce7' : '#fef3c7')}>
                         {user.isLocked ? <LockKeyholeOpen size={14} /> : <LockKeyhole size={14} />}
                       </button>
-                      <button title="Xoá" onClick={() => setDeleteTarget(user)} style={{ width: 28, height: 28, borderRadius: 6, display: 'grid', placeItems: 'center', background: 'transparent', border: 'none', cursor: 'pointer', color: D.red }}>
+                      <button title="Xoá" onClick={() => setDeleteTarget(user)} style={tableActionBtn(D.red, '#fee2e2')}>
                         <Trash2 size={14} />
                       </button>
                     </div>
@@ -385,30 +403,30 @@ export default function UsersPage() {
 
       {/* Create dialog */}
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md" style={{ fontFamily: "'Be Vietnam Pro', sans-serif" }}>
           <DialogHeader>
-            <DialogTitle style={{ color: '#0f172a', fontWeight: 700 }}>Thêm người dùng</DialogTitle>
+            <DialogTitle style={{ color: D.ink, fontWeight: 900, fontSize: 18 }}>Thêm người dùng</DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleCreate} className="space-y-3 py-2">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="col-span-2 space-y-1.5">
-                <Label>Email *</Label>
-                <Input value={form.email} onChange={field('email')} required type="email" placeholder="user@uef.edu.vn" />
+          <form onSubmit={handleCreate} style={{ display: 'flex', flexDirection: 'column', gap: 14, paddingTop: 8 }}>
+            <div>
+              <label style={labelStyle}>Email *</label>
+              <input value={form.email} onChange={field('email')} required type="email" placeholder="user@uef.edu.vn" style={inputStyle} />
+            </div>
+            <div>
+              <label style={labelStyle}>Mật khẩu *</label>
+              <input value={form.password} onChange={field('password')} required type="password" placeholder="Tối thiểu 6 ký tự" style={inputStyle} />
+            </div>
+            <div>
+              <label style={labelStyle}>Họ tên</label>
+              <input value={form.fullName} onChange={field('fullName')} placeholder="Nguyễn Văn A" style={inputStyle} />
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div style={{ minWidth: 0 }}>
+                <label style={labelStyle}>MSSV</label>
+                <input value={form.studentId} onChange={field('studentId')} placeholder="2151000001" style={inputStyle} />
               </div>
-              <div className="col-span-2 space-y-1.5">
-                <Label>Mật khẩu *</Label>
-                <Input value={form.password} onChange={field('password')} required type="password" placeholder="Tối thiểu 6 ký tự" />
-              </div>
-              <div className="col-span-2 space-y-1.5">
-                <Label>Họ tên</Label>
-                <Input value={form.fullName} onChange={field('fullName')} placeholder="Nguyễn Văn A" />
-              </div>
-              <div className="space-y-1.5">
-                <Label>MSSV</Label>
-                <Input value={form.studentId} onChange={field('studentId')} placeholder="2151000001" />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Giới tính</Label>
+              <div style={{ minWidth: 0 }}>
+                <label style={labelStyle}>Giới tính</label>
                 <FilterSelect
                   value={form.gender}
                   onChange={value => setForm(prev => ({ ...prev, gender: value }))}
@@ -417,16 +435,17 @@ export default function UsersPage() {
                     { value: 'Nam', label: 'Nam' },
                     { value: 'Nữ', label: 'Nữ' },
                   ]}
+                  style={{ width: '100%' }}
                 />
               </div>
-              <div className="col-span-2 space-y-1.5">
-                <Label>Ngành</Label>
-                <Input value={form.major} onChange={field('major')} placeholder="Công nghệ thông tin" />
-              </div>
             </div>
-            <DialogFooter className="border-none bg-transparent">
-              <Button type="button" variant="outline" onClick={() => setAddOpen(false)}>Huỷ</Button>
-              <Button type="submit" disabled={saving} className="bg-indigo-600 hover:bg-indigo-700">
+            <div>
+              <label style={labelStyle}>Ngành</label>
+              <input value={form.major} onChange={field('major')} placeholder="Công nghệ thông tin" style={inputStyle} />
+            </div>
+            <DialogFooter className="border-none bg-transparent" style={{ paddingTop: 4 }}>
+              <Button type="button" variant="outline" onClick={() => setAddOpen(false)} style={{ border: D.border }}>Huỷ</Button>
+              <Button type="submit" disabled={saving} className="bg-indigo-600 hover:bg-indigo-700" style={{ border: D.border }}>
                 {saving ? 'Đang tạo...' : 'Tạo tài khoản'}
               </Button>
             </DialogFooter>

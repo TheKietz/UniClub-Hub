@@ -71,10 +71,10 @@ export default function UserMenu() {
   const managedClub = user?.memberships.find(m => m.status === MEMBERSHIP_STATUS.ACTIVE && m.clubRole === CLUB_ROLES.CLUB_ADMIN)
 
   const mainNav = isOnManagement
-    ? { label: 'Dashboard sinh viên', icon: LayoutDashboard, to: '/dashboard' }
+    ? { label: 'Tổng quan sinh viên', icon: LayoutDashboard, to: '/dashboard' }
     : isSuperAdmin
     ? { label: 'Admin Panel', icon: ShieldCheck, to: '/admin' }
-    : { label: 'Dashboard', icon: LayoutDashboard, to: '/dashboard' }
+    : { label: 'Tổng quan', icon: LayoutDashboard, to: '/dashboard' }
 
   return (
     <div style={{ position: 'relative', display: 'inline-flex' }}>

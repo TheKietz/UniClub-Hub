@@ -22,6 +22,7 @@ namespace UniClub_Hub.Shared.Constants
 
         // ── System ──────────────────────────────────────────────────────────
         public const string SystemAnnouncement   = "system.announcement";
+        public const string NotificationPolicyChanged = "system.notification_policy_changed";
 
         // ── Labels (for UI display) ─────────────────────────────────────────
         public static readonly Dictionary<string, (string Label, string Category)> Meta = new()
@@ -41,6 +42,7 @@ namespace UniClub_Hub.Shared.Constants
             [EventCreated]         = ("Sự kiện mới",                   "Sự kiện"),
             [EventReminder]        = ("Nhắc lịch sự kiện",             "Sự kiện"),
             [SystemAnnouncement]   = ("Thông báo hệ thống",            "Hệ thống"),
+            [NotificationPolicyChanged] = ("Cập nhật cấu hình thông báo", "Hệ thống"),
         };
     }
 

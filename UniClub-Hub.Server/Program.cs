@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -20,6 +21,7 @@ using UniClub_Hub.Shared.Models;
 using CloudinaryDotNet;
 using UniClub_Hub.Shared.Common.Interfaces;
 using UniClub_Hub.Membership.Services.Implements;
+using UniClub_Hub.Server.Data;
 
 // Npgsql 6+ requires DateTimeOffset values sent to timestamptz to be UTC.
 // This switch lets Npgsql accept any offset and convert to UTC on write,
@@ -28,6 +30,11 @@ AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Render (and similar PaaS) inject PORT — must bind to it, not a fixed 8080.
+var port = Environment.GetEnvironmentVariable("PORT");
+if (!string.IsNullOrWhiteSpace(port))
+    builder.WebHost.UseUrls($"http://+:{port}");
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddControllers()
@@ -35,8 +42,10 @@ builder.Services.AddControllers()
 builder.Services.AddSignalR()
     .AddJsonProtocol(o => o.PayloadSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
+var postgresConnection = PostgresConnectionResolver.Resolve(builder.Configuration);
+
 builder.Services.AddDbContext<UniClubDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"))
+    options.UseNpgsql(postgresConnection)
 );
 
 builder
@@ -61,6 +70,11 @@ builder
     .AddEntityFrameworkStores<UniClubDbContext>()
     .AddDefaultTokenProviders();
 
+var corsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
+    ?? builder.Configuration["Cors:AllowedOrigins"]?
+        .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+    ?? ["https://localhost:54610", "http://localhost:54610"];
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy(
@@ -68,7 +82,7 @@ builder.Services.AddCors(options =>
         policy =>
         {
             policy
-                .WithOrigins("https://localhost:54610", "http://localhost:54610")
+                .WithOrigins(corsOrigins)
                 .AllowAnyHeader()
                 .AllowAnyMethod()
                 .AllowCredentials();
@@ -109,8 +123,15 @@ builder
 
 builder.Services.AddAuthorization();
 builder.Services.AddHttpContextAccessor();
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.KnownNetworks.Clear();
+    options.KnownProxies.Clear();
+});
 builder.Services.Configure<GeminiOptions>(builder.Configuration.GetSection("Gemini"));
-builder.Services.AddHttpClient<IAiModelClient, GeminiAiModelClient>();
+builder.Services.AddHttpClient<IAiModelClient, GeminiAiModelClient>()
+    .ConfigureHttpClient(client => client.Timeout = TimeSpan.FromSeconds(20));
 
 builder.Services.AddMemoryCache();
 builder.Services.AddHttpClient();
@@ -168,6 +189,7 @@ builder.Services.AddScoped<UniClub_Hub.Shared.Common.Interfaces.INotificationSer
 builder.Services.AddMembershipServices();
 builder.Services.AddOperationsServices();
 builder.Services.AddPortalServices();
+builder.Services.AddHostedService<UniClub_Hub.Server.BackgroundServices.DatabaseMigrationHostedService>();
 builder.Services.AddHostedService<UniClub_Hub.Server.BackgroundServices.ReminderHostedService>();
 
 var app = builder.Build();
@@ -194,7 +216,7 @@ else
             await roleManager.CreateAsync(new IdentityRole(role));
     }
 }
-
+app.UseForwardedHeaders();
 app.UseDefaultFiles();
 app.UseStaticFiles();
 
@@ -204,7 +226,11 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
+var configuredUrls = builder.Configuration["ASPNETCORE_URLS"] ?? string.Empty;
+if (configuredUrls.Contains("https", StringComparison.OrdinalIgnoreCase))
+{
+    app.UseHttpsRedirection();
+}
 app.UseCors("AllowReactApp");
 app.UseRateLimiter();
 app.UseAuthentication();
@@ -217,6 +243,8 @@ app.Use(async (context, next) =>
         context.Response.Headers.CacheControl = "no-store";
     await next();
 });
+
+app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 
 app.MapControllers();
 app.MapHub<KanbanHub>("/hubs/kanban");

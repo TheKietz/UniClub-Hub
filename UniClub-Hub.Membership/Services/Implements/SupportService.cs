@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using UniClub_Hub.Membership.DTOs.Common;
 using UniClub_Hub.Membership.DTOs.Support;
 using UniClub_Hub.Membership.Services.Interfaces;
 using UniClub_Hub.Shared.Common;
@@ -67,20 +68,52 @@ namespace UniClub_Hub.Membership.Services.Implements
                 .ToListAsync();
         }
 
-        public async Task<IEnumerable<SupportTicketDto>> GetAllAsync(string? status = null)
+        public async Task<PagedResult<SupportTicketDto>> GetAllAsync(SupportListQuery request)
         {
+            var page = Math.Max(1, request.Page);
+            var pageSize = Math.Clamp(request.PageSize, 1, 100);
+
             var query = _db.SupportTickets
                 .AsNoTracking()
                 .Include(t => t.User)
                 .AsQueryable();
 
-            if (!string.IsNullOrEmpty(status))
-                query = query.Where(t => t.Status == status);
+            if (!string.IsNullOrWhiteSpace(request.Status))
+                query = query.Where(t => t.Status == request.Status);
 
-            return await query
-                .OrderByDescending(t => t.CreatedAt)
+            if (!string.IsNullOrWhiteSpace(request.Search))
+            {
+                var s = request.Search.Trim().ToLower();
+                query = query.Where(t =>
+                    t.Subject.ToLower().Contains(s) ||
+                    (t.User.FullName != null && t.User.FullName.ToLower().Contains(s)) ||
+                    (t.User.Email != null && t.User.Email.ToLower().Contains(s)) ||
+                    (t.User.StudentId != null && t.User.StudentId.ToLower().Contains(s)));
+            }
+
+            var sortBy = request.SortBy.Trim().ToLower();
+            var desc = request.SortDir.Equals("desc", StringComparison.OrdinalIgnoreCase);
+            var orderedQuery = sortBy switch
+            {
+                "status" => desc ? query.OrderByDescending(t => t.Status) : query.OrderBy(t => t.Status),
+                _ => desc ? query.OrderByDescending(t => t.CreatedAt) : query.OrderBy(t => t.CreatedAt),
+            };
+            query = orderedQuery.ThenBy(t => t.Id);
+
+            var totalCount = await query.CountAsync();
+            var items = await query
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
                 .Select(t => ToDto(t))
                 .ToListAsync();
+
+            return new PagedResult<SupportTicketDto>
+            {
+                Items = items,
+                TotalCount = totalCount,
+                Page = page,
+                PageSize = pageSize,
+            };
         }
 
         public async Task<SupportTicketDto> UpdateStatusAsync(int ticketId, UpdateTicketStatusDto dto)

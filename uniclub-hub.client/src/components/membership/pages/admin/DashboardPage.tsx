@@ -9,6 +9,7 @@ import {
 } from '@/components/shared/DashboardCharts'
 import { exportDashboardPdf } from '@/lib/pdfExport'
 import { D } from '@/components/shared/managementTheme'
+import { toast } from 'sonner'
 
 const BAR_COLORS = ['#1d4ed8', '#7c3aed', '#ec4899', '#38bdf8', '#14b8a6', '#ff5a3c']
 type AlertItem = { message: string; link: string; linkLabel: string }
@@ -72,17 +73,21 @@ export default function DashboardPage() {
   const contentRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    Promise.all([getSystemStats(), getAdminClubs(), getAdminResignations()])
-      .then(([s, clubs, resignations]) => {
+    Promise.all([
+      getSystemStats(),
+      getAdminClubs(),
+      getAdminResignations({ status: 'Approved', page: 1, pageSize: 1 }),
+      getAdminResignations({ status: 'Pending', page: 1, pageSize: 1 }),
+    ])
+      .then(([s, clubs, approved, pending]) => {
         setStats(s)
-        setApprovedResignCount(resignations.filter(r => r.status === 'Approved').length)
+        setApprovedResignCount(approved.totalCount)
         const items: AlertItem[] = []
         clubs.filter(c => !c.hasAdmin && c.status === 'Active').forEach(c => {
           items.push({ message: `CLB "${c.name}" chưa có Trưởng CLB`, link: '/admin/structure', linkLabel: 'Bổ nhiệm' })
         })
-        const pendingResignations = resignations.filter(r => r.status === 'Pending')
-        if (pendingResignations.length > 0)
-          items.push({ message: `${pendingResignations.length} đơn từ chức Trưởng CLB đang chờ phê duyệt`, link: '/admin/resignations', linkLabel: 'Xem đơn' })
+        if (pending.totalCount > 0)
+          items.push({ message: `${pending.totalCount} đơn từ chức Trưởng CLB đang chờ phê duyệt`, link: '/admin/resignations', linkLabel: 'Xem đơn' })
         setAlerts(items)
       })
       .catch(() => setError('Không thể tải dữ liệu thống kê.'))
@@ -99,6 +104,8 @@ export default function DashboardPage() {
     try {
       const date = new Date().toLocaleDateString('vi-VN').replace(/\//g, '-')
       await exportDashboardPdf(contentRef.current, `bao-cao-he-thong-${date}.pdf`)
+    } catch {
+      toast.error('Không thể xuất PDF. Vui lòng thử lại.')
     } finally {
       setExporting(false)
     }
@@ -134,6 +141,7 @@ export default function DashboardPage() {
   const appSegments = [
     { val: stats.applications.pending, color: D.amber },
     { val: stats.applications.interview, color: D.sky },
+    { val: stats.applications.reviewing, color: '#7c3aed' },
     { val: stats.applications.accepted, color: D.emerald },
     { val: stats.applications.rejected, color: D.red },
   ]
@@ -217,6 +225,7 @@ export default function DashboardPage() {
               {[
                 { l: 'Chờ duyệt', v: stats.applications.pending, c: D.amber },
                 { l: 'Phỏng vấn', v: stats.applications.interview, c: D.sky },
+                { l: 'Đang xét', v: stats.applications.reviewing, c: '#7c3aed' },
                 { l: 'Đã duyệt', v: stats.applications.accepted, c: D.emerald },
                 { l: 'Từ chối', v: stats.applications.rejected, c: D.red },
               ].map(item => (

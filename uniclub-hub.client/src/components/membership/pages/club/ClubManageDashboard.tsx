@@ -12,6 +12,7 @@ import {
 } from '@/components/shared/DashboardCharts'
 import { exportDashboardPdf } from '@/lib/pdfExport'
 import { D } from '@/components/shared/managementTheme'
+import { toast } from 'sonner'
 
 const MONTH_OPTIONS = [
   { value: 3, label: '3 tháng' },
@@ -117,11 +118,16 @@ export default function ClubManageDashboard() {
       }
     })
 
-    Promise.all([getClubStats(id), getDepartments(id), getClubResignations(id)])
-      .then(([s, dpts, resignations]) => {
+    Promise.all([
+      getClubStats(id),
+      getDepartments(id),
+      getClubResignations(id, { status: 'Approved', page: 1, pageSize: 1 }),
+      getClubResignations(id, { status: 'Pending', page: 1, pageSize: 1 }),
+    ])
+      .then(([s, dpts, approved, pending]) => {
         setStats(s)
         setDepts(dpts)
-        setApprovedResignCount(resignations.filter(r => r.status === 'Approved').length)
+        setApprovedResignCount(approved.totalCount)
 
         const items: AlertItem[] = []
         dpts.filter(d => !d.deptLeadName).forEach(d => items.push({
@@ -129,9 +135,8 @@ export default function ClubManageDashboard() {
           link: `/clubs/${id}/manage/departments`,
           linkLabel: 'Bổ nhiệm',
         }))
-        const pendingResign = resignations.filter(r => r.status === 'Pending')
-        if (pendingResign.length > 0)
-          items.push({ message: `${pendingResign.length} đơn từ chức đang chờ phê duyệt`, link: `/clubs/${id}/manage/resignations`, linkLabel: 'Xem đơn' })
+        if (pending.totalCount > 0)
+          items.push({ message: `${pending.totalCount} đơn từ chức đang chờ phê duyệt`, link: `/clubs/${id}/manage/resignations`, linkLabel: 'Xem đơn' })
         if (s.totalProbationMembers > 0)
           items.push({ message: `${s.totalProbationMembers} thành viên đang thử việc`, link: `/clubs/${id}/manage/members`, linkLabel: 'Xem danh sách' })
         if (s.applications.pending > 0)
@@ -153,6 +158,8 @@ export default function ClubManageDashboard() {
     try {
       const date = new Date().toLocaleDateString('vi-VN').replace(/\//g, '-')
       await exportDashboardPdf(contentRef.current, `bao-cao-clb-${clubId}-${date}.pdf`)
+    } catch {
+      toast.error('Không thể xuất PDF. Vui lòng thử lại.')
     } finally {
       setExporting(false)
     }
@@ -176,6 +183,7 @@ export default function ClubManageDashboard() {
   const appSegments = [
     { val: stats.applications.pending, color: D.amber },
     { val: stats.applications.interview, color: D.sky },
+    { val: stats.applications.reviewing, color: '#7c3aed' },
     { val: stats.applications.accepted, color: D.emerald },
     { val: stats.applications.rejected, color: D.red },
   ]
@@ -317,6 +325,7 @@ export default function ClubManageDashboard() {
               {[
                 { l: 'Chờ duyệt', v: stats.applications.pending, c: D.amber },
                 { l: 'Phỏng vấn', v: stats.applications.interview, c: D.sky },
+                { l: 'Đang xét', v: stats.applications.reviewing, c: '#7c3aed' },
                 { l: 'Đã duyệt', v: stats.applications.accepted, c: D.emerald },
                 { l: 'Từ chối', v: stats.applications.rejected, c: D.red },
               ].map(item => (

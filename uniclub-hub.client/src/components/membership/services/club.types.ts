@@ -29,7 +29,7 @@ export interface ClubStats {
   totalDepartments: number
   membersByRole: Record<string, number>
   membersByDepartment: { departmentId?: number; departmentName: string; memberCount: number }[]
-  applications: { pending: number; interview: number; accepted: number; rejected: number; total: number }
+  applications: { pending: number; interview: number; reviewing: number; accepted: number; rejected: number; total: number }
 }
 
 export interface MemberItem {

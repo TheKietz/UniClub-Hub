@@ -45,13 +45,38 @@ public class ExportServicePagedTests : DbTestBase
             "admin",
             isSuperAdmin: true,
             new MemberListQuery { Status = "Active", Page = 1, PageSize = 1 });
-        var csv = Encoding.UTF8.GetString(content);
+        var csv = new UTF8Encoding(encoderShouldEmitUTF8Identifier: true).GetString(content);
 
         Assert.Equal("text/csv", contentType);
         Assert.Equal("members_TEST.csv", fileName);
+        Assert.StartsWith("\uFEFF", csv);
         Assert.Contains("Member 1", csv);
         Assert.Contains("Member 2", csv);
         Assert.Contains("Member 3", csv);
         Assert.DoesNotContain("Member 4", csv);
+    }
+
+    [Fact]
+    public async Task ExportMembersAsync_WithFormulaLikeName_EscapesCsvValue()
+    {
+        await using var db = Fx.CreateDbContext();
+        db.Clubs.Add(PagedServiceTestHelpers.Club(1, "Test Club", "TEST"));
+        db.Users.Add(PagedServiceTestHelpers.User(1, "=HYPERLINK(\"evil\")", "member1@uef.edu.vn", "S001"));
+        db.ClubMemberships.Add(PagedServiceTestHelpers.Membership(1, "u1"));
+        await db.SaveChangesAsync();
+
+        var permissions = new Mock<IClubPermissionService>();
+        permissions.Setup(p => p.EnsureHasPermissionAsync(
+            It.IsAny<int>(),
+            It.IsAny<string>(),
+            It.IsAny<bool>(),
+            It.IsAny<string>()))
+            .Returns(Task.CompletedTask);
+        var service = new ExportService(db, permissions.Object);
+
+        var (content, _, _) = await service.ExportMembersAsync(1, "csv", "admin", isSuperAdmin: true);
+        var csv = new UTF8Encoding(encoderShouldEmitUTF8Identifier: true).GetString(content);
+
+        Assert.Contains("'=HYPERLINK", csv);
     }
 }

@@ -22,7 +22,7 @@ export default function ForbiddenPage() {
           </button>
           <Link to={dashboardHref} style={errorBtnPrimary}>
             <LayoutDashboard size={15} />
-            Về dashboard
+            Về tổng quan
           </Link>
         </>
       }

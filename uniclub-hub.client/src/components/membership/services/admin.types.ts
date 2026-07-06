@@ -14,6 +14,7 @@ export interface SystemStats {
   applications: {
     pending: number
     interview: number
+    reviewing: number
     accepted: number
     rejected: number
     total: number

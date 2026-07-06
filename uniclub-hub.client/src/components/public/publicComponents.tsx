@@ -306,15 +306,17 @@ export function CatPill({ label, active, onClick }: {
 export function PublicFooter() {
   const { isAuthenticated } = useAuth()
   const [s, setS] = useState<Record<string, string>>({})
-  useEffect(() => { getPublicSettings().then(setS).catch(() => {}) }, [])
+  useEffect(() => {
+    getPublicSettings().then(data => setS(data ?? {})).catch(() => setS({}))
+  }, [])
 
-  const facebook  = s['footer.facebook_url']?.trim()
-  const instagram = s['footer.instagram_url']?.trim()
-  const tiktok    = s['footer.tiktok_url']?.trim()
-  const youtube   = s['footer.youtube_url']?.trim()
-  const x         = s['footer.x_url']?.trim()
-  const linkedin  = s['footer.linkedin_url']?.trim()
-  const address   = s['footer.address']?.trim()
+  const facebook  = s?.['footer.facebook_url']?.trim()
+  const instagram = s?.['footer.instagram_url']?.trim()
+  const tiktok    = s?.['footer.tiktok_url']?.trim()
+  const youtube   = s?.['footer.youtube_url']?.trim()
+  const x         = s?.['footer.x_url']?.trim()
+  const linkedin  = s?.['footer.linkedin_url']?.trim()
+  const address   = s?.['footer.address']?.trim()
 
   return (
     <footer className="public-footer-glass">

@@ -81,6 +81,9 @@ namespace UniClub_Hub.Membership.Services.Implements
                         .FirstOrDefaultAsync();
                     return aClubId is null ? null : $"/clubs/{aClubId}/manage/inbox";
 
+                case "Club":
+                    return $"/clubs/{entityId}/manage/notifications";
+
                 default:
                     return null;
             }
@@ -141,6 +144,7 @@ namespace UniClub_Hub.Membership.Services.Implements
                 {
                     "Task" => taskUrls.GetValueOrDefault(rid),
                     "Assignment" => assignmentClubIds.TryGetValue(rid, out var cid) ? $"/clubs/{cid}/manage/inbox" : null,
+                    "Club" => $"/clubs/{rid}/manage/notifications",
                     _ => null,
                 };
             }

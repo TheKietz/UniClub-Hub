@@ -174,4 +174,124 @@ public class ClubMembershipServiceTests : DbTestBase
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             svc.AddMemberAsAdminAsync(1, new AddMemberDto { UserId = "u2", ClubRole = ClubRole.CLUB_ADMIN }));
     }
+
+    [Fact]
+    public async Task AddMemberAsAdminAsync_WithDeptLeadWithoutDepartment_ThrowsInvalidOperation()
+    {
+        var (svc, _) = Setup(db =>
+        {
+            db.Clubs.Add(new Club { Id = 1, Name = "Test CLB", Code = "T" });
+            db.Users.Add(new ApplicationUser { Id = "u1", UserName = "u1", NormalizedUserName = "U1", SecurityStamp = "s1" });
+            db.ClubMemberships.Add(new ClubMembership
+            {
+                Id = 1, UserId = "u1", ClubId = 1,
+                Status = MembershipStatus.Active,
+                JoinedDate = DateOnly.FromDateTime(DateTime.UtcNow),
+                ClubRole = ClubRole.MEMBER
+            });
+        });
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            svc.AddMemberAsAdminAsync(1, new AddMemberDto { UserId = "u1", ClubRole = ClubRole.DEPT_LEAD }));
+    }
+
+    [Fact]
+    public async Task UpdateMemberAsAdminAsync_PromoteActiveMembership_DoesNotReviveResignedRow()
+    {
+        var (svc, db) = Setup(db =>
+        {
+            db.Clubs.Add(new Club { Id = 1, Name = "Test CLB", Code = "T" });
+            db.Users.Add(new ApplicationUser { Id = "u1", UserName = "u1", NormalizedUserName = "U1", SecurityStamp = "s1" });
+            db.ClubMemberships.Add(new ClubMembership
+            {
+                Id = 1, UserId = "u1", ClubId = 1,
+                Status = MembershipStatus.Resigned,
+                JoinedDate = new DateOnly(2025, 1, 1),
+                ClubRole = ClubRole.MEMBER,
+                ResignedDate = new DateOnly(2025, 6, 1),
+            });
+            db.ClubMemberships.Add(new ClubMembership
+            {
+                Id = 2, UserId = "u1", ClubId = 1,
+                Status = MembershipStatus.Active,
+                JoinedDate = new DateOnly(2026, 1, 1),
+                ClubRole = ClubRole.MEMBER,
+            });
+        });
+
+        await svc.UpdateMemberAsAdminAsync(1, 2, new UpdateMemberDto
+        {
+            ClubRole = ClubRole.CLUB_ADMIN
+        });
+
+        var oldRow = db.ClubMemberships.Find(1)!;
+        var activeRow = db.ClubMemberships.Find(2)!;
+        Assert.Equal(MembershipStatus.Resigned, oldRow.Status);
+        Assert.Equal(ClubRole.MEMBER, oldRow.ClubRole);
+        Assert.Equal(ClubRole.CLUB_ADMIN, activeRow.ClubRole);
+        Assert.Equal(MembershipStatus.Active, activeRow.Status);
+    }
+
+    [Fact]
+    public async Task UpdateMemberAsAdminAsync_DeptLeadTransferToDepartmentWithExistingLead_Throws()
+    {
+        var (svc, _) = Setup(db =>
+        {
+            db.Clubs.Add(new Club { Id = 1, Name = "Test CLB", Code = "T" });
+            db.Departments.Add(new Department { Id = 1, ClubId = 1, Name = "Ban A" });
+            db.Departments.Add(new Department { Id = 2, ClubId = 1, Name = "Ban B" });
+            db.Users.Add(new ApplicationUser { Id = "u1", UserName = "u1", NormalizedUserName = "U1", SecurityStamp = "s1", FullName = "Lead A" });
+            db.Users.Add(new ApplicationUser { Id = "u2", UserName = "u2", NormalizedUserName = "U2", SecurityStamp = "s2", FullName = "Lead B" });
+            db.ClubMemberships.Add(new ClubMembership
+            {
+                Id = 1, UserId = "u1", ClubId = 1, DepartmentId = 1,
+                Status = MembershipStatus.Active,
+                JoinedDate = DateOnly.FromDateTime(DateTime.UtcNow),
+                ClubRole = ClubRole.DEPT_LEAD,
+            });
+            db.ClubMemberships.Add(new ClubMembership
+            {
+                Id = 2, UserId = "u2", ClubId = 1, DepartmentId = 2,
+                Status = MembershipStatus.Active,
+                JoinedDate = DateOnly.FromDateTime(DateTime.UtcNow),
+                ClubRole = ClubRole.DEPT_LEAD,
+            });
+        });
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            svc.UpdateMemberAsAdminAsync(1, 1, new UpdateMemberDto
+            {
+                ClubRole = ClubRole.DEPT_LEAD,
+                DepartmentId = 2,
+            }));
+    }
+
+    [Fact]
+    public async Task UpdateMemberAsAdminAsync_DeptLeadTransferToEmptyDepartment_Succeeds()
+    {
+        var (svc, db) = Setup(db =>
+        {
+            db.Clubs.Add(new Club { Id = 1, Name = "Test CLB", Code = "T" });
+            db.Departments.Add(new Department { Id = 1, ClubId = 1, Name = "Ban A" });
+            db.Departments.Add(new Department { Id = 2, ClubId = 1, Name = "Ban B" });
+            db.Users.Add(new ApplicationUser { Id = "u1", UserName = "u1", NormalizedUserName = "U1", SecurityStamp = "s1" });
+            db.ClubMemberships.Add(new ClubMembership
+            {
+                Id = 1, UserId = "u1", ClubId = 1, DepartmentId = 1,
+                Status = MembershipStatus.Active,
+                JoinedDate = DateOnly.FromDateTime(DateTime.UtcNow),
+                ClubRole = ClubRole.DEPT_LEAD,
+            });
+        });
+
+        await svc.UpdateMemberAsAdminAsync(1, 1, new UpdateMemberDto
+        {
+            ClubRole = ClubRole.DEPT_LEAD,
+            DepartmentId = 2,
+        });
+
+        var membership = db.ClubMemberships.Find(1)!;
+        Assert.Equal(2, membership.DepartmentId);
+        Assert.Equal(ClubRole.DEPT_LEAD, membership.ClubRole);
+    }
 }

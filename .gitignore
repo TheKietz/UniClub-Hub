@@ -396,7 +396,7 @@ uniclub-hub.client/bin/
 # Personal agent files (per-developer workflow: Claude = plan, Codex = implement)
 CLAUDE.md
 AGENTS.md
-TODO.md
+/TODO.md
 /.claude/
 
 /design

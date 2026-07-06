@@ -203,7 +203,61 @@ namespace UniClub_Hub.Membership.Services.Implements
         }
 
         // Bổ nhiệm vai trò đặc biệt
-        public async Task<MemberDto> AssignClubAdminAsync(int clubId, string userId)
+        public async Task<MemberDto> AssignClubAdminAsync(int clubId, string userId) =>
+            await AssignClubAdminCoreAsync(clubId, userId, membershipId: null);
+
+        public async Task EnsureMemberCapacityAsync(int clubId, int pendingAdds = 0)
+        {
+            await EnsureClubExistsAsync(clubId);
+
+            var maxMembersVal = await _settings.GetValueAsync("club.max_members");
+            if (!int.TryParse(maxMembersVal, out var maxMembers) || maxMembers <= 0)
+                return;
+
+            var currentCount = await _db.ClubMemberships.CountAsync(m =>
+                m.ClubId == clubId &&
+                (m.Status == MembershipStatus.Active || m.Status == MembershipStatus.Probation));
+
+            if (currentCount + pendingAdds >= maxMembers)
+                throw new InvalidOperationException($"CLB đã đạt giới hạn {maxMembers} thành viên.");
+        }
+
+        public async Task SetDepartmentLeadAsync(int clubId, int departmentId, int? membershipId)
+        {
+            await EnsureDepartmentBelongsToClubAsync(clubId, departmentId);
+
+            var currentLead = await _db.ClubMemberships
+                .FirstOrDefaultAsync(m => m.DepartmentId == departmentId
+                    && m.ClubRole == ClubRole.DEPT_LEAD
+                    && m.Status == MembershipStatus.Active);
+
+            if (!membershipId.HasValue)
+            {
+                if (currentLead != null)
+                {
+                    currentLead.ClubRole = ClubRole.MEMBER;
+                    await _db.SaveChangesAsync();
+                }
+                return;
+            }
+
+            var membership = await _db.ClubMemberships.FirstOrDefaultAsync(m =>
+                m.Id == membershipId.Value && m.ClubId == clubId)
+                ?? throw new KeyNotFoundException("Không tìm thấy thành viên này trong CLB.");
+
+            if (membership.Status is not (MembershipStatus.Active or MembershipStatus.Probation))
+                throw new InvalidOperationException("Chỉ có thể bổ nhiệm thành viên đang hoạt động.");
+
+            if (currentLead != null && currentLead.Id != membership.Id)
+            {
+                currentLead.ClubRole = ClubRole.MEMBER;
+                await _db.SaveChangesAsync();
+            }
+
+            await AssignDepartmentLeadAsync(clubId, departmentId, membership.UserId, membership.Id);
+        }
+
+        private async Task<MemberDto> AssignClubAdminCoreAsync(int clubId, string userId, int? membershipId)
         {
             await EnsureClubExistsAsync(clubId);
 
@@ -220,9 +274,21 @@ namespace UniClub_Hub.Membership.Services.Implements
                 throw new InvalidOperationException($"Câu lạc bộ đã có Trưởng câu lạc bộ ({name}). Vui lòng hạ cấp người này trước khi bổ nhiệm Trưởng câu lạc bộ mới."); // Changed "Chủ nhiệm" to "Trưởng câu lạc bộ"
             }
 
-            // 2. Tìm hoặc tạo mới membership cho Trưởng câu lạc bộ
-            var membership = await _db.ClubMemberships
-                .FirstOrDefaultAsync(m => m.ClubId == clubId && m.UserId == userId);
+            // 2. Tìm membership Active/Probation hoặc tạo mới — không hồi sinh row Resigned
+            ClubMembership? membership;
+            if (membershipId.HasValue)
+            {
+                membership = await _db.ClubMemberships.FirstOrDefaultAsync(m =>
+                    m.Id == membershipId.Value && m.ClubId == clubId && m.UserId == userId)
+                    ?? throw new KeyNotFoundException("Không tìm thấy thành viên này trong CLB.");
+
+                if (membership.Status is not (MembershipStatus.Active or MembershipStatus.Probation))
+                    throw new InvalidOperationException("Chỉ có thể bổ nhiệm thành viên đang hoạt động.");
+            }
+            else
+            {
+                membership = await FindActiveMembershipAsync(clubId, userId);
+            }
 
             if (membership == null)
             {
@@ -257,7 +323,11 @@ namespace UniClub_Hub.Membership.Services.Implements
             return await GetByIdAsync(clubId, membership.Id);
         }
 
-        private async Task<MemberDto> AssignDepartmentLeadAsync(int clubId, int departmentId, string userId)
+        private async Task<MemberDto> AssignDepartmentLeadAsync(
+            int clubId,
+            int departmentId,
+            string userId,
+            int? membershipId = null)
         {
             await EnsureDepartmentBelongsToClubAsync(clubId, departmentId);
 
@@ -274,10 +344,22 @@ namespace UniClub_Hub.Membership.Services.Implements
                 throw new InvalidOperationException($"Ban này đã có Trưởng ban ({name}). Vui lòng hạ cấp người này trước khi bổ nhiệm Trưởng ban mới.");
             }
 
-            // 2. Trưởng ban bắt buộc phải là thành viên CLB trước (theo nghiệp vụ thông thường)
-            var membership = await _db.ClubMemberships
-                .FirstOrDefaultAsync(m => m.ClubId == clubId && m.UserId == userId)
-                ?? throw new KeyNotFoundException("Người dùng phải là thành viên CLB trước khi bổ nhiệm làm Trưởng ban.");
+            // 2. Trưởng ban bắt buộc phải là thành viên CLB đang hoạt động
+            ClubMembership membership;
+            if (membershipId.HasValue)
+            {
+                membership = await _db.ClubMemberships.FirstOrDefaultAsync(m =>
+                    m.Id == membershipId.Value && m.ClubId == clubId && m.UserId == userId)
+                    ?? throw new KeyNotFoundException("Không tìm thấy thành viên này trong CLB.");
+
+                if (membership.Status is not (MembershipStatus.Active or MembershipStatus.Probation))
+                    throw new InvalidOperationException("Chỉ có thể bổ nhiệm thành viên đang hoạt động.");
+            }
+            else
+            {
+                membership = await FindActiveMembershipAsync(clubId, userId)
+                    ?? throw new KeyNotFoundException("Người dùng phải là thành viên CLB trước khi bổ nhiệm làm Trưởng ban.");
+            }
 
             membership.ClubRole = ClubRole.DEPT_LEAD;
             membership.DepartmentId = departmentId;
@@ -306,11 +388,14 @@ namespace UniClub_Hub.Membership.Services.Implements
             // Nếu là Trưởng câu lạc bộ hoặc Trưởng ban, dùng hàm chuyên dụng để kiểm tra ràng buộc duy nhất
             if (dto.ClubRole == ClubRole.CLUB_ADMIN)
             {
-                return await AssignClubAdminAsync(clubId, dto.UserId);
+                return await AssignClubAdminCoreAsync(clubId, dto.UserId, membershipId: null);
             }
 
-            if (dto.ClubRole == ClubRole.DEPT_LEAD && dto.DepartmentId.HasValue)
+            if (dto.ClubRole == ClubRole.DEPT_LEAD)
             {
+                if (!dto.DepartmentId.HasValue)
+                    throw new InvalidOperationException("Trưởng ban phải được gán vào một ban cụ thể.");
+
                 return await AssignDepartmentLeadAsync(clubId, dto.DepartmentId.Value, dto.UserId);
             }
 
@@ -326,15 +411,7 @@ namespace UniClub_Hub.Membership.Services.Implements
                 throw new InvalidOperationException("Người dùng đã là thành viên của CLB này.");
 
             // Kiểm tra giới hạn số thành viên
-            var maxMembersVal = await _settings.GetValueAsync("club.max_members");
-            if (int.TryParse(maxMembersVal, out var maxMembers) && maxMembers > 0)
-            {
-                var currentCount = await _db.ClubMemberships.CountAsync(m =>
-                    m.ClubId == clubId &&
-                    (m.Status == MembershipStatus.Active || m.Status == MembershipStatus.Probation));
-                if (currentCount >= maxMembers)
-                    throw new InvalidOperationException($"CLB đã đạt giới hạn {maxMembers} thành viên.");
-            }
+            await EnsureMemberCapacityAsync(clubId);
 
             if (dto.DepartmentId.HasValue)
                 await EnsureDepartmentBelongsToClubAsync(clubId, dto.DepartmentId.Value);
@@ -389,11 +466,27 @@ namespace UniClub_Hub.Membership.Services.Implements
 
             // Thăng cấp lên CLUB_ADMIN
             if (dto.ClubRole == ClubRole.CLUB_ADMIN && membership.ClubRole != ClubRole.CLUB_ADMIN)
-                return await AssignClubAdminAsync(clubId, membership.UserId);
+                return await AssignClubAdminCoreAsync(clubId, membership.UserId, membership.Id);
 
             // Thăng cấp lên DEPT_LEAD
-            if (dto.ClubRole == ClubRole.DEPT_LEAD && dto.DepartmentId.HasValue && membership.ClubRole != ClubRole.DEPT_LEAD)
-                return await AssignDepartmentLeadAsync(clubId, dto.DepartmentId.Value, membership.UserId);
+            if (dto.ClubRole == ClubRole.DEPT_LEAD && membership.ClubRole != ClubRole.DEPT_LEAD)
+            {
+                if (!dto.DepartmentId.HasValue)
+                    throw new InvalidOperationException("Trưởng ban phải được gán vào một ban cụ thể.");
+
+                return await AssignDepartmentLeadAsync(clubId, dto.DepartmentId.Value, membership.UserId, membership.Id);
+            }
+
+            if (dto.ClubRole == ClubRole.DEPT_LEAD && !dto.DepartmentId.HasValue)
+                throw new InvalidOperationException("Trưởng ban phải được gán vào một ban cụ thể.");
+
+            // DEPT_LEAD chuyển ban (role không đổi) — dùng luồng bổ nhiệm để kiểm tra trưởng ban duy nhất
+            if (membership.ClubRole == ClubRole.DEPT_LEAD && dto.ClubRole == ClubRole.DEPT_LEAD
+                && dto.DepartmentId.HasValue && dto.DepartmentId != membership.DepartmentId)
+            {
+                return await AssignDepartmentLeadAsync(
+                    clubId, dto.DepartmentId.Value, membership.UserId, membership.Id);
+            }
 
             // Hạ cấp từ DEPT_LEAD → xóa department
             if (membership.ClubRole == ClubRole.DEPT_LEAD && dto.ClubRole != ClubRole.DEPT_LEAD)
@@ -515,6 +608,15 @@ namespace UniClub_Hub.Membership.Services.Implements
         private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
 
         // ── Validation helpers ────────────────────────────────────────────
+
+        private async Task<ClubMembership?> FindActiveMembershipAsync(int clubId, string userId) =>
+            await _db.ClubMemberships
+                .Where(m => m.ClubId == clubId
+                    && m.UserId == userId
+                    && (m.Status == MembershipStatus.Active || m.Status == MembershipStatus.Probation))
+                .OrderByDescending(m => m.JoinedDate)
+                .ThenByDescending(m => m.Id)
+                .FirstOrDefaultAsync();
 
         private async Task EnsureClubExistsAsync(int clubId)
         {

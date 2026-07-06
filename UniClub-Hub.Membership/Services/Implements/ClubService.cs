@@ -1,5 +1,6 @@
 using UniClub_Hub.Shared.Common;
 using Microsoft.EntityFrameworkCore;
+using System.Linq.Expressions;
 using System.Text.Json;
 using UniClub_Hub.Membership.DTOs.Club;
 using UniClub_Hub.Membership.DTOs.Common;
@@ -35,14 +36,14 @@ namespace UniClub_Hub.Membership.Services.Implements
         public async Task<IEnumerable<ClubDto>> GetAllAsync(int? categoryId = null, string? status = null)
         {
             var query = BuildBaseQuery(categoryId, status);
-            return await query.Select(c => ToDto(c)).ToListAsync();
+            return await query.Select(ProjectClubDto).ToListAsync();
         }
 
         public async Task<ClubDto> GetByIdAsync(int id)
         {
             return await BuildBaseQuery(null, null)
                 .Where(c => c.Id == id)
-                .Select(c => ToDto(c))
+                .Select(ProjectClubDto)
                 .FirstOrDefaultAsync()
                 ?? throw new KeyNotFoundException($"Không tìm thấy CLB với ID {id}.");
         }
@@ -96,8 +97,6 @@ namespace UniClub_Hub.Membership.Services.Implements
             club.ContactInfo = dto.ContactInfo;
             club.AdvisorName = dto.AdvisorName;
             club.LogoUrl = dto.LogoUrl;
-            club.UpdatedAt = DateTime.UtcNow;
-            club.UpdatedBy = requesterUserId;
 
             await _db.SaveChangesAsync();
             return await GetByIdAsync(id);
@@ -108,7 +107,7 @@ namespace UniClub_Hub.Membership.Services.Implements
         public async Task<IEnumerable<AdminClubDto>> GetAllAdminAsync(int? categoryId = null, string? status = null)
         {
             var query = BuildBaseQuery(categoryId, status);
-            return await query.Select(c => ToAdminDto(c)).ToListAsync();
+            return await query.Select(ProjectAdminClubDto).ToListAsync();
         }
 
         public async Task<PagedResult<AdminClubDto>> GetAllAdminPageAsync(AdminClubListQuery request)
@@ -147,7 +146,7 @@ namespace UniClub_Hub.Membership.Services.Implements
             var items = await query
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
-                .Select(c => ToAdminDto(c))
+                .Select(ProjectAdminClubDto)
                 .ToListAsync();
 
             return new PagedResult<AdminClubDto>
@@ -163,7 +162,7 @@ namespace UniClub_Hub.Membership.Services.Implements
         {
             return await BuildBaseQuery(null, null)
                 .Where(c => c.Id == id)
-                .Select(c => ToAdminDto(c))
+                .Select(ProjectAdminClubDto)
                 .FirstOrDefaultAsync()
                 ?? throw new KeyNotFoundException($"Không tìm thấy CLB với ID {id}.");
         }
@@ -284,7 +283,6 @@ namespace UniClub_Hub.Membership.Services.Implements
             var query = _db.Clubs
                 .AsNoTracking()
                 .Include(c => c.Category)
-                .Include(c => c.ClubMemberships)
                 .AsQueryable();
 
             if (categoryId.HasValue)
@@ -296,7 +294,9 @@ namespace UniClub_Hub.Membership.Services.Implements
             return query;
         }
 
-        private static ClubDto ToDto(Club c) => new()
+        // jsonb FormSchema: EF/Npgsql không dịch IsNullOrWhiteSpace hay so sánh chuỗi rỗng an toàn — chỉ check NOT NULL.
+        // Giá trị `{}`/`[]` vẫn được coi là đang tuyển (hợp lý vì đã có schema).
+        private static readonly Expression<Func<Club, ClubDto>> ProjectClubDto = c => new ClubDto
         {
             Id = c.Id,
             Name = c.Name,
@@ -310,11 +310,11 @@ namespace UniClub_Hub.Membership.Services.Implements
             CategoryId = c.CategoryId,
             CategoryName = c.Category != null ? c.Category.Name : null,
             MemberCount = c.ClubMemberships!.Count(m => m.Status == MembershipStatus.Active),
-            IsRecruiting = c.Status == ClubStatus.Active && !string.IsNullOrWhiteSpace(c.FormSchema),
+            IsRecruiting = c.Status == ClubStatus.Active && c.FormSchema != null,
             CreatedAt = c.CreatedAt
         };
 
-        private static AdminClubDto ToAdminDto(Club c) => new()
+        private static readonly Expression<Func<Club, AdminClubDto>> ProjectAdminClubDto = c => new AdminClubDto
         {
             Id = c.Id,
             Name = c.Name,
@@ -329,7 +329,7 @@ namespace UniClub_Hub.Membership.Services.Implements
             CategoryName = c.Category != null ? c.Category.Name : null,
             MemberCount = c.ClubMemberships!.Count(m => m.Status == MembershipStatus.Active),
             HasAdmin = c.ClubMemberships!.Any(m =>
-                m.ClubRole == UniClub_Hub.Shared.Enums.ClubRole.CLUB_ADMIN &&
+                m.ClubRole == ClubRole.CLUB_ADMIN &&
                 m.Status == MembershipStatus.Active),
             CreatedAt = c.CreatedAt,
             CreatedBy = c.CreatedBy,

@@ -122,7 +122,7 @@ export default function LandingPage() {
         }
 
         if (settingsResult.status === 'fulfilled') {
-          setPubSettings(settingsResult.value)
+          setPubSettings(settingsResult.value ?? {})
         } else {
           setPubSettings({})
         }

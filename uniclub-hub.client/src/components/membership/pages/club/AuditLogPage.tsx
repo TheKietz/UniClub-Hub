@@ -109,6 +109,8 @@ export default function AuditLogPage() {
   const [datePreset, setDatePreset] = useState('')
   const [search, setSearch] = useState('')
   const [searchInput, setSearchInput] = useState('')
+  const [sortBy, setSortBy] = useState<'timestamp' | 'action' | 'entityName'>('timestamp')
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const pageSize = 20
@@ -124,13 +126,15 @@ export default function AuditLogPage() {
       module: module || undefined,
       action: action || undefined,
       search: search || undefined,
+      sortBy,
+      sortDir,
       ...range,
       page: 1, pageSize,
     })
       .then(res => { setLogs(res.items); setTotal(res.totalCount) })
       .catch(() => toast.error('Không thể tải lịch sử thay đổi.'))
       .finally(() => setLoading(false))
-  }, [id, module, action, datePreset, search])
+  }, [id, module, action, datePreset, search, sortBy, sortDir])
 
   function loadMore() {
     const nextPage = page + 1
@@ -139,6 +143,8 @@ export default function AuditLogPage() {
       module: module || undefined,
       action: action || undefined,
       search: search || undefined,
+      sortBy,
+      sortDir,
       ...dateRange,
       page: nextPage, pageSize,
     })
@@ -179,6 +185,23 @@ export default function AuditLogPage() {
         <FilterSelect value={module} onChange={setModule} options={MODULE_OPTIONS} style={{ width: 160 }} />
         <FilterSelect value={action} onChange={setAction} options={ACTION_OPTIONS} style={{ width: 160 }} />
         <FilterSelect value={datePreset} onChange={setDatePreset} options={DATE_OPTIONS} style={{ width: 150 }} />
+        <FilterSelect
+          value={`${sortBy}-${sortDir}`}
+          onChange={v => {
+            const [col, dir] = v.split('-')
+            setSortBy(col as 'timestamp' | 'action' | 'entityName')
+            setSortDir(dir as 'asc' | 'desc')
+          }}
+          options={[
+            { value: 'timestamp-desc', label: 'Thời gian mới nhất' },
+            { value: 'timestamp-asc', label: 'Thời gian cũ nhất' },
+            { value: 'action-asc', label: 'Hành động A → Z' },
+            { value: 'action-desc', label: 'Hành động Z → A' },
+            { value: 'entityName-asc', label: 'Tên thực thể A → Z' },
+            { value: 'entityName-desc', label: 'Tên thực thể Z → A' },
+          ]}
+          style={{ width: 180 }}
+        />
         {hasFilter && (
           <button onClick={clearFilters} style={{ padding: '0 14px', height: 36, borderRadius: 8, fontSize: 12, fontWeight: 700, border: D.borderLight, background: D.card, color: D.inkMuted, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>
             Xoá lọc

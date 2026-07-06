@@ -1,12 +1,14 @@
 using Microsoft.EntityFrameworkCore;
 using UniClub_Hub.Operations.DTOs.Task;
 using UniClub_Hub.Operations.Services.Interfaces;
+using UniClub_Hub.Shared.Common.Interfaces;
 using UniClub_Hub.Shared.Data;
+using UniClub_Hub.Shared.Enums;
 using UniClub_Hub.Shared.Models;
 
 namespace UniClub_Hub.Operations.Services.Implements
 {
-    public class TaskCommentService(UniClubDbContext db) : ITaskCommentService
+    public class TaskCommentService(UniClubDbContext db, INotificationService notifications) : ITaskCommentService
     {
         public async Task<List<TaskCommentDto>> GetByTaskAsync(int taskId)
         {
@@ -44,6 +46,42 @@ namespace UniClub_Hub.Operations.Services.Implements
             await db.SaveChangesAsync();
 
             await db.Entry(comment).Reference(c => c.User).LoadAsync();
+
+            // Persist a notification for each task assignee (excluding the commenter) so the
+            // comment surfaces in their notification bell. Best-effort: the comment is already
+            // committed, so a notification failure must not fail the caller.
+            try
+            {
+                var recipients = await db.TaskAssignees.AsNoTracking()
+                    .Where(a => a.TaskId == taskId && a.UserId != userId)
+                    .Select(a => a.UserId)
+                    .Distinct()
+                    .ToListAsync();
+
+                if (recipients.Count > 0)
+                {
+                    var taskTitle = await db.Tasks.AsNoTracking()
+                        .Where(t => t.Id == taskId).Select(t => t.Title).FirstOrDefaultAsync();
+                    var commenterName = comment.User.FullName ?? comment.User.UserName ?? "Một thành viên";
+                    var excerpt = comment.Content.Length > 80 ? comment.Content[..80] + "…" : comment.Content;
+
+                    foreach (var recipientId in recipients)
+                    {
+                        await notifications.SendAsync(
+                            recipientId,
+                            "Bình luận mới trên công việc",
+                            $"{commenterName} đã bình luận: \"{excerpt}\" trong \"{taskTitle}\".",
+                            NotificationType.Task,
+                            relatedEntityType: "Task",
+                            relatedEntityId: taskId);
+                    }
+                }
+            }
+            catch
+            {
+                // Notification is optional; never block the comment on a delivery failure.
+            }
+
             return new TaskCommentDto
             {
                 Id = comment.Id,

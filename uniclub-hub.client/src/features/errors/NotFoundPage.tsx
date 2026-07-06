@@ -22,7 +22,7 @@ export default function NotFoundPage() {
           </button>
           <Link to={isAuthenticated ? dashboardHref : '/'} style={errorBtnPrimary}>
             <Compass size={15} />
-            {isAuthenticated ? 'Về dashboard' : 'Về trang chủ'}
+            {isAuthenticated ? 'Về tổng quan' : 'Về trang chủ'}
           </Link>
         </>
       }

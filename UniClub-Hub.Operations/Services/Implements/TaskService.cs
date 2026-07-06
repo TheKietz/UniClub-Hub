@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using UniClub_Hub.Operations.DTOs.Task;
 using UniClub_Hub.Operations.Services.Interfaces;
 using UniClub_Hub.Shared.Common;
@@ -9,7 +10,11 @@ using UniClub_Hub.Shared.Models;
 
 namespace UniClub_Hub.Operations.Services.Implements
 {
-    public class TaskService(UniClubDbContext db, INotificationService notifications) : ITaskService
+    public class TaskService(
+        UniClubDbContext db,
+        INotificationService notifications,
+        IContributionAwardService contributionAwardService,
+        ILogger<TaskService> logger) : ITaskService
     {
         public async Task<PagedResult<TaskDto>> GetByClubAsync(
             int? clubId,
@@ -169,6 +174,14 @@ namespace UniClub_Hub.Operations.Services.Implements
         {
             await GuardEventNotCompletedAsync(dto.EventId);
 
+            // A sub-task must reference an existing parent.
+            if (dto.ParentId.HasValue)
+            {
+                var parentExists = await db.Tasks.AnyAsync(t => t.Id == dto.ParentId.Value && !t.IsDeleted);
+                if (!parentExists)
+                    throw new KeyNotFoundException($"Parent task {dto.ParentId} not found.");
+            }
+
             // When created inside a specific column, inherit that column's exact status.
             var status = ClubTaskStatus.Todo;
             if (dto.KanbanColumnId.HasValue)
@@ -241,7 +254,9 @@ namespace UniClub_Hub.Operations.Services.Implements
         public async Task<TaskDto> UpdateStatusAsync(int id, UpdateTaskStatusDto dto)
         {
             var task =
-                await db.Tasks.FindAsync(id)
+                await db.Tasks
+                    .Include(t => t.Assignees)
+                    .FirstOrDefaultAsync(t => t.Id == id)
                 ?? throw new KeyNotFoundException($"Task {id} not found.");
 
             await GuardEventNotCompletedAsync(task.EventId);
@@ -261,14 +276,30 @@ namespace UniClub_Hub.Operations.Services.Implements
                     );
             }
 
+            var shouldAwardContribution = dto.Status == ClubTaskStatus.Done && task.CompletedAt == null;
+            var shouldReverseContribution = dto.Status != ClubTaskStatus.Done && task.Status == ClubTaskStatus.Done;
+
             task.Status = dto.Status;
-            task.Progress = dto.Progress;
+            // A completed task is always 100% done, regardless of the value sent.
+            task.Progress = dto.Status == ClubTaskStatus.Done ? 100 : dto.Progress;
             task.KanbanColumnId = dto.KanbanColumnId;
 
             if (dto.Status == ClubTaskStatus.Done && task.CompletedAt == null)
                 task.CompletedAt = DateTimeOffset.UtcNow;
             else if (dto.Status != ClubTaskStatus.Done)
                 task.CompletedAt = null;
+
+            try
+            {
+                if (shouldAwardContribution)
+                    await contributionAwardService.AwardTaskCompletionAsync(task);
+                else if (shouldReverseContribution)
+                    await contributionAwardService.ReverseTaskAsync(task.Id);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Contribution auto-award failed for task {TaskId}.", task.Id);
+            }
 
             await db.SaveChangesAsync();
 

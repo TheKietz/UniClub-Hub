@@ -61,11 +61,21 @@ public class DepartmentPermissionEnforcementTests : DbTestBase
         var settings = new Mock<ISystemSettingService>();
         settings.Setup(s => s.GetValueAsync("club.max_departments")).ReturnsAsync((string?)null);
 
+        var dispatch = new Mock<INotificationDispatchService>();
+        dispatch.Setup(d => d.FireAsync(
+            It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<Dictionary<string, string>>()))
+            .Returns(Task.CompletedTask);
+
+        var permissions = new ClubPermissionService(db);
+        var membershipService = new ClubMembershipService(
+            db, dispatch.Object, settings.Object, permissions);
+
         return new DepartmentService(
             db,
             Mock.Of<INotificationService>(),
             settings.Object,
-            new ClubPermissionService(db));
+            permissions,
+            membershipService);
     }
 
     private static void SeedMember(UniClubDbContext db)

@@ -1,9 +1,12 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 using UniClub_Hub.Operations.Services.Interfaces;
+using UniClub_Hub.Server.Hubs;
 using UniClub_Hub.Shared.Common;
+using UniClub_Hub.Shared.Constants;
 using UniClub_Hub.Shared.Data;
 using UniClub_Hub.Shared.Enums;
 
@@ -15,6 +18,7 @@ namespace UniClub_Hub.Server.Controllers.Operations
     public class EventAssignmentsController(
         IEventAssignmentService assignmentService,
         UniClub_Hub.Shared.Common.Interfaces.INotificationService notificationService,
+        IHubContext<KanbanHub> hubContext,
         UniClubDbContext db) : ControllerBase
     {
         // GET /api/v1/operations/assignments?eventId=X
@@ -66,6 +70,11 @@ namespace UniClub_Hub.Server.Controllers.Operations
 
                 await NotifyClubAdminsAsync(clubId, result.Id, result.EventName ?? $"Sự kiện #{eventId}", title);
 
+                // Realtime: let the receiving club's open inbox/board update live.
+                await hubContext.Clients
+                    .Group(SignalRGroups.Club(clubId))
+                    .SendAsync(SignalREvents.AssignmentReceived, result);
+
                 return CreatedAtAction(nameof(GetByEvent), new { eventId },
                     ApiResponse<object>.Ok(result, "Phiếu giao việc đã được tạo."));
             }
@@ -94,7 +103,7 @@ namespace UniClub_Hub.Server.Controllers.Operations
 
             try
             {
-                var result = await assignmentService.UpdateAsync(id, dto.Title, dto.Description, parsedPriority, parsedDeadline);
+                var result = await assignmentService.UpdateAsync(id, dto.Title, dto.Description, parsedPriority, parsedDeadline, dto.ClubId);
                 return Ok(ApiResponse<object>.Ok(result, "Đã cập nhật phiếu giao việc."));
             }
             catch (InvalidOperationException ex)
@@ -198,6 +207,7 @@ namespace UniClub_Hub.Server.Controllers.Operations
         public string? Description { get; set; }
         public string Priority { get; set; } = "Medium";
         public string? Deadline { get; set; }
+        public int ClubId { get; set; }
     }
 
     public class UpdateAssignmentStatusDto

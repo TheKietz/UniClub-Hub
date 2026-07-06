@@ -4,59 +4,36 @@ import { toast } from 'sonner'
 import {
   Calendar, MapPin, ArrowLeft, Plus, ChevronDown, Paperclip, X, FileText,
   Trash2, Pencil, Users, CalendarClock, Wallet, Tag, CalendarDays,
-  Mail, ExternalLink, Link2,
+  Mail,
 } from 'lucide-react'
 import {
   getEventById, createAssignment, getAssignmentsByEvent, deleteAssignment,
-  updateEvent, deleteEvent, updateAssignment,
-  addEventSession, deleteEventSession,
-  getTasks, saveRegistrationLink,
-  getEventRegistrations, updateEventAttendance,
+  deleteEvent, updateAssignment,
+  deleteEventSession,
+  getTasks,
   addAssignmentAttachments, removeAssignmentAttachment,
 } from '../services/operationsApi'
 import type {
-  EventItem, AssignmentItem, TaskPriority, UpdateEventDto, EventStatus,
-  CreateEventSessionDto, EventRegistrationItem, AttendanceStatus,
+  EventItem, AssignmentItem, TaskPriority,
   AssignmentAttachment,
 } from '../services/operations.types'
 import { getClubs, getClubMembers } from '@/components/membership/services/clubApi'
 import type { ClubListItem, MemberItem } from '@/components/membership/services/club.types'
 import { useAuth } from '@/contexts/AuthContext'
 import EventAttachmentsSection from '../components/event/EventAttachmentsSection'
+import RegistrationLinkCard from '../components/event/RegistrationLinkCard'
+import EditEventModal from '../components/event/EditEventModal'
+import AddEventSessionModal from '../components/event/AddEventSessionModal'
+import EventRegistrationsPanel from '../components/event/EventRegistrationsPanel'
+import { formatDate, formatVnd, inputStyle, labelStyle } from '../components/event/eventShared'
+import { D } from '@/components/shared/managementTheme'
+import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-pangea/dnd'
 import { EventStatusBadge } from '../../shared/StatusBadge'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-
-/* ─── Design tokens ──────────────────────────────────────────────────────── */
-const D = {
-  border: '1.5px solid var(--c-ink)',
-  borderLight: '1px solid #e8e3d6',
-  shadow: (x = 3, y = 3) => `${x}px ${y}px 0 var(--c-ink)`,
-  radius: 14,
-  pill: 999,
-  ink: 'var(--c-ink)',
-  inkDim: '#4a4651',
-  inkMuted: '#918c99',
-  bg: 'var(--c-bg)',
-  card: '#ffffff',
-  red: '#ef4444',
-  indigo: '#4f46e5',
-  amber: '#f59e0b',
-}
-
-const inputStyle: React.CSSProperties = {
-  width: '100%', padding: '8px 12px', fontSize: 13, fontWeight: 500,
-  border: '1.5px solid #c4bfb0', borderRadius: 8, outline: 'none',
-  background: '#fff', color: D.ink, fontFamily: "'Be Vietnam Pro', sans-serif",
-  boxSizing: 'border-box',
-}
-const labelStyle: React.CSSProperties = {
-  display: 'block', fontSize: 11, fontWeight: 800, color: D.inkDim,
-  marginBottom: 5, textTransform: 'uppercase', letterSpacing: '.06em',
-}
 
 /* ─── Helpers ─────────────────────────────────────────────────────────────── */
 
@@ -78,16 +55,6 @@ function fmtDate(iso?: string): string {
   if (!iso) return '—'
   return new Date(iso).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
-function formatDate(iso?: string): string {
-  if (!iso) return '—'
-  return new Date(iso).toLocaleDateString('vi-VN', {
-    day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
-  })
-}
-function formatVnd(amount?: number): string {
-  if (amount == null) return 'Chưa xác định'
-  return amount.toLocaleString('vi-VN', { style: 'currency', currency: 'VND' })
-}
 function fileIcon(name: string): string {
   const ext = name.split('.').pop()?.toLowerCase()
   if (['png', 'jpg', 'jpeg', 'webp'].includes(ext ?? '')) return '🖼️'
@@ -108,147 +75,6 @@ function clubProgress(items: AssignmentItem[]): number {
   if (!items.length) return 0
   const score = items.reduce((s, a) => s + (a.status === 'Done' ? 100 : a.status === 'InProgress' ? 50 : 0), 0)
   return Math.round(score / items.length)
-}
-
-/* ─── Edit Modal ─────────────────────────────────────────────────────────── */
-type EventForm = {
-  name: string; description: string; location: string
-  startTime: string; endTime: string; status: EventStatus
-  budget?: number; category: string; summary: string
-}
-
-function EditModal({ open, event, onClose, onSaved }: {
-  open: boolean; event: EventItem; onClose: () => void; onSaved: (u: EventItem) => void
-}) {
-  const [form, setForm] = useState<EventForm>({
-    name: '', description: '', location: '', startTime: '', endTime: '', status: 'Draft', category: '', summary: '',
-  })
-  const [saving, setSaving] = useState(false)
-
-  useEffect(() => {
-    if (open) setForm({
-      name: event.name,
-      description: event.description ?? '',
-      location: event.location ?? '',
-      startTime: event.startTime ? event.startTime.slice(0, 16) : '',
-      endTime: event.endTime ? event.endTime.slice(0, 16) : '',
-      maxParticipants: event.maxParticipants,
-      status: event.status,
-      budget: event.budget,
-      category: event.category ?? '',
-      summary: event.summary ?? '',
-    } as unknown as EventForm)
-  }, [open, event])
-
-  const set = (field: keyof EventForm, value: unknown) => setForm(prev => ({ ...prev, [field]: value }))
-
-  const handleSave = async () => {
-    if (!form.name.trim()) { toast.error('Tên sự kiện không được để trống'); return }
-    setSaving(true)
-    try {
-      const dto: UpdateEventDto = {
-        name: form.name, description: form.description, location: form.location,
-        startTime: form.startTime || undefined, endTime: form.endTime || undefined,
-        maxParticipants: (form as unknown as { maxParticipants?: number }).maxParticipants,
-        status: form.status, budget: form.budget,
-        category: form.category || undefined, summary: form.summary || undefined,
-      }
-      const updated = await updateEvent(event.id, dto)
-      toast.success('Đã cập nhật sự kiện'); onSaved(updated); onClose()
-    } catch { toast.error('Có lỗi xảy ra, vui lòng thử lại') }
-    finally { setSaving(false) }
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={v => !v && onClose()}>
-      <DialogContent style={{ maxWidth: 520, fontFamily: "'Be Vietnam Pro', sans-serif" }}>
-        <DialogHeader>
-          <DialogTitle style={{ fontSize: 16, fontWeight: 900, color: D.ink }}>Chỉnh sửa sự kiện</DialogTitle>
-        </DialogHeader>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: '8px 0', maxHeight: '65vh', overflowY: 'auto' }}>
-          <div><label style={labelStyle}>Tên sự kiện <span style={{ color: D.red }}>*</span></label><input style={inputStyle} value={form.name} onChange={e => set('name', e.target.value)} /></div>
-          <div>
-            <label style={labelStyle}>Trạng thái</label>
-            <select aria-label="Trạng thái" style={{ ...inputStyle, cursor: 'pointer' }} value={form.status} onChange={e => set('status', e.target.value as EventStatus)}>
-              <option value="Draft">Nháp</option><option value="InProgress">Đang diễn ra</option>
-              <option value="Completed">Hoàn thành</option><option value="Cancelled">Đã hủy</option>
-            </select>
-          </div>
-          <div><label style={labelStyle}>Mô tả</label><textarea style={{ ...inputStyle, resize: 'none', minHeight: 72 }} rows={3} value={form.description} onChange={e => set('description', e.target.value)} /></div>
-          <div><label style={labelStyle}>Địa điểm</label><input style={inputStyle} value={form.location} onChange={e => set('location', e.target.value)} /></div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <div><label style={labelStyle}>Bắt đầu</label><input style={inputStyle} type="datetime-local" value={form.startTime} onChange={e => set('startTime', e.target.value)} /></div>
-            <div><label style={labelStyle}>Kết thúc</label><input style={inputStyle} type="datetime-local" value={form.endTime} onChange={e => set('endTime', e.target.value)} /></div>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <div>
-              <label style={labelStyle}>Số người tối đa</label>
-              <input style={inputStyle} type="number" min={1}
-                value={(form as unknown as { maxParticipants?: number }).maxParticipants ?? ''}
-                onChange={e => set('maxParticipants' as keyof EventForm, e.target.value ? Number(e.target.value) : undefined)}
-                placeholder="Không giới hạn" />
-            </div>
-            <div><label style={labelStyle}>Danh mục</label><input style={inputStyle} value={form.category} onChange={e => set('category', e.target.value)} placeholder="Văn hoá, Học thuật..." /></div>
-          </div>
-          <div><label style={labelStyle}>Ngân sách (VNĐ)</label><input style={inputStyle} type="number" min={0} value={form.budget ?? ''} onChange={e => set('budget', e.target.value ? Number(e.target.value) : undefined)} placeholder="Chưa xác định" /></div>
-          <div>
-            <label style={labelStyle}>Kết quả / Tổng kết</label>
-            <textarea style={{ ...inputStyle, resize: 'none', minHeight: 80 }} rows={3} value={form.summary} onChange={e => set('summary', e.target.value)} placeholder="Ghi lại kết quả, số lượng tham dự thực tế..." />
-          </div>
-        </div>
-        <DialogFooter style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-          <button type="button" onClick={onClose} style={{ padding: '8px 18px', fontSize: 13, fontWeight: 700, border: D.border, borderRadius: D.radius, background: D.card, color: D.inkDim, cursor: 'pointer', fontFamily: 'inherit' }}>Hủy</button>
-          <button type="button" onClick={handleSave} disabled={saving} style={{ padding: '8px 20px', fontSize: 13, fontWeight: 900, border: D.border, borderRadius: D.radius, background: saving ? '#6b7280' : D.ink, color: '#facc15', cursor: saving ? 'not-allowed' : 'pointer', boxShadow: saving ? 'none' : D.shadow(2, 2), fontFamily: 'inherit' }}>
-            {saving ? 'Đang lưu...' : 'Lưu thay đổi'}
-          </button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
-}
-
-/* ─── Add Session Modal ──────────────────────────────────────────────────── */
-function AddSessionModal({ open, eventId, onClose, onAdded }: {
-  open: boolean; eventId: number; onClose: () => void; onAdded: () => void
-}) {
-  const BLANK: CreateEventSessionDto = { title: '', startTime: '', endTime: '', description: '', location: '' }
-  const [form, setForm] = useState<CreateEventSessionDto>(BLANK)
-  const [saving, setSaving] = useState(false)
-
-  useEffect(() => { if (open) setForm(BLANK) }, [open])
-  const set = (field: keyof CreateEventSessionDto, value: unknown) => setForm(prev => ({ ...prev, [field]: value }))
-
-  const handleSave = async () => {
-    if (!form.title.trim()) { toast.error('Tên phiên không được để trống'); return }
-    if (!form.startTime || !form.endTime) { toast.error('Vui lòng nhập giờ bắt đầu và kết thúc'); return }
-    setSaving(true)
-    try { await addEventSession(eventId, form); toast.success('Đã thêm phiên'); onAdded(); onClose() }
-    catch { toast.error('Có lỗi xảy ra') }
-    finally { setSaving(false) }
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={v => !v && onClose()}>
-      <DialogContent style={{ maxWidth: 440, fontFamily: "'Be Vietnam Pro', sans-serif" }}>
-        <DialogHeader><DialogTitle style={{ fontSize: 15, fontWeight: 900, color: D.ink }}>Thêm mục lịch trình</DialogTitle></DialogHeader>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: '8px 0' }}>
-          <div><label style={labelStyle}>Tên mục <span style={{ color: D.red }}>*</span></label><input style={inputStyle} value={form.title} onChange={e => set('title', e.target.value)} placeholder="VD: Khai mạc, Phát biểu..." /></div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <div><label style={labelStyle}>Giờ bắt đầu <span style={{ color: D.red }}>*</span></label><input style={inputStyle} type="time" value={form.startTime} onChange={e => set('startTime', e.target.value)} /></div>
-            <div><label style={labelStyle}>Giờ kết thúc <span style={{ color: D.red }}>*</span></label><input style={inputStyle} type="time" value={form.endTime} onChange={e => set('endTime', e.target.value)} /></div>
-          </div>
-          <div><label style={labelStyle}>Địa điểm</label><input style={inputStyle} value={form.location ?? ''} onChange={e => set('location', e.target.value)} placeholder="Phòng họp, Sân trường..." /></div>
-          <div><label style={labelStyle}>Mô tả</label><textarea style={{ ...inputStyle, resize: 'none', minHeight: 56 }} rows={2} value={form.description ?? ''} onChange={e => set('description', e.target.value)} /></div>
-        </div>
-        <DialogFooter style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-          <button type="button" onClick={onClose} style={{ padding: '8px 18px', fontSize: 13, fontWeight: 700, border: D.border, borderRadius: D.radius, background: D.card, color: D.inkDim, cursor: 'pointer', fontFamily: 'inherit' }}>Hủy</button>
-          <button type="button" onClick={handleSave} disabled={saving} style={{ padding: '8px 20px', fontSize: 13, fontWeight: 900, border: D.border, borderRadius: D.radius, background: saving ? '#6b7280' : D.ink, color: '#facc15', cursor: saving ? 'not-allowed' : 'pointer', boxShadow: saving ? 'none' : D.shadow(2, 2), fontFamily: 'inherit' }}>
-            {saving ? 'Đang lưu...' : 'Thêm mục'}
-          </button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
 }
 
 /* ─── File Picker ────────────────────────────────────────────────────────── */
@@ -371,11 +197,11 @@ function AssignTaskPanel({ eventId, clubs, eventStart, eventEnd, onCreated }: {
 }
 
 /* ─── Edit Assignment Modal ──────────────────────────────────────────────── */
-function EditAssignmentModal({ open, assignment, eventStart, eventEnd, onClose, onSaved }: {
-  open: boolean; assignment: AssignmentItem; eventStart?: string; eventEnd?: string
+function EditAssignmentModal({ open, assignment, clubs, eventStart, eventEnd, onClose, onSaved }: {
+  open: boolean; assignment: AssignmentItem; clubs: ClubListItem[]; eventStart?: string; eventEnd?: string
   onClose: () => void; onSaved: (updated: AssignmentItem) => void
 }) {
-  const [form, setForm] = useState({ title: '', description: '', priority: 'Medium' as TaskPriority, deadline: '' })
+  const [form, setForm] = useState<{ title: string; description: string; priority: TaskPriority; deadline: string; clubId: number }>({ title: '', description: '', priority: 'Medium', deadline: '', clubId: 0 })
   const [attachments, setAttachments] = useState<AssignmentAttachment[]>([])
   const [newFiles, setNewFiles] = useState<File[]>([])
   const [saving, setSaving] = useState(false)
@@ -392,6 +218,7 @@ function EditAssignmentModal({ open, assignment, eventStart, eventEnd, onClose, 
         description: assignment.description ?? '',
         priority: assignment.priority,
         deadline: assignment.deadline ? assignment.deadline.slice(0, 10) : '',
+        clubId: assignment.clubId,
       })
       setAttachments(assignment.attachmentUrls)
       setNewFiles([])
@@ -424,6 +251,7 @@ function EditAssignmentModal({ open, assignment, eventStart, eventEnd, onClose, 
         description: form.description || undefined,
         priority: form.priority,
         deadline: form.deadline || undefined,
+        clubId: form.clubId,
       })
       if (newFiles.length > 0) {
         updated = await addAssignmentAttachments(assignment.id, newFiles)
@@ -447,6 +275,12 @@ function EditAssignmentModal({ open, assignment, eventStart, eventEnd, onClose, 
           <div>
             <label style={labelStyle}>Nội dung công việc <span style={{ color: D.red }}>*</span></label>
             <input style={inputStyle} value={form.title} onChange={e => set('title', e.target.value)} placeholder="Mô tả công việc cần CLB thực hiện..." />
+          </div>
+          <div>
+            <label style={labelStyle}>CLB phụ trách</label>
+            <select style={{ ...inputStyle, cursor: 'pointer' }} value={form.clubId || ''} onChange={e => set('clubId', Number(e.target.value))}>
+              {clubs.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
@@ -567,8 +401,10 @@ function AssignmentCard({ assignment, onDelete, onEdit }: {
 }
 
 /* ─── Assignments by Club (panel view) ───────────────────────────────────── */
-function AssignmentsByClub({ assignments, onDelete, onEdit }: {
-  assignments: AssignmentItem[]; onDelete?: (id: number) => void; onEdit?: (a: AssignmentItem) => void
+function AssignmentsByClub({ assignments, canManage, onDelete, onEdit, onReassign }: {
+  assignments: AssignmentItem[]; canManage?: boolean
+  onDelete?: (id: number) => void; onEdit?: (a: AssignmentItem) => void
+  onReassign?: (assignmentId: number, clubId: number) => void
 }) {
   const grouped = assignments.reduce<Record<number, AssignmentItem[]>>((acc, a) => {
     if (!acc[a.clubId]) acc[a.clubId] = []
@@ -583,30 +419,50 @@ function AssignmentsByClub({ assignments, onDelete, onEdit }: {
       </div>
     )
   }
+
+  function handleDragEnd(result: DropResult) {
+    if (!onReassign) return
+    const { source, destination, draggableId } = result
+    if (!destination || source.droppableId === destination.droppableId) return
+    onReassign(Number(draggableId.replace('asg-', '')), Number(destination.droppableId.replace('club-', '')))
+  }
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      {Object.entries(grouped).map(([clubIdStr, items]) => {
-        const cid = Number(clubIdStr)
-        return (
-          <div key={cid} style={{ border: D.border, borderRadius: D.radius, overflow: 'hidden' }}>
-            <div style={{ padding: '10px 16px', background: D.ink, display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontSize: 12, fontWeight: 800, color: '#fff' }}>{items[0].clubName ?? `CLB #${cid}`}</span>
-              <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.6)', marginLeft: 'auto' }}>{items.length} phiếu</span>
+    <DragDropContext onDragEnd={handleDragEnd}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {Object.entries(grouped).map(([clubIdStr, items]) => {
+          const cid = Number(clubIdStr)
+          return (
+            <div key={cid} style={{ border: D.border, borderRadius: D.radius, overflow: 'hidden' }}>
+              <div style={{ padding: '10px 16px', background: D.ink, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 12, fontWeight: 800, color: '#fff' }}>{items[0].clubName ?? `CLB #${cid}`}</span>
+                <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.6)', marginLeft: 'auto' }}>{items.length} phiếu</span>
+              </div>
+              <Droppable droppableId={`club-${cid}`}>
+                {(prov, snap) => (
+                  <div ref={prov.innerRef} {...prov.droppableProps} style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 8, background: snap.isDraggingOver ? '#eef2ff' : D.bg, minHeight: 40, transition: 'background .12s' }}>
+                    {items.map((a, idx) => (
+                      <Draggable key={a.id} draggableId={`asg-${a.id}`} index={idx} isDragDisabled={!canManage}>
+                        {(dp, dsnap) => (
+                          <div ref={dp.innerRef} {...dp.draggableProps} {...(canManage ? dp.dragHandleProps : {})} style={{ ...dp.draggableProps.style, opacity: dsnap.isDragging ? 0.9 : 1, cursor: canManage ? 'grab' : 'default' }}>
+                            <AssignmentCard
+                              assignment={a}
+                              onDelete={onDelete ? () => onDelete(a.id) : undefined}
+                              onEdit={onEdit ? () => onEdit(a) : undefined}
+                            />
+                          </div>
+                        )}
+                      </Draggable>
+                    ))}
+                    {prov.placeholder}
+                  </div>
+                )}
+              </Droppable>
             </div>
-            <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 8, background: D.bg }}>
-              {items.map(a => (
-                <AssignmentCard
-                  key={a.id}
-                  assignment={a}
-                  onDelete={onDelete ? () => onDelete(a.id) : undefined}
-                  onEdit={onEdit ? () => onEdit(a) : undefined}
-                />
-              ))}
-            </div>
-          </div>
-        )
-      })}
-    </div>
+          )
+        })}
+      </div>
+    </DragDropContext>
   )
 }
 
@@ -729,15 +585,6 @@ export default function UniversityEventDetailPage() {
   const [focalPoints, setFocalPoints]   = useState<Record<number, MemberItem | null>>({})
   const [taskCounts, setTaskCounts]     = useState<Record<number, number>>({})
 
-  // Registration link (persisted via API)
-  const [regLink, setRegLink]           = useState('')
-  const [editingLink, setEditingLink]   = useState(false)
-  const [linkDraft, setLinkDraft]       = useState('')
-
-  // Registrations / attendance
-  const [registrations, setRegistrations] = useState<EventRegistrationItem[]>([])
-  const [loadingRegs, setLoadingRegs]     = useState(false)
-
   const loadEvent = async () => {
     if (!id) return
     const ev = await getEventById(Number(id))
@@ -776,21 +623,14 @@ export default function UniversityEventDetailPage() {
     async function load() {
       if (!id) return
       setLoading(true)
-      setLoadingRegs(true)
       try {
         const [ev, clubList] = await Promise.all([
           getEventById(Number(id)),
           isSuperAdmin ? getClubs() : Promise.resolve([] as ClubListItem[]),
         ])
         setEvent(ev); setClubs(clubList)
-        setRegLink(ev.registrationLink ?? '')
-        const [asns, regs] = await Promise.all([
-          loadAssignments(Number(id)),
-          getEventRegistrations(Number(id)).catch(() => []),
-        ])
+        const asns = await loadAssignments(Number(id))
         setAssignments(asns)
-        setRegistrations(regs)
-        setLoadingRegs(false)
         const uniqueClubIds = [...new Set(asns.map(a => a.clubId))]
         await loadClubDetails(Number(id), uniqueClubIds)
       } catch { toast.error('Không thể tải thông tin sự kiện') }
@@ -808,6 +648,28 @@ export default function UniversityEventDetailPage() {
     } catch { toast.error('Không thể xóa') }
   }
 
+  async function handleReassignAssignment(assignmentId: number, clubId: number) {
+    const asg = assignments.find(a => a.id === assignmentId)
+    if (!asg || asg.clubId === clubId) return
+    const prev = assignments
+    const newClubName = clubs.find(c => c.id === clubId)?.name ?? asg.clubName
+    setAssignments(p => p.map(a => a.id === assignmentId ? { ...a, clubId, clubName: newClubName } : a))
+    try {
+      const updated = await updateAssignment(assignmentId, {
+        title: asg.title,
+        description: asg.description || undefined,
+        priority: asg.priority,
+        deadline: asg.deadline || undefined,
+        clubId,
+      })
+      setAssignments(p => p.map(a => a.id === assignmentId ? updated : a))
+      toast.success('Đã chuyển phiếu giao việc')
+    } catch {
+      toast.error('Không thể chuyển phiếu giao việc')
+      setAssignments(prev)
+    }
+  }
+
   async function handleDeleteSession(sessionId: number) {
     if (!event) return
     try { await deleteEventSession(event.id, sessionId); toast.success('Đã xóa mục lịch trình'); await loadEvent() }
@@ -820,26 +682,6 @@ export default function UniversityEventDetailPage() {
     try { await deleteEvent(event.id); toast.success('Đã xóa sự kiện'); navigate('/admin/events') }
     catch { toast.error('Không thể xóa sự kiện này'); setDeleting(false); setDeleteOpen(false) }
   }
-  async function saveRegLink() {
-    if (!event) return
-    const trimmed = linkDraft.trim()
-    try {
-      await saveRegistrationLink(event.id, trimmed || null)
-      setRegLink(trimmed)
-      setEvent(prev => prev ? { ...prev, registrationLink: trimmed || undefined } : prev)
-      toast.success(trimmed ? 'Đã lưu link đăng ký' : 'Đã xóa link đăng ký')
-    } catch { toast.error('Không thể lưu link đăng ký') }
-    setEditingLink(false)
-  }
-
-  async function handleUpdateAttendance(userId: string, status: AttendanceStatus) {
-    if (!event) return
-    try {
-      await updateEventAttendance(event.id, userId, { attendance: status })
-      setRegistrations(prev => prev.map(r => r.userId === userId ? { ...r, attendance: status } : r))
-    } catch { toast.error('Không thể cập nhật điểm danh') }
-  }
-
   if (loading) return <div style={{ padding: 60, textAlign: 'center', color: D.inkMuted, fontFamily: "'Be Vietnam Pro', sans-serif" }}>Đang tải...</div>
   if (!event) return <div style={{ padding: 60, textAlign: 'center', color: D.inkMuted, fontFamily: "'Be Vietnam Pro', sans-serif" }}>Không tìm thấy sự kiện.</div>
 
@@ -1003,108 +845,13 @@ export default function UniversityEventDetailPage() {
             )}
           </div>
 
-          {/* Link đăng ký tham gia */}
-          <div style={cardStyle}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-              <h2 style={{ fontSize: 11, fontWeight: 800, color: D.inkMuted, textTransform: 'uppercase', letterSpacing: '.08em', margin: 0, display: 'flex', alignItems: 'center', gap: 5 }}>
-                <Link2 size={12} style={{ color: '#10b981' }} /> Link đăng ký
-              </h2>
-              {isSuperAdmin && !editingLink && (
-                <button type="button" onClick={() => { setLinkDraft(regLink); setEditingLink(true) }}
-                  style={{ fontSize: 10, fontWeight: 800, color: D.indigo, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-                  {regLink ? 'Sửa' : 'Thiết lập'}
-                </button>
-              )}
-            </div>
-
-            {editingLink ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <input
-                  style={{ ...inputStyle, fontSize: 12 }}
-                  value={linkDraft}
-                  onChange={e => setLinkDraft(e.target.value)}
-                  placeholder="https://forms.gle/..."
-                  autoFocus
-                />
-                <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-                  <button type="button" onClick={() => setEditingLink(false)}
-                    style={{ padding: '5px 12px', fontSize: 11, fontWeight: 700, border: D.border, borderRadius: 8, background: D.card, color: D.inkDim, cursor: 'pointer' }}>
-                    Hủy
-                  </button>
-                  <button type="button" onClick={saveRegLink}
-                    style={{ padding: '5px 14px', fontSize: 11, fontWeight: 800, border: D.border, borderRadius: 8, background: D.ink, color: '#facc15', cursor: 'pointer', boxShadow: D.shadow(2, 2) }}>
-                    Lưu
-                  </button>
-                </div>
-              </div>
-            ) : regLink ? (
-              <a href={regLink} target="_blank" rel="noreferrer"
-                style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', background: '#f0fdf4', border: '1.5px solid #86efac', borderRadius: 10, textDecoration: 'none' }}>
-                <ExternalLink size={14} style={{ color: '#16a34a', flexShrink: 0 }} />
-                <span style={{ fontSize: 12, fontWeight: 700, color: '#15803d', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
-                  Mở form đăng ký
-                </span>
-              </a>
-            ) : (
-              <div style={{ border: '2px dashed #c4bfb0', borderRadius: 10, padding: '18px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-                <Link2 size={18} style={{ color: '#c4bfb0' }} />
-                <p style={{ fontSize: 11, color: D.inkMuted, margin: 0, textAlign: 'center' }}>
-                  {isSuperAdmin ? 'Chưa có link — nhấn "Thiết lập"' : 'Chưa có link đăng ký'}
-                </p>
-              </div>
-            )}
-          </div>
-          {/* Link điểm danh */}
-          {/* <div style={cardStyle}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-              <h2 style={{ fontSize: 11, fontWeight: 800, color: D.inkMuted, textTransform: 'uppercase', letterSpacing: '.08em', margin: 0, display: 'flex', alignItems: 'center', gap: 5 }}>
-                <Link2 size={12} style={{ color: '#10b981' }} /> Link điểm danh
-              </h2>
-              {isSuperAdmin && !editingLink && (
-                <button type="button" onClick={() => { setLinkDraft(regLink); setEditingLink(true) }}
-                  style={{ fontSize: 10, fontWeight: 800, color: D.indigo, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-                  {regLink ? 'Sửa' : 'Thiết lập'}
-                </button>
-              )}
-            </div>
-
-            {editingLink ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <input
-                  style={{ ...inputStyle, fontSize: 12 }}
-                  value={linkDraft}
-                  onChange={e => setLinkDraft(e.target.value)}
-                  placeholder="https://forms.gle/..."
-                  autoFocus
-                />
-                <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-                  <button type="button" onClick={() => setEditingLink(false)}
-                    style={{ padding: '5px 12px', fontSize: 11, fontWeight: 700, border: D.border, borderRadius: 8, background: D.card, color: D.inkDim, cursor: 'pointer' }}>
-                    Hủy
-                  </button>
-                  <button type="button" onClick={saveAttendLink}
-                    style={{ padding: '5px 14px', fontSize: 11, fontWeight: 800, border: D.border, borderRadius: 8, background: D.ink, color: '#facc15', cursor: 'pointer', boxShadow: D.shadow(2, 2) }}>
-                    Lưu
-                  </button>
-                </div>
-              </div>
-            ) : regLink ? (
-              <a href={regLink} target="_blank" rel="noreferrer"
-                style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', background: '#f0fdf4', border: '1.5px solid #86efac', borderRadius: 10, textDecoration: 'none' }}>
-                <ExternalLink size={14} style={{ color: '#16a34a', flexShrink: 0 }} />
-                <span style={{ fontSize: 12, fontWeight: 700, color: '#15803d', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
-                  Mở form điểm danh
-                </span>
-              </a>
-            ) : (
-              <div style={{ border: '2px dashed #c4bfb0', borderRadius: 10, padding: '18px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-                <Link2 size={18} style={{ color: '#c4bfb0' }} />
-                <p style={{ fontSize: 11, color: D.inkMuted, margin: 0, textAlign: 'center' }}>
-                  {isSuperAdmin ? 'Chưa có link — nhấn "Thiết lập"' : 'Chưa có link đăng ký'}
-                </p>
-              </div>
-            )}
-          </div> */}
+          {/* Registration form link */}
+          <RegistrationLinkCard
+            eventId={event.id}
+            canManage={isSuperAdmin}
+            value={event.registrationLink ?? ''}
+            onChange={link => setEvent(prev => prev ? { ...prev, registrationLink: link || undefined } : prev)}
+          />
         </div>
       </div>
 
@@ -1142,8 +889,10 @@ export default function UniversityEventDetailPage() {
           )}
           <AssignmentsByClub
             assignments={assignments}
+            canManage={isSuperAdmin}
             onDelete={isSuperAdmin ? handleDeleteAssignment : undefined}
             onEdit={isSuperAdmin ? setEditingAssignment : undefined}
+            onReassign={isSuperAdmin ? handleReassignAssignment : undefined}
           />
         </div>
       </div>
@@ -1201,89 +950,17 @@ export default function UniversityEventDetailPage() {
           </div>
         )}
       </div>
-{/* Danh sách đăng ký & Điểm danh */}
-      <div style={{ marginTop: 20, background: D.card, border: D.border, borderRadius: D.radius, boxShadow: D.shadow(), overflow: 'hidden' }}>
-        <div style={{ padding: '14px 20px', borderBottom: D.borderLight, display: 'flex', alignItems: 'center', gap: 8 }}>
-          <h2 style={{ fontSize: 13, fontWeight: 800, color: D.ink, margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Users size={14} style={{ color: '#10b981' }} />
-            Danh sách đăng ký &amp; Điểm danh
-          </h2>
-          {registrations.length > 0 && (
-            <span style={{ fontSize: 10, background: '#d1fae5', color: '#065f46', padding: '1px 6px', borderRadius: 4, fontWeight: 700 }}>
-              {registrations.length} người
-            </span>
-          )}
-        </div>
+      {/* Registrations & check-in */}
+      <EventRegistrationsPanel eventId={event.id} canManage={isSuperAdmin} />
 
-        {loadingRegs ? (
-          <div style={{ padding: '32px 0', textAlign: 'center', color: D.inkMuted, fontSize: 12 }}>Đang tải...</div>
-        ) : registrations.length === 0 ? (
-          <div style={{ padding: '48px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-            <Users size={28} style={{ color: '#c4bfb0' }} />
-            <p style={{ fontSize: 12, color: D.inkMuted, margin: 0 }}>Chưa có người đăng ký</p>
-          </div>
-        ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-              <thead>
-                <tr style={{ background: D.bg }}>
-                  {['Người tham gia', 'Email', 'Thời gian đăng ký', 'Điểm danh'].map((h, i) => (
-                    <th key={i} style={{ padding: '10px 16px', fontSize: 10, fontWeight: 800, color: D.inkMuted, textTransform: 'uppercase', letterSpacing: '.06em', textAlign: 'left', borderBottom: D.borderLight, whiteSpace: 'nowrap' }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {registrations.map(reg => {
-                  const attColor = reg.attendance === 'CheckedIn'
-                    ? { bg: '#d1fae5', color: '#065f46' }
-                    : reg.attendance === 'Absent'
-                    ? { bg: '#fee2e2', color: '#991b1b' }
-                    : { bg: '#fef9c3', color: '#a16207' }
-                  const attLabel = reg.attendance === 'CheckedIn' ? 'Đã điểm danh' : reg.attendance === 'Absent' ? 'Vắng mặt' : 'Chờ xác nhận'
-                  return (
-                    <tr key={reg.id} style={{ borderBottom: D.borderLight }}>
-                      <td style={{ padding: '12px 16px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <div style={{ width: 30, height: 30, borderRadius: '50%', border: D.borderLight, flexShrink: 0, overflow: 'hidden', background: '#ede9fe', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: D.indigo }}>
-                            {reg.avatarUrl
-                              ? <img src={reg.avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                              : reg.userName.charAt(0).toUpperCase()}
-                          </div>
-                          <span style={{ fontWeight: 700, color: D.ink }}>{reg.userName}</span>
-                        </div>
-                      </td>
-                      <td style={{ padding: '12px 16px', color: D.inkMuted, fontSize: 12 }}>{reg.email ?? '—'}</td>
-                      <td style={{ padding: '12px 16px', color: D.inkMuted, fontSize: 12, whiteSpace: 'nowrap' }}>{formatDate(reg.registeredAt)}</td>
-                      <td style={{ padding: '12px 16px' }}>
-                        {isSuperAdmin ? (
-                          <select
-                            value={reg.attendance}
-                            onChange={e => handleUpdateAttendance(reg.userId, e.target.value as AttendanceStatus)}
-                            style={{ fontSize: 11, fontWeight: 700, border: `1.5px solid ${attColor.color}40`, borderRadius: 8, padding: '4px 10px', cursor: 'pointer', background: attColor.bg, color: attColor.color, outline: 'none', fontFamily: 'inherit' }}
-                          >
-                            <option value="Pending">Chờ xác nhận</option>
-                            <option value="CheckedIn">Đã điểm danh</option>
-                            <option value="Absent">Vắng mặt</option>
-                          </select>
-                        ) : (
-                          <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: D.pill, background: attColor.bg, color: attColor.color }}>{attLabel}</span>
-                        )}
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
       {/* Modals */}
-      {editOpen && <EditModal open={editOpen} event={event} onClose={() => setEditOpen(false)} onSaved={updated => setEvent(updated)} />}
-      <AddSessionModal open={addSessionOpen} eventId={event.id} onClose={() => setAddSessionOpen(false)} onAdded={loadEvent} />
+      {editOpen && <EditEventModal open={editOpen} event={event} onClose={() => setEditOpen(false)} onSaved={updated => setEvent(updated)} />}
+      <AddEventSessionModal open={addSessionOpen} eventId={event.id} onClose={() => setAddSessionOpen(false)} onAdded={loadEvent} />
       {editingAssignment && (
         <EditAssignmentModal
           open={!!editingAssignment}
           assignment={editingAssignment}
+          clubs={clubs}
           eventStart={event.startTime}
           eventEnd={event.endTime}
           onClose={() => setEditingAssignment(null)}

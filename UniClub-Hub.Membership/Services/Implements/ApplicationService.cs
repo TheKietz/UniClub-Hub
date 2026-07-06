@@ -24,9 +24,11 @@ namespace UniClub_Hub.Membership.Services.Implements
         private readonly ISystemSettingService _settings;
         private readonly INotificationDispatchService _dispatch;
         private readonly IClubPermissionService _permissions;
+        private readonly IClubMembershipService _membershipService;
 
         public ApplicationService(UniClubDbContext db, IEmailService email, IConfiguration config,
-            ISystemSettingService settings, INotificationDispatchService dispatch, IClubPermissionService permissions)
+            ISystemSettingService settings, INotificationDispatchService dispatch,
+            IClubPermissionService permissions, IClubMembershipService membershipService)
         {
             _db = db;
             _email = email;
@@ -34,6 +36,7 @@ namespace UniClub_Hub.Membership.Services.Implements
             _settings = settings;
             _dispatch = dispatch;
             _permissions = permissions;
+            _membershipService = membershipService;
         }
 
         public async Task<IEnumerable<ApplicationDto>> GetMyApplicationsAsync(string userId)
@@ -250,6 +253,9 @@ namespace UniClub_Hub.Membership.Services.Implements
                     "Trạng thái không hợp lệ. Chỉ chấp nhận: Interview, Accepted, Rejected."
                 );
 
+            await _permissions.EnsureHasPermissionAsync(
+                clubId, reviewerId, isSuperAdmin, ClubPermissions.ApplicationsReview);
+
             var application =
                 await _db.Applications.FirstOrDefaultAsync(a =>
                     a.Id == applicationId && a.ClubId == clubId
@@ -260,8 +266,7 @@ namespace UniClub_Hub.Membership.Services.Implements
                     "Đơn này đã được xử lý xong, không thể thay đổi."
                 );
 
-            await _permissions.EnsureHasPermissionAsync(
-                clubId, reviewerId, isSuperAdmin, ClubPermissions.ApplicationsReview);
+            await using var tx = await _db.Database.BeginTransactionAsync();
 
             application.Status = dto.Status;
             application.ReviewNote = dto.ReviewNote;
@@ -269,7 +274,35 @@ namespace UniClub_Hub.Membership.Services.Implements
             application.ReviewerId = reviewerId;
             if (dto.Status is ApplicationStatus.Accepted or ApplicationStatus.Rejected)
                 application.CurrentStageId = null;
+
+            if (dto.Status == ApplicationStatus.Accepted)
+            {
+                var alreadyMember = await _db.ClubMemberships.AnyAsync(m =>
+                    m.ClubId == application.ClubId
+                    && m.UserId == application.UserId
+                    && (m.Status == MembershipStatus.Active || m.Status == MembershipStatus.Probation)
+                );
+
+                if (!alreadyMember)
+                {
+                    await _membershipService.EnsureMemberCapacityAsync(application.ClubId);
+
+                    _db.ClubMemberships.Add(
+                        new ClubMembership
+                        {
+                            UserId = application.UserId,
+                            ClubId = application.ClubId,
+                            ClubRole = UniClub_Hub.Shared.Enums.ClubRole.MEMBER,
+                            JoinedDate = DateOnly.FromDateTime(DateTime.UtcNow),
+                            Status = MembershipStatus.Probation,
+                            MemberCustomData = application.MemberFieldData,
+                        }
+                    );
+                }
+            }
+
             await _db.SaveChangesAsync();
+            await tx.CommitAsync();
 
             var clubName = await _db.Clubs.Where(c => c.Id == clubId).Select(c => c.Name).FirstAsync();
 
@@ -317,31 +350,7 @@ namespace UniClub_Hub.Membership.Services.Implements
                 catch { /* Không block nếu email thất bại */ }
             }
 
-            // Khi Accepted → tự động tạo ClubMembership
-            if (dto.Status == ApplicationStatus.Accepted)
-            {
-                var alreadyMember = await _db.ClubMemberships.AnyAsync(m =>
-                    m.ClubId == application.ClubId
-                    && m.UserId == application.UserId
-                    && (m.Status == MembershipStatus.Active || m.Status == MembershipStatus.Probation)
-                );
-
-                if (!alreadyMember)
-                {
-                    _db.ClubMemberships.Add(
-                        new ClubMembership
-                        {
-                            UserId = application.UserId,
-                            ClubId = application.ClubId,
-                            ClubRole = UniClub_Hub.Shared.Enums.ClubRole.MEMBER,
-                            JoinedDate = DateOnly.FromDateTime(DateTime.UtcNow),
-                            Status = MembershipStatus.Probation,
-                            MemberCustomData = application.MemberFieldData,
-                        }
-                    );
-                    await _db.SaveChangesAsync();
-                }
-            }
+            // Khi Accepted → membership đã được tạo trong transaction ở trên
 
             var app = await _db.Applications.AsNoTracking()
                 .Include(a => a.Club).Include(a => a.User).Include(a => a.CurrentStage)
@@ -399,6 +408,9 @@ namespace UniClub_Hub.Membership.Services.Implements
             int clubId, int applicationId, AdvanceApplicationRequest req,
             string reviewerId, bool isSuperAdmin)
         {
+            await _permissions.EnsureHasPermissionAsync(
+                clubId, reviewerId, isSuperAdmin, ClubPermissions.ApplicationsReview);
+
             var application = await _db.Applications
                 .Include(a => a.CurrentStage)
                 .FirstOrDefaultAsync(a => a.Id == applicationId && a.ClubId == clubId)
@@ -406,9 +418,6 @@ namespace UniClub_Hub.Membership.Services.Implements
 
             if (application.Status is ApplicationStatus.Accepted or ApplicationStatus.Rejected)
                 throw new InvalidOperationException("Đơn này đã được xử lý xong, không thể thay đổi.");
-
-            await _permissions.EnsureHasPermissionAsync(
-                clubId, reviewerId, isSuperAdmin, ClubPermissions.ApplicationsReview);
 
             var stages = await _db.ClubPipelineStages
                 .Where(s => s.ClubId == clubId && s.IsActive)
@@ -426,7 +435,10 @@ namespace UniClub_Hub.Membership.Services.Implements
             else
             {
                 var currentIdx = stages.FindIndex(s => s.Id == application.CurrentStageId);
-                if (currentIdx == -1 || currentIdx >= stages.Count - 1)
+                if (currentIdx == -1)
+                    throw new InvalidOperationException(
+                        "Vòng tuyển hiện tại của đơn không còn hợp lệ. Vui lòng xử lý đơn thủ công.");
+                if (currentIdx >= stages.Count - 1)
                     throw new InvalidOperationException("Đơn đang ở vòng cuối. Vui lòng chọn Duyệt hoặc Từ chối.");
                 nextStage = stages[currentIdx + 1];
             }

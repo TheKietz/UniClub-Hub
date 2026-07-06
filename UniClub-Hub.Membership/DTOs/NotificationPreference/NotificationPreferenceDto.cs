@@ -14,6 +14,10 @@ namespace UniClub_Hub.Membership.DTOs.NotificationPreference
         public string? EmailTemplate { get; set; }
         /// <summary>True when this is a club-specific override (not the global default).</summary>
         public bool IsOverride { get; set; }
+        /// <summary>Global default in-app (club GET only).</summary>
+        public bool GlobalInAppEnabled { get; set; }
+        /// <summary>Global default email (club GET only).</summary>
+        public bool GlobalEmailEnabled { get; set; }
     }
 
     public class UpdateNotificationPreferenceDto

@@ -14,8 +14,19 @@ namespace UniClub_Hub.Membership.Services.Interfaces
             string? action,
             DateTime? dateFrom,
             DateTime? dateTo,
+            string sortBy,
+            string sortDir,
             int page,
             int pageSize);
-        Task<PagedResult<ClubAuditLogDto>> GetAllAsync(string? module, string? search, string? action, DateTime? dateFrom, DateTime? dateTo, int page, int pageSize);
+        Task<PagedResult<ClubAuditLogDto>> GetAllAsync(
+            string? module,
+            string? search,
+            string? action,
+            DateTime? dateFrom,
+            DateTime? dateTo,
+            string sortBy,
+            string sortDir,
+            int page,
+            int pageSize);
     }
 }

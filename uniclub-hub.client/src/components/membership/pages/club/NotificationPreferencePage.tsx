@@ -101,12 +101,17 @@ function ClubTriggerGroup({
       {items.map(item => {
         const rs = roles[item.recipientRole]
         return (
-          <div key={item.recipientRole} style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '10px 16px 10px 32px', borderBottom: D.borderLight }}>
-            <span style={{ flex: 1, fontSize: 13, color: D.ink }}>{item.recipientRoleLabel}</span>
+          <div key={item.recipientRole} style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '10px 16px 10px 32px', borderBottom: D.borderLight, flexWrap: 'wrap' }}>
+            <span style={{ flex: 1, minWidth: 140, fontSize: 13, color: D.ink }}>{item.recipientRoleLabel}</span>
             {rs.isOverride ? (
-              <span style={{ fontSize: 10, fontWeight: 700, background: '#dbeafe', color: '#1d4ed8', padding: '2px 8px', borderRadius: 999 }}>Tùy chỉnh</span>
+              <span style={{ fontSize: 10, fontWeight: 700, background: '#dbeafe', color: '#1d4ed8', padding: '2px 8px', borderRadius: 999 }}>CLB đã tùy chỉnh</span>
             ) : (
-              <span style={{ fontSize: 10, fontWeight: 700, background: '#f3f4f6', color: '#6b7280', padding: '2px 8px', borderRadius: 999 }}>Mặc định</span>
+              <span style={{ fontSize: 10, fontWeight: 700, background: '#f3f4f6', color: '#6b7280', padding: '2px 8px', borderRadius: 999 }}>Mặc định hệ thống</span>
+            )}
+            {!rs.isOverride && (!item.globalInAppEnabled || !item.globalEmailEnabled) && (
+              <span style={{ fontSize: 10, fontWeight: 600, background: '#fef3c7', color: '#b45309', padding: '2px 8px', borderRadius: 999 }}>
+                Hệ thống đang tắt — bật riêng CLB nếu cần
+              </span>
             )}
             {rs.isOverride && (
               <button type="button" onClick={() => handleReset(item.recipientRole)} disabled={saving}
@@ -309,7 +314,8 @@ export default function ClubNotificationPreferencePage() {
         <div style={{ marginBottom: 20 }}>
           <h1 style={{ fontSize: 24, fontWeight: 900, color: D.ink, letterSpacing: '-.025em', margin: 0 }}>Cài đặt thông báo CLB</h1>
           <p style={{ fontSize: 13, color: D.inkMuted, marginTop: 4 }}>
-            Tùy chỉnh kênh, người nhận và nội dung thông báo riêng cho CLB. Mục chưa tùy chỉnh theo mặc định hệ thống.
+            Tùy chỉnh kênh, người nhận và nội dung thông báo riêng cho CLB. Mục chưa tùy chỉnh theo mặc định hệ thống —
+            khi Super Admin đổi cấu hình global, bạn sẽ nhận thông báo và có thể bật lại tại đây nếu cần.
           </p>
         </div>
         <div style={{ display: 'flex', borderBottom: '2px solid #dce6f4' }}>

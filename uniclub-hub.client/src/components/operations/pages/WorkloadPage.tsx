@@ -1,11 +1,12 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
 import { toast } from 'sonner'
-import { RefreshCw, AlertTriangle, Users, Activity, Download, SlidersHorizontal, ArrowRight, CheckCircle } from 'lucide-react'
+import { RefreshCw, AlertTriangle, Users, Activity, SlidersHorizontal, ArrowRight, CheckCircle } from 'lucide-react'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Cell,
 } from 'recharts'
 import StatCard from '../components/StatCard'
+import ExportReportButton from '../components/ExportReportButton'
 import AvatarGroup from '../../shared/AvatarGroup'
 import { getTasks } from '../services/operationsApi'
 import { useTasks } from '../context/TasksContext'
@@ -112,7 +113,7 @@ export default function WorkloadPage() {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
           <button type="button" style={outlineBtnStyle}><SlidersHorizontal size={13} /> Lọc phòng ban</button>
-          <button type="button" style={outlineBtnStyle}><Download size={13} /> Xuất báo cáo</button>
+          <ExportReportButton clubId={clubId} variant="tasks" />
           <button type="button" onClick={load} disabled={loading} title="Làm mới" style={{ ...outlineBtnStyle, padding: '7px 12px', opacity: loading ? 0.6 : 1, cursor: loading ? 'not-allowed' : 'pointer' }}>
             <RefreshCw size={14} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
           </button>

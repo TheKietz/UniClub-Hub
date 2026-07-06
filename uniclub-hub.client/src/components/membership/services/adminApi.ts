@@ -1,4 +1,5 @@
 import api from '@/lib/axiosInstance'
+import { normalizePagedResult } from '@/lib/normalizePagedResult'
 import type {
   SystemStats, MonthlyGrowth, UserItem, PagedResult, ClubItem, CategoryItem,
   CreateClubDto, UpdateClubDto, CreateCategoryDto, UserImportPreview,
@@ -87,7 +88,7 @@ export const deleteCategory = (id: number) =>
 
 
 import type { ClubAuditLogPage } from './club.types'
-export const getAdminAuditLogs = (params?: { module?: string; search?: string; action?: string; dateFrom?: string; dateTo?: string; page?: number; pageSize?: number }) =>
+export const getAdminAuditLogs = (params?: { module?: string; search?: string; action?: string; dateFrom?: string; dateTo?: string; sortBy?: string; sortDir?: 'asc' | 'desc'; page?: number; pageSize?: number }) =>
   api.get<{ data: ClubAuditLogPage }>('/admin/audit-logs', { params }).then(r => r.data.data)
 
 export interface SystemSetting {
@@ -102,9 +103,9 @@ export const updateSetting = (key: string, value: string) =>
 export const toggleSettingEnabled = (key: string, enabled: boolean) =>
   api.patch(`/admin/settings/${key}/enabled`, { enabled })
 export const getPublicContactInfo = () =>
-  api.get<{ data: Record<string, string> }>('/admin/settings/contact').then(r => r.data.data)
+  api.get<{ data: Record<string, string> }>('/admin/settings/contact').then(r => r.data.data ?? {})
 export const getPublicSettings = () =>
-  api.get<{ data: Record<string, string> }>('/admin/settings/public').then(r => r.data.data)
+  api.get<{ data: Record<string, string> }>('/admin/settings/public').then(r => r.data.data ?? {})
 
 // ── Users import/export ────────────────────────────────────────────────────
 
@@ -129,6 +130,33 @@ export const exportClubs = (format: 'xlsx' | 'csv', params?: Omit<AdminClubListQ
   api.get('/admin/export/clubs', { params: { format, ...params }, responseType: 'blob' })
 
 // ── Support (admin) ────────────────────────────────────────────────────────
+
+export type SupportListQuery = {
+  search?: string
+  status?: string
+  sortBy?: string
+  sortDir?: 'asc' | 'desc'
+  page?: number
+  pageSize?: number
+}
+
+export interface SupportTicketItem {
+  id: number
+  subject: string
+  message: string
+  status: string
+  adminNote?: string
+  createdAt: string
+  resolvedAt?: string
+  userId: string
+  userFullName: string
+  userEmail: string
+}
+
+export const getSupportTickets = (params?: SupportListQuery) =>
+  api
+    .get<{ data: PagedResult<SupportTicketItem> | SupportTicketItem[] }>('/support', { params })
+    .then(r => normalizePagedResult(r.data.data))
 
 export const updateSupportRequest = (id: number, status: string, adminNote?: string | null) =>
   api.patch(`/support/${id}`, { status, adminNote: adminNote ?? null })

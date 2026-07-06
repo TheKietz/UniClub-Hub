@@ -1,4 +1,6 @@
+using UniClub_Hub.Membership.DTOs.Common;
 using UniClub_Hub.Membership.DTOs.Resignation;
+using UniClub_Hub.Shared.Common;
 
 namespace UniClub_Hub.Membership.Services.Interfaces
 {
@@ -14,10 +16,14 @@ namespace UniClub_Hub.Membership.Services.Interfaces
         Task<IEnumerable<ResignationRequestDto>> GetAllMyRequestsAsync(string userId);
 
         // CLUB_ADMIN xem đơn của DEPT_LEAD trong CLB
-        Task<IEnumerable<ResignationRequestDto>> GetByClubAsync(int clubId, string requesterUserId, bool isSuperAdmin);
+        Task<PagedResult<ResignationRequestDto>> GetByClubAsync(
+            int clubId,
+            string requesterUserId,
+            bool isSuperAdmin,
+            ResignationListQuery request);
 
         // SUPER_ADMIN xem đơn của CLUB_ADMIN (tất cả CLB)
-        Task<IEnumerable<ResignationRequestDto>> GetAllClubAdminRequestsAsync();
+        Task<PagedResult<ResignationRequestDto>> GetAllClubAdminRequestsAsync(ResignationListQuery request);
 
         // Duyệt đơn (CLUB_ADMIN duyệt DEPT_LEAD, SUPER_ADMIN duyệt CLUB_ADMIN)
         Task<ResignationRequestDto> ReviewAsync(

@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
+using UniClub_Hub.Membership.DTOs.Common;
 using UniClub_Hub.Membership.DTOs.Resignation;
 using UniClub_Hub.Membership.Services.Interfaces;
+using UniClub_Hub.Shared.Common;
 using UniClub_Hub.Shared.Constants;
 using UniClub_Hub.Shared.Data;
 using UniClub_Hub.Shared.Enums;
@@ -99,10 +101,11 @@ namespace UniClub_Hub.Membership.Services.Implements
             return requests.Select(r => ToDto(r, r.ReviewerId != null ? reviewers.GetValueOrDefault(r.ReviewerId) : null));
         }
 
-        public async Task<IEnumerable<ResignationRequestDto>> GetByClubAsync(
+        public async Task<PagedResult<ResignationRequestDto>> GetByClubAsync(
             int clubId,
             string requesterUserId,
-            bool isSuperAdmin)
+            bool isSuperAdmin,
+            ResignationListQuery request)
         {
             await _permissions.EnsureHasPermissionAsync(
                 clubId,
@@ -110,27 +113,68 @@ namespace UniClub_Hub.Membership.Services.Implements
                 isSuperAdmin,
                 ClubPermissions.ResignationsView);
 
-            // Trả về đơn của DEPT_LEAD trong CLB
-            var requests = await _db.ResignationRequests
+            var query = _db.ResignationRequests
+                .AsNoTracking()
                 .Include(r => r.Club)
                 .Include(r => r.Membership).ThenInclude(m => m.User)
-                .Where(r => r.ClubId == clubId && r.Membership.ClubRole == ClubRole.DEPT_LEAD)
-                .OrderByDescending(r => r.RequestedAt)
-                .ToListAsync();
+                .Where(r => r.ClubId == clubId && r.Membership.ClubRole == ClubRole.DEPT_LEAD);
 
-            return requests.Select(r => ToDtoWithUser(r));
+            return await GetPageAsync(query, request);
         }
 
-        public async Task<IEnumerable<ResignationRequestDto>> GetAllClubAdminRequestsAsync()
+        public async Task<PagedResult<ResignationRequestDto>> GetAllClubAdminRequestsAsync(ResignationListQuery request)
         {
-            var requests = await _db.ResignationRequests
+            var query = _db.ResignationRequests
+                .AsNoTracking()
                 .Include(r => r.Club)
                 .Include(r => r.Membership).ThenInclude(m => m.User)
-                .Where(r => r.Membership.ClubRole == ClubRole.CLUB_ADMIN)
-                .OrderByDescending(r => r.RequestedAt)
+                .Where(r => r.Membership.ClubRole == ClubRole.CLUB_ADMIN);
+
+            return await GetPageAsync(query, request);
+        }
+
+        private async Task<PagedResult<ResignationRequestDto>> GetPageAsync(
+            IQueryable<ResignationRequest> query,
+            ResignationListQuery request)
+        {
+            var page = Math.Max(1, request.Page);
+            var pageSize = Math.Clamp(request.PageSize, 1, 100);
+
+            if (!string.IsNullOrWhiteSpace(request.Search))
+            {
+                var s = request.Search.Trim().ToLower();
+                query = query.Where(r =>
+                    (r.Membership.User.FullName != null && r.Membership.User.FullName.ToLower().Contains(s)) ||
+                    (r.Membership.User.Email != null && r.Membership.User.Email.ToLower().Contains(s)) ||
+                    (r.Membership.User.StudentId != null && r.Membership.User.StudentId.ToLower().Contains(s)));
+            }
+
+            if (!string.IsNullOrWhiteSpace(request.Status) &&
+                Enum.TryParse<ResignationStatus>(request.Status, true, out var parsedStatus))
+                query = query.Where(r => r.Status == parsedStatus);
+
+            var sortBy = request.SortBy.Trim().ToLower();
+            var desc = request.SortDir.Equals("desc", StringComparison.OrdinalIgnoreCase);
+            var orderedQuery = sortBy switch
+            {
+                "status" => desc ? query.OrderByDescending(r => r.Status) : query.OrderBy(r => r.Status),
+                _ => desc ? query.OrderByDescending(r => r.RequestedAt) : query.OrderBy(r => r.RequestedAt),
+            };
+            query = orderedQuery.ThenBy(r => r.Id);
+
+            var totalCount = await query.CountAsync();
+            var requests = await query
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
                 .ToListAsync();
 
-            return requests.Select(r => ToDtoWithUser(r));
+            return new PagedResult<ResignationRequestDto>
+            {
+                Items = requests.Select(ToDtoWithUser).ToList(),
+                TotalCount = totalCount,
+                Page = page,
+                PageSize = pageSize,
+            };
         }
 
         public async Task<ResignationRequestDto> ReviewAsync(
@@ -158,6 +202,9 @@ namespace UniClub_Hub.Membership.Services.Implements
                 isSuperAdmin,
                 ClubPermissions.ResignationsReview);
 
+            if (reviewerId == request.UserId)
+                throw new InvalidOperationException("Bạn không thể tự duyệt đơn từ chức của chính mình.");
+
             if (request.Status != ResignationStatus.Pending)
                 throw new InvalidOperationException("Đơn này đã được xử lý.");
 
@@ -168,15 +215,27 @@ namespace UniClub_Hub.Membership.Services.Implements
 
             if (dto.Status == ResignationStatus.Approved)
             {
-                var membership = await _db.ClubMemberships.FindAsync(request.MembershipId)!;
                 if (request.Preference == ResignationPreference.LeaveClub)
                 {
-                    membership!.Status = MembershipStatus.Resigned;
-                    membership.ResignedDate = DateOnly.FromDateTime(DateTime.UtcNow);
+                    var resignedDate = DateOnly.FromDateTime(DateTime.UtcNow);
+                    var activeMemberships = await _db.ClubMemberships
+                        .Where(m =>
+                            m.ClubId == request.ClubId &&
+                            m.UserId == request.UserId &&
+                            (m.Status == MembershipStatus.Active || m.Status == MembershipStatus.Probation))
+                        .ToListAsync();
+
+                    foreach (var activeMembership in activeMemberships)
+                    {
+                        activeMembership.Status = MembershipStatus.Resigned;
+                        activeMembership.ResignedDate = resignedDate;
+                    }
                 }
-                else // BecomeMember
+                else
                 {
-                    membership!.ClubRole = ClubRole.MEMBER;
+                    var membership = await _db.ClubMemberships.FindAsync(request.MembershipId)
+                        ?? throw new KeyNotFoundException("Không tìm thấy thành viên liên kết với đơn từ chức.");
+                    membership.ClubRole = ClubRole.MEMBER;
                     membership.DepartmentId = null;
                 }
             }
