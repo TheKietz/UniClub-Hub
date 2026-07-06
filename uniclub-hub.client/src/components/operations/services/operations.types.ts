@@ -324,6 +324,7 @@ export interface EventRegistrationItem {
   userName: string
   avatarUrl?: string
   email?: string
+  studentId?: string
   registeredAt: string
   attendance: AttendanceStatus
   checkedInAt?: string

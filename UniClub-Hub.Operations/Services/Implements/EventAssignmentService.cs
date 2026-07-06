@@ -131,7 +131,7 @@ namespace UniClub_Hub.Operations.Services.Implements
                 throw new InvalidOperationException("Deadline không thể sau ngày kết thúc sự kiện.");
         }
 
-        public async Task<AssignmentDto> UpdateAsync(int id, string title, string? description, TaskPriority priority, DateTimeOffset? deadline)
+        public async Task<AssignmentDto> UpdateAsync(int id, string title, string? description, TaskPriority priority, DateTimeOffset? deadline, int clubId)
         {
             var assignment = await db.EventClubAssignments.FindAsync(id)
                 ?? throw new KeyNotFoundException($"Assignment {id} not found.");
@@ -142,6 +142,7 @@ namespace UniClub_Hub.Operations.Services.Implements
             assignment.Description = description?.Trim();
             assignment.Priority = priority;
             assignment.Deadline = deadline;
+            if (clubId > 0) assignment.ClubId = clubId;
 
             await db.SaveChangesAsync();
 
