@@ -550,6 +550,7 @@ namespace UniClub_Hub.Operations.Services.Implements
             UserName = er.User?.FullName ?? er.User?.UserName ?? er.UserId,
             AvatarUrl = er.User?.AvatarUrl,
             Email = er.User?.Email,
+            StudentId = er.User?.StudentId,
             RegisteredAt = er.RegisteredAt,
             Attendance = er.Attendance.ToString(),
             CheckedInAt = er.CheckedInAt,

@@ -15,6 +15,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { D } from '@/components/shared/managementTheme'
+import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-pangea/dnd'
 
 const inputStyle: React.CSSProperties = {
   width: '100%', padding: '8px 12px', fontSize: 13, fontWeight: 500,
@@ -56,12 +57,31 @@ function deadlineHint(min?: string, max?: string): string | null {
   return `Đến ${fmtDate(max)}`
 }
 
+/** Build a full UpdateTaskDto from a task (the PUT replaces all fields), overriding only what changed. */
+function taskToUpdateDto(task: TaskItem, overrides: Partial<UpdateTaskDto>): UpdateTaskDto {
+  return {
+    title: task.title,
+    description: task.description || undefined,
+    priority: task.priority,
+    startDate: task.startDate || undefined,
+    deadline: task.deadline || undefined,
+    estimatedHours: task.estimatedHours,
+    actualHours: task.actualHours,
+    assignedTo: task.assignedTo || undefined,
+    eventId: task.eventId,
+    sprintId: task.sprintId,
+    departmentId: task.departmentId,
+    ...overrides,
+  }
+}
+
 /* ─── Edit Task Modal ────────────────────────────────────────────────────── */
-function EditTaskModal({ open, task, minDate, maxDate, onClose, onSaved }: {
-  open: boolean; task: TaskItem; minDate?: string; maxDate?: string
+function EditTaskModal({ open, task, departments, minDate, maxDate, onClose, onSaved }: {
+  open: boolean; task: TaskItem; departments: DepartmentItem[]; minDate?: string; maxDate?: string
   onClose: () => void; onSaved: (updated: TaskItem) => void
 }) {
-  const [form, setForm] = useState({ title: '', description: '', priority: 'Medium' as TaskPriority, deadline: '' })
+  const [form, setForm] = useState<{ title: string; description: string; priority: TaskPriority; deadline: string; departmentId: number | null }>
+    ({ title: '', description: '', priority: 'Medium', deadline: '', departmentId: null })
   const [saving, setSaving] = useState(false)
   const hint = deadlineHint(minDate, maxDate)
 
@@ -71,6 +91,7 @@ function EditTaskModal({ open, task, minDate, maxDate, onClose, onSaved }: {
       description: task.description ?? '',
       priority: task.priority,
       deadline: task.deadline ? task.deadline.slice(0, 10) : '',
+      departmentId: task.departmentId ?? null,
     })
   }, [open, task])
 
@@ -84,12 +105,15 @@ function EditTaskModal({ open, task, minDate, maxDate, onClose, onSaved }: {
     }
     setSaving(true)
     try {
-      const dto: UpdateTaskDto = {
+      // Full-replace PUT: preserve every field the server overwrites, change only what was edited
+      // (previously only title/desc/priority/deadline were sent, which nulled event/department/assignee).
+      const dto = taskToUpdateDto(task, {
         title: form.title.trim(),
         description: form.description || undefined,
         priority: form.priority,
         deadline: form.deadline || undefined,
-      }
+        departmentId: form.departmentId ?? undefined,
+      })
       const updated = await updateTask(task.id, dto)
       toast.success('Đã cập nhật công việc')
       onSaved(updated); onClose()
@@ -108,6 +132,13 @@ function EditTaskModal({ open, task, minDate, maxDate, onClose, onSaved }: {
           <div>
             <label style={labelStyle}>Tên công việc <span style={{ color: D.red }}>*</span></label>
             <input style={inputStyle} value={form.title} onChange={e => set('title', e.target.value)} autoFocus />
+          </div>
+          <div>
+            <label style={labelStyle}>Ban phụ trách</label>
+            <select style={{ ...inputStyle, cursor: 'pointer' }} value={form.departmentId ?? ''} onChange={e => set('departmentId', e.target.value ? Number(e.target.value) : null)}>
+              <option value="">— Chưa phân ban —</option>
+              {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+            </select>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
@@ -376,6 +407,89 @@ export default function EventDeptTasksBoard({ eventId, clubId, isManager, eventS
 
   const orphanTasks = tasksByDept.get(null) ?? []
 
+  async function onDragEnd(result: DropResult) {
+    if (!isManager) return
+    const { source, destination, draggableId } = result
+    if (!destination || source.droppableId === destination.droppableId) return
+    const taskId = Number(draggableId.replace('task-', ''))
+    const task = tasks.find(t => t.id === taskId)
+    if (!task) return
+    const newDeptId = destination.droppableId === 'dept-none' ? undefined : Number(destination.droppableId.replace('dept-', ''))
+    const prev = tasks
+    setTasks(ts => ts.map(t => t.id === taskId ? { ...t, departmentId: newDeptId } : t))
+    try {
+      const updated = await updateTask(taskId, taskToUpdateDto(task, { departmentId: newDeptId }))
+      setTasks(ts => ts.map(t => t.id === taskId ? updated : t))
+      toast.success('Đã chuyển công việc')
+    } catch {
+      toast.error('Không thể chuyển công việc')
+      setTasks(prev)
+    }
+  }
+
+  const rowGrid: React.CSSProperties = { display: 'grid', gridTemplateColumns: '1fr 130px 72px 100px auto', gap: 8, alignItems: 'center', padding: '9px 16px', borderBottom: D.borderLight, fontSize: 13 }
+
+  const renderTaskRowContent = (t: TaskItem) => {
+    const pri = PRIORITY_PILL[t.priority] ?? PRIORITY_PILL.Medium
+    const isOverdue = t.deadline && t.status !== 'Done' ? new Date(t.deadline) < new Date() : false
+    return (
+      <>
+        <div style={{ minWidth: 0 }}>
+          <p style={{ margin: 0, fontWeight: 600, color: D.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</p>
+          {t.description && <p style={{ margin: '2px 0 0', fontSize: 11, color: D.inkMuted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.description}</p>}
+          {t.assigneeName && <p style={{ margin: '2px 0 0', fontSize: 10, color: D.inkMuted }}>→ {t.assigneeName}</p>}
+        </div>
+        <TaskStatusDropdown task={t} isManager={isManager} onChange={handleStatusChange} />
+        <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 4, background: pri.bg, color: pri.text, whiteSpace: 'nowrap', justifySelf: 'start' }}>{pri.label}</span>
+        <span style={{ fontSize: 11, color: isOverdue ? D.red : D.inkMuted, fontWeight: isOverdue ? 700 : 400, whiteSpace: 'nowrap' }}>
+          {t.deadline ? new Date(t.deadline).toLocaleDateString('vi-VN') : '—'}{isOverdue && ' ⚠'}
+        </span>
+        {isManager ? (
+          <div style={{ display: 'flex', gap: 2, justifySelf: 'end' }}>
+            <button type="button" onClick={() => setEditTask(t)} title="Chỉnh sửa" style={{ padding: 4, color: D.indigo, background: 'none', border: 'none', cursor: 'pointer' }}><Pencil size={12} /></button>
+            <button type="button" onClick={() => setDeleteTarget(t)} title="Xóa" style={{ padding: 4, color: D.red, background: 'none', border: 'none', cursor: 'pointer' }}><Trash2 size={12} /></button>
+          </div>
+        ) : <span />}
+      </>
+    )
+  }
+
+  const renderTaskDroppable = (droppableId: string, list: TaskItem[]) => (
+    <Droppable droppableId={droppableId}>
+      {(prov, snap) => (
+        <div ref={prov.innerRef} {...prov.droppableProps} style={{ minHeight: 10, background: snap.isDraggingOver ? '#f5f3ff' : undefined, transition: 'background .12s' }}>
+          {list.length > 0 && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 130px 72px 100px auto', gap: 8, padding: '6px 16px', background: D.bg, borderBottom: D.borderLight }}>
+              {['Công việc', 'Trạng thái', 'Ưu tiên', 'Deadline', ''].map((h, i) => (
+                <span key={i} style={{ fontSize: 10, fontWeight: 800, color: D.inkMuted, textTransform: 'uppercase', letterSpacing: '.05em' }}>{h}</span>
+              ))}
+            </div>
+          )}
+          {list.map((t, idx) => (
+            <Draggable key={t.id} draggableId={`task-${t.id}`} index={idx} isDragDisabled={!isManager}>
+              {(dp, dsnap) => (
+                <div
+                  ref={dp.innerRef}
+                  {...dp.draggableProps}
+                  {...(isManager ? dp.dragHandleProps : {})}
+                  style={{ ...dp.draggableProps.style, ...rowGrid, background: t.status === 'Done' ? '#f0fdf4' : D.card, opacity: dsnap.isDragging ? 0.9 : 1, cursor: isManager ? 'grab' : 'default', boxShadow: dsnap.isDragging ? D.shadow(3, 3) : 'none' }}
+                >
+                  {renderTaskRowContent(t)}
+                </div>
+              )}
+            </Draggable>
+          ))}
+          {prov.placeholder}
+          {list.length === 0 && !snap.isDraggingOver && (
+            <div style={{ padding: '12px 16px', color: D.inkMuted, fontSize: 12, fontStyle: 'italic' }}>
+              {isManager ? 'Kéo công việc vào đây để giao cho ban này.' : 'Chưa có công việc nào.'}
+            </div>
+          )}
+        </div>
+      )}
+    </Droppable>
+  )
+
   return (
     <div style={{ marginTop: 20, background: D.card, border: D.border, borderRadius: D.radius, boxShadow: D.shadow(), fontFamily: "'Be Vietnam Pro', sans-serif" }}>
 
@@ -407,6 +521,7 @@ export default function EventDeptTasksBoard({ eventId, clubId, isManager, eventS
           Đang tải...
         </div>
       ) : (
+        <DragDropContext onDragEnd={onDragEnd}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: 20 }}>
 
           {departments.length === 0 && (
@@ -424,7 +539,7 @@ export default function EventDeptTasksBoard({ eventId, clubId, isManager, eventS
             return (
               <div key={dept.id} style={{ border: D.border, borderRadius: D.radius, background: D.card, boxShadow: D.shadow(2, 2) }}>
                 {/* Card header */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 16px', borderBottom: deptTasks.length > 0 || isActive ? D.borderLight : 'none', background: '#fafaf9', borderRadius: isActive || deptTasks.length > 0 ? `${D.radius}px ${D.radius}px 0 0` : D.radius }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 16px', borderBottom: D.borderLight, background: '#fafaf9', borderRadius: `${D.radius}px ${D.radius}px 0 0` }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
                     <span style={{ fontSize: 13, fontWeight: 800, color: D.ink, whiteSpace: 'nowrap' }}>{dept.name}</span>
                     {dept.deptLeadName && (
@@ -460,60 +575,8 @@ export default function EventDeptTasksBoard({ eventId, clubId, isManager, eventS
                   </div>
                 </div>
 
-                {/* Task rows */}
-                {deptTasks.length > 0 && (
-                  <div>
-                    {/* Column headers */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 130px 72px 100px auto', gap: 8, padding: '6px 16px', background: D.bg, borderBottom: D.borderLight }}>
-                      {['Công việc', 'Trạng thái', 'Ưu tiên', 'Deadline', ''].map((h, i) => (
-                        <span key={i} style={{ fontSize: 10, fontWeight: 800, color: D.inkMuted, textTransform: 'uppercase', letterSpacing: '.05em' }}>{h}</span>
-                      ))}
-                    </div>
-                    {deptTasks.map(t => {
-                      const pri = PRIORITY_PILL[t.priority] ?? PRIORITY_PILL.Medium
-                      const isOverdue = t.deadline && t.status !== 'Done' ? new Date(t.deadline) < new Date() : false
-                      return (
-                        <div
-                          key={t.id}
-                          style={{ display: 'grid', gridTemplateColumns: '1fr 130px 72px 100px auto', gap: 8, alignItems: 'center', padding: '9px 16px', borderBottom: D.borderLight, background: t.status === 'Done' ? '#f0fdf4' : 'transparent', fontSize: 13 }}
-                        >
-                          <div style={{ minWidth: 0 }}>
-                            <p style={{ margin: 0, fontWeight: 600, color: D.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</p>
-                            {t.description && (
-                              <p style={{ margin: '2px 0 0', fontSize: 11, color: D.inkMuted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.description}</p>
-                            )}
-                            {t.assigneeName && (
-                              <p style={{ margin: '2px 0 0', fontSize: 10, color: D.inkMuted }}>→ {t.assigneeName}</p>
-                            )}
-                          </div>
-                          <TaskStatusDropdown task={t} isManager={isManager} onChange={handleStatusChange} />
-                          <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 4, background: pri.bg, color: pri.text, whiteSpace: 'nowrap', justifySelf: 'start' }}>{pri.label}</span>
-                          <span style={{ fontSize: 11, color: isOverdue ? D.red : D.inkMuted, fontWeight: isOverdue ? 700 : 400, whiteSpace: 'nowrap' }}>
-                            {t.deadline ? new Date(t.deadline).toLocaleDateString('vi-VN') : '—'}
-                            {isOverdue && ' ⚠'}
-                          </span>
-                          {isManager ? (
-                            <div style={{ display: 'flex', gap: 2, justifySelf: 'end' }}>
-                              <button type="button" onClick={() => setEditTask(t)} title="Chỉnh sửa" style={{ padding: 4, color: D.indigo, background: 'none', border: 'none', cursor: 'pointer' }}>
-                                <Pencil size={12} />
-                              </button>
-                              <button type="button" onClick={() => setDeleteTarget(t)} title="Xóa" style={{ padding: 4, color: D.red, background: 'none', border: 'none', cursor: 'pointer' }}>
-                                <Trash2 size={12} />
-                              </button>
-                            </div>
-                          ) : <span />}
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
-
-                {/* Empty dept message (only when form is not active) */}
-                {deptTasks.length === 0 && !isActive && (
-                  <div style={{ padding: '14px 20px', color: D.inkMuted, fontSize: 12, fontStyle: 'italic' }}>
-                    Chưa có công việc nào được giao trong sự kiện này.
-                  </div>
-                )}
+                {/* Task rows — droppable so tasks can be dragged in/out of this Ban */}
+                {renderTaskDroppable(`dept-${dept.id}`, deptTasks)}
 
                 {/* Inline create form */}
                 {isActive && (
@@ -572,35 +635,18 @@ export default function EventDeptTasksBoard({ eventId, clubId, isManager, eventS
             )
           })}
 
-          {/* Orphan tasks */}
-          {orphanTasks.length > 0 && (
+          {/* Chưa phân ban — droppable target to un-assign tasks */}
+          {(orphanTasks.length > 0 || isManager) && (
             <div style={{ border: D.border, borderRadius: D.radius, background: D.card, boxShadow: D.shadow(2, 2) }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '11px 16px', borderBottom: D.borderLight, background: '#fafaf9', borderRadius: `${D.radius}px ${D.radius}px 0 0` }}>
                 <span style={{ fontSize: 13, fontWeight: 800, color: D.inkDim }}>Chưa phân ban</span>
                 <span style={{ fontSize: 10, background: '#f3f4f6', color: D.inkMuted, padding: '1px 6px', borderRadius: 4, fontWeight: 700 }}>{orphanTasks.length} việc</span>
               </div>
-              {orphanTasks.map(t => {
-                const pri = PRIORITY_PILL[t.priority] ?? PRIORITY_PILL.Medium
-                return (
-                  <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', borderBottom: D.borderLight, fontSize: 13 }}>
-                    <span style={{ flex: 1, fontWeight: 600, color: D.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title}</span>
-                    <TaskStatusDropdown task={t} isManager={isManager} onChange={handleStatusChange} />
-                    <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 4, background: pri.bg, color: pri.text, whiteSpace: 'nowrap' }}>{pri.label}</span>
-                    <span style={{ fontSize: 11, color: D.inkMuted, whiteSpace: 'nowrap', minWidth: 80, textAlign: 'right' }}>
-                      {t.deadline ? new Date(t.deadline).toLocaleDateString('vi-VN') : '—'}
-                    </span>
-                    {isManager && (
-                      <div style={{ display: 'flex', gap: 2 }}>
-                        <button type="button" onClick={() => setEditTask(t)} style={{ padding: 4, color: D.indigo, background: 'none', border: 'none', cursor: 'pointer' }}><Pencil size={12} /></button>
-                        <button type="button" onClick={() => setDeleteTarget(t)} style={{ padding: 4, color: D.red, background: 'none', border: 'none', cursor: 'pointer' }}><Trash2 size={12} /></button>
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
+              {renderTaskDroppable('dept-none', orphanTasks)}
             </div>
           )}
         </div>
+        </DragDropContext>
       )}
 
       {/* Edit Modal */}
@@ -608,6 +654,7 @@ export default function EventDeptTasksBoard({ eventId, clubId, isManager, eventS
         <EditTaskModal
           open={!!editTask}
           task={editTask}
+          departments={departments}
           minDate={minDate || undefined}
           maxDate={maxDate || undefined}
           onClose={() => setEditTask(null)}
