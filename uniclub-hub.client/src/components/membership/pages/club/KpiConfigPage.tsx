@@ -43,7 +43,15 @@ const thS: React.CSSProperties = {
 const tdS: React.CSSProperties = {
   padding: '12px 14px',
   fontSize: 13,
-  verticalAlign: 'middle',
+  verticalAlign: 'top',
+}
+
+const metricKeyHintS: React.CSSProperties = {
+  marginTop: 5,
+  fontSize: 11,
+  lineHeight: '16px',
+  color: D.inkMuted,
+  minHeight: 16,
 }
 
 import { getApiErrorMessage } from '@/lib/apiError'
@@ -289,7 +297,13 @@ export default function KpiConfigPage() {
         </div>
 
         <div style={{ borderRadius: D.radius, overflow: 'hidden', background: D.card, border: D.border, boxShadow: D.shadow() }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, tableLayout: 'fixed' }}>
+            <colgroup>
+              <col style={{ width: 72 }} />
+              <col style={{ width: '26%' }} />
+              <col />
+              <col style={{ width: 130 }} />
+            </colgroup>
             <thead>
               <tr style={{ background: D.bg, borderBottom: D.borderLight }}>
                 <th style={{ ...thS, width: 72 }}>Bật</th>
@@ -301,7 +315,7 @@ export default function KpiConfigPage() {
             <tbody>
               {criteria.map(item => (
                 <tr key={item.metricKey} style={{ background: item.isEnabled ? D.card : '#f3f4f6', borderBottom: D.borderLight }}>
-                  <td style={tdS}>
+                  <td style={{ ...tdS, paddingTop: 18 }}>
                     <Toggle checked={item.isEnabled} onChange={value => updateItem(item.metricKey, { isEnabled: value })} />
                   </td>
                   <td style={tdS}>
@@ -310,7 +324,7 @@ export default function KpiConfigPage() {
                       onChange={e => updateItem(item.metricKey, { displayName: e.target.value })}
                       style={{ ...inputStyle, fontWeight: 700 }}
                     />
-                    <div style={{ marginTop: 5, fontSize: 11, color: D.inkMuted }}>{item.metricKey}</div>
+                    <div style={metricKeyHintS}>{item.metricKey}</div>
                   </td>
                   <td style={tdS}>
                     <input
@@ -318,8 +332,9 @@ export default function KpiConfigPage() {
                       onChange={e => updateItem(item.metricKey, { description: e.target.value })}
                       style={inputStyle}
                     />
+                    <div style={{ ...metricKeyHintS, visibility: 'hidden' }} aria-hidden>.</div>
                   </td>
-                  <td style={tdS}>
+                  <td style={{ ...tdS, paddingTop: 18 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <input
                         type="number"

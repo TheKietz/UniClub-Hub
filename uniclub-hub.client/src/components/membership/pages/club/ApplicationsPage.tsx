@@ -266,7 +266,7 @@ export default function ApplicationsPage() {
                 padding: '8px 14px', borderRadius: D.pill, background: D.card, border: D.border,
                 boxShadow: D.shadow(2, 2), fontSize: 12, fontWeight: 600, color: D.inkDim,
                 cursor: 'pointer', fontFamily: 'inherit',
-              }}>↓ {fmt.toUpperCase()}</button>
+              }}>↓ {fmt === 'xlsx' ? 'Excel' : 'CSV'}</button>
             ))}
           </div>
         )}

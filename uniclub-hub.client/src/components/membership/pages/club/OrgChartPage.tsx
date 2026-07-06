@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { flushSync } from 'react-dom'
 import { useDeferredEffect } from '@/hooks/useDeferredEffect'
 import { useParams } from 'react-router-dom'
 import { Tree, TreeNode } from 'react-organizational-chart'
@@ -210,10 +211,35 @@ export default function OrgChartPage() {
 
   /* Export PNG */
   async function exportPng() {
-    if (!chartRef.current) return
+    if (!chartRef.current || !containerRef.current) return
     setExporting(true)
+    const prevZoom = zoom
+    const container = containerRef.current
+    const prevScrollLeft = container.scrollLeft
+    const prevScrollTop = container.scrollTop
+
     try {
-      const canvas = await html2canvas(chartRef.current, { backgroundColor: '#ffffff', scale: 2, useCORS: true })
+      flushSync(() => setZoom(1))
+      container.scrollLeft = 0
+      container.scrollTop = 0
+      await new Promise<void>(resolve => {
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+      })
+
+      const el = chartRef.current
+      const canvas = await html2canvas(el, {
+        backgroundColor: '#ffffff',
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        width: el.scrollWidth,
+        height: el.scrollHeight,
+        scrollX: 0,
+        scrollY: 0,
+        onclone: (_doc, clonedEl) => {
+          clonedEl.style.transform = 'none'
+        },
+      })
       const link = document.createElement('a')
       link.download = `so-do-to-chuc-${club?.name ?? id}.png`
       link.href = canvas.toDataURL('image/png')
@@ -221,6 +247,9 @@ export default function OrgChartPage() {
     } catch {
       toast.error('Không thể xuất ảnh.')
     } finally {
+      flushSync(() => setZoom(prevZoom))
+      container.scrollLeft = prevScrollLeft
+      container.scrollTop = prevScrollTop
       setExporting(false)
     }
   }
@@ -287,12 +316,15 @@ export default function OrgChartPage() {
           <h1 style={{ fontSize: 24, fontWeight: 900, color: D.ink, letterSpacing: '-.025em', margin: 0 }}>Sơ đồ cơ cấu tổ chức</h1>
           <p style={{ fontSize: 13, color: D.inkMuted, marginTop: 4 }}>Kéo để di chuyển · Nhấn vào ban để thu gọn/mở rộng</p>
         </div>
-        <button
-          onClick={handlePrint}
-          style={{ padding: '8px 18px', borderRadius: 999, background: D.ink, color: '#ffffff', border: D.border, boxShadow: D.shadow(), fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}
-        >
-          ↓ In / PDF
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+          <PillBtn onClick={exportPng} disabled={exporting}>{exporting ? '...' : '↓ PNG'}</PillBtn>
+          <button
+            onClick={handlePrint}
+            style={{ padding: '8px 18px', borderRadius: 999, background: D.ink, color: '#ffffff', border: D.border, boxShadow: D.shadow(), fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}
+          >
+            ↓ In / PDF
+          </button>
+        </div>
       </div>
 
       {/* Stats strip */}
@@ -349,7 +381,6 @@ export default function OrgChartPage() {
         <PillBtn onClick={fitToScreen}>Fit màn hình</PillBtn>
         <PillBtn onClick={() => setCollapsed(new Set(departments.map(d => d.id)))}>Thu gọn</PillBtn>
         <PillBtn onClick={() => setCollapsed(new Set())}>Mở rộng</PillBtn>
-        <PillBtn onClick={exportPng} disabled={exporting}>{exporting ? '...' : '↓ PNG'}</PillBtn>
       </div>
 
       {/* Chart canvas */}
