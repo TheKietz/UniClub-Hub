@@ -65,7 +65,14 @@ public sealed class DatabaseMigrationHostedService(
                 env.IsDevelopment()
                     ? "Running demo data seeder (Development)."
                     : "Running demo data seeder (Seed:DemoData=true).");
-            await DbSeeder.SeedAsync(scope.ServiceProvider);
+            try
+            {
+                await DbSeeder.SeedAsync(scope.ServiceProvider);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Demo data seeder failed. API will start without demo seed data.");
+            }
             return;
         }
 

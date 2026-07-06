@@ -38,6 +38,7 @@ namespace UniClub_Hub.Server.Data
                     new Category { Name = "Tình nguyện & Cộng đồng", Description = "..." }
                 };
                 db.Categories.AddRange(cats);
+                await db.SaveChangesAsync();
                 foreach (var c in cats) categoryMap[c.Name.Split(' ')[0]] = c;
             }
             else
