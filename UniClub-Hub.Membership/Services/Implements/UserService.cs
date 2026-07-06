@@ -172,6 +172,11 @@ namespace UniClub_Hub.Membership.Services.Implements
 
             await _userManager.SetLockoutEnabledAsync(user, true);
             await _userManager.SetLockoutEndDateAsync(user, DateTimeOffset.MaxValue);
+
+            var now = DateTime.UtcNow;
+            await _db.RefreshTokens
+                .Where(t => t.UserId == userId && t.RevokedAt == null && t.ExpiresAt > now)
+                .ExecuteUpdateAsync(s => s.SetProperty(t => t.RevokedAt, now));
         }
 
         public async Task UnlockUserAsync(string userId)
@@ -230,7 +235,7 @@ namespace UniClub_Hub.Membership.Services.Implements
                 Phone = user.Phone,
                 Gender = user.Gender,
                 DateOfBirth = user.DateOfBirth,
-                IsLocked = false,
+                IsLocked = user.LockoutEnabled && user.LockoutEnd.HasValue && user.LockoutEnd > DateTimeOffset.UtcNow,
                 IsDeleted = false,
                 Roles = roles.ToList(),
                 Memberships = memberships
@@ -243,7 +248,21 @@ namespace UniClub_Hub.Membership.Services.Implements
                 ?? throw new KeyNotFoundException("Không tìm thấy người dùng.");
 
             if (dto.FullName != null) user.FullName = dto.FullName;
-            if (dto.StudentId != null) user.StudentId = dto.StudentId;
+            if (dto.StudentId != null)
+            {
+                var trimmed = dto.StudentId.Trim();
+                if (!string.IsNullOrEmpty(user.StudentId) && user.StudentId != trimmed)
+                    throw new InvalidOperationException("Mã sinh viên chỉ có thể đặt một lần. Liên hệ quản trị viên để thay đổi.");
+
+                if (!string.IsNullOrEmpty(trimmed))
+                {
+                    var taken = await _db.Users.AnyAsync(u => u.StudentId == trimmed && u.Id != userId);
+                    if (taken)
+                        throw new InvalidOperationException("Mã sinh viên đã được sử dụng.");
+                }
+
+                user.StudentId = string.IsNullOrEmpty(trimmed) ? null : trimmed;
+            }
             if (dto.Major != null) user.Major = dto.Major;
             if (dto.Phone != null) user.Phone = dto.Phone;
             if (dto.Gender != null) user.Gender = dto.Gender;
@@ -262,14 +281,34 @@ namespace UniClub_Hub.Membership.Services.Implements
                 ?? throw new KeyNotFoundException("Không tìm thấy người dùng.");
 
             var currentRoles = await _userManager.GetRolesAsync(user);
-            await _userManager.RemoveFromRolesAsync(user, currentRoles);
-            await _userManager.AddToRoleAsync(user, newRole);
+            if (currentRoles.Contains("SUPER_ADMIN") && newRole == "USER")
+            {
+                var superAdminCount = await _db.UserRoles
+                    .Join(_db.Roles, ur => ur.RoleId, r => r.Id, (ur, r) => new { ur, r })
+                    .CountAsync(x => x.r.NormalizedName == "SUPER_ADMIN");
+                if (superAdminCount <= 1)
+                    throw new InvalidOperationException(
+                        "LAST_SUPER_ADMIN: Không thể hạ cấp Super Admin cuối cùng. Hệ thống sẽ không có quản trị viên.");
+            }
+
+            var rolesToRemove = currentRoles.Where(r => r != newRole).ToList();
+            if (rolesToRemove.Count > 0)
+                await _userManager.RemoveFromRolesAsync(user, rolesToRemove);
+            if (!currentRoles.Contains(newRole))
+                await _userManager.AddToRoleAsync(user, newRole);
         }
 
         public async Task<UserDetailDto> CreateUserAsync(CreateUserDto dto)
         {
             if (await _userManager.FindByEmailAsync(dto.Email) != null)
                 throw new InvalidOperationException($"Email '{dto.Email}' đã được sử dụng.");
+
+            if (!string.IsNullOrWhiteSpace(dto.StudentId))
+            {
+                var studentIdTaken = await _db.Users.AnyAsync(u => u.StudentId == dto.StudentId);
+                if (studentIdTaken)
+                    throw new InvalidOperationException("Mã sinh viên đã được sử dụng.");
+            }
 
             var user = new ApplicationUser
             {

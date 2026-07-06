@@ -27,6 +27,8 @@ namespace UniClub_Hub.Membership.Services.Implements
             string? action,
             DateTime? dateFrom,
             DateTime? dateTo,
+            string sortBy,
+            string sortDir,
             int page,
             int pageSize)
         {
@@ -78,15 +80,15 @@ namespace UniClub_Hub.Membership.Services.Implements
             {
                 var lowerSearch = search.ToLower();
                 var matchingUserIds = await db.Users
-                    .Where(u => (u.FullName ?? "").ToLower().Contains(lowerSearch) || u.Email.ToLower().Contains(lowerSearch))
+                    .Where(u => (u.FullName ?? "").ToLower().Contains(lowerSearch) || (u.Email ?? "").ToLower().Contains(lowerSearch))
                     .Select(u => u.Id)
                     .ToListAsync();
                 query = query.Where(a => matchingUserIds.Contains(a.UserId ?? ""));
             }
 
             var total = await query.CountAsync();
-            var logs = await query
-                .OrderByDescending(a => a.Timestamp)
+            var orderedQuery = ApplySort(query, sortBy, sortDir);
+            var logs = await orderedQuery
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
                 .ToListAsync();
@@ -154,7 +156,16 @@ namespace UniClub_Hub.Membership.Services.Implements
             return new PagedResult<ClubAuditLogDto> { Items = dtos, TotalCount = total, Page = page, PageSize = pageSize };
         }
 
-        public async Task<PagedResult<ClubAuditLogDto>> GetAllAsync(string? module, string? search, string? action, DateTime? dateFrom, DateTime? dateTo, int page, int pageSize)
+        public async Task<PagedResult<ClubAuditLogDto>> GetAllAsync(
+            string? module,
+            string? search,
+            string? action,
+            DateTime? dateFrom,
+            DateTime? dateTo,
+            string sortBy,
+            string sortDir,
+            int page,
+            int pageSize)
         {
             var query = db.AuditLogs.AsNoTracking()
                 .Where(a => EntityToModule.Keys.Contains(a.EntityName));
@@ -178,15 +189,15 @@ namespace UniClub_Hub.Membership.Services.Implements
             {
                 var lowerSearch = search.ToLower();
                 var matchingUserIds = await db.Users
-                    .Where(u => (u.FullName ?? "").ToLower().Contains(lowerSearch) || u.Email.ToLower().Contains(lowerSearch))
+                    .Where(u => (u.FullName ?? "").ToLower().Contains(lowerSearch) || (u.Email ?? "").ToLower().Contains(lowerSearch))
                     .Select(u => u.Id)
                     .ToListAsync();
                 query = query.Where(a => matchingUserIds.Contains(a.UserId ?? ""));
             }
 
             var total = await query.CountAsync();
-            var logs = await query
-                .OrderByDescending(a => a.Timestamp)
+            var orderedQuery = ApplySort(query, sortBy, sortDir);
+            var logs = await orderedQuery
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
                 .ToListAsync();
@@ -268,6 +279,22 @@ namespace UniClub_Hub.Membership.Services.Implements
             }).ToList();
 
             return new PagedResult<ClubAuditLogDto> { Items = dtos, TotalCount = total, Page = page, PageSize = pageSize };
+        }
+
+        private static IQueryable<Shared.Models.AuditLog> ApplySort(
+            IQueryable<Shared.Models.AuditLog> query,
+            string sortBy,
+            string sortDir)
+        {
+            var desc = sortDir.Equals("desc", StringComparison.OrdinalIgnoreCase);
+            var col = sortBy.Trim().ToLower();
+            IOrderedQueryable<Shared.Models.AuditLog> ordered = col switch
+            {
+                "action" => desc ? query.OrderByDescending(a => a.Action) : query.OrderBy(a => a.Action),
+                "entityname" => desc ? query.OrderByDescending(a => a.EntityName) : query.OrderBy(a => a.EntityName),
+                _ => desc ? query.OrderByDescending(a => a.Timestamp) : query.OrderBy(a => a.Timestamp),
+            };
+            return ordered.ThenBy(a => a.Id);
         }
     }
 }

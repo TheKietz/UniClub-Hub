@@ -3,6 +3,7 @@ using UniClub_Hub.Membership.DTOs.Pipeline;
 using UniClub_Hub.Membership.Services.Interfaces;
 using UniClub_Hub.Shared.Constants;
 using UniClub_Hub.Shared.Data;
+using UniClub_Hub.Shared.Enums;
 using UniClub_Hub.Shared.Models;
 
 namespace UniClub_Hub.Membership.Services.Implements
@@ -67,7 +68,15 @@ namespace UniClub_Hub.Membership.Services.Implements
 
             if (req.Name != null) stage.Name = req.Name.Trim();
             if (req.StageOrder.HasValue) stage.StageOrder = req.StageOrder.Value;
-            if (req.IsActive.HasValue) stage.IsActive = req.IsActive.Value;
+            if (req.IsActive == false)
+            {
+                await EnsureNoPendingApplicationsOnStageAsync(clubId, stageId);
+                stage.IsActive = false;
+            }
+            else if (req.IsActive.HasValue)
+            {
+                stage.IsActive = req.IsActive.Value;
+            }
 
             await _db.SaveChangesAsync();
             return ToDto(stage);
@@ -79,6 +88,8 @@ namespace UniClub_Hub.Membership.Services.Implements
             var stage = await _db.ClubPipelineStages
                 .FirstOrDefaultAsync(s => s.Id == stageId && s.ClubId == clubId)
                 ?? throw new KeyNotFoundException("Không tìm thấy vòng tuyển.");
+
+            await EnsureNoPendingApplicationsOnStageAsync(clubId, stageId);
 
             _db.ClubPipelineStages.Remove(stage);
             await _db.SaveChangesAsync();
@@ -105,6 +116,19 @@ namespace UniClub_Hub.Membership.Services.Implements
 
         private static PipelineStageDto ToDto(ClubPipelineStage s) =>
             new() { Id = s.Id, Name = s.Name, StageOrder = s.StageOrder, IsActive = s.IsActive };
+
+        private async Task EnsureNoPendingApplicationsOnStageAsync(int clubId, int stageId)
+        {
+            var hasApplications = await _db.Applications.AnyAsync(a =>
+                a.ClubId == clubId
+                && a.CurrentStageId == stageId
+                && a.Status != ApplicationStatus.Accepted
+                && a.Status != ApplicationStatus.Rejected);
+
+            if (hasApplications)
+                throw new InvalidOperationException(
+                    "Không thể xoá hoặc vô hiệu hóa vòng tuyển đang có đơn ứng tuyển.");
+        }
 
         private Task EnsureCanManageAsync(int clubId, string requesterUserId, bool isSuperAdmin) =>
             _permissions.EnsureHasPermissionAsync(

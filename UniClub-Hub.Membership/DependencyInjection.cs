@@ -8,6 +8,7 @@ namespace UniClub_Hub.Membership
     {
         public static IServiceCollection AddMembershipServices(this IServiceCollection services)
         {
+            services.AddHttpClient(AuthService.GoogleHttpClientName);
             services.AddScoped<IAuthService, AuthService>();
             services.AddScoped<ICategoryService, CategoryService>();
             services.AddScoped<IClubService, ClubService>();

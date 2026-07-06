@@ -109,7 +109,27 @@ internal static class PagedServiceTestHelpers
         return new ClubMembershipService(db, dispatch.Object, settings.Object, Mock.Of<IClubPermissionService>());
     }
 
-    public static ApplicationService CreateApplicationService(UniClubDbContext db)
+    public static Mock<IClubPermissionService> CreatePermissivePermissionMock()
+    {
+        var permissions = new Mock<IClubPermissionService>();
+        permissions.Setup(p => p.EnsureHasPermissionAsync(
+                It.IsAny<int>(), It.IsAny<string>(), It.IsAny<bool>(), It.IsAny<string>()))
+            .Returns(Task.CompletedTask);
+        return permissions;
+    }
+
+    public static ApplicationService CreateApplicationService(UniClubDbContext db) =>
+        CreateApplicationService(db, CreatePermissivePermissionMock());
+
+    public static ApplicationService CreateApplicationService(
+        UniClubDbContext db,
+        Mock<IClubPermissionService> permissions) =>
+        CreateApplicationService(db, permissions, CreateClubMembershipService(db));
+
+    public static ApplicationService CreateApplicationService(
+        UniClubDbContext db,
+        Mock<IClubPermissionService> permissions,
+        ClubMembershipService membershipService)
     {
         var dispatch = new Mock<INotificationDispatchService>();
         dispatch.Setup(d => d.FireAsync(It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<Dictionary<string, string>>()))
@@ -123,6 +143,89 @@ internal static class PagedServiceTestHelpers
             config,
             Mock.Of<ISystemSettingService>(),
             dispatch.Object,
-            Mock.Of<IClubPermissionService>());
+            permissions.Object,
+            membershipService);
+    }
+
+    public static ClubService CreateClubServiceWithMembership(UniClubDbContext db)
+    {
+        var settings = new Mock<ISystemSettingService>();
+        settings.Setup(s => s.GetValueAsync(It.IsAny<string>())).ReturnsAsync((string?)null);
+
+        var dispatch = new Mock<INotificationDispatchService>();
+        dispatch.Setup(d => d.FireAsync(It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<Dictionary<string, string>>()))
+            .Returns(Task.CompletedTask);
+
+        var membership = new ClubMembershipService(
+            db, dispatch.Object, settings.Object, Mock.Of<IClubPermissionService>());
+
+        return new ClubService(db, membership, settings.Object, Mock.Of<IClubPermissionService>());
+    }
+
+    public static ResignationRequest Resignation(
+        int id,
+        string userId,
+        int membershipId,
+        int clubId = 1,
+        ClubRole role = ClubRole.DEPT_LEAD,
+        ResignationStatus status = ResignationStatus.Pending,
+        DateTime? requestedAt = null) => new()
+    {
+        Id = id,
+        UserId = userId,
+        ClubId = clubId,
+        MembershipId = membershipId,
+        Preference = ResignationPreference.BecomeMember,
+        Status = status,
+        RequestedAt = requestedAt ?? new DateTime(2026, 3, Math.Clamp(id, 1, 28), 9, 0, 0, DateTimeKind.Utc),
+    };
+
+    public static ResignationService CreateResignationService(UniClubDbContext db)
+    {
+        var dispatch = new Mock<INotificationDispatchService>();
+        dispatch.Setup(d => d.FireAsync(It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<Dictionary<string, string>>()))
+            .Returns(Task.CompletedTask);
+
+        var permissions = new Mock<IClubPermissionService>();
+        permissions.Setup(p => p.EnsureHasPermissionAsync(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<bool>(), It.IsAny<string>()))
+            .Returns(Task.CompletedTask);
+
+        return new ResignationService(db, dispatch.Object, permissions.Object);
+    }
+
+    public static SupportTicket Ticket(
+        int id,
+        string userId,
+        string subject,
+        string status = "Open",
+        DateTime? createdAt = null) => new()
+    {
+        Id = id,
+        UserId = userId,
+        Subject = subject,
+        Message = $"Message {id}",
+        Status = status,
+        CreatedAt = createdAt ?? new DateTime(2026, 3, Math.Clamp(id, 1, 28), 9, 0, 0, DateTimeKind.Utc),
+    };
+
+    public static SupportService CreateSupportService(UniClubDbContext db)
+    {
+        var store = new Mock<IUserStore<ApplicationUser>>();
+        var manager = new Mock<UserManager<ApplicationUser>>(
+            store.Object,
+            Options.Create(new IdentityOptions()),
+            new PasswordHasher<ApplicationUser>(),
+            Array.Empty<IUserValidator<ApplicationUser>>(),
+            Array.Empty<IPasswordValidator<ApplicationUser>>(),
+            new UpperInvariantLookupNormalizer(),
+            new IdentityErrorDescriber(),
+            Mock.Of<IServiceProvider>(),
+            Mock.Of<ILogger<UserManager<ApplicationUser>>>());
+
+        return new SupportService(
+            db,
+            Mock.Of<INotificationService>(),
+            manager.Object,
+            Mock.Of<ISystemSettingService>());
     }
 }

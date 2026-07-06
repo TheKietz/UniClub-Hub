@@ -1,0 +1,82 @@
+name: CD
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  docker:
+    name: Build Docker image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build image
+        run: docker build -t uniclub-hub:${{ github.sha }} .
+
+      - name: Prepare compose env
+        run: |
+          cp env.docker.example .env
+          {
+            echo "JWT_KEY=ci-smoke-test-jwt-key-at-least-32-chars"
+            echo "POSTGRES_PASSWORD=ci_test_password"
+            echo "APP_URL=http://localhost:8080"
+          } >> .env
+
+      - name: Start database
+        run: docker compose up -d db
+
+      - name: Wait for database
+        run: |
+          for i in $(seq 1 30); do
+            docker compose exec -T db pg_isready -U uniclub -d uniclub && exit 0
+            sleep 2
+          done
+          exit 1
+
+      - name: Apply migrations
+        run: |
+          dotnet tool install --global dotnet-ef --version 8.0.16
+          dotnet ef database update \
+            --project UniClub-Hub.Shared/UniClub-Hub.Shared.csproj \
+            --startup-project UniClub-Hub.Server/UniClub-Hub.API.csproj \
+            --connection "Host=localhost;Port=5432;Database=uniclub;Username=uniclub;Password=ci_test_password"
+
+      - name: Start API container
+        run: docker compose up -d api
+
+      - name: Smoke test HTTP
+        run: |
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:8080/health >/dev/null; then
+              echo "Stack is healthy."
+              exit 0
+            fi
+            sleep 2
+          done
+          docker compose logs api
+          exit 1
+
+      - name: Tear down compose stack
+        if: always()
+        run: docker compose down -v
+
+      # Optional: configure DOCKER_REGISTRY / DOCKER_REGISTRY_USERNAME / DOCKER_REGISTRY_PASSWORD secrets
+      - name: Push to registry
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+        env:
+          REGISTRY: ${{ secrets.DOCKER_REGISTRY }}
+          REGISTRY_USERNAME: ${{ secrets.DOCKER_REGISTRY_USERNAME }}
+          REGISTRY_PASSWORD: ${{ secrets.DOCKER_REGISTRY_PASSWORD }}
+        run: |
+          if [ -z "$REGISTRY" ]; then
+            echo "DOCKER_REGISTRY secret not set; skipping push."
+            exit 0
+          fi
+          echo "$REGISTRY_PASSWORD" | docker login "$REGISTRY" -u "$REGISTRY_USERNAME" --password-stdin
+          docker tag uniclub-hub:${{ github.sha }} "$REGISTRY/uniclub-hub:${{ github.sha }}"
+          docker tag uniclub-hub:${{ github.sha }} "$REGISTRY/uniclub-hub:latest"
+          docker push "$REGISTRY/uniclub-hub:${{ github.sha }}"
+          docker push "$REGISTRY/uniclub-hub:latest"

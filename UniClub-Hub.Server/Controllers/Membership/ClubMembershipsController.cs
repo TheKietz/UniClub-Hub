@@ -89,7 +89,7 @@ namespace UniClub_Hub.Server.Controllers.Membership
                 .Where(m => m.ClubId == clubId && m.Status == MembershipStatus.Active)
                 .Where(m => string.IsNullOrEmpty(q) ||
                             (m.User.FullName ?? "").ToLower().Contains(lowerQ) ||
-                            m.User.Email.ToLower().Contains(lowerQ))
+                            (m.User.Email ?? "").ToLower().Contains(lowerQ))
                 .OrderBy(m => m.User.FullName)
                 .Take(8)
                 .Select(m => new { UserId = m.UserId, Name = m.User.FullName ?? m.User.Email, AvatarUrl = m.User.AvatarUrl })

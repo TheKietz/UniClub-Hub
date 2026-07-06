@@ -1,0 +1,64 @@
+# Render Blueprint — API + PostgreSQL
+# Docs: https://render.com/docs/blueprint-spec
+#
+# After deploy, set on the web service (if not using linked DB):
+# - Cors__AllowedOrigins = https://your-app.vercel.app
+# - AppUrl = https://your-app.vercel.app
+# - Auth__CrossOriginCookies = true
+
+services:
+  - type: web
+    name: uniclub-hub-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      # Render injects PORT; Program.cs binds Kestrel to it (do not hardcode 8080).
+      - key: Auth__CrossOriginCookies
+        value: "true"
+      - key: Jwt__Key
+        generateValue: true
+      - key: Jwt__AccessTokenExpiryMinutes
+        value: "60"
+      - key: Jwt__RefreshTokenExpiryDays
+        value: "7"
+      - key: ConnectionStrings__DefaultConnection
+        fromDatabase:
+          name: uniclub-hub-db
+          property: connectionString
+      - key: DATABASE_URL
+        fromDatabase:
+          name: uniclub-hub-db
+          property: connectionString
+      - key: Cors__AllowedOrigins
+        sync: false
+      - key: AppUrl
+        sync: false
+      - key: Cloudinary__CloudName
+        sync: false
+      - key: Cloudinary__ApiKey
+        sync: false
+      - key: Cloudinary__ApiSecret
+        sync: false
+      - key: SendGrid__ApiKey
+        sync: false
+      - key: SendGrid__FromName
+        value: UniClub Hub
+      - key: SendGrid__FromAddress
+        sync: false
+      - key: Gemini__ApiKey
+        sync: false
+      - key: Gemini__Model
+        value: gemini-flash-latest
+      # Set to "true" once to seed demo CLB/users (idempotent). Env: Seed__DemoData
+      - key: Seed__DemoData
+        sync: false
+
+databases:
+  - name: uniclub-hub-db
+    plan: free
+    databaseName: uniclub
+    user: uniclub

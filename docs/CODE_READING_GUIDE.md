@@ -1,4 +1,4 @@
-# Hướng dẫn đọc code UniClub-Hub (để hiểu & trả lời khi bị hỏi)
+# Hướng dẫn đọc code UniClub-Hub
 
 > Mục tiêu: đọc theo **thứ tự có chủ đích** thay vì mở bừa file. Đọc xong là trả lời được
 > "dữ liệu chảy từ đâu tới đâu", "click nút này thì gọi API nào, vào service nào, đụng bảng nào".

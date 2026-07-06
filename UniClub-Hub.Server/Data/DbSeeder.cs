@@ -38,6 +38,7 @@ namespace UniClub_Hub.Server.Data
                     new Category { Name = "Tình nguyện & Cộng đồng", Description = "..." }
                 };
                 db.Categories.AddRange(cats);
+                await db.SaveChangesAsync();
                 foreach (var c in cats) categoryMap[c.Name.Split(' ')[0]] = c;
             }
             else
@@ -982,11 +983,15 @@ namespace UniClub_Hub.Server.Data
 
                 if (linhTechLeadMemberships.Count > 1)
                 {
+                    var resignedMembership = linhTechLeadMemberships[1];
+                    resignedMembership.Status = MembershipStatus.Resigned;
+                    resignedMembership.ResignedDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-10));
+
                     db.ResignationRequests.Add(new ResignationRequest
                     {
                         UserId = linhId,
                         ClubId = techClubId,
-                        MembershipId = linhTechLeadMemberships[1].Id,
+                        MembershipId = resignedMembership.Id,
                         Preference = ResignationPreference.LeaveClub,
                         Status = ResignationStatus.Approved,
                         RequestedAt = DateTime.UtcNow.AddDays(-12),
@@ -1211,69 +1216,7 @@ namespace UniClub_Hub.Server.Data
             await db.SaveChangesAsync();
 
             // ── Notification Preferences (global defaults) ────────────────
-            // Upsert each pair individually so new pairs are added without wiping existing admin config.
-            {
-                var existingSet = (await db.NotificationPreferences
-                    .Where(p => p.ClubId == null)
-                    .Select(p => new { p.TriggerKey, p.RecipientRole })
-                    .ToListAsync())
-                    .Select(p => $"{p.TriggerKey}:{p.RecipientRole}")
-                    .ToHashSet();
-
-                static NotificationPreference Pref(string trigger, string role,
-                    bool inApp, bool email, string? emailSubj = null) =>
-                    new()
-                    {
-                        ClubId = null, TriggerKey = trigger, RecipientRole = role,
-                        InAppEnabled = inApp, EmailEnabled = email, EmailSubject = emailSubj,
-                    };
-
-                var defaults = new[]
-                {
-                    // ── Tuyển thành viên ─────────────────────────────────────
-                    Pref(NotificationTriggers.ApplicationSubmitted, NotificationRecipientRoles.ClubAdmin,  true,  false),
-                    Pref(NotificationTriggers.ApplicationSubmitted, NotificationRecipientRoles.DeptLead,   false, false),
-                    Pref(NotificationTriggers.ApplicationInterview, NotificationRecipientRoles.TargetUser, true,  true,  "Mời phỏng vấn – {{clubName}}"),
-                    Pref(NotificationTriggers.ApplicationInterview, NotificationRecipientRoles.ClubAdmin,  false, false),
-                    Pref(NotificationTriggers.ApplicationAccepted,  NotificationRecipientRoles.TargetUser, true,  true,  "Đơn được chấp nhận – {{clubName}}"),
-                    Pref(NotificationTriggers.ApplicationAccepted,  NotificationRecipientRoles.ClubAdmin,  false, false),
-                    Pref(NotificationTriggers.ApplicationRejected,  NotificationRecipientRoles.TargetUser, true,  true,  "Kết quả đơn đăng ký – {{clubName}}"),
-                    Pref(NotificationTriggers.ApplicationRejected,  NotificationRecipientRoles.ClubAdmin,  false, false),
-                    // ── Quản lý thành viên ───────────────────────────────────
-                    Pref(NotificationTriggers.MemberAdded,       NotificationRecipientRoles.TargetUser, true,  false),
-                    Pref(NotificationTriggers.MemberAdded,       NotificationRecipientRoles.ClubAdmin,  false, false),
-                    Pref(NotificationTriggers.MemberRoleChanged, NotificationRecipientRoles.TargetUser, true,  false),
-                    Pref(NotificationTriggers.MemberRoleChanged, NotificationRecipientRoles.ClubAdmin,  false, false),
-                    Pref(NotificationTriggers.MemberRemoved,     NotificationRecipientRoles.TargetUser, true,  false),
-                    Pref(NotificationTriggers.MemberRemoved,     NotificationRecipientRoles.ClubAdmin,  false, false),
-                    // ── Từ chức ──────────────────────────────────────────────
-                    Pref(NotificationTriggers.ResignationSubmitted, NotificationRecipientRoles.ClubAdmin,  true,  false),
-                    Pref(NotificationTriggers.ResignationSubmitted, NotificationRecipientRoles.DeptLead,   false, false),
-                    Pref(NotificationTriggers.ResignationReviewed,  NotificationRecipientRoles.TargetUser, true,  false),
-                    Pref(NotificationTriggers.ResignationReviewed,  NotificationRecipientRoles.ClubAdmin,  false, false),
-                    // ── Công việc ────────────────────────────────────────────
-                    Pref(NotificationTriggers.TaskAssigned,      NotificationRecipientRoles.TargetUser, true,  false),
-                    Pref(NotificationTriggers.TaskAssigned,      NotificationRecipientRoles.DeptLead,   false, false),
-                    Pref(NotificationTriggers.TaskDeadlineSoon,  NotificationRecipientRoles.TargetUser, true,  false),
-                    Pref(NotificationTriggers.TaskDeadlineSoon,  NotificationRecipientRoles.DeptLead,   false, false),
-                    Pref(NotificationTriggers.TaskStatusChanged, NotificationRecipientRoles.TargetUser, true,  false),
-                    Pref(NotificationTriggers.TaskStatusChanged, NotificationRecipientRoles.DeptLead,   false, false),
-                    // ── Sự kiện ──────────────────────────────────────────────
-                    Pref(NotificationTriggers.EventCreated,  NotificationRecipientRoles.AllMembers, true,  false),
-                    Pref(NotificationTriggers.EventCreated,  NotificationRecipientRoles.ClubAdmin,  false, false),
-                    Pref(NotificationTriggers.EventReminder, NotificationRecipientRoles.AllMembers, true,  false),
-                    // ── Hệ thống ─────────────────────────────────────────────
-                    Pref(NotificationTriggers.SystemAnnouncement, NotificationRecipientRoles.AllMembers, true,  false),
-                    Pref(NotificationTriggers.SystemAnnouncement, NotificationRecipientRoles.SuperAdmin, false, false),
-                };
-
-                var toAdd = defaults.Where(p => !existingSet.Contains($"{p.TriggerKey}:{p.RecipientRole}")).ToList();
-                if (toAdd.Count > 0)
-                {
-                    db.NotificationPreferences.AddRange(toAdd);
-                    await db.SaveChangesAsync();
-                }
-            }
+            await NotificationPreferenceSeeder.SeedDefaultsAsync(db);
 
             // ── KPI demo data ─────────────────────────────────────────────
             // Seed dữ liệu đủ để test nhanh KPI config/results/my-kpi trong môi trường dev.

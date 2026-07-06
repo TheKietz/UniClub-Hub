@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
+using UniClub_Hub.Membership.DTOs.Common;
 using UniClub_Hub.Membership.DTOs.Support;
 using UniClub_Hub.Membership.Services.Interfaces;
 using UniClub_Hub.Shared.Common;
@@ -40,10 +41,24 @@ namespace UniClub_Hub.Server.Controllers.Membership
         // Admin xem tất cả ticket
         [HttpGet]
         [Authorize(Roles = "SUPER_ADMIN")]
-        public async Task<IActionResult> GetAll([FromQuery] string? status = null)
+        public async Task<IActionResult> GetAll(
+            [FromQuery] string? search,
+            [FromQuery] string? status,
+            [FromQuery] string sortBy = "createdAt",
+            [FromQuery] string sortDir = "desc",
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 20)
         {
-            var tickets = await _support.GetAllAsync(status);
-            return Ok(ApiResponse<IEnumerable<SupportTicketDto>>.Ok(tickets));
+            var tickets = await _support.GetAllAsync(new SupportListQuery
+            {
+                Search = search,
+                Status = status,
+                SortBy = sortBy,
+                SortDir = sortDir,
+                Page = page,
+                PageSize = pageSize,
+            });
+            return Ok(ApiResponse<object>.Ok(tickets));
         }
 
         // Admin cập nhật trạng thái ticket

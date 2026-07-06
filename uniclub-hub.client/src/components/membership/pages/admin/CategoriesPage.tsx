@@ -1,7 +1,9 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useDeferredEffect } from '@/hooks/useDeferredEffect'
 import { Pencil, Trash2 } from 'lucide-react'
 import { Tooltip } from '@/components/shared/Tooltip'
+import { FilterSelect } from '@/components/shared/FilterSelect'
+import { LoadMoreBar } from '@/components/shared/LoadMoreBar'
 import { getCategories, createCategory, updateCategory, deleteCategory } from '@/components/membership/services/adminApi'
 import type { CategoryItem, CreateCategoryDto } from '@/components/membership/services/admin.types'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -39,7 +41,11 @@ export default function CategoriesPage() {
   const [saving, setSaving] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<CategoryItem | null>(null)
   const [search, setSearch] = useState('')
+  const [sortBy, setSortBy] = useState<'name' | 'id' | 'clubCount'>('name')
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
+  const [visibleCount, setVisibleCount] = useState(20)
   const [hoverRow, setHoverRow] = useState<number | null>(null)
+  const pageSize = 20
 
   useDeferredEffect(() => {
     setLoading(true)
@@ -94,9 +100,22 @@ export default function CategoriesPage() {
     }
   }
 
-  const filtered = categories.filter(c =>
-    !search || c.name.toLowerCase().includes(search.toLowerCase()) || (c.description ?? '').toLowerCase().includes(search.toLowerCase())
-  )
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase()
+    return categories
+      .filter(c =>
+        !q || c.name.toLowerCase().includes(q) || (c.description ?? '').toLowerCase().includes(q))
+      .sort((a, b) => {
+        const cmp = sortBy === 'name'
+          ? a.name.localeCompare(b.name)
+          : sortBy === 'clubCount'
+            ? a.clubCount - b.clubCount
+            : a.id - b.id
+        return sortDir === 'asc' ? cmp : -cmp
+      })
+  }, [categories, search, sortBy, sortDir])
+
+  const visible = filtered.slice(0, visibleCount)
 
   return (
     <div style={{ padding: '28px 32px', minHeight: '100%', background: D.bg, fontFamily: "'Be Vietnam Pro', sans-serif" }}>
@@ -118,17 +137,35 @@ export default function CategoriesPage() {
         <input
           placeholder="⌕  Tìm tên hoặc mô tả..."
           value={search}
-          onChange={e => setSearch(e.target.value)}
+          onChange={e => { setSearch(e.target.value); setVisibleCount(pageSize) }}
           style={{ ...inputStyle, flex: 1 }}
+        />
+        <FilterSelect
+          value={`${sortBy}-${sortDir}`}
+          onChange={v => {
+            const [col, dir] = v.split('-')
+            setSortBy(col as 'name' | 'id' | 'clubCount')
+            setSortDir(dir as 'asc' | 'desc')
+            setVisibleCount(pageSize)
+          }}
+          options={[
+            { value: 'name-asc', label: 'Tên A → Z' },
+            { value: 'name-desc', label: 'Tên Z → A' },
+            { value: 'id-asc', label: 'ID tăng dần' },
+            { value: 'id-desc', label: 'ID giảm dần' },
+            { value: 'clubCount-desc', label: 'CLB nhiều nhất' },
+            { value: 'clubCount-asc', label: 'CLB ít nhất' },
+          ]}
+          style={{ width: 180 }}
         />
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {search && (
-            <button onClick={() => setSearch('')}
+            <button onClick={() => { setSearch(''); setVisibleCount(pageSize) }}
               style={{ fontSize: 12, color: D.indigo, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
               Xoá lọc
             </button>
           )}
-          <span style={{ fontSize: 12, color: D.inkMuted, whiteSpace: 'nowrap' }}>{filtered.length}/{categories.length}</span>
+          <span style={{ fontSize: 12, color: D.inkMuted, whiteSpace: 'nowrap' }}>{visible.length}/{filtered.length}</span>
         </div>
       </div>
 
@@ -147,9 +184,9 @@ export default function CategoriesPage() {
           <tbody>
             {loading ? (
               <tr><td colSpan={5} style={{ textAlign: 'center', color: D.inkMuted, padding: '48px 0' }}>Đang tải...</td></tr>
-            ) : filtered.length === 0 ? (
+            ) : visible.length === 0 ? (
               <tr><td colSpan={5} style={{ textAlign: 'center', color: D.inkMuted, padding: '48px 0' }}>Không tìm thấy lĩnh vực nào.</td></tr>
-            ) : filtered.map((cat, i) => {
+            ) : visible.map((cat, i) => {
               const palette = CAT_PALETTES[i % CAT_PALETTES.length]
               return (
                 <tr key={cat.id}
@@ -187,6 +224,14 @@ export default function CategoriesPage() {
           </tbody>
         </table>
       </div>
+
+      <LoadMoreBar
+        shown={visible.length}
+        total={filtered.length}
+        loading={false}
+        onLoadMore={() => setVisibleCount(c => c + pageSize)}
+        label="lĩnh vực"
+      />
 
       {/* Create / Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

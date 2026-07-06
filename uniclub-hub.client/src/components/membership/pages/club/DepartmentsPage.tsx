@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { toast } from 'sonner'
 import { Crown, Pencil, Trash2 } from 'lucide-react'
 import { Tooltip } from '@/components/shared/Tooltip'
+import { LoadMoreBar } from '@/components/shared/LoadMoreBar'
 import { FilterSelect } from '@/components/shared/FilterSelect'
 import { D } from '@/components/shared/managementTheme'
 import { PermissionDenied } from '@/components/shared/Can'
@@ -44,6 +45,8 @@ export default function DepartmentsPage() {
   const [search, setSearch] = useState('')
   const [sortBy, setSortBy] = useState<'name' | 'members'>('name')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
+  const [visibleCount, setVisibleCount] = useState(20)
+  const pageSize = 20
 
   const [leadDept, setLeadDept] = useState<DepartmentItem | null>(null)
   const [deptMembers, setDeptMembers] = useState<MemberItem[]>([])
@@ -59,6 +62,7 @@ export default function DepartmentsPage() {
         : a.memberCount - b.memberCount
       return sortDir === 'asc' ? cmp : -cmp
     })
+  const visible = filtered.slice(0, visibleCount)
 
   const load = useCallback(() => {
     getDepartments(id)
@@ -165,7 +169,7 @@ export default function DepartmentsPage() {
         <input
           placeholder="⌕  Tìm tên ban..."
           value={search}
-          onChange={e => setSearch(e.target.value)}
+          onChange={e => { setSearch(e.target.value); setVisibleCount(pageSize) }}
           style={{ ...inputStyle, flex: 1, minWidth: 180 }}
         />
         <FilterSelect
@@ -174,6 +178,7 @@ export default function DepartmentsPage() {
             const [col, dir] = v.split('-')
             setSortBy(col as 'name' | 'members')
             setSortDir(dir as 'asc' | 'desc')
+            setVisibleCount(pageSize)
           }}
           options={[
             { value: 'name-asc', label: 'Tên A → Z' },
@@ -207,9 +212,9 @@ export default function DepartmentsPage() {
           <tbody>
             {loading ? (
               <tr><td colSpan={6} style={{ textAlign: 'center', color: D.inkMuted, padding: '48px 0' }}>Đang tải...</td></tr>
-            ) : filtered.length === 0 ? (
+            ) : visible.length === 0 ? (
               <tr><td colSpan={6} style={{ textAlign: 'center', color: D.inkMuted, padding: '48px 0' }}>{search ? 'Không tìm thấy ban nào.' : 'Chưa có ban bộ phận nào.'}</td></tr>
-            ) : filtered.map(dept => (
+            ) : visible.map(dept => (
               <tr key={dept.id}
                 onMouseEnter={() => setHoverRow(dept.id)}
                 onMouseLeave={() => setHoverRow(null)}
@@ -254,6 +259,14 @@ export default function DepartmentsPage() {
           </tbody>
         </table>
       </div>
+
+      <LoadMoreBar
+        shown={visible.length}
+        total={filtered.length}
+        loading={false}
+        onLoadMore={() => setVisibleCount(c => c + pageSize)}
+        label="ban"
+      />
 
       {/* Dialog thêm / sửa */}
       <Dialog open={dialog !== null} onOpenChange={open => { if (!open) setDialog(null) }}>

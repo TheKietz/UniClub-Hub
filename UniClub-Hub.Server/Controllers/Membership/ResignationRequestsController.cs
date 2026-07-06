@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
+using UniClub_Hub.Membership.DTOs.Common;
 using UniClub_Hub.Membership.DTOs.Resignation;
 using UniClub_Hub.Membership.Services.Interfaces;
 using UniClub_Hub.Shared.Common;
@@ -34,13 +35,28 @@ namespace UniClub_Hub.Server.Controllers.Membership
 
         // Xem đơn từ chức trong CLB
         [HttpGet("api/clubs/{clubId}/resignation-requests")]
-        public async Task<IActionResult> GetByClub(int clubId)
+        public async Task<IActionResult> GetByClub(
+            int clubId,
+            [FromQuery] string? search,
+            [FromQuery] string? status,
+            [FromQuery] string sortBy = "requestedAt",
+            [FromQuery] string sortDir = "desc",
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 20)
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
             var isSuperAdmin = User.IsInRole("SUPER_ADMIN");
             try
             {
-                var result = await _resignationService.GetByClubAsync(clubId, userId, isSuperAdmin);
+                var result = await _resignationService.GetByClubAsync(clubId, userId, isSuperAdmin, new ResignationListQuery
+                {
+                    Search = search,
+                    Status = status,
+                    SortBy = sortBy,
+                    SortDir = sortDir,
+                    Page = page,
+                    PageSize = pageSize,
+                });
                 return Ok(ApiResponse<object>.Ok(result));
             }
             catch (UnauthorizedAccessException) { return Forbid(); }
@@ -66,9 +82,23 @@ namespace UniClub_Hub.Server.Controllers.Membership
         // SUPER_ADMIN xem tất cả đơn từ chức của CLUB_ADMIN
         [HttpGet("api/admin/resignation-requests")]
         [Authorize(Roles = "SUPER_ADMIN")]
-        public async Task<IActionResult> GetAllClubAdminRequests()
+        public async Task<IActionResult> GetAllClubAdminRequests(
+            [FromQuery] string? search,
+            [FromQuery] string? status,
+            [FromQuery] string sortBy = "requestedAt",
+            [FromQuery] string sortDir = "desc",
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 20)
         {
-            var result = await _resignationService.GetAllClubAdminRequestsAsync();
+            var result = await _resignationService.GetAllClubAdminRequestsAsync(new ResignationListQuery
+            {
+                Search = search,
+                Status = status,
+                SortBy = sortBy,
+                SortDir = sortDir,
+                Page = page,
+                PageSize = pageSize,
+            });
             return Ok(ApiResponse<object>.Ok(result));
         }
 

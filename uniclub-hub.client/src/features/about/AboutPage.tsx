@@ -18,7 +18,7 @@ const ROLES = [
     title: 'Sinh viên', subtitle: 'Người dùng phổ thông', icon: '👤', color: C.indigo, headerBg: '#eff6ff',
     features: [
       ['Khám phá câu lạc bộ', 'Tìm CLB theo lĩnh vực, xem thông tin và hoạt động'],
-      ['Nộp đơn ứng tuyển online', 'Điền form, theo dõi trạng thái đơn ngay trên dashboard'],
+      ['Nộp đơn ứng tuyển online', 'Điền form, theo dõi trạng thái đơn ngay trên trang tổng quan'],
       ['Quản lý hoạt động cá nhân', 'Lịch sử tham gia, task được giao, KPI cá nhân'],
       ['Nhận thông báo theo thời gian thực', 'Cập nhật từ CLB và sự kiện sắp tới'],
     ],
@@ -35,7 +35,7 @@ const ROLES = [
   {
     title: 'Admin nhà trường', subtitle: 'Quản trị hệ thống', icon: '🏫', color: '#16a34a', headerBg: '#f0fdf4',
     features: [
-      ['Tổng quan toàn hệ thống', 'Dashboard thống kê tất cả CLB, thành viên, đơn đăng ký'],
+      ['Tổng quan toàn hệ thống', 'Bảng tổng quan thống kê tất cả CLB, thành viên, đơn đăng ký'],
       ['Quản lý CLB & người dùng', 'Tạo CLB, phân quyền, quản lý tài khoản toàn trường'],
       ['Cấu hình trang chủ', 'Slider banner, thông báo toàn trường, lĩnh vực CLB'],
       ['Nhật ký & báo cáo', 'Audit log toàn hệ thống, xuất báo cáo theo kỳ'],
@@ -155,7 +155,7 @@ export default function AboutPage() {
                 UniClub Hub là nền tảng quản lý và kết nối câu lạc bộ sinh viên tại Trường Đại học Kinh tế – Tài chính TP.HCM (UEF). Thay vì mỗi CLB tự vận hành bằng form giấy, nhóm chat rời rạc hay bảng tính — tất cả được tập trung vào một hệ thống thống nhất.
               </p>
               <p style={{ fontSize: 15, color: C.inkDim, lineHeight: 1.75, fontWeight: 450 }}>
-                Sinh viên tìm CLB, nộp đơn ứng tuyển và theo dõi hoạt động ngay trên web. Ban chủ nhiệm quản lý thành viên, duyệt đơn và tổ chức sự kiện trong một dashboard riêng.
+                Sinh viên tìm CLB, nộp đơn ứng tuyển và theo dõi hoạt động ngay trên web. Ban chủ nhiệm quản lý thành viên, duyệt đơn và tổ chức sự kiện trong trang tổng quan riêng của CLB.
               </p>
             </Rv>
             <Rv delay={100}>
