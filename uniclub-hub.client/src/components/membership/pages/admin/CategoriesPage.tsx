@@ -118,9 +118,9 @@ export default function CategoriesPage() {
   const visible = filtered.slice(0, visibleCount)
 
   return (
-    <div style={{ padding: '28px 32px', minHeight: '100%', background: D.bg, fontFamily: "'Be Vietnam Pro', sans-serif" }}>
+    <div className="mgmt-page">
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20, gap: 16 }}>
+      <div className="mgmt-page-header" style={{ marginBottom: 20 }}>
         <div>
           <h1 style={{ fontSize: 24, fontWeight: 900, color: D.ink, letterSpacing: '-.025em', margin: 0 }}>Lĩnh vực</h1>
           <p style={{ fontSize: 13, color: D.inkMuted, marginTop: 4 }}>{categories.length} lĩnh vực trong hệ thống</p>

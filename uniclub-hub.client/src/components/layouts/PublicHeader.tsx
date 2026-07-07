@@ -122,6 +122,22 @@ export default function PublicHeader() {
             font-size: 12px !important;
           }
         }
+        @media (max-width: 520px) {
+          .public-header-nav {
+            overflow-x: auto;
+            flex-wrap: nowrap;
+            justify-content: flex-start;
+            scrollbar-width: none;
+            -webkit-overflow-scrolling: touch;
+            padding-bottom: 4px;
+          }
+          .public-header-nav::-webkit-scrollbar {
+            display: none;
+          }
+          .public-header-inner .public-header-nav button {
+            flex-shrink: 0;
+          }
+        }
       `}</style>
       <div className="public-header-inner">
         {/* Logo */}

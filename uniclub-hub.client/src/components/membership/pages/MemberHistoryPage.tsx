@@ -37,13 +37,13 @@ export default function MemberHistoryPage() {
   const resigned = history.filter(h => h.status === MEMBERSHIP_STATUS.RESIGNED)
 
   if (loading) return (
-    <div style={{ padding: '28px 32px', color: D.inkMuted, fontSize: 13, fontFamily: "'Be Vietnam Pro', sans-serif" }}>
+    <div className="mgmt-page mgmt-page--loading">
       Đang tải...
     </div>
   )
 
   return (
-    <div style={{ padding: '28px 32px', minHeight: '100%', background: D.bg, fontFamily: "'Be Vietnam Pro', sans-serif" }}>
+    <div className="mgmt-page">
       <div style={{ marginBottom: 28 }}>
         <h1 style={{ fontSize: 24, fontWeight: 900, color: D.ink, letterSpacing: '-.025em', margin: 0 }}>Lịch sử tham gia</h1>
         <p style={{ fontSize: 13, color: D.inkMuted, marginTop: 4 }}>Các câu lạc bộ bạn đã và đang tham gia</p>

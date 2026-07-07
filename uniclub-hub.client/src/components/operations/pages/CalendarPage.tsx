@@ -154,10 +154,10 @@ export default function CalendarPage() {
   }
 
   return (
-    <div className="rsp-page rsp-flexcol" style={{ padding: '28px 32px', minHeight: '100%', background: D.bg, fontFamily: "'Be Vietnam Pro', sans-serif", display: 'flex', gap: 20, alignItems: 'flex-start' }}>
+    <div className="mgmt-page ops-calendar-layout">
 
       {/* ── Calendar panel ───────────────────────────────────────────────── */}
-      <div style={{ flex: 1, minWidth: 0, background: D.card, border: D.border, borderRadius: D.radius, boxShadow: D.shadow(), overflow: 'hidden' }}>
+      <div style={{ flex: 1, background: D.card, border: D.border, borderRadius: D.radius, boxShadow: D.shadow(), overflow: 'hidden' }}>
 
         {/* Header bar */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: D.borderLight }}>
@@ -203,9 +203,6 @@ export default function CalendarPage() {
           </div>
         </div>
 
-        {/* Lịch — cuộn ngang trên màn hình nhỏ để giữ 7 cột */}
-        <div className="rsp-xscroll">
-        <div style={{ minWidth: 560 }}>
         {/* Day-of-week headers */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', background: D.bg, borderBottom: D.borderLight }}>
           {DAY_LABELS.map(label => (
@@ -326,8 +323,6 @@ export default function CalendarPage() {
             })}
           </div>
         )}
-        </div>
-        </div>
       </div>
 
       {/* ── Right sidebar ─────────────────────────────────────────────────── */}

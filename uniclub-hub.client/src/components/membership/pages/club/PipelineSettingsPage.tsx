@@ -193,7 +193,7 @@ export default function PipelineSettingsPage({ onDirtyChange, onBindHandles }: S
     return <PermissionDenied />
 
   return (
-    <div style={{ padding: '28px 32px', minHeight: '100%', background: D.bg, fontFamily: "'Be Vietnam Pro', sans-serif" }}>
+    <div className="mgmt-page">
       {/* Header */}
       <div style={{ marginBottom: 24 }}>
         <h1 style={{ fontSize: 24, fontWeight: 900, color: D.ink, letterSpacing: '-.025em', margin: 0 }}>Quy trình tuyển thành viên</h1>

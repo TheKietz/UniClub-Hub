@@ -1,12 +1,14 @@
-import { useParams } from 'react-router-dom'
-import AppShell from './AppShell'
+import { Outlet, useParams } from 'react-router-dom'
+import DashboardLayoutShell from './DashboardLayoutShell'
 import { UnsavedChangesProvider } from '@/contexts/unsaved-changes-context'
 
 export default function ClubManageLayout() {
   const { clubId } = useParams<{ clubId: string }>()
   return (
     <UnsavedChangesProvider>
-      <AppShell mode="club" clubId={clubId} />
+      <DashboardLayoutShell mode="club" clubId={clubId}>
+        <Outlet />
+      </DashboardLayoutShell>
     </UnsavedChangesProvider>
   )
 }

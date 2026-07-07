@@ -18,6 +18,9 @@ type NavItem = { to: string; icon: string; label: string; end?: boolean; divider
 interface Props {
   mode: Mode
   clubId?: string
+  mobile?: boolean
+  mobileOpen?: boolean
+  onMobileClose?: () => void
   /** Gọi khi người dùng điều hướng — dùng để đóng drawer trên mobile. */
   onNavigate?: () => void
   /** Buộc sidebar luôn mở rộng (không cho thu gọn) — dùng trong drawer mobile. */
@@ -160,12 +163,20 @@ function clubNav(id: string, role?: string, isSuperAdmin = false, perms: ClubPer
   ]
 }
 
-export default function DashboardSidebar({ mode, clubId, onNavigate, forceExpanded = false }: Props) {
+export default function DashboardSidebar({
+  mode,
+  clubId,
+  mobile = false,
+  mobileOpen = false,
+  onMobileClose,
+  onNavigate,
+  forceExpanded = false,
+}: Props) {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
   const [collapsedState, setCollapsedState] = useState(false)
   // Trong drawer mobile: luôn mở rộng, không cho thu gọn.
-  const collapsed = forceExpanded ? false : collapsedState
+  const collapsed = forceExpanded || mobile ? false : collapsedState
   const setCollapsed = setCollapsedState
   const [clubPickerOpen, setClubPickerOpen] = useState(false)
   const [clubPermissionCodes, setClubPermissionCodes] = useState<string[]>([])
@@ -281,16 +292,23 @@ export default function DashboardSidebar({ mode, clubId, onNavigate, forceExpand
     navigate('/login', { replace: true })
   }
 
+  const showCollapsed = collapsed && !mobile
+
   return (
-    <aside style={{
-      width: collapsed ? 60 : 250, height: '100vh', background: 'var(--c-chrome)',
+    <aside
+      className={[
+        mobile ? 'dashboard-sidebar--mobile' : '',
+        mobile && mobileOpen ? 'dashboard-sidebar--open' : '',
+      ].filter(Boolean).join(' ')}
+      style={{
+      width: mobile ? 250 : (collapsed ? 60 : 250), height: '100vh', background: 'var(--c-chrome)',
       display: 'flex', flexDirection: 'column', flexShrink: 0,
       borderRight: '1.5px solid rgba(255,255,255,.05)',
       fontFamily: "'Be Vietnam Pro', sans-serif",
-      transition: 'width .2s ease', overflow: 'hidden',
+      transition: mobile ? undefined : 'width .2s ease', overflow: 'hidden',
     }}>
       {/* Logo — click to go home */}
-      {collapsed ? (
+      {showCollapsed ? (
         <div style={{ padding: '12px 0 8px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
           <button onClick={() => { navigate('/'); onNavigate?.() }} title="Về trang chủ" style={{
             background: 'transparent', border: 'none', cursor: 'pointer', padding: 0,
@@ -354,7 +372,7 @@ export default function DashboardSidebar({ mode, clubId, onNavigate, forceExpand
       )}
 
       {/* Mode switcher */}
-      {!collapsed && <div style={{ padding: '0 12px', marginBottom: 8 }}>
+      {!showCollapsed && <div style={{ padding: '0 12px', marginBottom: 8 }}>
         <div style={{ display: 'flex', gap: 2, padding: 3, borderRadius: 10, background: 'rgba(255,255,255,.06)' }}>
           {([['member', 'SV'], ['admin', 'Admin'], ['club', 'CLB']] as [Mode, string][])
             .filter(([m]) => m !== 'admin' || isSuperAdmin)
@@ -371,7 +389,7 @@ export default function DashboardSidebar({ mode, clubId, onNavigate, forceExpand
       </div>}
 
       {/* Club selector (club mode only) */}
-      {!collapsed && mode === 'club' && activeClub && (
+      {!showCollapsed && mode === 'club' && activeClub && (
         <div ref={pickerRef} style={{ padding: '0 10px 8px', position: 'relative' }}>
           <button onClick={() => setClubPickerOpen(v => !v)} style={{
             width: '100%', display: 'flex', alignItems: 'center', gap: 10,
@@ -452,7 +470,7 @@ export default function DashboardSidebar({ mode, clubId, onNavigate, forceExpand
       )}
 
       {/* Mode label (non-club) */}
-      {!collapsed && mode !== 'club' && (
+      {!showCollapsed && mode !== 'club' && (
         <div style={{ padding: '2px 20px 10px', display: 'flex', alignItems: 'center', gap: 6 }}>
           <span style={{ width: 6, height: 6, borderRadius: 3, background: modeColor, flexShrink: 0 }} />
           <span style={{ fontSize: 10.5, fontWeight: 700, color: 'rgba(255,255,255,.4)', letterSpacing: '.08em', textTransform: 'uppercase' }}>
@@ -465,12 +483,12 @@ export default function DashboardSidebar({ mode, clubId, onNavigate, forceExpand
       <nav style={{ flex: 1, padding: '0 8px', overflowY: 'auto' }}>
         {navItems.map((item) => (
           <div key={item.to}>
-            <NavLink to={item.to} end={item.end ?? false} onClick={() => onNavigate?.()} style={{ textDecoration: 'none', display: 'block' }}>
+            <NavLink to={item.to} end={item.end ?? false} style={{ textDecoration: 'none', display: 'block' }} onClick={() => { onMobileClose?.(); onNavigate?.() }}>
               {({ isActive }) => (
-                <div title={collapsed ? item.label : undefined} style={{
+                <div title={showCollapsed ? item.label : undefined} style={{
                   display: 'flex', alignItems: 'center', gap: 10,
-                  padding: collapsed ? '9px 0' : '9px 12px',
-                  justifyContent: collapsed ? 'center' : 'flex-start',
+                  padding: showCollapsed ? '9px 0' : '9px 12px',
+                  justifyContent: showCollapsed ? 'center' : 'flex-start',
                   borderRadius: 10, marginBottom: 2,
                   background: isActive ? 'rgba(255,255,255,.10)' : 'transparent',
                   color: isActive ? '#fff' : 'rgba(255,255,255,.55)',
@@ -484,7 +502,7 @@ export default function DashboardSidebar({ mode, clubId, onNavigate, forceExpand
                     color: isActive ? (mode === 'member' ? 'var(--c-ink)' : '#fff') : 'rgba(255,255,255,.4)',
                     transition: 'all .12s',
                   }}>{item.icon}</span>
-                  {!collapsed && item.label}
+                  {!showCollapsed && item.label}
                 </div>
               )}
             </NavLink>
@@ -498,18 +516,18 @@ export default function DashboardSidebar({ mode, clubId, onNavigate, forceExpand
         {mode === 'member' && uniqueActiveMemberships.length > 0 && (
           <>
             <div style={{ height: 1, background: 'rgba(255,255,255,.06)', margin: '6px 12px' }} />
-            {!collapsed && (
+            {!showCollapsed && (
               <div style={{ padding: '6px 12px 4px', fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,.28)', letterSpacing: '.08em', textTransform: 'uppercase' }}>
                 Câu lạc bộ
               </div>
             )}
             {uniqueActiveMemberships.map(m => (
-              <NavLink key={m.clubId} to={`/clubs/${m.clubId}/operations`} onClick={() => onNavigate?.()} style={{ textDecoration: 'none', display: 'block' }}>
+              <NavLink key={m.clubId} to={`/clubs/${m.clubId}/operations`} style={{ textDecoration: 'none', display: 'block' }} onClick={() => { onMobileClose?.(); onNavigate?.() }}>
                 {({ isActive }) => (
-                  <div title={collapsed ? m.clubName : undefined} style={{
+                  <div title={showCollapsed ? m.clubName : undefined} style={{
                     display: 'flex', alignItems: 'center', gap: 10,
-                    padding: collapsed ? '8px 0' : '8px 12px',
-                    justifyContent: collapsed ? 'center' : 'flex-start',
+                    padding: showCollapsed ? '8px 0' : '8px 12px',
+                    justifyContent: showCollapsed ? 'center' : 'flex-start',
                     borderRadius: 10, marginBottom: 2,
                     background: isActive ? 'rgba(255,255,255,.10)' : 'transparent',
                     color: isActive ? '#fff' : 'rgba(255,255,255,.55)',
@@ -525,7 +543,7 @@ export default function DashboardSidebar({ mode, clubId, onNavigate, forceExpand
                         ? <img src={m.clubLogoUrl} alt="" style={{ width: '100%', height: '100%', borderRadius: 6, objectFit: 'cover' }} />
                         : getClubShort(m.clubName)
                       }</div>
-                    {!collapsed && (
+                    {!showCollapsed && (
                       <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {m.clubName}
                       </span>
@@ -540,7 +558,7 @@ export default function DashboardSidebar({ mode, clubId, onNavigate, forceExpand
 
       {/* User footer */}
       <div style={{ padding: '12px', borderTop: '1px solid rgba(255,255,255,.06)' }}>
-        {collapsed ? (
+        {showCollapsed ? (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
             <SidebarUserAvatar initials={initials} avatarUrl={user?.avatarUrl} />
             <button onClick={handleLogout} title="Đăng xuất" style={{

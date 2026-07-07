@@ -142,7 +142,7 @@ export default function SupportAdminPage() {
   }
 
   return (
-    <div style={{ padding: '28px 32px', minHeight: '100%', background: D.bg, fontFamily: "'Be Vietnam Pro', sans-serif" }}>
+    <div className="mgmt-page">
       <div style={{ marginBottom: 20 }}>
         <h1 style={{ fontSize: 24, fontWeight: 900, color: D.ink, letterSpacing: '-.025em', margin: 0 }}>Yêu cầu hỗ trợ</h1>
         <p style={{ fontSize: 13, color: D.inkMuted, marginTop: 4 }}>{totalTickets} yêu cầu phù hợp</p>

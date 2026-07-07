@@ -113,7 +113,7 @@ export default function MyKpiPage() {
   const accent = gradeAccent(result?.grade ?? '')
 
   return (
-    <div style={{ minHeight: '100%', background: D.bg, padding: '28px 32px 40px', fontFamily: "'Be Vietnam Pro', sans-serif" }}>
+    <div className="mgmt-page" style={{ paddingBottom: 40 }}>
 
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, marginBottom: 20 }}>
