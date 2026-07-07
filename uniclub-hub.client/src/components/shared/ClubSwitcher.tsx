@@ -3,12 +3,7 @@ import { useNavigate, useLocation, useParams } from "react-router-dom";
 import { ChevronDown, Building2, Check } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { MEMBERSHIP_STATUS } from "@/types/auth";
-
-const ROLE_LABEL: Record<string, string> = {
-  CLUB_ADMIN: "Quản lý CLB",
-  DEPT_LEAD: "Trưởng ban",
-  MEMBER: "Thành viên",
-};
+import { CLUB_ROLE_LABELS } from "@/constants/clubRoles";
 
 export default function ClubSwitcher() {
   const { user } = useAuth();
@@ -108,7 +103,7 @@ export default function ClubSwitcher() {
                   {m.clubName}
                 </p>
                 <p className="text-[11px] text-white/40">
-                  {ROLE_LABEL[m.clubRole] ?? m.clubRole}
+                  {CLUB_ROLE_LABELS[m.clubRole] ?? m.clubRole}
                 </p>
               </div>
               {m.clubId === currentClubId && (

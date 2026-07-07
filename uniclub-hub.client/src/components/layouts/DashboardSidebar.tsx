@@ -1,16 +1,12 @@
 import { useRef, useState, useEffect, useMemo } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
+import { CLUB_ROLE_COLORS, CLUB_ROLE_LABELS, roleRank } from '@/constants/clubRoles'
 import { CLUB_ROLES, MEMBERSHIP_STATUS } from '@/types/auth'
 import type { UserMembership } from '@/types/auth'
 import NotificationBell from '@/components/shared/NotificationBell'
 import { getMyClubPermissions } from '@/components/membership/services/clubApi'
 import { CLUB_PERMISSIONS } from '@/constants/clubPermissions'
-
-const ROLE_RANK = { CLUB_ADMIN: 3, DEPT_LEAD: 2, MEMBER: 1 } as const
-function roleRank(role: string) {
-  return ROLE_RANK[role as keyof typeof ROLE_RANK] ?? 0
-}
 
 type Mode = 'member' | 'admin' | 'club'
 type NavItem = { to: string; icon: string; label: string; end?: boolean; dividerAfter?: boolean }
@@ -28,13 +24,6 @@ interface Props {
 }
 
 const CLUB_COLORS = ['#4f46e5', '#7c3aed', '#ef4444', '#14b8a6', '#38bdf8', '#ec4899', '#f59e0b', '#10b981']
-const ROLE_LABELS: Record<string, string> = {
-  CLUB_ADMIN: 'Ban chủ nhiệm', DEPT_LEAD: 'Trưởng ban', MEMBER: 'Thành viên',
-}
-const ROLE_COLORS: Record<string, string> = {
-  CLUB_ADMIN: '#e11d48', DEPT_LEAD: '#f59e0b', MEMBER: '#14b8a6',
-}
-
 function getClubShort(name: string) {
   return name.split(' ').filter(Boolean).map(w => w[0]).slice(0, 3).join('').toUpperCase()
 }
@@ -413,8 +402,8 @@ export default function DashboardSidebar({
               <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
                 <span style={{
                   fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 3,
-                  background: ROLE_COLORS[activeClub.clubRole] ?? '#2563eb', color: '#fff',
-                }}>{ROLE_LABELS[activeClub.clubRole] ?? activeClub.clubRole}</span>
+                  background: CLUB_ROLE_COLORS[activeClub.clubRole] ?? '#2563eb', color: '#fff',
+                }}>{CLUB_ROLE_LABELS[activeClub.clubRole] ?? activeClub.clubRole}</span>
               </div>
             </div>
             <span style={{
@@ -457,8 +446,8 @@ export default function DashboardSidebar({
                       }}>{club.clubName}</div>
                       <span style={{
                         fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 3,
-                        background: ROLE_COLORS[club.clubRole] ?? '#2563eb', color: '#fff',
-                      }}>{ROLE_LABELS[club.clubRole] ?? club.clubRole}</span>
+                        background: CLUB_ROLE_COLORS[club.clubRole] ?? '#2563eb', color: '#fff',
+                      }}>{CLUB_ROLE_LABELS[club.clubRole] ?? club.clubRole}</span>
                     </div>
                     {isActive && <span style={{ color: '#38bdf8', fontSize: 12 }}>✓</span>}
                   </button>

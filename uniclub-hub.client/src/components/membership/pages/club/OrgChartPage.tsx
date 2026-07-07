@@ -12,6 +12,7 @@ import { D } from '@/components/shared/managementTheme'
 import { PermissionDenied } from '@/components/shared/Can'
 import { useClubPermissions } from '@/hooks/useClubPermissions'
 import { CLUB_PERMISSIONS } from '@/constants/clubPermissions'
+import { clubRoleLabel } from '@/constants/clubRoles'
 
 const AVATAR_COLORS = ['#1d4ed8', '#7c3aed', '#ec4899', '#f59e0b', '#10b981', '#38bdf8']
 const DEPT_COLORS  = ['#1d4ed8', '#7c3aed', '#ec4899', '#14b8a6', '#38bdf8', '#f59e0b']
@@ -71,7 +72,7 @@ function MemberNode({ member, highlighted }: { member: MemberItem; highlighted: 
   const isLead  = member.clubRole === CLUB_ROLES.DEPT_LEAD
   const roleBg  = isAdmin ? '#1d4ed8' : isLead ? '#7c3aed' : '#dce6f4'
   const roleCol = isAdmin || isLead ? '#fff' : D.inkMuted
-  const roleLabel = isAdmin ? 'Trưởng CLB' : isLead ? 'Trưởng ban' : 'Thành viên'
+  const roleLabel = clubRoleLabel(member.clubRole)
   return (
     <div style={{
       display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: 4,

@@ -17,15 +17,10 @@ import { D } from '@/components/shared/managementTheme'
 import { PermissionDenied } from '@/components/shared/Can'
 import { useClubPermissions } from '@/hooks/useClubPermissions'
 import { useAuth } from '@/contexts/AuthContext'
+import { CLUB_ROLE_LABELS } from '@/constants/clubRoles'
 import { getApiErrorMessage } from '@/lib/apiError'
 
 const PAGE_SIZE = 20
-
-const ROLE_LABELS: Record<string, string> = {
-  CLUB_ADMIN: 'Ban chủ nhiệm',
-  DEPT_LEAD: 'Trưởng ban',
-  MEMBER: 'Thành viên',
-}
 
 const ROLE_STYLE: Record<string, { bg: string; color: string }> = {
   CLUB_ADMIN: { bg: '#ede9fe', color: '#5b21b6' },
@@ -491,7 +486,7 @@ export default function MembersPage() {
           onChange={setRoleFilter}
           options={[
             { value: '', label: 'Tất cả vai trò' },
-            ...Object.entries(ROLE_LABELS).map(([k, v]) => ({ value: k, label: v as string })),
+            ...Object.entries(CLUB_ROLE_LABELS).map(([k, v]) => ({ value: k, label: v as string })),
           ]}
           style={{ width: 150 }}
         />
@@ -598,7 +593,7 @@ export default function MembersPage() {
                     const s = ROLE_STYLE[m.clubRole] ?? { bg: '#f3f4f6', color: D.inkDim }
                     return (
                       <span style={{ display: 'inline-flex', padding: '2px 10px', borderRadius: 4, fontSize: 10, fontWeight: 700, letterSpacing: '.04em', textTransform: 'uppercase', background: s.bg, color: s.color }}>
-                        {ROLE_LABELS[m.clubRole] ?? m.clubRole}
+                        {CLUB_ROLE_LABELS[m.clubRole] ?? m.clubRole}
                       </span>
                     )
                   })()}
@@ -685,7 +680,7 @@ export default function MembersPage() {
               <FilterSelect
                 value={addForm.clubRole}
                 onChange={value => setAddForm(p => ({ ...p, clubRole: value }))}
-                options={Object.entries(ROLE_LABELS).map(([value, label]) => ({ value, label }))}
+                options={Object.entries(CLUB_ROLE_LABELS).map(([value, label]) => ({ value, label }))}
               />
             </div>
             <div>
@@ -737,7 +732,7 @@ export default function MembersPage() {
               <FilterSelect
                 value={editForm.clubRole}
                 onChange={value => setEditForm(p => ({ ...p, clubRole: value }))}
-                options={Object.entries(ROLE_LABELS).map(([value, label]) => ({ value, label }))}
+                options={Object.entries(CLUB_ROLE_LABELS).map(([value, label]) => ({ value, label }))}
               />
             </div>
             <div>
@@ -849,7 +844,7 @@ export default function MembersPage() {
                         <div>
                           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                             <span style={{ fontSize: 12, fontWeight: 900, color: D.ink }}>
-                              {ROLE_LABELS[suggestion.role] ?? suggestion.role}
+                              {CLUB_ROLE_LABELS[suggestion.role] ?? suggestion.role}
                             </span>
                             {suggestion.departmentName && (
                               <span style={{ fontSize: 11, color: D.indigo, fontWeight: 700 }}>
@@ -1034,7 +1029,7 @@ export default function MembersPage() {
                     .filter(m => m.id !== lastAdminModal?.membershipId && m.status === MEMBERSHIP_STATUS.ACTIVE)
                     .map(m => ({
                       value: String(m.id),
-                      label: `${m.fullName ?? m.email} (${ROLE_LABELS[m.clubRole] ?? m.clubRole})`,
+                      label: `${m.fullName ?? m.email} (${CLUB_ROLE_LABELS[m.clubRole] ?? m.clubRole})`,
                     })),
                 ]}
                 maxMenuHeight={320}

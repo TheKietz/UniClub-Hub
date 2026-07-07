@@ -12,6 +12,7 @@ import {
 } from '@/components/shared/DashboardCharts'
 import { exportDashboardPdf } from '@/lib/pdfExport'
 import { D } from '@/components/shared/managementTheme'
+import { CLUB_ROLE_LABELS } from '@/constants/clubRoles'
 import { toast } from 'sonner'
 
 const MONTH_OPTIONS = [
@@ -21,9 +22,6 @@ const MONTH_OPTIONS = [
   { value: 24, label: '24 tháng' },
 ]
 
-const ROLE_LABELS: Record<string, string> = {
-  CLUB_ADMIN: 'Ban chủ nhiệm', DEPT_LEAD: 'Trưởng ban', MEMBER: 'Thành viên',
-}
 const ROLE_COLORS = ['#ff5a3c', '#f59e0b', '#1d4ed8']
 const DEPT_COLORS = ['#1d4ed8', '#7c3aed', '#ec4899', '#14b8a6', '#38bdf8']
 
@@ -297,7 +295,7 @@ export default function ClubManageDashboard() {
                   <div key={role} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <span style={{ width: 10, height: 10, borderRadius: 5, background: ROLE_COLORS[i % ROLE_COLORS.length], flexShrink: 0 }} />
-                      <span style={{ fontSize: 13, color: D.ink }}>{ROLE_LABELS[role] ?? role}</span>
+                      <span style={{ fontSize: 13, color: D.ink }}>{CLUB_ROLE_LABELS[role] ?? role}</span>
                     </div>
                     <span style={{ fontSize: 14, fontWeight: 800, color: ROLE_COLORS[i % ROLE_COLORS.length] }}>{count}</span>
                   </div>

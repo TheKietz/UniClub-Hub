@@ -3,14 +3,9 @@ import { useAuth } from '@/hooks/useAuth'
 import { CLUB_ROLES, MEMBERSHIP_STATUS } from '@/types/auth'
 import { PageShell, DTag } from '@/components/shared/DashboardCharts'
 import { D } from '@/components/shared/managementTheme'
+import { CLUB_ROLE_COLORS, CLUB_ROLE_LABELS } from '@/constants/clubRoles'
 
 const CLUB_COLORS = ['#1d4ed8', '#7c3aed', '#ff5a3c', '#14b8a6', '#38bdf8', '#ec4899']
-const ROLE_LABELS: Record<string, string> = {
-  CLUB_ADMIN: 'Ban chủ nhiệm', DEPT_LEAD: 'Trưởng ban', MEMBER: 'Thành viên',
-}
-const ROLE_COLORS: Record<string, string> = {
-  CLUB_ADMIN: '#ff5a3c', DEPT_LEAD: '#f59e0b', MEMBER: '#14b8a6',
-}
 function getClubShort(name: string) {
   return name.split(' ').filter(Boolean).map(w => w[0]).slice(0, 3).join('').toUpperCase()
 }
@@ -93,8 +88,8 @@ export default function MemberDashboard() {
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 15, fontWeight: 700, color: D.ink }}>{m.clubName}</div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 3 }}>
-                    <DTag bg={ROLE_COLORS[m.clubRole] ?? '#1d4ed8'} color="#fff">
-                      {ROLE_LABELS[m.clubRole] ?? m.clubRole}
+                    <DTag bg={CLUB_ROLE_COLORS[m.clubRole] ?? '#1d4ed8'} color="#fff">
+                      {CLUB_ROLE_LABELS[m.clubRole] ?? m.clubRole}
                     </DTag>
                   </div>
                 </div>
@@ -142,7 +137,7 @@ export default function MemberDashboard() {
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 15, fontWeight: 700, color: D.ink }}>{m.clubName}</div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 3 }}>
-                    <DTag bg="rgba(0,0,0,.08)" color={D.ink}>{ROLE_LABELS[m.clubRole] ?? m.clubRole}</DTag>
+                    <DTag bg="rgba(0,0,0,.08)" color={D.ink}>{CLUB_ROLE_LABELS[m.clubRole] ?? m.clubRole}</DTag>
                     {m.departmentName && (
                       <span style={{ fontSize: 12, color: D.inkMuted }}>{m.departmentName}</span>
                     )}

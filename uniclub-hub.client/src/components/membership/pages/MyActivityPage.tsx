@@ -8,6 +8,7 @@ import { MEMBERSHIP_STATUS } from '@/types/auth'
 import { toast } from 'sonner'
 import { CheckCircle2, Clock, XCircle, MessageCircle, AlertCircle } from 'lucide-react'
 import { D } from '@/components/shared/managementTheme'
+import { CLUB_ROLE_LABELS } from '@/constants/clubRoles'
 
 const APP_STATUS: Record<string, { label: string; bg: string; color: string; icon: React.ElementType }> = {
   Pending:   { label: 'Chờ duyệt',    bg: '#fef3c7', color: '#b45309', icon: Clock },
@@ -20,10 +21,6 @@ const RESIGN_STATUS: Record<string, { label: string; bg: string; color: string; 
   Pending:  { label: 'Chờ phê duyệt', bg: '#fef3c7', color: '#b45309', icon: Clock },
   Approved: { label: 'Đã duyệt',      bg: '#dcfce7', color: '#15803d', icon: CheckCircle2 },
   Rejected: { label: 'Bị từ chối',    bg: '#fee2e2', color: '#b91c1c', icon: XCircle },
-}
-
-const ROLE_LABEL: Record<string, string> = {
-  CLUB_ADMIN: 'Trưởng CLB', DEPT_LEAD: 'Trưởng ban', MEMBER: 'Thành viên',
 }
 
 const MEMBERSHIP_LABEL: Record<string, { label: string; bg: string; color: string }> = {
@@ -74,7 +71,10 @@ export default function MyActivityPage() {
     <div className="mgmt-page">
       <div style={{ marginBottom: 24 }}>
         <h1 style={{ fontSize: 24, fontWeight: 900, color: D.ink, letterSpacing: '-.025em', margin: 0 }}>Hoạt động của tôi</h1>
-        <p style={{ fontSize: 13, color: D.inkMuted, marginTop: 4 }}>Quản lý CLB, đơn ứng tuyển và đơn từ chức</p>
+        <p style={{ fontSize: 13, color: D.inkMuted, marginTop: 4 }}>
+          Quản lý CLB, đơn ứng tuyển và đơn từ chức. Rời CLB hoặc gửi đơn từ chức tại{' '}
+          <Link to="/my-history" style={{ color: D.indigo, fontWeight: 700, textDecoration: 'none' }}>Lịch sử tham gia</Link>.
+        </p>
       </div>
 
       {/* Tabs */}
@@ -110,7 +110,7 @@ export default function MyActivityPage() {
                   <div style={{ minWidth: 0 }}>
                     <p style={{ fontWeight: 700, color: D.ink, fontSize: 14, margin: 0 }}>{m.clubName}</p>
                     <p style={{ fontSize: 12, color: D.inkMuted, marginTop: 2 }}>
-                      {ROLE_LABEL[m.clubRole] ?? m.clubRole} · Tham gia {new Date(m.joinedDate).toLocaleDateString('vi-VN')}
+                      {CLUB_ROLE_LABELS[m.clubRole] ?? m.clubRole} · Tham gia {new Date(m.joinedDate).toLocaleDateString('vi-VN')}
                     </p>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
@@ -131,7 +131,7 @@ export default function MyActivityPage() {
                     <div>
                       <p style={{ fontWeight: 600, color: D.inkDim, fontSize: 13, margin: 0 }}>{m.clubName}</p>
                       <p style={{ fontSize: 11, color: D.inkMuted, marginTop: 2 }}>
-                        {ROLE_LABEL[m.clubRole] ?? m.clubRole} · {new Date(m.joinedDate).toLocaleDateString('vi-VN')}
+                        {CLUB_ROLE_LABELS[m.clubRole] ?? m.clubRole} · {new Date(m.joinedDate).toLocaleDateString('vi-VN')}
                         {m.resignedDate && ` → ${new Date(m.resignedDate).toLocaleDateString('vi-VN')}`}
                       </p>
                     </div>
@@ -181,8 +181,22 @@ export default function MyActivityPage() {
 
       {/* Đơn từ chức */}
       {tab === 'Đơn từ chức' && (
-        resignsLoading ? <LoadingCard /> : resignations.length === 0
-          ? <EmptyCard text="Bạn chưa gửi đơn từ chức nào." />
+        <>
+          <div style={{ marginBottom: 14, display: 'flex', justifyContent: 'flex-end' }}>
+            <Link
+              to="/my-history"
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                padding: '8px 14px', borderRadius: D.pill,
+                background: D.card, border: D.border, boxShadow: D.shadow(2, 2),
+                fontSize: 12, fontWeight: 700, color: D.indigo, textDecoration: 'none',
+              }}
+            >
+              + Gửi đơn từ chức / Rời CLB
+            </Link>
+          </div>
+        {resignsLoading ? <LoadingCard /> : resignations.length === 0
+          ? <EmptyCard text="Bạn chưa gửi đơn từ chức nào. Vào Lịch sử tham gia để rời CLB hoặc đệ đơn từ chức." />
           : <div style={{ borderRadius: D.radius, overflow: 'hidden', background: D.card, border: D.border, boxShadow: D.shadow() }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
@@ -203,7 +217,7 @@ export default function MyActivityPage() {
                       <td style={{ ...tdS, fontWeight: 700, color: D.ink }}>
                         <Link to={`/clubs/${r.clubId}`} style={{ color: D.indigo, textDecoration: 'none' }}>{r.clubName}</Link>
                       </td>
-                      <td style={{ ...tdS, color: D.inkDim }}>{ROLE_LABEL[r.clubRole] ?? r.clubRole}</td>
+                      <td style={{ ...tdS, color: D.inkDim }}>{CLUB_ROLE_LABELS[r.clubRole] ?? r.clubRole}</td>
                       <td style={{ ...tdS, color: D.inkDim }}>{r.preference === 'LeaveClub' ? 'Rời CLB hoàn toàn' : 'Trở thành thành viên thường'}</td>
                       <td style={{ ...tdS, color: D.inkMuted }}>{new Date(r.requestedAt).toLocaleDateString('vi-VN')}</td>
                       <td style={tdS}>
@@ -222,6 +236,8 @@ export default function MyActivityPage() {
               </tbody>
             </table>
           </div>
+        }
+        </>
       )}
     </div>
   )
