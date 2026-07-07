@@ -168,7 +168,7 @@ export default function OrgChartPage() {
 
   if (!clubPermissions.loading && !canView) return <PermissionDenied />
   if (loading) return (
-    <div style={{ padding: '28px 32px', color: '#918c99', fontSize: 13, fontFamily: "'Be Vietnam Pro', sans-serif" }}>Đang tải...</div>
+    <div className="mgmt-page mgmt-page--loading">Đang tải...</div>
   )
   if (!club) return null
 
@@ -299,7 +299,7 @@ export default function OrgChartPage() {
   }
 
   return (
-    <div style={{ padding: '28px 32px', minHeight: '100%', background: D.bg, fontFamily: "'Be Vietnam Pro', sans-serif", display: 'flex', flexDirection: 'column', gap: 16 }}>
+    <div className="mgmt-page" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <style>{`
         @media print {
           body * { visibility: hidden; }
@@ -311,12 +311,12 @@ export default function OrgChartPage() {
       `}</style>
 
       {/* Header */}
-      <div className="orgchart-no-print" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16 }}>
+      <div className="mgmt-page-header">
         <div>
           <h1 style={{ fontSize: 24, fontWeight: 900, color: D.ink, letterSpacing: '-.025em', margin: 0 }}>Sơ đồ cơ cấu tổ chức</h1>
           <p style={{ fontSize: 13, color: D.inkMuted, marginTop: 4 }}>Kéo để di chuyển · Nhấn vào ban để thu gọn/mở rộng</p>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+        <div className="mgmt-page-header__actions">
           <PillBtn onClick={exportPng} disabled={exporting}>{exporting ? '...' : '↓ PNG'}</PillBtn>
           <button
             onClick={handlePrint}
@@ -349,7 +349,7 @@ export default function OrgChartPage() {
       </div>
 
       {/* Toolbar */}
-      <div className="orgchart-no-print" style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+      <div className="orgchart-no-print mgmt-toolbar" style={{ marginBottom: 0 }}>
         {/* Search */}
         <input
           value={searchQ}
@@ -368,7 +368,7 @@ export default function OrgChartPage() {
           </button>
         )}
 
-        <div style={{ flex: 1 }} />
+        <div className="mgmt-toolbar__grow" />
 
         {/* Zoom */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: D.card, border: D.border, borderRadius: 999, padding: '5px 10px', boxShadow: D.shadow(2, 2) }}>

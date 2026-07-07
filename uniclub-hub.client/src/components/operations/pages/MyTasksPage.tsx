@@ -224,7 +224,7 @@ export default function MyTasksPage() {
   }
 
   return (
-    <div style={{ padding: '28px 32px', minHeight: '100%', background: D.bg, fontFamily: "'Be Vietnam Pro', sans-serif" }}>
+    <div className="mgmt-page">
 
       {/* ── Header ─────────────────────────────────────────────────── */}
       <div style={{ marginBottom: 24 }}>

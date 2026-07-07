@@ -38,7 +38,7 @@ export default function MemberDashboard() {
       </div>
 
       {/* Quick stats */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 28 }}>
+      <div className="mgmt-stat-grid" style={{ marginBottom: 28 }}>
         {[
           { n: activeMemberships.length, l: 'CLB tham gia', color: '#1d4ed8', icon: '◐' },
           { n: managedClubs.length, l: 'CLB quản lý', color: '#ff5a3c', icon: '◇' },

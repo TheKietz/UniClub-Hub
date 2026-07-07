@@ -1065,7 +1065,7 @@ export default function SprintsPage() {
 
   if (loading || tasksLoading) {
     return (
-      <div style={{ padding: 32, textAlign: 'center', background: 'var(--c-bg)', minHeight: '100%' }}>
+      <div className="mgmt-page mgmt-page--loading" style={{ textAlign: 'center' }}>
         <div style={{ width: 32, height: 32, border: '3px solid #FFE500', borderTop: '3px solid #0A0A0A', borderRadius: '50%', margin: '0 auto 12px', animation: 'spin 1s linear infinite' }} />
         <p style={{ fontWeight: 800, color: '#888', fontSize: 13, textTransform: 'uppercase', letterSpacing: '.08em' }}>Đang tải...</p>
       </div>
@@ -1074,9 +1074,9 @@ export default function SprintsPage() {
 
   return (
     <DragDropContext onDragEnd={onDragEnd}>
-      <div style={{ padding: `24px ${SPRINT_LAYOUT.pageX}px 32px`, background: 'var(--c-bg)', minHeight: '100%', boxSizing: 'border-box' }}>
+      <div className="mgmt-page ops-sprints-page" style={{ paddingBottom: 32, boxSizing: 'border-box' }}>
         {/* ── Header ──────────────────────────────────────────────── */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+        <div className="mgmt-page-header" style={{ marginBottom: 20 }}>
           <div>
             <h1 style={{ fontSize: 22, fontWeight: 900, color: '#0A0A0A', margin: 0, letterSpacing: '-0.01em' }}>Quản lý công việc</h1>
             <p style={{ fontSize: 12, color: '#888', marginTop: 4, fontWeight: 600 }}>

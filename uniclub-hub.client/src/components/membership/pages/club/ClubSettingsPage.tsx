@@ -254,13 +254,13 @@ export default function ClubSettingsPage() {
     return <PermissionDenied />
 
   return (
-    <div style={{ minHeight: '100%', background: D.bg, fontFamily: "'Be Vietnam Pro', sans-serif" }}>
-      <div style={{ padding: '28px 32px 0' }}>
+    <div className="mgmt-settings">
+      <div className="mgmt-settings__head">
         <div style={{ marginBottom: 20 }}>
           <h1 style={{ fontSize: 24, fontWeight: 900, color: D.ink, letterSpacing: '-.025em', margin: 0 }}>Cài đặt CLB</h1>
           <p style={{ fontSize: 13, color: D.inkMuted, marginTop: 4 }}>Tuỳ chỉnh thông tin, quy trình và cấu hình câu lạc bộ</p>
         </div>
-        <div style={{ display: 'flex', borderBottom: '2px solid #dce6f4' }}>
+        <div className="mgmt-settings__tabs">
           {allowedTabs.map(tab => (
             <SettingsTabButton
               key={tab.key}
@@ -275,7 +275,7 @@ export default function ClubSettingsPage() {
 
       <div style={{ display: resolvedTab === 'info' ? 'block' : 'none' }}>
         {loading ? (
-          <div style={{ padding: '28px 32px', fontSize: 13, color: D.inkMuted }}>Đang tải...</div>
+          <div className="mgmt-page mgmt-page--loading">Đang tải...</div>
         ) : (
           <div style={{ padding: '24px 32px' }}>
             <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>

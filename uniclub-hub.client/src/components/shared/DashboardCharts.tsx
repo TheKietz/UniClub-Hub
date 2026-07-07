@@ -5,7 +5,6 @@ const INK = D.ink
 const INK_MUTED = D.inkMuted
 const BORDER = D.border
 const BORDER_LIGHT = D.borderLight
-const BG = D.bg
 const RADIUS = D.radius
 
 function shadow(x = 3, y = 3) { return D.shadow(x, y) }
@@ -171,13 +170,9 @@ export function DTag({ children, bg = INK, color = D.bg, style: sx }: {
 
 // ── PageShell ─────────────────────────────────────────────────────
 // Standard page content wrapper
-export function PageShell({ children, style: sx }: { children: React.ReactNode; style?: React.CSSProperties }) {
+export function PageShell({ children, style: sx, className }: { children: React.ReactNode; style?: React.CSSProperties; className?: string }) {
   return (
-    <div style={{
-      padding: '28px 32px', minHeight: '100%',
-      background: BG, fontFamily: "'Be Vietnam Pro', sans-serif",
-      ...sx,
-    }}>
+    <div className={['mgmt-page', className].filter(Boolean).join(' ')} style={sx}>
       {children}
     </div>
   )
@@ -188,12 +183,12 @@ export function PageHeader({ title, sub, actions }: {
   title: string; sub?: string; actions?: React.ReactNode
 }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24, gap: 16 }}>
+    <div className="mgmt-page-header">
       <div>
         <h1 style={{ fontSize: 24, fontWeight: 900, color: INK, letterSpacing: '-.025em', margin: 0 }}>{title}</h1>
         {sub && <p style={{ fontSize: 13, color: INK_MUTED, marginTop: 4 }}>{sub}</p>}
       </div>
-      {actions && <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>{actions}</div>}
+      {actions && <div className="mgmt-page-header__actions">{actions}</div>}
     </div>
   )
 }

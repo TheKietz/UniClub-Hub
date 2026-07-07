@@ -30,7 +30,7 @@ export default function AdminPositionsPage() {
 
   if (loading) {
     return (
-      <div style={{ padding: '28px 32px', minHeight: '100%', background: D.bg, color: D.inkMuted, fontFamily: "'Be Vietnam Pro', sans-serif" }}>
+      <div className="mgmt-page mgmt-page--loading">
         Đang tải...
       </div>
     )

@@ -413,9 +413,9 @@ export default function MembersPage() {
     return <PermissionDenied />
 
   return (
-    <div style={{ padding: '28px 32px', minHeight: '100%', background: D.bg, fontFamily: "'Be Vietnam Pro', sans-serif" }}>
+    <div className="mgmt-page">
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20, gap: 16 }}>
+      <div className="mgmt-page-header" style={{ marginBottom: 20 }}>
         <div>
           <h1 style={{ fontSize: 24, fontWeight: 900, color: D.ink, letterSpacing: '-.025em', margin: 0 }}>Quản lý thành viên</h1>
           <p style={{ fontSize: 13, color: D.inkMuted, marginTop: 4 }}>{totalMembers} thành viên trong CLB</p>
@@ -503,7 +503,7 @@ export default function MembersPage() {
       </div>
 
       {/* Table */}
-      <div style={{ borderRadius: D.radius, overflow: 'hidden', background: D.card, border: D.border, boxShadow: D.shadow() }}>
+      <div className="mgmt-table-scroll" style={{ borderRadius: D.radius, background: D.card, border: D.border, boxShadow: D.shadow() }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
           <thead>
             <tr style={{ background: D.bg, borderBottom: D.borderLight }}>

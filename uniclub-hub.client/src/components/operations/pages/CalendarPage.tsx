@@ -154,7 +154,7 @@ export default function CalendarPage() {
   }
 
   return (
-    <div style={{ padding: '28px 32px', minHeight: '100%', background: D.bg, fontFamily: "'Be Vietnam Pro', sans-serif", display: 'flex', gap: 20, alignItems: 'flex-start' }}>
+    <div className="mgmt-page ops-calendar-layout">
 
       {/* ── Calendar panel ───────────────────────────────────────────────── */}
       <div style={{ flex: 1, background: D.card, border: D.border, borderRadius: D.radius, boxShadow: D.shadow(), overflow: 'hidden' }}>

@@ -90,8 +90,8 @@ export default function ClubListPage() {
       <PublicHeader />
 
       {/* ─── Header / Search ──────────────────────────── */}
-      <section style={{ padding: '132px 28px 28px', position: 'relative', zIndex: 20 }}>
-        <div style={{ maxWidth: 1280, margin: '0 auto', position: 'relative' }}>
+      <section className="portal-section portal-section--hero">
+        <div className="portal-inner" style={{ position: 'relative' }}>
           {/* Decoration */}
           <div aria-hidden style={{
             position: 'absolute', top: 10, right: 40,
@@ -223,7 +223,7 @@ export default function ClubListPage() {
 
       {/* ─── Spotlight: CLB đang tuyển nổi bật ────────── */}
       {showSpotlight && (
-        <section style={{ padding: '4px 28px 8px' }}>
+        <section className="portal-section" style={{ paddingTop: 4, paddingBottom: 8 }}>
           <div style={{ maxWidth: 1280, margin: '0 auto' }}>
             <Rv>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
@@ -233,7 +233,7 @@ export default function ClubListPage() {
                 </span>
               </div>
             </Rv>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 14 }}>
+            <div className="portal-spotlight-grid">
               {spotlightCards.map((club, i) => (
                 <Rv key={club.id} delay={i * 60}>
                   <div
@@ -286,15 +286,15 @@ export default function ClubListPage() {
 
       {/* ─── Club grid ────────────────────────────────── */}
       {loading ? (
-        <section style={{ padding: '16px 28px 60px', flex: 1 }}>
+        <section className="portal-section portal-section--body">
           <div style={{ maxWidth: 1280, margin: '0 auto' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 14 }}>
+            <div className="portal-club-grid">
               <LandingClubGridSkeleton count={8} compact={false} />
             </div>
           </div>
         </section>
       ) : clubsError ? (
-        <section style={{ padding: '64px 28px', textAlign: 'center' }}>
+        <section className="portal-section portal-section--cta">
           <div style={{ maxWidth: 420, margin: '0 auto' }}>
             <div style={{ fontSize: 18, fontWeight: 800, color: C.ink, marginBottom: 8 }}>
               Không tải được danh sách CLB
@@ -315,9 +315,9 @@ export default function ClubListPage() {
           </div>
         </section>
       ) : cardData.length > 0 ? (
-        <section style={{ padding: '16px 28px 60px', flex: 1 }}>
+        <section className="portal-section portal-section--body">
           <div style={{ maxWidth: 1280, margin: '0 auto' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 14 }}>
+            <div className="portal-club-grid">
               {cardData.map((club, i) => (
                 <Rv key={club.id} delay={i * 40}>
                   <ClubCard club={club} onClick={() => navigate(`/clubs/${club.id}`)} />
@@ -327,7 +327,7 @@ export default function ClubListPage() {
           </div>
         </section>
       ) : (
-        <section style={{ padding: '64px 28px', textAlign: 'center' }}>
+        <section className="portal-section portal-section--cta">
           <div style={{ maxWidth: 400, margin: '0 auto' }}>
             <div style={{ fontSize: 48, marginBottom: 16 }}>🔍</div>
             <div style={{ fontSize: 18, fontWeight: 700, color: C.ink, marginBottom: 8 }}>

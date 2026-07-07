@@ -37,7 +37,7 @@ export default function StatCard({
         (e.currentTarget as HTMLDivElement).style.boxShadow = '4px 4px 0 #0A0A0A';
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 12 }}>
+      <div className="mgmt-page-header" style={{ marginBottom: 12 }}>
         {/* Icon container — square, thick border */}
         <div style={{
           width: 44,

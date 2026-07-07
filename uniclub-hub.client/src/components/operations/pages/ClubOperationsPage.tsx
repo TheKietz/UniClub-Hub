@@ -108,23 +108,9 @@ export default function ClubOperationsPage() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--c-bg)' }}>
       {/* ── Top tab bar ─────────────────────────────────────────────────── */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'stretch',
-        background: 'var(--c-chrome)',
-        borderBottom: '3px solid var(--c-accent)',
-        flexShrink: 0,
-        padding: '0 24px',
-      }}>
+      <div className="ops-shell__tabbar">
         {/* Department selector / label */}
-        <div style={{
-          paddingRight: 20,
-          marginRight: 8,
-          borderRight: '2px solid rgba(255,255,255,0.18)',
-          display: 'flex',
-          alignItems: 'center',
-          flexShrink: 0,
-        }}>
+        <div className="ops-shell__dept">
           {departments.length > 1 ? (
             <FilterSelect
               value={selectedDeptId?.toString() ?? ''}
@@ -154,7 +140,7 @@ export default function ClubOperationsPage() {
           )}
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'stretch', overflowX: 'auto', flex: 1, minWidth: 0 }}>
+        <div className="ops-shell__tabs">
         {visibleTabs.map(tab => {
           const isActive = view === tab.id;
           return (

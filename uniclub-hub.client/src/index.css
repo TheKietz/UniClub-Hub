@@ -325,3 +325,500 @@ code {
   0%, 100% { opacity: 1; }
   50%       { opacity: 0.35; }
 }
+
+/* ── Membership / dashboard responsive ── */
+.dashboard-layout {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+  font-family: 'Be Vietnam Pro', sans-serif;
+}
+
+.dashboard-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  border: none;
+  padding: 0;
+  margin: 0;
+  background: rgba(15, 23, 42, 0.45);
+  cursor: pointer;
+}
+
+.dashboard-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.dashboard-main__content {
+  flex: 1;
+  overflow: auto;
+  background: var(--c-bg);
+}
+
+.dashboard-mobile-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-bottom: 1px solid #e8e3d6;
+  background: #fff;
+  flex-shrink: 0;
+}
+
+.dashboard-mobile-bar__menu {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  border: 1.5px solid var(--c-ink);
+  background: #fff;
+  box-shadow: 2px 2px 0 var(--c-ink);
+  font-size: 18px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.dashboard-mobile-bar__title {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--c-ink);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dashboard-mobile-bar__mode {
+  font-size: 10px;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  flex-shrink: 0;
+}
+
+.dashboard-sidebar--mobile {
+  position: fixed !important;
+  left: 0;
+  top: 0;
+  z-index: 100;
+  height: 100vh !important;
+  transform: translateX(-105%);
+  transition: transform 0.22s ease;
+  box-shadow: 8px 0 32px rgba(0, 0, 0, 0.18);
+}
+
+.dashboard-sidebar--mobile.dashboard-sidebar--open {
+  transform: translateX(0);
+}
+
+.mgmt-page {
+  padding: 28px 32px;
+  min-height: 100%;
+  background: var(--c-bg);
+  font-family: 'Be Vietnam Pro', sans-serif;
+}
+
+.mgmt-page--report {
+  background: #f4f7fc;
+}
+
+.mgmt-page--loading {
+  min-height: auto;
+  color: #918c99;
+  font-size: 13px;
+}
+
+.mgmt-settings {
+  min-height: 100%;
+  background: var(--c-bg);
+  font-family: 'Be Vietnam Pro', sans-serif;
+}
+
+.mgmt-settings__head {
+  padding: 28px 32px 0;
+}
+
+.mgmt-settings__tabs {
+  display: flex;
+  border-bottom: 2px solid #dce6f4;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.mgmt-settings__tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.mgmt-page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.mgmt-page-header__actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+
+.mgmt-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.mgmt-stat-grid--2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.mgmt-stat-grid--4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.mgmt-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.mgmt-toolbar__grow {
+  flex: 1;
+  min-width: 120px;
+}
+
+.mgmt-two-col {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.mgmt-table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
+}
+
+.mgmt-table-scroll > table {
+  min-width: 640px;
+}
+
+.mgmt-card-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 1023px) {
+  .mgmt-page,
+  .mgmt-settings__head {
+    padding: 20px 16px;
+  }
+
+  .mgmt-page--loading {
+    padding: 20px 16px;
+  }
+}
+
+@media (max-width: 640px) {
+  .mgmt-page,
+  .mgmt-settings__head {
+    padding: 14px 12px;
+  }
+
+  .mgmt-page--loading {
+    padding: 14px 12px;
+  }
+
+  .mgmt-page-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .mgmt-page-header__actions {
+    width: 100%;
+  }
+
+  .mgmt-page-header__actions > button,
+  .mgmt-page-header__actions > a {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .mgmt-stat-grid,
+  .mgmt-stat-grid--2,
+  .mgmt-stat-grid--4 {
+    grid-template-columns: 1fr;
+  }
+
+  .mgmt-two-col {
+    grid-template-columns: 1fr;
+  }
+
+  .mgmt-card-row > button {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+.mgmt-toolbar input {
+  flex: 1;
+  min-width: 140px;
+}
+
+@media (max-width: 640px) {
+  .mgmt-toolbar {
+    width: 100%;
+  }
+
+  .mgmt-toolbar input {
+    min-width: 0;
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .dashboard-mobile-bar__mode {
+    display: none;
+  }
+}
+
+/* ── Operations (Đề tài 2) ── */
+.ops-shell__tabbar {
+  display: flex;
+  align-items: stretch;
+  background: var(--c-chrome);
+  border-bottom: 3px solid var(--c-accent);
+  flex-shrink: 0;
+  padding: 0 24px;
+}
+
+.ops-shell__dept {
+  padding-right: 20px;
+  margin-right: 8px;
+  border-right: 2px solid rgba(255, 255, 255, 0.18);
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.ops-shell__tabs {
+  display: flex;
+  align-items: stretch;
+  overflow-x: auto;
+  flex: 1;
+  min-width: 0;
+  scrollbar-width: none;
+}
+
+.ops-shell__tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.ops-calendar-layout {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+}
+
+.ops-kanban-page {
+  min-height: 100vh;
+  padding-top: 16px;
+  padding-bottom: 16px;
+}
+
+.ops-kanban-header {
+  flex-wrap: wrap;
+}
+
+.ops-dashboard-split {
+  grid-template-columns: 2fr 1fr;
+}
+
+.ops-sprints-page .mgmt-page-header {
+  align-items: center;
+}
+
+@media (max-width: 1023px) {
+  .ops-shell__tabbar {
+    padding: 0 12px;
+  }
+
+  .ops-shell__dept {
+    padding-right: 12px;
+    margin-right: 6px;
+  }
+}
+
+@media (max-width: 900px) {
+  .ops-calendar-layout {
+    flex-direction: column;
+  }
+
+  .ops-calendar-layout > div:last-child {
+    width: 100% !important;
+  }
+
+  .ops-dashboard-split {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .ops-shell__tabbar {
+    flex-wrap: wrap;
+    padding: 8px 10px 0;
+    gap: 8px;
+  }
+
+  .ops-shell__dept {
+    width: 100%;
+    border-right: none;
+    margin-right: 0;
+    padding-right: 0;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+  }
+
+  .ops-shell__tabs {
+    width: 100%;
+  }
+
+  .ops-kanban-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .ops-kanban-header > div:last-child {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+}
+
+/* ── Portal / cổng thông tin (Đề tài 3) ── */
+.portal-section {
+  padding-left: 28px;
+  padding-right: 28px;
+  position: relative;
+  z-index: 20;
+}
+
+.portal-section--hero {
+  padding-top: 132px;
+  padding-bottom: 28px;
+}
+
+.portal-section--hero-tall {
+  padding-top: 132px;
+  padding-bottom: 48px;
+}
+
+.portal-section--body {
+  padding-top: 16px;
+  padding-bottom: 60px;
+  flex: 1;
+}
+
+.portal-section--cta {
+  padding-top: 64px;
+  padding-bottom: 64px;
+  text-align: center;
+}
+
+.portal-inner {
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
+.portal-contact-grid {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 20px;
+  align-items: start;
+}
+
+.portal-club-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 14px;
+}
+
+.portal-spotlight-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 14px;
+}
+
+.portal-about-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+
+@media (max-width: 1023px) {
+  .portal-section,
+  .portal-section--hero,
+  .portal-section--hero-tall,
+  .portal-section--body,
+  .portal-section--cta {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+
+  .portal-section--hero,
+  .portal-section--hero-tall {
+    padding-top: 120px;
+  }
+}
+
+@media (max-width: 768px) {
+  .portal-contact-grid,
+  .portal-about-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .portal-spotlight-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .portal-club-grid {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  }
+
+  .portal-contact-form-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .portal-section,
+  .portal-section--hero,
+  .portal-section--hero-tall,
+  .portal-section--body,
+  .portal-section--cta {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+
+  .portal-section--hero,
+  .portal-section--hero-tall {
+    padding-top: 108px;
+    padding-bottom: 20px;
+  }
+
+  .portal-section--cta {
+    padding-top: 40px;
+    padding-bottom: 40px;
+  }
+}

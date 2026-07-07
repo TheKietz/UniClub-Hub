@@ -204,8 +204,8 @@ export default function KpiConfigPage() {
   }
 
   return (
-    <div style={{ padding: '28px 32px 40px', minHeight: '100%', background: D.bg, fontFamily: "'Be Vietnam Pro', sans-serif" }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20, gap: 16 }}>
+    <div className="mgmt-page">
+      <div className="mgmt-page-header" style={{ marginBottom: 20 }}>
         <div>
           <h1 style={{ fontSize: 24, fontWeight: 900, color: D.ink, letterSpacing: '-.025em', margin: 0 }}>Cấu hình KPI thành viên</h1>
           <p style={{ fontSize: 13, color: D.inkMuted, marginTop: 4 }}>
@@ -296,7 +296,7 @@ export default function KpiConfigPage() {
           </div>
         </div>
 
-        <div style={{ borderRadius: D.radius, overflow: 'hidden', background: D.card, border: D.border, boxShadow: D.shadow() }}>
+        <div className="mgmt-table-scroll" style={{ borderRadius: D.radius, background: D.card, border: D.border, boxShadow: D.shadow() }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, tableLayout: 'fixed' }}>
             <colgroup>
               <col style={{ width: 72 }} />
@@ -392,7 +392,7 @@ export default function KpiConfigPage() {
           </button>
         </div>
 
-        <div style={{ borderRadius: D.radius, overflow: 'hidden', background: D.card, border: D.border, boxShadow: D.shadow() }}>
+        <div className="mgmt-table-scroll" style={{ borderRadius: D.radius, background: D.card, border: D.border, boxShadow: D.shadow() }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ background: D.bg, borderBottom: D.borderLight }}>

@@ -71,7 +71,7 @@ export default function MyActivityPage() {
   const tabCount = (t: Tab) => t === 'CLB của tôi' ? activeMemberships.length : t === 'Đơn ứng tuyển' ? applications.length : resignations.length
 
   return (
-    <div style={{ padding: '28px 32px', minHeight: '100%', background: D.bg, fontFamily: "'Be Vietnam Pro', sans-serif" }}>
+    <div className="mgmt-page">
       <div style={{ marginBottom: 24 }}>
         <h1 style={{ fontSize: 24, fontWeight: 900, color: D.ink, letterSpacing: '-.025em', margin: 0 }}>Hoạt động của tôi</h1>
         <p style={{ fontSize: 13, color: D.inkMuted, marginTop: 4 }}>Quản lý CLB, đơn ứng tuyển và đơn từ chức</p>

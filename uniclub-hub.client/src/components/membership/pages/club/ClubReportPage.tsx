@@ -128,7 +128,7 @@ export default function ClubReportPage() {
   ])
 
   return (
-    <div style={{ padding: '28px 32px', minHeight: '100%', background: '#f4f7fc', fontFamily: "'Be Vietnam Pro', sans-serif" }}>
+    <div className="mgmt-page mgmt-page--report">
       <style>{`
         @media print {
           html, body {

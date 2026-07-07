@@ -672,7 +672,7 @@ export default function UniversityEventDetailPage() {
   }
 
   return (
-    <div style={{ padding: '28px 32px', background: D.bg, minHeight: '100%', fontFamily: "'Be Vietnam Pro', sans-serif" }}>
+    <div className="mgmt-page">
 
       {/* Back */}
       <button type="button" onClick={() => navigate(backPath)}
@@ -681,7 +681,7 @@ export default function UniversityEventDetailPage() {
       </button>
 
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24, gap: 16 }}>
+      <div className="mgmt-page-header" style={{ marginBottom: 24 }}>
         <div style={{ minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
             <span style={{ fontSize: 10, fontWeight: 900, color: '#dc2626', background: '#fee2e2', border: '1.5px solid #fca5a5', borderRadius: D.pill, padding: '3px 10px', letterSpacing: '.04em', flexShrink: 0 }}>TOÀN TRƯỜNG</span>
