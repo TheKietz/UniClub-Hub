@@ -120,12 +120,23 @@ namespace UniClub_Hub.Operations.Services.Implements
                 .Select(g => new { TaskId = g.Key, Count = g.Count() })
                 .ToDictionaryAsync(x => x.TaskId, x => x.Count);
 
+            // Batch query 3: additional assignees — one WHERE IN instead of N correlated subqueries
+            var assigneeRows = await db.TaskAssignees
+                .AsNoTracking()
+                .Where(a => taskIds.Contains(a.TaskId))
+                .Select(a => new { a.TaskId, a.UserId })
+                .ToListAsync();
+            var assigneesByTask = assigneeRows
+                .GroupBy(a => a.TaskId)
+                .ToDictionary(g => g.Key, g => g.Select(x => x.UserId).ToList());
+
             foreach (var item in items)
             {
                 item.SubTaskCount = subTaskCounts.TryGetValue(item.Id, out var sc) ? sc : 0;
                 var bc = blockingCounts.TryGetValue(item.Id, out var bcount) ? bcount : 0;
                 item.BlockingCount = bc;
                 item.IsBlocked = bc > 0;
+                item.AssigneeIds = assigneesByTask.TryGetValue(item.Id, out var aids) ? aids : [];
             }
 
             return new PagedResult<TaskDto>

@@ -2,7 +2,10 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { getClubStats, getClubGrowth, getDepartments, getClubResignations } from '@/components/membership/services/clubApi'
 import type { ClubStats, MonthlyGrowth, DepartmentItem } from '@/components/membership/services/club.types'
-import { useAuth } from '@/hooks/useAuth'
+import { getPostsAdmin, type PostResponse } from '@/components/membership/services/postsApi'
+import { getGallery } from '@/components/membership/services/galleryApi'
+import { getClubLandingPage } from '@/components/portal/services/portal.api'
+import { useAuth } from '@/contexts/AuthContext'
 import {
   StatCard, ChartCard, MiniAreaChart, MiniBarChart, MiniDonut,
   PageShell, DTag,
@@ -85,9 +88,36 @@ export default function ClubManageDashboard() {
   const [exporting, setExporting] = useState(false)
   const contentRef = useRef<HTMLDivElement>(null)
 
+  type MediaStats = {
+    totalPosts: number; publishedPosts: number; draftPosts: number
+    recentPosts: PostResponse[]; imageCount: number; videoCount: number
+    hasLandingContent: boolean
+  }
+  const [media, setMedia] = useState<MediaStats | null>(null)
+
   useEffect(() => {
     if (!clubId) return
     const id = Number(clubId)
+    // Load media stats independently — don't block main dashboard
+    Promise.all([
+      getPostsAdmin(id, { pageSize: 5 }).catch(() => null),
+      getGallery(id).catch(() => []),
+      getClubLandingPage(id).catch(() => null),
+    ]).then(([postsRes, galleryItems, landingData]) => {
+      if (postsRes) {
+        const allPosts = postsRes.data
+        setMedia({
+          totalPosts: postsRes.totalCount,
+          publishedPosts: allPosts.filter(p => p.status === 'Published').length,
+          draftPosts: allPosts.filter(p => p.status === 'Draft').length,
+          recentPosts: allPosts.slice(0, 5),
+          imageCount: galleryItems.filter(g => g.mediaType === 'Image').length,
+          videoCount: galleryItems.filter(g => g.mediaType === 'Video').length,
+          hasLandingContent: !!(landingData?.landingPage?.introduction || landingData?.landingPage?.heroImage),
+        })
+      }
+    })
+
     Promise.all([
       getClubStats(id),
       getDepartments(id),
@@ -346,6 +376,116 @@ export default function ClubManageDashboard() {
             )}
           </div>
         </ChartCard>
+      )}
+
+      {/* ── Truyền thông & Nội dung ──────────────────────────────────── */}
+      {media && (
+        <>
+          {/* Section header */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '28px 0 14px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ width: 4, height: 20, borderRadius: 2, background: '#10b981' }} />
+              <span style={{ fontSize: 15, fontWeight: 800, color: D.ink, letterSpacing: '-.02em' }}>
+                Truyền thông &amp; Nội dung
+              </span>
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <Link to={`/clubs/${clubId}/manage/posts`} style={{
+                fontSize: 12, fontWeight: 700, color: '#4f46e5', textDecoration: 'none',
+                padding: '4px 12px', borderRadius: 99, border: '1px solid #c7d2fe', background: '#eef2ff',
+              }}>Bài viết</Link>
+              <Link to={`/clubs/${clubId}/manage/gallery`} style={{
+                fontSize: 12, fontWeight: 700, color: '#10b981', textDecoration: 'none',
+                padding: '4px 12px', borderRadius: 99, border: '1px solid #a7f3d0', background: '#ecfdf5',
+              }}>Thư viện ảnh</Link>
+              <Link to={`/clubs/${clubId}/manage/landing-page`} style={{
+                fontSize: 12, fontWeight: 700, color: '#f59e0b', textDecoration: 'none',
+                padding: '4px 12px', borderRadius: 99, border: '1px solid #fde68a', background: '#fefce8',
+              }}>Chi tiết CLB</Link>
+            </div>
+          </div>
+
+          {/* Warning nếu landing page chưa có nội dung */}
+          {!media.hasLandingContent && (
+            <div style={{
+              borderRadius: 10, border: '1.5px solid #fde68a', background: '#fef3c7',
+              padding: '10px 16px', marginBottom: 14,
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            }}>
+              <span style={{ fontSize: 13, color: '#92400e', fontWeight: 600 }}>
+                ⚠️ Trang Chi tiết CLB chưa có nội dung giới thiệu
+              </span>
+              <Link to={`/clubs/${clubId}/manage/landing-page`} style={{
+                fontSize: 12, fontWeight: 700, color: '#b45309', textDecoration: 'none', whiteSpace: 'nowrap',
+              }}>Cài đặt ngay →</Link>
+            </div>
+          )}
+
+          {/* Stats cards */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10, marginBottom: 16 }}>
+            {[
+              { label: 'Tổng bài viết', value: media.totalPosts, color: '#4f46e5', icon: '📝' },
+              { label: 'Đã xuất bản', value: media.publishedPosts, color: '#10b981', icon: '✅' },
+              { label: 'Bản nháp', value: media.draftPosts, color: '#f59e0b', icon: '📄' },
+              { label: 'Ảnh', value: media.imageCount, color: '#38bdf8', icon: '🖼️' },
+              { label: 'Video', value: media.videoCount, color: '#7c3aed', icon: '🎬' },
+            ].map(s => (
+              <div key={s.label} style={{
+                background: D.card ?? '#fff', borderRadius: 12, border: D.border,
+                boxShadow: D.shadow(2, 2), padding: '14px 16px',
+              }}>
+                <div style={{ fontSize: 18, marginBottom: 6 }}>{s.icon}</div>
+                <div style={{ fontSize: 22, fontWeight: 900, color: s.color, lineHeight: 1, letterSpacing: '-.03em' }}>{s.value}</div>
+                <div style={{ fontSize: 11, color: D.inkMuted, fontWeight: 600, marginTop: 4 }}>{s.label}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Recent posts */}
+          {media.recentPosts.length > 0 && (
+            <ChartCard title="Bài viết gần nhất" rightLabel={
+              <Link to={`/clubs/${clubId}/manage/posts`} style={{ fontSize: 12, fontWeight: 700, color: '#4f46e5', textDecoration: 'none' }}>
+                Xem tất cả →
+              </Link>
+            } style={{ marginBottom: 28 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {media.recentPosts.map(post => (
+                  <div key={post.id} style={{
+                    display: 'flex', alignItems: 'center', gap: 12,
+                    padding: '10px 12px', borderRadius: 10, background: D.bg, border: D.borderLight,
+                  }}>
+                    <div style={{
+                      width: 36, height: 36, borderRadius: 8, flexShrink: 0,
+                      background: post.thumbnailUrl ? 'transparent' : '#e0e7ff',
+                      border: D.borderLight, overflow: 'hidden',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16,
+                    }}>
+                      {post.thumbnailUrl
+                        ? <img src={post.thumbnailUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        : '📝'}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{
+                        fontSize: 13, fontWeight: 700, color: D.ink,
+                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                      }}>{post.title}</div>
+                      <div style={{ fontSize: 11, color: D.inkMuted, marginTop: 2 }}>
+                        {new Date(post.createdAt).toLocaleDateString('vi-VN')} · {post.category === 'News' ? 'Tin tức' : 'Thông báo'}
+                      </div>
+                    </div>
+                    <span style={{
+                      fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 4, flexShrink: 0,
+                      background: post.status === 'Published' ? '#d1fae5' : '#f3f4f6',
+                      color: post.status === 'Published' ? '#065f46' : '#6b7280',
+                    }}>
+                      {post.status === 'Published' ? '● Đã đăng' : '○ Nháp'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </ChartCard>
+          )}
+        </>
       )}
 
       {depts.length > 0 && (

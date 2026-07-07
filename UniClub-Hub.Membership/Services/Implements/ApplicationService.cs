@@ -188,6 +188,17 @@ namespace UniClub_Hub.Membership.Services.Implements
             if (hasPending)
                 throw new InvalidOperationException("Bạn đang có đơn chờ duyệt cho CLB này.");
 
+            var lastRejected = await _db.Applications
+                .Where(a => a.ClubId == clubId && a.UserId == userId && a.Status == ApplicationStatus.Rejected)
+                .OrderByDescending(a => a.ReviewedAt ?? a.AppliedAt)
+                .Select(a => a.ReviewedAt ?? a.AppliedAt)
+                .FirstOrDefaultAsync();
+            if (lastRejected != default && DateTime.UtcNow - lastRejected < TimeSpan.FromHours(24))
+            {
+                var hoursLeft = Math.Ceiling((lastRejected.AddHours(24) - DateTime.UtcNow).TotalHours);
+                throw new InvalidOperationException($"Đơn của bạn đã bị từ chối gần đây. Vui lòng chờ thêm {hoursLeft} giờ trước khi đăng ký lại.");
+            }
+
             var application = new ClubApplication
             {
                 UserId = userId,
@@ -357,6 +368,9 @@ namespace UniClub_Hub.Membership.Services.Implements
 
         // ── Helpers ───────────────────────────────────────────────────────
 
+        private static DateTime Utc(DateTime dt) =>
+            DateTime.SpecifyKind(dt, DateTimeKind.Utc);
+
         private static ApplicationDto ToDto(ClubApplication a) =>
             new()
             {
@@ -364,7 +378,8 @@ namespace UniClub_Hub.Membership.Services.Implements
                 ClubId = a.ClubId,
                 ClubName = a.Club?.Name ?? "",
                 Status = a.Status,
-                AppliedAt = a.AppliedAt,
+                AppliedAt = Utc(a.AppliedAt),
+                ReviewedAt = a.ReviewedAt.HasValue ? Utc(a.ReviewedAt.Value) : null,
                 ReviewNote = a.ReviewNote,
             };
 
@@ -375,9 +390,9 @@ namespace UniClub_Hub.Membership.Services.Implements
                 ClubId = a.ClubId,
                 ClubName = a.Club?.Name ?? "",
                 Status = a.Status,
-                AppliedAt = a.AppliedAt,
+                AppliedAt = Utc(a.AppliedAt),
                 ReviewNote = a.ReviewNote,
-                ReviewedAt = a.ReviewedAt,
+                ReviewedAt = a.ReviewedAt.HasValue ? Utc(a.ReviewedAt.Value) : null,
                 ReviewerName = reviewerName,
                 UserId = a.UserId,
                 FullName = a.User?.FullName ?? a.User?.Email ?? "",
@@ -429,6 +444,9 @@ namespace UniClub_Hub.Membership.Services.Implements
             }
 
             application.CurrentStageId = nextStage.Id;
+            // Advancing through custom pipeline stages keeps the coarse status at Reviewing;
+            // the specific stage is tracked via CurrentStageId/CurrentStageName. "Interview" is a
+            // distinct explicit decision made through ReviewAsync, not a pipeline-progression state.
             application.Status = ApplicationStatus.Reviewing;
             application.ReviewNote = req.ReviewNote;
             application.ReviewedAt = DateTime.UtcNow;

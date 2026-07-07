@@ -7,7 +7,7 @@ namespace UniClub_Hub.Membership.Services.Interfaces
     public interface INotificationService
     {
         Task SendAsync(string userId, string title, string message, NotificationType type = NotificationType.System,
-            string? body = null, string? relatedEntityType = null, int? relatedEntityId = null);
+            string? link = null, string? body = null, string? relatedEntityType = null, int? relatedEntityId = null);
         Task<PagedResult<NotificationDto>> GetMyNotificationsAsync(string userId, int page, int pageSize);
         Task<int> GetUnreadCountAsync(string userId);
         Task MarkAsReadAsync(int id, string userId);

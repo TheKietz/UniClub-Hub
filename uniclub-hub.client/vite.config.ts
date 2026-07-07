@@ -40,12 +40,21 @@ function buildDevServerConfig(): Record<string, unknown> | undefined {
         }
     }
 
+    // Cổng backend khi chạy dev. Ưu tiên biến môi trường do SpaProxy/Visual Studio
+    // truyền vào; nếu không có (vd chạy `dotnet run` theo profile "http"), fallback
+    // về http://localhost:5015 — đúng cổng mà `dotnet run` bind mặc định.
     const target = env.ASPNETCORE_HTTPS_PORT ? `https://localhost:${env.ASPNETCORE_HTTPS_PORT}` :
-        env.ASPNETCORE_URLS ? env.ASPNETCORE_URLS.split(';')[0] : 'https://localhost:7274';
+        env.ASPNETCORE_URLS ? env.ASPNETCORE_URLS.split(';')[0] : 'http://localhost:5015';
 
     return {
         proxy: {
             '^/api': {
+                target,
+                secure: false,
+                ws: true
+            },
+            // SignalR (Kanban realtime) — cần proxy cả /hubs, kèm WebSocket
+            '^/hubs': {
                 target,
                 secure: false,
                 ws: true

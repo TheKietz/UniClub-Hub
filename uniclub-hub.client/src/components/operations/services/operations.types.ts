@@ -37,6 +37,7 @@ export interface TaskItem {
   completedAt?: string
   assignedTo?: string
   assigneeName?: string
+  assigneeIds?: string[]
   createdBy?: string
   createdAt: string
   subTaskCount: number
@@ -329,6 +330,8 @@ export interface EventRegistrationItem {
   attendance: AttendanceStatus
   checkedInAt?: string
   note?: string
+  /** Mã QR check-in (Base64 "{eventId}_{userId}") — chỉ có ở endpoint tự đăng ký / my-registration. */
+  checkInCode?: string
 }
 
 export interface RegisterMemberForEventDto {

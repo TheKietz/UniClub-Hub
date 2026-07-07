@@ -104,7 +104,7 @@ export default function WorkloadPage() {
   }
 
   return (
-    <div style={{ padding: '28px 32px', minHeight: '100%', background: D.bg, fontFamily: "'Be Vietnam Pro', sans-serif" }}>
+    <div className="rsp-page" style={{ padding: '28px 32px', minHeight: '100%', background: D.bg, fontFamily: "'Be Vietnam Pro', sans-serif" }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24, gap: 16 }}>
         <div>
@@ -121,14 +121,14 @@ export default function WorkloadPage() {
       </div>
 
       {/* Stat cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 24 }}>
+      <div className="rsp-grid-stats" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 24 }}>
         <StatCard icon={Activity} iconBg="#ede9fe" iconColor="#7c3aed" value={activeTasks} label="Tổng Task Đang Chạy" trend={{ value: '+12%', positive: true }} />
         <StatCard icon={Users} iconBg="#dbeafe" iconColor="#2563eb" value={avgPerPerson} label="Trung Bình Task / Người" subtitle={`${members.length} thành viên có việc`} />
         <StatCard icon={AlertTriangle} iconBg="#fee2e2" iconColor="#dc2626" value={overloaded.length} label={`Cảnh Báo Quá Tải >${OVERLOAD_THRESHOLD} Tasks`} trend={overloaded.length > 0 ? { value: 'Cần xử lý', positive: false } : undefined} />
       </div>
 
       {/* Chart + suggestions */}
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 16, marginBottom: 24 }}>
+      <div className="rsp-split" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 16, marginBottom: 24 }}>
         {/* Bar chart */}
         <div style={{ background: D.card, border: D.border, borderRadius: D.radius, boxShadow: D.shadow(), padding: 24 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>

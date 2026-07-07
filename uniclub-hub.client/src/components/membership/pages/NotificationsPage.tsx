@@ -6,6 +6,9 @@ import { deleteNotification, getNotifications, getNotificationUnreadCount, markA
 import type { NotificationItem, NotificationType } from '@/components/membership/services/notificationApi'
 import { LoadMoreBar } from '@/components/shared/LoadMoreBar'
 import { D } from '@/components/shared/managementTheme'
+import { useAuth } from '@/contexts/AuthContext'
+import { CLUB_ROLES, MEMBERSHIP_STATUS } from '@/types/auth'
+import type { UserMembership } from '@/types/auth'
 
 type FilterKey = 'all' | 'unread' | 'application' | 'task' | 'event' | 'system'
 
@@ -53,8 +56,21 @@ function matchesFilter(item: NotificationItem, filter: FilterKey) {
   return item.type.toLowerCase() === filter
 }
 
+function deriveLink(type: NotificationType, memberships: UserMembership[]): string | null {
+  const adminMembership = memberships.find(
+    m => (m.clubRole === CLUB_ROLES.CLUB_ADMIN || m.clubRole === CLUB_ROLES.DEPT_LEAD)
+      && (m.status === MEMBERSHIP_STATUS.ACTIVE || m.status === MEMBERSHIP_STATUS.PROBATION)
+  )
+  const clubId = adminMembership?.clubId
+  if (type === 'Application') return clubId ? `/clubs/${clubId}/manage/applications` : '/dashboard'
+  if (type === 'Task') return clubId ? `/clubs/${clubId}/operations` : '/dashboard'
+  if (type === 'Event') return clubId ? `/clubs/${clubId}/manage/events` : '/dashboard'
+  return null
+}
+
 export default function NotificationsPage() {
   const navigate = useNavigate()
+  const { user } = useAuth()
   const [items, setItems] = useState<NotificationItem[]>([])
   const [total, setTotal] = useState(0)
   const [unreadCount, setUnreadCount] = useState(0)
@@ -114,13 +130,14 @@ export default function NotificationsPage() {
   async function markRead(item: NotificationItem) {
     if (item.isRead) return
     await markNotificationRead(item.id).catch(() => {})
-    setItems(prev => prev.map(n => n.id === item.id ? { ...n, isRead: true } : n))
+    setItems(prev => prev.map(n => (n.id === item.id ? { ...n, isRead: true } : n)))
     setUnreadCount(prev => Math.max(0, prev - 1))
   }
 
   async function handleOpen(item: NotificationItem) {
     await markRead(item)
-    if (item.navigationUrl) navigate(item.navigationUrl)
+    const link = item.navigationUrl ?? item.link ?? deriveLink(item.type, user?.memberships ?? [])
+    if (link) navigate(link)
   }
 
   async function removeNotification(item: NotificationItem) {

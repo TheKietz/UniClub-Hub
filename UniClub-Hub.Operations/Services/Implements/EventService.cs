@@ -395,6 +395,108 @@ namespace UniClub_Hub.Operations.Services.Implements
             await db.SaveChangesAsync();
         }
 
+        // ── Self-service registration ────────────────────────────────────────
+
+        /// <summary>
+        /// QR payload cho scanner check-in = Base64("{eventId}_{userId}") — khớp với
+        /// decodeQrPayload ở client (atob → tách theo '_' đầu tiên).
+        /// </summary>
+        private static string EncodeCheckInCode(int eventId, string userId)
+            => Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes($"{eventId}_{userId}"));
+
+        private async Task<string> GetOrCreateCheckInCodeAsync(int eventId, int registrationId, string userId)
+        {
+            var existing = await db.EventCheckInCodes
+                .Where(c => c.EventRegistrationId == registrationId)
+                .Select(c => c.Code)
+                .FirstOrDefaultAsync();
+            if (existing != null) return existing;
+
+            var code = EncodeCheckInCode(eventId, userId);
+            db.EventCheckInCodes.Add(new EventCheckInCode
+            {
+                EventRegistrationId = registrationId,
+                EventId = eventId,
+                UserId = userId,
+                Code = code,
+                CreatedAt = DateTimeOffset.UtcNow,
+            });
+            await db.SaveChangesAsync();
+            return code;
+        }
+
+        public async Task<EventRegistrationDto> RegisterSelfAsync(int eventId, string userId)
+        {
+            var ev = await db.Events.FirstOrDefaultAsync(e => e.Id == eventId)
+                ?? throw new KeyNotFoundException("Không tìm thấy sự kiện.");
+
+            if (ev.Status == EventStatus.Cancelled || ev.Status == EventStatus.Completed)
+                throw new InvalidOperationException("Sự kiện không còn nhận đăng ký.");
+
+            var existing = await db.EventRegistrations
+                .Include(er => er.User)
+                .FirstOrDefaultAsync(er => er.EventId == eventId && er.UserId == userId);
+
+            if (existing != null)
+            {
+                // Idempotent — đã đăng ký thì trả lại kèm mã check-in.
+                var dtoEx = MapRegistrationToDto(existing);
+                dtoEx.CheckInCode = await GetOrCreateCheckInCodeAsync(eventId, existing.Id, userId);
+                return dtoEx;
+            }
+
+            if (ev.MaxParticipants.HasValue)
+            {
+                var count = await db.EventRegistrations.CountAsync(er => er.EventId == eventId);
+                if (count >= ev.MaxParticipants.Value)
+                    throw new InvalidOperationException("Sự kiện đã đủ số lượng tham gia");
+            }
+
+            var reg = new EventRegistration
+            {
+                EventId = eventId,
+                UserId = userId,
+                RegisteredAt = DateTimeOffset.UtcNow,
+            };
+            db.EventRegistrations.Add(reg);
+            await db.SaveChangesAsync();
+
+            var code = await GetOrCreateCheckInCodeAsync(eventId, reg.Id, userId);
+
+            await db.Entry(reg).Reference(r => r.User).LoadAsync();
+            var dto = MapRegistrationToDto(reg);
+            dto.CheckInCode = code;
+            return dto;
+        }
+
+        public async Task<EventRegistrationDto?> GetMyRegistrationAsync(int eventId, string userId)
+        {
+            var reg = await db.EventRegistrations
+                .Include(er => er.User)
+                .FirstOrDefaultAsync(er => er.EventId == eventId && er.UserId == userId);
+            if (reg == null) return null;
+
+            var dto = MapRegistrationToDto(reg);
+            dto.CheckInCode = await GetOrCreateCheckInCodeAsync(eventId, reg.Id, userId);
+            return dto;
+        }
+
+        public async Task UnregisterSelfAsync(int eventId, string userId)
+        {
+            var reg = await db.EventRegistrations
+                .FirstOrDefaultAsync(er => er.EventId == eventId && er.UserId == userId);
+            if (reg == null) return; // idempotent
+
+            // Xóa mã check-in trước (không phụ thuộc hành vi FK trên DB).
+            var codes = await db.EventCheckInCodes
+                .Where(c => c.EventRegistrationId == reg.Id)
+                .ToListAsync();
+            if (codes.Count > 0) db.EventCheckInCodes.RemoveRange(codes);
+
+            db.EventRegistrations.Remove(reg);
+            await db.SaveChangesAsync();
+        }
+
         // ── Attachments ──────────────────────────────────────────────────────
 
         private const string RegLinkContentType = "text/x-registration-link";

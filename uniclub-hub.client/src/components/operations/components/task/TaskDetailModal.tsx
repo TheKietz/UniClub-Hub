@@ -23,6 +23,7 @@ import type { MemberItem } from "../../../membership/services/club.types";
 import { useAuth } from "@/contexts/AuthContext";
 import { CLUB_ROLES } from "@/types/auth";
 import { D } from '@/components/shared/managementTheme'
+import { useIsMobile } from '@/hooks/useMediaQuery'
 
 /* ── Design tokens ─────────────────────────────────────────────────────────── */
 
@@ -139,6 +140,7 @@ function ActionTip({ text, children }: { text: string; children: React.ReactNode
 export default function TaskDetailModal({
   clubId, task, open, defaultColumnId, defaultSprintId, departmentId, columns, onClose, onSaved,
 }: Props) {
+  const isMobile = useIsMobile()
   const { getClubRole } = useAuth()
   const role = getClubRole(clubId)
   const isAdmin = role === CLUB_ROLES.CLUB_ADMIN
@@ -228,13 +230,24 @@ export default function TaskDetailModal({
     })
   }, [open, clubId, departmentId, canManageAssignees])
 
+  // The primary assignee (task.assignedTo) and the TaskAssignees table are
+  // stored separately and may diverge, so we display the UNION of both —
+  // otherwise only a single member would show. Seed from the primary for an
+  // instant paint, then merge the full assignee list once it loads. This effect
+  // is the sole owner of `assignedUsers` in edit mode.
   useEffect(() => {
-    if (open && task) {
-      getTaskAssignees(task.id)
-        .then(list => { setAssignees(list); setAssignedUsers(list.map(a => a.userId)) })
-        .catch(() => {})
-    }
-  }, [task?.id, open])
+    if (!open || !task) return
+    setAssignees([])
+    setAssignedUsers(task.assignedTo ? [task.assignedTo] : [])
+    getTaskAssignees(task.id)
+      .then(list => {
+        setAssignees(list)
+        const ids = list.map(a => a.userId)
+        if (task.assignedTo && !ids.includes(task.assignedTo)) ids.unshift(task.assignedTo)
+        setAssignedUsers(ids)
+      })
+      .catch(() => {})
+  }, [task?.id, task?.assignedTo, open])
 
   useEffect(() => {
     if (open && task) {
@@ -258,7 +271,8 @@ export default function TaskDetailModal({
       const dl = task.deadline  ? task.deadline.slice(0, 10)  : ""
       setStartDate(sd); setTmpStart(sd); setUseStart(!!sd)
       setDeadline(dl);  setTmpDeadline(dl); setUseDeadline(!!dl)
-      setAssignedUsers(task ? (task.assignedTo ? [task.assignedTo] : []) : [])
+      // assignedUsers is owned by the getTaskAssignees effect (union of primary
+      // + assignee table); don't reset it to only the primary here.
       setKanbanColumnId(task.kanbanColumnId ?? defaultColumnId)
       setSprintId(task.sprintId)
     } else {
@@ -308,6 +322,11 @@ export default function TaskDetailModal({
         toast.success("Đã cập nhật công việc")
       } else {
         const created = await createTask(clubId, dto)
+        // createTask only persists the primary (dto.assignedTo = assignedUsers[0]);
+        // register any additional selected members as task assignees.
+        for (const userId of assignedUsers.slice(1)) {
+          try { await assignTask(created.id, { userId }) } catch { /* ignore individual failures */ }
+        }
         if (pendingFiles.length > 0) {
           const failed: string[] = []
           for (const f of pendingFiles) {
@@ -555,7 +574,11 @@ export default function TaskDetailModal({
     const m = members.find(x => x.userId === id)
     if (m) return { userId: m.userId, fullName: m.fullName, email: m.email }
     const a = assignees.find(x => x.userId === id)
-    return { userId: id, fullName: a?.fullName, email: a?.email }
+    if (a) return { userId: id, fullName: a.fullName, email: a.email }
+    // Primary assignee may be absent from both the roster and the assignee
+    // table — fall back to the name carried on the task itself.
+    if (id === task?.assignedTo) return { userId: id, fullName: task?.assigneeName, email: undefined }
+    return { userId: id, fullName: undefined, email: undefined }
   })
   const unassignedMembers  = members.filter(m => !assignedUsers.includes(m.userId))
   const hasDate = !!(startDate || deadline)
@@ -610,7 +633,7 @@ export default function TaskDetailModal({
         </div>
 
         {/* ── Body ──────────────────────────────────────────────────────────── */}
-        <div style={{ display: 'flex', overflow: 'hidden', flex: 1, minHeight: 0 }}>
+        <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', overflow: 'hidden', flex: 1, minHeight: 0 }}>
 
           {/* ══ LEFT PANEL ════════════════════════════════════════════════════ */}
           <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 18, minWidth: 0 }}>
@@ -1328,7 +1351,13 @@ export default function TaskDetailModal({
 
           {/* ══ RIGHT PANEL — Combined feed ═══════════════════════════════════ */}
           {isEdit && (
-            <div style={{ flexShrink: 0, borderLeft: D.borderLight, display: 'flex', flexDirection: 'column', background: D.bg, overflow: 'hidden', width: 280 }}>
+            <div style={{
+              flexShrink: 0, display: 'flex', flexDirection: 'column', background: D.bg, overflow: 'hidden',
+              width: isMobile ? '100%' : 280,
+              borderLeft: isMobile ? 'none' : D.borderLight,
+              borderTop: isMobile ? D.borderLight : 'none',
+              maxHeight: isMobile ? '45vh' : undefined,
+            }}>
 
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 16px 8px', flexShrink: 0 }}>
                 <span style={{ fontSize: 13, fontWeight: 700, color: D.inkDim, display: 'flex', alignItems: 'center', gap: 6 }}>

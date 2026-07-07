@@ -18,6 +18,10 @@ type NavItem = { to: string; icon: string; label: string; end?: boolean; divider
 interface Props {
   mode: Mode
   clubId?: string
+  /** Gọi khi người dùng điều hướng — dùng để đóng drawer trên mobile. */
+  onNavigate?: () => void
+  /** Buộc sidebar luôn mở rộng (không cho thu gọn) — dùng trong drawer mobile. */
+  forceExpanded?: boolean
 }
 
 const CLUB_COLORS = ['#4f46e5', '#7c3aed', '#ef4444', '#14b8a6', '#38bdf8', '#ec4899', '#f59e0b', '#10b981']
@@ -76,6 +80,7 @@ const MEMBER_NAV: NavItem[] = [
   { to: '/profile', icon: '◐', label: 'Hồ sơ cá nhân'},
   { to: '/my-kpi', icon: '▦', label: 'KPI của tôi', dividerAfter: true  },
   { to: '/my-activity', icon: '↗', label: 'Hoạt động của tôi' },
+  { to: '/my-events', icon: '◈', label: 'Sự kiện của tôi' },
   { to: '/my-history', icon: '◎', label: 'Lịch sử thành viên', dividerAfter: true },
   { to: '/support', icon: '◉', label: 'Hỗ trợ' },  
 ]
@@ -85,6 +90,7 @@ const ADMIN_NAV: NavItem[] = [
   { to: '/admin/users', icon: '◐', label: 'Người dùng' },
   { to: '/admin/clubs', icon: '▦', label: 'Câu lạc bộ' },
   { to: '/admin/events', icon: '◈', label: 'Sự kiện toàn trường' },
+  { to: '/admin/news', icon: '✎', label: 'Tin tức cấp trường' },
   { to: '/admin/categories', icon: '✦', label: 'Lĩnh vực', dividerAfter: true },
   { to: '/admin/positions', icon: '✣', label: 'Vị trí & quyền', dividerAfter: true },
   { to: '/admin/support', icon: '◉', label: 'Hỗ trợ' },
@@ -124,21 +130,10 @@ function clubNav(id: string, role?: string, isSuperAdmin = false, perms: ClubPer
   }
 
   if (!isSuperAdmin && role === CLUB_ROLES.DEPT_LEAD) {
-    const items: NavItem[] = []
-    if (perms.positions) items.push(positionsItem)
-    if (perms.members) items.push({ to: `/clubs/${id}/manage/members`, icon: '◐', label: 'Thành viên' })
-    if (perms.applications) items.push({ to: `/clubs/${id}/manage/applications`, icon: '✦', label: 'Đơn ứng tuyển' })
-    if (perms.departments) items.push({ to: `/clubs/${id}/manage/departments`, icon: '▦', label: 'Ban bộ phận' })
-    if (perms.kpiView) items.push({ to: `/clubs/${id}/manage/kpi`, icon: '▥', label: 'KPI thành viên', end: true })
-    if (perms.kpiManage) items.push({ to: `/clubs/${id}/manage/kpi/config`, icon: '◫', label: 'Cấu hình KPI' })
-    if (perms.orgChart) items.push({ to: `/clubs/${id}/manage/orgchart`, icon: '⊹', label: 'Sơ đồ tổ chức' })
-    if (perms.pipeline) items.push({ to: `/clubs/${id}/manage/pipeline`, icon: '↗', label: 'Quy trình tuyển' })
-    if (perms.form) items.push({ to: `/clubs/${id}/manage/form`, icon: '✦', label: 'Form đăng ký' })
-    if (perms.resignations) items.push({ to: `/clubs/${id}/manage/resignations`, icon: '⊖', label: 'Đơn từ chức' })
-    if (perms.notifications) items.push({ to: `/clubs/${id}/manage/notifications`, icon: '◑', label: 'Cài đặt thông báo' })
-    if (perms.settings) items.push({ to: `/clubs/${id}/manage/settings`, icon: '◉', label: 'Cài đặt CLB' })
-    if (perms.auditLog) items.push({ to: `/clubs/${id}/manage/audit-log`, icon: '◎', label: 'Lịch sử thay đổi' })
-    return items
+    return [
+      { to: `/clubs/${id}/manage/posts`, icon: '✦', label: 'Bài viết & Tin tức' },
+      { to: `/clubs/${id}/manage/gallery`, icon: '◈', label: 'Thư viện ảnh & Video' },
+    ]
   }
 
   const positionItems = perms.positions ? [{ ...positionsItem, dividerAfter: true }] : []
@@ -158,13 +153,20 @@ function clubNav(id: string, role?: string, isSuperAdmin = false, perms: ClubPer
     { to: `/clubs/${id}/manage/resignations`, icon: '⊖', label: 'Đơn từ chức' },
     { to: `/clubs/${id}/manage/notifications`, icon: '◑', label: 'Cài đặt thông báo' },
     { to: `/clubs/${id}/manage/settings`, icon: '◉', label: 'Cài đặt CLB' },
+    { to: `/clubs/${id}/manage/posts`, icon: '✦', label: 'Bài viết & Tin tức' },
+    { to: `/clubs/${id}/manage/gallery`, icon: '◈', label: 'Thư viện ảnh & Video' },
+    { to: `/clubs/${id}/manage/landing-page`, icon: '✦', label: 'Chi tiết CLB' },
+    { to: `/clubs/${id}/manage/analytics`, icon: '▦', label: 'Analytics', dividerAfter: false },
   ]
 }
 
-export default function DashboardSidebar({ mode, clubId }: Props) {
+export default function DashboardSidebar({ mode, clubId, onNavigate, forceExpanded = false }: Props) {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
-  const [collapsed, setCollapsed] = useState(false)
+  const [collapsedState, setCollapsedState] = useState(false)
+  // Trong drawer mobile: luôn mở rộng, không cho thu gọn.
+  const collapsed = forceExpanded ? false : collapsedState
+  const setCollapsed = setCollapsedState
   const [clubPickerOpen, setClubPickerOpen] = useState(false)
   const [clubPermissionCodes, setClubPermissionCodes] = useState<string[]>([])
   const pickerRef = useRef<HTMLDivElement>(null)
@@ -261,6 +263,7 @@ export default function DashboardSidebar({ mode, clubId }: Props) {
     } else {
       navigate('/dashboard')
     }
+    onNavigate?.()
   }
 
   function getClubManageEntry(club: UserMembership) {
@@ -269,10 +272,11 @@ export default function DashboardSidebar({ mode, clubId }: Props) {
     if (clubPerms.positions) return `/clubs/${club.clubId}/manage/positions`
     if (clubPerms.members) return `/clubs/${club.clubId}/manage/members`
     if (clubPerms.applications) return `/clubs/${club.clubId}/manage/applications`
-    return `/clubs/${club.clubId}/manage/positions`
+    return `/clubs/${club.clubId}/manage/posts`
   }
 
   function handleLogout() {
+    onNavigate?.()
     logout()
     navigate('/login', { replace: true })
   }
@@ -288,7 +292,7 @@ export default function DashboardSidebar({ mode, clubId }: Props) {
       {/* Logo — click to go home */}
       {collapsed ? (
         <div style={{ padding: '12px 0 8px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-          <button onClick={() => navigate('/')} title="Về trang chủ" style={{
+          <button onClick={() => { navigate('/'); onNavigate?.() }} title="Về trang chủ" style={{
             background: 'transparent', border: 'none', cursor: 'pointer', padding: 0,
             transition: 'opacity .15s',
           }}
@@ -314,7 +318,7 @@ export default function DashboardSidebar({ mode, clubId }: Props) {
         </div>
       ) : (
         <div style={{ padding: '14px 10px 10px', display: 'flex', alignItems: 'center', gap: 8 }}>
-          <button onClick={() => navigate('/')} title="Về trang chủ" style={{
+          <button onClick={() => { navigate('/'); onNavigate?.() }} title="Về trang chủ" style={{
             flex: 1, display: 'flex', alignItems: 'center', gap: 10, minWidth: 0,
             background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left',
             fontFamily: 'inherit', padding: 0, transition: 'opacity .15s',
@@ -332,6 +336,7 @@ export default function DashboardSidebar({ mode, clubId }: Props) {
               <div style={{ fontSize: 9, fontWeight: 700, color: '#e11d48', letterSpacing: '.08em', textTransform: 'uppercase', marginTop: 1 }}>★ UEF Campus</div>
             </div>
           </button>
+          {!forceExpanded && (
           <button
             onClick={() => { setCollapsed(true); setClubPickerOpen(false) }}
             title="Thu gọn"
@@ -344,6 +349,7 @@ export default function DashboardSidebar({ mode, clubId }: Props) {
             onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,.12)')}
             onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,.06)')}
           >‹</button>
+          )}
         </div>
       )}
 
@@ -352,7 +358,7 @@ export default function DashboardSidebar({ mode, clubId }: Props) {
         <div style={{ display: 'flex', gap: 2, padding: 3, borderRadius: 10, background: 'rgba(255,255,255,.06)' }}>
           {([['member', 'SV'], ['admin', 'Admin'], ['club', 'CLB']] as [Mode, string][])
             .filter(([m]) => m !== 'admin' || isSuperAdmin)
-            .filter(([m]) => m !== 'club' || adminClubs.length > 0)
+            .filter(([m]) => m !== 'club' || manageableClubs.length > 0)
             .map(([m, label]) => (
               <button key={m} onClick={() => switchMode(m)} style={{
                 flex: 1, padding: '6px 0', borderRadius: 8, border: 'none', cursor: 'pointer',
@@ -412,7 +418,7 @@ export default function DashboardSidebar({ mode, clubId }: Props) {
                 const isActive = club.clubId === Number(clubId)
                 return (
                   <button key={club.clubId}
-                    onClick={() => { navigate(getClubManageEntry(club)); setClubPickerOpen(false) }}
+                    onClick={() => { navigate(getClubManageEntry(club)); setClubPickerOpen(false); onNavigate?.() }}
                     style={{
                       width: '100%', display: 'flex', alignItems: 'center', gap: 10,
                       padding: '9px 10px', borderRadius: 8, marginBottom: 2, border: 'none',
@@ -459,7 +465,7 @@ export default function DashboardSidebar({ mode, clubId }: Props) {
       <nav style={{ flex: 1, padding: '0 8px', overflowY: 'auto' }}>
         {navItems.map((item) => (
           <div key={item.to}>
-            <NavLink to={item.to} end={item.end ?? false} style={{ textDecoration: 'none', display: 'block' }}>
+            <NavLink to={item.to} end={item.end ?? false} onClick={() => onNavigate?.()} style={{ textDecoration: 'none', display: 'block' }}>
               {({ isActive }) => (
                 <div title={collapsed ? item.label : undefined} style={{
                   display: 'flex', alignItems: 'center', gap: 10,
@@ -498,7 +504,7 @@ export default function DashboardSidebar({ mode, clubId }: Props) {
               </div>
             )}
             {uniqueActiveMemberships.map(m => (
-              <NavLink key={m.clubId} to={`/clubs/${m.clubId}/operations`} style={{ textDecoration: 'none', display: 'block' }}>
+              <NavLink key={m.clubId} to={`/clubs/${m.clubId}/operations`} onClick={() => onNavigate?.()} style={{ textDecoration: 'none', display: 'block' }}>
                 {({ isActive }) => (
                   <div title={collapsed ? m.clubName : undefined} style={{
                     display: 'flex', alignItems: 'center', gap: 10,

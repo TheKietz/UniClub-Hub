@@ -28,6 +28,11 @@ namespace UniClub_Hub.Membership
             services.AddScoped<INotificationDispatchService, NotificationDispatchService>();
             services.AddScoped<INotificationPreferenceService, NotificationPreferenceService>();
             services.AddScoped<IPipelineService, PipelineService>();
+            services.AddScoped<ILandingPageService, LandingPageService>();
+            services.AddScoped<IPostService, PostService>();
+            services.AddScoped<IGalleryService, GalleryService>();
+            services.AddScoped<IAnalyticsService, AnalyticsService>();
+            services.AddScoped<IRecommendationService, RecommendationService>();
             services.AddScoped<IRoleSuggestionService, RoleSuggestionService>();
             services.AddScoped<IClubPermissionCatalogService, ClubPermissionCatalogService>();
             services.AddScoped<IClubPermissionService, ClubPermissionService>();

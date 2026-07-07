@@ -43,7 +43,7 @@ export default function EventFormModal({ open, mode, title, initial, showCategor
 
   return (
     <Dialog open={open} onOpenChange={v => !v && onClose()}>
-      <DialogContent style={{ maxWidth: 520, fontFamily: "'Be Vietnam Pro', sans-serif" }}>
+      <DialogContent style={{ maxWidth: 'min(520px, calc(100vw - 2rem))', fontFamily: "'Be Vietnam Pro', sans-serif" }}>
         <DialogHeader>
           <DialogTitle style={{ fontSize: 16, fontWeight: 900, color: D.ink }}>{title}</DialogTitle>
         </DialogHeader>
@@ -60,7 +60,7 @@ export default function EventFormModal({ open, mode, title, initial, showCategor
             <label style={labelStyle}>Địa điểm</label>
             <input style={inputStyle} value={form.location ?? ''} onChange={e => set('location', e.target.value)} placeholder="Địa điểm tổ chức..." />
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div className="rsp-form-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
               <label style={labelStyle}>Bắt đầu</label>
               <input style={inputStyle} type="datetime-local" value={form.startTime ?? ''} onChange={e => set('startTime', e.target.value)} />

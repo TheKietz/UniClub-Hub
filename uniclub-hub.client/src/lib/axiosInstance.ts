@@ -7,6 +7,7 @@ const api = axios.create({ baseURL: API_BASE_URL, withCredentials: true })
 function isPublicPath(pathname: string): boolean {
   if (pathname === '/' || pathname === '/login' || pathname === '/register' || pathname === '/contact') return true
   if (pathname.startsWith('/clubs')) return true
+  if (pathname.startsWith('/events') || pathname.startsWith('/news')) return true
   if (pathname.startsWith('/forgot-password') || pathname.startsWith('/reset-password') || pathname.startsWith('/confirm-email')) return true
   return false
 }

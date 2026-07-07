@@ -5,7 +5,7 @@ import { useParams } from 'react-router-dom'
 import { getApplications, getApplicationsPage, reviewApplication, getMemberFieldSchema, getFormSchema, advanceApplicationStage, getPipelineStages, exportApplications } from '@/components/membership/services/clubApi'
 import type { ApplicationListQuery } from '@/components/membership/services/clubApi'
 import type { ApplicationItem, FormField, MemberFieldDef, PipelineStage } from '@/components/membership/services/club.types'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { toast } from 'sonner'
 import { Clock, MessageCircle, CheckCircle2, XCircle, GitBranch } from 'lucide-react'
 import { LoadMoreBar } from '@/components/shared/LoadMoreBar'
@@ -409,12 +409,12 @@ export default function ApplicationsPage() {
                       </span>
                     )}
                   </td>
-                  <td style={tdS}>
+                  <td style={{ ...tdS, whiteSpace: 'nowrap' }}>
                     <button onClick={() => openDetail(app)} style={{
                       fontSize: 12, fontWeight: 700, color: D.indigo,
                       padding: '4px 10px', borderRadius: 6,
                       background: 'transparent', border: 'none', cursor: 'pointer',
-                      fontFamily: 'inherit',
+                      fontFamily: 'inherit', whiteSpace: 'nowrap',
                     }}
                       onMouseEnter={e => (e.currentTarget.style.background = '#eef2ff')}
                       onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
@@ -437,13 +437,13 @@ export default function ApplicationsPage() {
 
       {/* Dialog xem chi tiết & duyệt */}
       <Dialog open={!!selected} onOpenChange={open => !open && setSelected(null)}>
-        <DialogContent className="sm:max-w-md" style={{ fontFamily: "'Be Vietnam Pro', sans-serif" }}>
-          <DialogHeader>
-            <DialogTitle style={{ color: D.ink, fontWeight: 900, fontSize: 20 }}>Đơn đăng ký</DialogTitle>
+        <DialogContent className="sm:max-w-md" style={{ fontFamily: "'Be Vietnam Pro', sans-serif", display: 'flex', flexDirection: 'column', maxHeight: '88vh', padding: 0, gap: 0 }}>
+          <DialogHeader style={{ padding: '20px 24px 0', flexShrink: 0 }}>
+            <DialogTitle style={{ color: D.ink, fontWeight: 900, fontSize: 20, fontFamily: 'inherit' }}>Đơn đăng ký</DialogTitle>
           </DialogHeader>
 
           {selected && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14, paddingTop: 8 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: '12px 24px', overflowY: 'auto', flex: 1 }}>
               <div>
                 <label style={labelStyle}>Ứng viên</label>
                 <div style={{ ...fieldBoxStyle, lineHeight: 1.75 }}>
@@ -555,38 +555,39 @@ export default function ApplicationsPage() {
                     style={{ ...fieldBoxStyle, resize: 'none', outline: 'none' }} />
                 </div>
               )}
+
+              {/* Action buttons — cuối tờ đơn */}
+              <div style={{ paddingTop: 4, paddingBottom: 8, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                {canReview && (selected.status === 'Pending' || selected.status === 'Interview' || selected.status === 'Reviewing') && (
+                  <>
+                    {canAdvance && (
+                      <button disabled={reviewing} onClick={handleAdvance}
+                        style={{ ...ghostButtonStyle, color: '#5b21b6', border: '1.5px solid #c4b5fd', opacity: reviewing ? 0.7 : 1 }}>
+                        → Vòng tiếp theo
+                      </button>
+                    )}
+                    {!hasPipeline && selected.status === 'Pending' && (
+                      <button disabled={reviewing} onClick={() => handleReview('Interview')}
+                        style={{ ...ghostButtonStyle, color: '#0284c7', border: '1.5px solid #38bdf8', opacity: reviewing ? 0.7 : 1 }}>
+                        Mời phỏng vấn
+                      </button>
+                    )}
+                    <button disabled={reviewing} onClick={() => handleReview('Accepted')}
+                      style={{ ...primaryButtonStyle, background: '#10b981' }}>
+                      {reviewing ? 'Đang xử lý...' : 'Chấp nhận'}
+                    </button>
+                    <button disabled={reviewing} onClick={() => handleReview('Rejected')}
+                      style={{ ...ghostButtonStyle, color: '#ef4444', border: '1.5px solid #ef4444', opacity: reviewing ? 0.7 : 1 }}>
+                      Từ chối
+                    </button>
+                  </>
+                )}
+                <button onClick={() => setSelected(null)} style={{ ...ghostButtonStyle, marginLeft: 'auto' }}>
+                  Đóng
+                </button>
+              </div>
             </div>
           )}
-
-          <DialogFooter style={{ borderTop: 'none', background: 'transparent', paddingTop: 8, flexWrap: 'wrap', gap: 8 }}>
-            {canReview && selected && (selected.status === 'Pending' || selected.status === 'Interview' || selected.status === 'Reviewing') && (
-              <>
-                {canAdvance && (
-                  <button disabled={reviewing} onClick={handleAdvance}
-                    style={{ ...ghostButtonStyle, color: '#5b21b6', border: '1.5px solid #c4b5fd', opacity: reviewing ? 0.7 : 1 }}>
-                    → Vòng tiếp theo
-                  </button>
-                )}
-                {!hasPipeline && selected.status === 'Pending' && (
-                  <button disabled={reviewing} onClick={() => handleReview('Interview')}
-                    style={{ ...ghostButtonStyle, color: '#0284c7', border: '1.5px solid #38bdf8', opacity: reviewing ? 0.7 : 1 }}>
-                    Mời phỏng vấn
-                  </button>
-                )}
-                <button disabled={reviewing} onClick={() => handleReview('Accepted')}
-                  style={{ ...primaryButtonStyle, background: '#10b981' }}>
-                  {reviewing ? 'Đang xử lý...' : 'Chấp nhận'}
-                </button>
-                <button disabled={reviewing} onClick={() => handleReview('Rejected')}
-                  style={{ ...ghostButtonStyle, color: '#ef4444', border: '1.5px solid #ef4444', opacity: reviewing ? 0.7 : 1 }}>
-                  Từ chối
-                </button>
-              </>
-            )}
-            <button onClick={() => setSelected(null)} style={{ ...ghostButtonStyle, marginLeft: 'auto' }}>
-              Đóng
-            </button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

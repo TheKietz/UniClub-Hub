@@ -225,6 +225,17 @@ export const removeEventRegistration = (eventId: number, userId: string) =>
 export const updateEventAttendance = (eventId: number, userId: string, dto: UpdateAttendanceDto) =>
   api.patch(`/v1/operations/events/${eventId}/registrations/${userId}/attendance`, dto)
 
+// ── Self-service registration (người dùng tự đăng ký tham gia) ──────────────────
+
+export const getMyEventRegistration = (eventId: number) =>
+  api.get<ApiResponse<EventRegistrationItem | null>>(`/v1/operations/events/${eventId}/my-registration`).then(r => r.data.data)
+
+export const registerSelfForEvent = (eventId: number) =>
+  api.post<ApiResponse<EventRegistrationItem>>(`/v1/operations/events/${eventId}/register`).then(r => r.data.data)
+
+export const unregisterSelfFromEvent = (eventId: number) =>
+  api.delete(`/v1/operations/events/${eventId}/register`)
+
 export const getEventAttachments = (eventId: number) =>
   api.get<ApiResponse<EventAttachmentItem[]>>(`/v1/operations/events/${eventId}/attachments`).then(r => r.data.data)
 

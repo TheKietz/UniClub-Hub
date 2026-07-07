@@ -20,6 +20,7 @@ namespace UniClub_Hub.Shared.Data
             typeof(Notification),
             typeof(EventSession),
             typeof(EventStaff),
+            typeof(PageView),
         ];
 
         public UniClubDbContext(
@@ -40,6 +41,7 @@ namespace UniClub_Hub.Shared.Data
         public DbSet<MediaGallery> MediaGalleries { get; set; }
         public DbSet<ClubEvent> Events { get; set; }
         public DbSet<EventRegistration> EventRegistrations { get; set; }
+        public DbSet<EventCheckInCode> EventCheckInCodes { get; set; }
         public DbSet<ClubTask> Tasks { get; set; }
         public DbSet<ClubApplication> Applications { get; set; }
         public DbSet<Contribution> Contributions { get; set; }
@@ -60,6 +62,7 @@ namespace UniClub_Hub.Shared.Data
         public DbSet<NotificationPreference> NotificationPreferences { get; set; }
         public DbSet<ClubPipelineStage> ClubPipelineStages { get; set; }
         public DbSet<TaskAssignee> TaskAssignees { get; set; }
+        public DbSet<PageView> PageViews { get; set; }
         public DbSet<ClubPosition> ClubPositions { get; set; }
         public DbSet<ClubPositionPermission> ClubPositionPermissions { get; set; }
         public DbSet<ClubMemberPosition> ClubMemberPositions { get; set; }
@@ -107,6 +110,32 @@ namespace UniClub_Hub.Shared.Data
                 .HasOne(lp => lp.Club)
                 .WithOne(c => c.LandingPage)
                 .HasForeignKey<LandingPage>(lp => lp.ClubId);
+
+            // Post — ClubId nullable (null = tin cấp trường). Cấu hình tường minh để
+            // tránh EF tạo shadow FK "ClubId1" khi cột trở thành optional.
+            builder
+                .Entity<Post>()
+                .HasOne(p => p.Club)
+                .WithMany(c => c.Posts)
+                .HasForeignKey(p => p.ClubId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // EventCheckInCode — mã check-in theo từng đăng ký sự kiện.
+            builder.Entity<EventCheckInCode>(e =>
+            {
+                e.HasOne(c => c.EventRegistration)
+                    .WithMany()
+                    .HasForeignKey(c => c.EventRegistrationId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(c => c.Event)
+                    .WithMany()
+                    .HasForeignKey(c => c.EventId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(c => c.User)
+                    .WithMany()
+                    .HasForeignKey(c => c.UserId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
 
             // ClubTask có 2 FK vào ApplicationUser
             builder
@@ -274,8 +303,17 @@ namespace UniClub_Hub.Shared.Data
                 .HasForeignKey(a => a.CurrentStageId)
                 .OnDelete(DeleteBehavior.SetNull);
 
+            // PageView — cascade on club delete, index for time-series queries
+            builder.Entity<PageView>()
+                .HasOne(pv => pv.Club)
+                .WithMany()
+                .HasForeignKey(pv => pv.ClubId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            builder.Entity<PageView>()
+                .HasIndex(pv => new { pv.ClubId, pv.VisitedAt });
+
             // ClubEvent → Club: nullable FK (university events have ClubId = null)
-            // Cascade: deleting a club deletes its events; university events unaffected
             builder.Entity<ClubEvent>()
                 .HasOne(e => e.Club)
                 .WithMany()
@@ -283,7 +321,7 @@ namespace UniClub_Hub.Shared.Data
                 .IsRequired(false)
                 .OnDelete(DeleteBehavior.Cascade);
 
-            // EventClubAssignment — briefs from SUPER_ADMIN to clubs (not real tasks)
+            // EventClubAssignment
             builder.Entity<EventClubAssignment>()
                 .HasIndex(a => new { a.EventId, a.ClubId });
 

@@ -24,6 +24,7 @@ namespace UniClub_Hub.Operations.DTOs.Task
         public DateTimeOffset? CompletedAt { get; set; }
         public string? AssignedTo { get; set; }
         public string? AssigneeName { get; set; }
+        public List<string> AssigneeIds { get; set; } = [];
         public string? CreatedBy { get; set; }
         public DateTime CreatedAt { get; set; }
         public int SubTaskCount { get; set; }

@@ -141,7 +141,7 @@ export default function StartSprintModal({
   }
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: 60 }}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '60px 16px 24px', boxSizing: 'border-box' }}>
       {/* Backdrop */}
       <div
         style={{ position: 'absolute', inset: 0, background: 'rgba(10,10,10,0.45)' }}

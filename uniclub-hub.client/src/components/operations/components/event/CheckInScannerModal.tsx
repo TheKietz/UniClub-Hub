@@ -194,7 +194,7 @@ export default function CheckInScannerModal({ open, eventId, registrations, onCl
 
   return (
     <Dialog open={open} onOpenChange={v => !v && onClose()}>
-      <DialogContent style={{ maxWidth: 420, fontFamily: "'Be Vietnam Pro', sans-serif" }}>
+      <DialogContent style={{ maxWidth: 'min(420px, calc(100vw - 2rem))', fontFamily: "'Be Vietnam Pro', sans-serif" }}>
         <DialogHeader><DialogTitle style={{ fontSize: 15, fontWeight: 900, color: D.ink }}>Quét mã Check-in</DialogTitle></DialogHeader>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '4px 0' }}>
           <div id={READER_ID} style={{ width: '100%', borderRadius: 12, overflow: 'hidden', border: D.border, background: '#000', minHeight: 240 }} />

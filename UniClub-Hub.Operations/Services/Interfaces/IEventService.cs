@@ -29,6 +29,11 @@ namespace UniClub_Hub.Operations.Services.Interfaces
         Task RemoveRegistrationAsync(int eventId, string userId, string actorId);
         Task UpdateAttendanceAsync(int eventId, string userId, UpdateAttendanceDto dto, string actorId);
 
+        // Self-service registration (any authenticated user, no manager role required)
+        Task<EventRegistrationDto> RegisterSelfAsync(int eventId, string userId);
+        Task<EventRegistrationDto?> GetMyRegistrationAsync(int eventId, string userId);
+        Task UnregisterSelfAsync(int eventId, string userId);
+
         // Attachments
         Task<List<EventAttachmentDto>> GetAttachmentsAsync(int eventId);
         Task<EventAttachmentDto> UploadAttachmentAsync(int eventId, IFormFile file, string? note, string actorId);

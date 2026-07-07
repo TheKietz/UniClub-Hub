@@ -133,6 +133,8 @@ builder.Services.Configure<GeminiOptions>(builder.Configuration.GetSection("Gemi
 builder.Services.AddHttpClient<IAiModelClient, GeminiAiModelClient>()
     .ConfigureHttpClient(client => client.Timeout = TimeSpan.FromSeconds(20));
 
+builder.Services.AddMemoryCache();
+builder.Services.AddHttpClient();
 builder.Services.AddRateLimiter(options =>
 {
     if (builder.Environment.IsEnvironment("Testing"))
@@ -192,8 +194,33 @@ builder.Services.AddHostedService<UniClub_Hub.Server.BackgroundServices.Reminder
 
 var app = builder.Build();
 
-app.UseForwardedHeaders();
+// Apply pending EF Core migrations on startup.
+// Skip under the Testing environment: the integration-test fixture owns schema creation
+// (EnsureCreated), so running migrations here would collide ("relation already exists").
+// This mirrors the guard already present in DatabaseMigrationHostedService.
+if (!app.Environment.IsEnvironment("Testing"))
+{
+    using var scope = app.Services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<UniClubDbContext>();
+    await db.Database.MigrateAsync();
+}
 
+if (app.Environment.IsDevelopment())
+{
+    await UniClub_Hub.Server.Data.DbSeeder.SeedAsync(app.Services);
+}
+else
+{
+    // Production: chỉ tạo roles, không seed sample data
+    using var scope = app.Services.CreateScope();
+    var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+    foreach (var role in new[] { "SUPER_ADMIN", "USER" })
+    {
+        if (!await roleManager.RoleExistsAsync(role))
+            await roleManager.CreateAsync(new IdentityRole(role));
+    }
+}
+app.UseForwardedHeaders();
 app.UseDefaultFiles();
 app.UseStaticFiles();
 

@@ -9,7 +9,7 @@ export default function PublicHeader() {
   const navigate = useNavigate()
 
   const navItems: [string, string][] = [
-    ['/', 'Trang chủ'],
+    ['/portal', 'Trang chủ'],
     ['/clubs', 'Câu lạc bộ'],
     ['/about', 'Giới thiệu'],
     ['/events', 'Sự kiện'],
@@ -18,7 +18,7 @@ export default function PublicHeader() {
   ]
 
   const isActive = (path: string) =>
-    path === '/' ? pathname === '/' : pathname.startsWith(path)
+    path === '/portal' ? pathname === '/portal' : pathname.startsWith(path)
 
   return (
     <header className="public-header" style={{

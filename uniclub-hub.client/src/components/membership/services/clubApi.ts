@@ -10,7 +10,17 @@ import type {
   ClubEffectivePermissions,
   MemberImportPreview, CreateDepartmentDto, UpdateClubSettingsDto,
 } from '@/components/membership/services/club.types'
+import type { LayoutSettings } from '@/components/portal/services/portal.types'
 import type { PagedResult } from '@/components/membership/services/admin.types'
+
+export interface LandingPageSettings {
+  heroImage?: string
+  introduction?: string
+  mission?: string
+  vision?: string
+  socialLinks?: Record<string, string>
+  layoutSettings?: LayoutSettings
+}
 
 const base = (clubId: number) => `/clubs/${clubId}`
 
@@ -215,6 +225,27 @@ export const updateMemberFieldSchema = (clubId: number, fields: MemberFieldDef[]
 
 export const updateMemberCustomData = (clubId: number, membershipId: number, data: Record<string, string | null>) =>
   api.patch<{ data: MemberItem }>(`${base(clubId)}/members/${membershipId}/custom-data`, data).then(r => r.data.data)
+
+// ── Landing Page ──────────────────────────────────────────────────────────
+
+export const getLandingPageSettings = (clubId: number) =>
+  api.get<{ data: LandingPageSettings }>(`${base(clubId)}/landing-page`).then(r => r.data.data)
+
+export const upsertLandingPageSettings = (
+  clubId: number,
+  data: Omit<LandingPageSettings, 'heroImage'>,
+) => api.put<{ data: LandingPageSettings }>(`${base(clubId)}/landing-page`, data).then(r => r.data.data)
+
+export const uploadHeroImage = async (clubId: number, file: File): Promise<string> => {
+  const fd = new FormData()
+  fd.append('file', file)
+  const res = await api.post<{ data: { heroImage: string } }>(
+    `${base(clubId)}/landing-page/hero`,
+    fd,
+    { headers: { 'Content-Type': 'multipart/form-data' } },
+  )
+  return res.data.data.heroImage
+}
 
 // ── Members (mutations) ────────────────────────────────────────────────────
 

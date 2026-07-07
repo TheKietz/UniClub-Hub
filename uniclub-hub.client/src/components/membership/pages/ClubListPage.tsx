@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useDeferredEffect } from '@/hooks/useDeferredEffect'
 import { useNavigate } from 'react-router-dom'
 import { getClubs, getPublicCategories } from '@/components/membership/services/clubApi'
+import { getClubRecommendations, type ClubRecommendation } from '@/components/membership/services/recommendationApi'
 import type { ClubListItem } from '@/components/membership/services/club.types'
 import { C, Rv, ClubCard, CatPill, Marquee, PublicFooter } from '@/components/public/publicComponents'
 import { LandingClubGridSkeleton } from '@/components/public/LandingSkeleton'
@@ -9,6 +10,7 @@ import { toClubCardData } from '@/components/public/clubCardMapper'
 import PublicHeader from '@/components/layouts/PublicHeader'
 import { FilterSelect } from '@/components/shared/FilterSelect'
 import SkyBackground from '@/components/public/SkyBackground'
+import { useAuth } from '@/hooks/useAuth'
 
 const glassCard: React.CSSProperties = {
   background: 'rgba(255,255,255,.74)',
@@ -18,11 +20,13 @@ const glassCard: React.CSSProperties = {
 
 export default function ClubListPage() {
   const navigate = useNavigate()
+  const { isAuthenticated } = useAuth()
   const [clubs, setClubs] = useState<ClubListItem[]>([])
   const [categories, setCategories] = useState<{ id: number; name: string }[]>([])
   const [loading, setLoading] = useState(true)
   const [clubsError, setClubsError] = useState(false)
   const [categoriesError, setCategoriesError] = useState(false)
+  const [recommendations, setRecommendations] = useState<ClubRecommendation[]>([])
   const [search, setSearch] = useState('')
   const [activeCat, setActiveCat] = useState('Tất cả')
   const [sortBy, setSortBy] = useState<'default' | 'name-asc' | 'name-desc' | 'members-desc' | 'members-asc'>('default')
@@ -33,20 +37,28 @@ export default function ClubListPage() {
     setClubsError(false)
     setCategoriesError(false)
 
-    Promise.allSettled([getClubs(), getPublicCategories()])
-      .then(([clubsResult, categoriesResult]) => {
+    const fetches: Promise<unknown>[] = [getClubs(), getPublicCategories()]
+    if (isAuthenticated) fetches.push(getClubRecommendations(3))
+
+    Promise.allSettled(fetches)
+      .then(([clubsResult, categoriesResult, recsResult]) => {
         if (clubsResult.status === 'fulfilled') {
-          setClubs(clubsResult.value)
+          setClubs(clubsResult.value as ClubListItem[])
         } else {
           setClubs([])
           setClubsError(true)
         }
 
         if (categoriesResult.status === 'fulfilled') {
-          setCategories(categoriesResult.value)
+          setCategories(categoriesResult.value as { id: number; name: string }[])
         } else {
           setCategories([])
           setCategoriesError(true)
+        }
+
+        if (recsResult && recsResult.status === 'fulfilled') {
+          const res = recsResult.value as { data: { data: ClubRecommendation[] } }
+          setRecommendations(res.data.data ?? [])
         }
       })
       .finally(() => setLoading(false))
@@ -54,7 +66,7 @@ export default function ClubListPage() {
 
   useDeferredEffect(() => {
     loadClubsPage()
-  }, [])
+  }, [isAuthenticated])
 
   const catLabels = ['Tất cả', ...categories.map(c => c.name)]
 
@@ -83,6 +95,10 @@ export default function ClubListPage() {
   const showSpotlight = !loading && !clubsError
     && activeCat === 'Tất cả' && !search.trim() && !onlyRecruiting
     && spotlightCards.length > 0
+
+  const showRecommendations = !loading && isAuthenticated
+    && activeCat === 'Tất cả' && !search.trim() && !onlyRecruiting
+    && recommendations.length > 0
 
   return (
     <div className="v3-page v3-enter" style={{ background: 'transparent' }}>
@@ -221,6 +237,83 @@ export default function ClubListPage() {
         </div>
       </section>
 
+      {/* ─── Gợi ý cho bạn ──────────────────────────── */}
+      {showRecommendations && (
+        <section style={{ padding: '4px 28px 8px' }}>
+          <div style={{ maxWidth: 1280, margin: '0 auto' }}>
+            <Rv>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+                <span style={{ fontSize: 16 }}>✨</span>
+                <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase', color: C.ink }}>
+                  Gợi ý cho bạn
+                </span>
+                <span style={{ fontSize: 11, color: C.inkMuted, fontWeight: 500 }}>· Dựa trên sở thích của bạn</span>
+              </div>
+            </Rv>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 12 }}>
+              {recommendations.map((rec, i) => (
+                <Rv key={rec.clubId} delay={i * 70}>
+                  <div
+                    className="card-lift"
+                    onClick={() => navigate(`/clubs/${rec.clubId}`)}
+                    style={{
+                      ...glassCard,
+                      display: 'flex', alignItems: 'stretch',
+                      border: C.border, borderRadius: 18,
+                      boxShadow: C.shadow(4, 4), overflow: 'hidden', cursor: 'pointer',
+                    }}
+                  >
+                    <div style={{
+                      width: 88, flexShrink: 0,
+                      background: C.lemon,
+                      borderRight: C.border,
+                      display: 'grid', placeItems: 'center',
+                    }}>
+                      {rec.logoUrl ? (
+                        <img src={rec.logoUrl} alt="" style={{ width: 48, height: 48, borderRadius: 10, objectFit: 'cover', border: C.border }} />
+                      ) : (
+                        <div style={{ fontSize: 22, fontWeight: 900, color: C.ink, letterSpacing: '-.02em' }}>
+                          {rec.name[0]}
+                        </div>
+                      )}
+                    </div>
+                    <div style={{ flex: 1, padding: '14px 16px', display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                      {rec.similarityScore > 0 && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 6 }}>
+                          <div style={{
+                            height: 4, borderRadius: 99, flex: 1, maxWidth: 60,
+                            background: '#e5e7eb', overflow: 'hidden',
+                          }}>
+                            <div style={{
+                              width: `${Math.min(100, rec.similarityScore)}%`,
+                              height: '100%', background: C.ink, borderRadius: 99,
+                            }} />
+                          </div>
+                          <span style={{ fontSize: 10, fontWeight: 700, color: C.inkMuted }}>{rec.similarityScore}% phù hợp</span>
+                        </div>
+                      )}
+                      <div style={{ fontSize: 15, fontWeight: 800, color: C.ink, letterSpacing: '-.01em', marginBottom: 3 }}>
+                        {rec.name}
+                      </div>
+                      {rec.categoryName && (
+                        <div style={{ fontSize: 11, fontWeight: 600, color: C.inkMuted, marginBottom: 4 }}>{rec.categoryName}</div>
+                      )}
+                      {rec.reason && (
+                        <div style={{ fontSize: 12, color: C.inkDim, lineHeight: 1.45, flex: 1 }}>{rec.reason}</div>
+                      )}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
+                        <span style={{ fontSize: 11, color: C.inkMuted, fontWeight: 600 }}>{rec.memberCount} thành viên</span>
+                        <span style={{ fontSize: 12, fontWeight: 800, color: C.ink }}>Xem →</span>
+                      </div>
+                    </div>
+                  </div>
+                </Rv>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* ─── Spotlight: CLB đang tuyển nổi bật ────────── */}
       {showSpotlight && (
         <section style={{ padding: '4px 28px 8px' }}>
@@ -350,7 +443,7 @@ export default function ClubListPage() {
       )}
 
       {/* ─── Marquee ──────────────────────────────────── */}
-      <Marquee tone="dark" items={marqueeItems} speed={35} />
+      <Marquee tone="light" items={marqueeItems} speed={35} />
 
       <PublicFooter />
     </div>

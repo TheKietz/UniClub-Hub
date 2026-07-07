@@ -109,7 +109,7 @@ function PersonalSection({ kpi }: { kpi: PersonalKpiData }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       {/* Stat cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
+      <div className="rsp-grid-stats" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
         <StatCard icon={ListTodo} iconBg="#eef2ff" iconColor={D.indigo} value={kpi.totalTasks} label="Tổng công việc" />
         <StatCard icon={CheckCircle} iconBg="#d1fae5" iconColor={D.emerald} value={kpi.completedTasks} label="Đã hoàn thành"
           trend={kpi.totalTasks > 0 ? { value: `${kpi.completionRate}%`, positive: true } : undefined} />
@@ -120,7 +120,7 @@ function PersonalSection({ kpi }: { kpi: PersonalKpiData }) {
       </div>
 
       {/* Charts row */}
-      <div style={{ display: 'grid', gridTemplateColumns: hasHours ? '1fr 1fr 260px' : '1fr 260px', gap: 16 }}>
+      <div className="rsp-split" style={{ display: 'grid', gridTemplateColumns: hasHours ? '1fr 1fr 260px' : '1fr 260px', gap: 16 }}>
 
         {/* Pie chart — status breakdown */}
         <div style={{ background: D.card, border: D.border, borderRadius: D.radius, boxShadow: D.shadow(), padding: 20 }}>
@@ -208,7 +208,7 @@ function DepartmentSection({ kpi }: { kpi: DepartmentKpiData }) {
       </h2>
 
       {/* Dept stat cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
+      <div className="rsp-grid-stats" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
         <StatCard icon={ListTodo} iconBg="#eef2ff" iconColor={D.indigo} value={kpi.totalTasks} label="Tổng task ban" />
         <StatCard icon={CheckCircle} iconBg="#d1fae5" iconColor={D.emerald} value={kpi.completedTasks} label="Đã hoàn thành"
           trend={{ value: `${kpi.deptCompletionRate}%`, positive: true }} />
@@ -216,7 +216,7 @@ function DepartmentSection({ kpi }: { kpi: DepartmentKpiData }) {
       </div>
 
       {/* Chart + table */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+      <div className="rsp-split" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
 
         {/* Productivity score bar chart */}
         <div style={{ background: D.card, border: D.border, borderRadius: D.radius, boxShadow: D.shadow(), padding: 20 }}>
@@ -373,7 +373,7 @@ export default function KpiPage() {
   }
 
   return (
-    <div style={{ padding: '28px 32px', minHeight: '100%', background: D.bg, fontFamily: "'Be Vietnam Pro', sans-serif" }}>
+    <div className="rsp-page" style={{ padding: '28px 32px', minHeight: '100%', background: D.bg, fontFamily: "'Be Vietnam Pro', sans-serif" }}>
 
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24, gap: 16 }}>
