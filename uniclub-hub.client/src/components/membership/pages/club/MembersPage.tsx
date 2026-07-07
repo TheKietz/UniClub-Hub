@@ -16,6 +16,7 @@ import { LoadMoreBar } from '@/components/shared/LoadMoreBar'
 import { D } from '@/components/shared/managementTheme'
 import { PermissionDenied } from '@/components/shared/Can'
 import { useClubPermissions } from '@/hooks/useClubPermissions'
+import { useAuth } from '@/contexts/AuthContext'
 import { getApiErrorMessage } from '@/lib/apiError'
 
 const PAGE_SIZE = 20
@@ -44,6 +45,32 @@ function Avatar({ name }: { name: string }) {
   )
 }
 
+function SkeletonCell({ width, height = 12, radius = 4 }: { width: number; height?: number; radius?: number }) {
+  return <div style={{ width, height, borderRadius: radius, background: D.border }} />
+}
+
+function SkeletonRow() {
+  return (
+    <tr style={{ borderBottom: D.borderLight }}>
+      <td style={{ padding: '12px 14px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ width: 32, height: 32, borderRadius: '50%', background: D.border, flexShrink: 0 }} />
+          <div>
+            <SkeletonCell width={120} height={13} />
+            <div style={{ marginTop: 4 }}><SkeletonCell width={160} height={11} /></div>
+          </div>
+        </div>
+      </td>
+      <td style={{ padding: '12px 14px' }}><SkeletonCell width={72} /></td>
+      <td style={{ padding: '12px 14px' }}><SkeletonCell width={70} height={20} radius={10} /></td>
+      <td style={{ padding: '12px 14px' }}><SkeletonCell width={90} /></td>
+      <td style={{ padding: '12px 14px' }}><SkeletonCell width={56} height={20} radius={10} /></td>
+      <td style={{ padding: '12px 14px' }}><SkeletonCell width={80} /></td>
+      <td style={{ padding: '12px 14px', textAlign: 'center' }}><div style={{ width: 56, height: 28, borderRadius: 6, background: D.border, margin: '0 auto' }} /></td>
+    </tr>
+  )
+}
+
 const inputStyle: React.CSSProperties = {
   width: '100%', height: 36, borderRadius: 8, border: '1px solid #dce6f4',
   padding: '0 12px', fontSize: 13, color: '#0a2f6e', outline: 'none',
@@ -57,6 +84,11 @@ type EditForm = { clubRole: string; departmentId: string; customData: Record<str
 export default function MembersPage() {
   const { clubId } = useParams<{ clubId: string }>()
   const id = Number(clubId)
+  const { user } = useAuth()
+  const membership = user?.memberships.find(m =>
+    m.clubId === id &&
+    (m.status === MEMBERSHIP_STATUS.ACTIVE || m.status === MEMBERSHIP_STATUS.PROBATION))
+  const isDeptLead = membership?.clubRole === CLUB_ROLES.DEPT_LEAD
 
   const [members, setMembers] = useState<MemberItem[]>([])
   const [allMembers, setAllMembers] = useState<MemberItem[]>([])
@@ -65,8 +97,9 @@ export default function MembersPage() {
   const [loadingMore, setLoadingMore] = useState(false)
   const [departments, setDepartments] = useState<DepartmentItem[]>([])
   const [fieldSchema, setFieldSchema] = useState<MemberFieldDef[]>([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
+  const isInitialLoad = useRef(true)
   const clubPermissions = useClubPermissions(id)
 
   const [addOpen, setAddOpen] = useState(false)
@@ -155,10 +188,12 @@ export default function MembersPage() {
 
   useDeferredEffect((isCancelled) => {
     latestQueryKey.current = querySignature
-    setLoading(true)
     setLoadingMore(false)
-    setMembers([])
     setPage(1)
+    if (!isInitialLoad.current) {
+      setLoading(true)
+      setMembers([])
+    }
     getClubMembersPage(id, buildQuery(1))
       .then(r => {
         if (isCancelled() || latestQueryKey.current !== querySignature) return
@@ -170,6 +205,7 @@ export default function MembersPage() {
           toast.error('Không thể tải danh sách thành viên.')
       })
       .finally(() => {
+        isInitialLoad.current = false
         if (!isCancelled() && latestQueryKey.current === querySignature)
           setLoading(false)
       })
@@ -195,7 +231,7 @@ export default function MembersPage() {
       })
   }
 
-  const canView = clubPermissions.canAny(CLUB_PERMISSIONS.MEMBERS_VIEW, CLUB_PERMISSIONS.MEMBERS_MANAGE)
+  const canView = isDeptLead || clubPermissions.canAny(CLUB_PERMISSIONS.MEMBERS_VIEW, CLUB_PERMISSIONS.MEMBERS_MANAGE)
   const canManage = clubPermissions.can(CLUB_PERMISSIONS.MEMBERS_MANAGE)
   const canImportExport = clubPermissions.can(CLUB_PERMISSIONS.MEMBER_IMPORT_EXPORT)
   const canSuggest = clubPermissions.can(CLUB_PERMISSIONS.ROLE_SUGGESTIONS_USE)
@@ -518,7 +554,7 @@ export default function MembersPage() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={7} style={{ textAlign: 'center', color: D.inkMuted, padding: '64px 0' }}>Đang tải...</td></tr>
+              Array.from({ length: 8 }).map((_, i) => <SkeletonRow key={i} />)
             ) : members.length === 0 ? (
               <tr>
                 <td colSpan={7} style={{ textAlign: 'center', color: D.inkMuted, padding: '64px 0' }}>

@@ -4,6 +4,9 @@ import { useNavigate } from 'react-router-dom'
 import { Bell, Star } from 'lucide-react'
 import api from '@/lib/axiosInstance'
 import { useNotificationSignalR } from '@/lib/useNotificationSignalR'
+import { useAuth } from '@/contexts/AuthContext'
+import { CLUB_ROLES, MEMBERSHIP_STATUS } from '@/types/auth'
+import type { UserMembership } from '@/types/auth'
 
 interface Notif {
   id: number
@@ -11,6 +14,7 @@ interface Notif {
   message: string
   type: string
   isRead: boolean
+  link?: string
   createdAt: string
   navigationUrl?: string | null
 }
@@ -36,8 +40,21 @@ function notificationColor(type: string) {
   return TYPE_COLORS[type] ?? '#1d4ed8'
 }
 
+function deriveLink(type: string, memberships: UserMembership[]): string | null {
+  const adminMembership = memberships.find(
+    m => (m.clubRole === CLUB_ROLES.CLUB_ADMIN || m.clubRole === CLUB_ROLES.DEPT_LEAD)
+      && (m.status === MEMBERSHIP_STATUS.ACTIVE || m.status === MEMBERSHIP_STATUS.PROBATION)
+  )
+  const clubId = adminMembership?.clubId
+  if (type === 'Application') return clubId ? `/clubs/${clubId}/manage/applications` : '/dashboard'
+  if (type === 'Task') return clubId ? `/clubs/${clubId}/operations` : '/dashboard'
+  if (type === 'Event') return clubId ? `/clubs/${clubId}/manage/events` : '/dashboard'
+  return null
+}
+
 export default function NotificationBell() {
   const navigate = useNavigate()
+  const { user } = useAuth()
   const [open, setOpen] = useState(false)
   const [items, setItems] = useState<Notif[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
@@ -122,10 +139,8 @@ export default function NotificationBell() {
 
   async function handleItemClick(n: Notif) {
     if (!n.isRead) await markRead(n.id)
-    if (n.navigationUrl) {
-      setOpen(false)
-      navigate(n.navigationUrl)
-    }
+    const link = n.navigationUrl ?? n.link ?? deriveLink(n.type, user?.memberships ?? [])
+    if (link) { setOpen(false); navigate(link) }
   }
 
   return (

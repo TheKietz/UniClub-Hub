@@ -1218,6 +1218,546 @@ namespace UniClub_Hub.Server.Data
             // ── Notification Preferences (global defaults) ────────────────
             await NotificationPreferenceSeeder.SeedDefaultsAsync(db);
 
+            // ── Landing Pages ─────────────────────────────────────────────
+            if (!await db.LandingPages.AnyAsync())
+            {
+                static string Layout(string primary, string accent, params (string id, string style, bool visible)[] sections)
+                {
+                    var secs = sections.Select((s, i) =>
+                        $"{{\"id\":\"{s.id}\",\"visible\":{s.visible.ToString().ToLower()},\"order\":{i},\"style\":\"{s.style}\"}}");
+                    return $"{{\"theme\":{{\"primaryColor\":\"{primary}\",\"accentColor\":\"{accent}\"}},\"sections\":[{string.Join(",", secs)}]}}";
+                }
+
+                db.LandingPages.AddRange(
+                    new LandingPage
+                    {
+                        ClubId = clubTech.Id,
+                        HeroImage = "https://picsum.photos/seed/tech-hero/1200/600",
+                        Introduction = "CLB Công nghệ UEF là sân chơi lập trình và sáng tạo công nghệ dành cho sinh viên UEF. Chúng tôi tổ chức hackathon, workshop AI, và các dự án thực chiến.",
+                        Mission = "Trở thành cộng đồng công nghệ hàng đầu trong môi trường đại học — nơi sinh viên được học hỏi, thực hành và kết nối với ngành.",
+                        Vision = "Đến năm 2027, đào tạo 500+ lập trình viên trẻ có kỹ năng thực chiến, sẵn sàng gia nhập thị trường lao động công nghệ.",
+                        SocialLinks = "{\"facebook\":\"https://facebook.com/clb-cong-nghe-uef\",\"github\":\"https://github.com/uef-tech-club\",\"zalo\":\"https://zalo.me/uef-tech\"}",
+                        LayoutSettings = Layout("#4f46e5", "#7c3aed",
+                            ("hero", "minimal", true),
+                            ("about", "split", true),
+                            ("stats", "banner", true),
+                            ("departments", "grid", true),
+                            ("events", "default", true),
+                            ("posts", "default", true),
+                            ("gallery", "default", true),
+                            ("apply", "default", true),
+                            ("contact", "default", true)),
+                    },
+                    new LandingPage
+                    {
+                        ClubId = clubFootball.Id,
+                        HeroImage = "https://picsum.photos/seed/football-hero/1200/600",
+                        Introduction = "CLB Bóng đá UEF — nơi đam mê thể thao gặp gỡ tinh thần đồng đội. Chúng tôi thi đấu tại các giải sinh viên toàn quốc và rèn luyện thể lực mỗi tuần.",
+                        Mission = "Xây dựng thế hệ cầu thủ sinh viên có sức khỏe, kỷ luật và tinh thần fair-play, đại diện UEF tại các giải đấu khu vực.",
+                        Vision = "Top 3 CLB bóng đá sinh viên khu vực TP.HCM vào năm 2026.",
+                        SocialLinks = "{\"facebook\":\"https://facebook.com/clb-bongda-uef\",\"youtube\":\"https://youtube.com/@uef-football\",\"zalo\":\"https://zalo.me/uef-football\"}",
+                        LayoutSettings = Layout("#16a34a", "#15803d",
+                            ("hero", "vibrant", true),
+                            ("stats", "banner", true),
+                            ("about", "default", true),
+                            ("events", "timeline", true),
+                            ("departments", "list", true),
+                            ("gallery", "masonry", true),
+                            ("posts", "default", true),
+                            ("apply", "banner", true),
+                            ("contact", "default", true)),
+                    },
+                    new LandingPage
+                    {
+                        ClubId = clubMusic.Id,
+                        HeroImage = "https://picsum.photos/seed/music-hero/1200/600",
+                        Introduction = "CLB Âm nhạc UEF là mái nhà của những tâm hồn yêu nghệ thuật. Từ nhạc cụ đến thanh nhạc, chúng tôi cùng nhau tạo ra những giai điệu đặc sắc.",
+                        Mission = "Nuôi dưỡng tài năng âm nhạc trong cộng đồng sinh viên UEF, mang lại những buổi biểu diễn xúc động và chuyên nghiệp.",
+                        Vision = "Tổ chức concert quy mô 1000+ khán giả hàng năm và xuất hiện tại các sân khấu nghệ thuật lớn của thành phố.",
+                        SocialLinks = "{\"facebook\":\"https://facebook.com/clb-amnhac-uef\",\"youtube\":\"https://youtube.com/@uef-music\",\"instagram\":\"https://instagram.com/uef.music.club\",\"zalo\":\"https://zalo.me/uef-music\"}",
+                        LayoutSettings = Layout("#db2777", "#9333ea",
+                            ("hero", "default", true),
+                            ("about", "fullwidth", true),
+                            ("stats", "default", true),
+                            ("events", "timeline", true),
+                            ("posts", "magazine", true),
+                            ("gallery", "masonry", true),
+                            ("departments", "grid", true),
+                            ("apply", "banner", true),
+                            ("contact", "default", true)),
+                    },
+                    new LandingPage
+                    {
+                        ClubId = clubEnglish.Id,
+                        HeroImage = "https://picsum.photos/seed/english-hero/1200/600",
+                        Introduction = "CLB Tiếng Anh UEF — môi trường lý tưởng để luyện giao tiếp, chinh phục IELTS và tự tin thuyết trình trước đám đông bằng tiếng Anh.",
+                        Mission = "Giúp sinh viên UEF tự tin sử dụng tiếng Anh trong học thuật và nghề nghiệp thông qua các hoạt động thực hành sinh động.",
+                        Vision = "500 thành viên đạt IELTS 6.0+ vào năm 2027, trở thành CLB tiếng Anh uy tín nhất khu vực.",
+                        SocialLinks = "{\"facebook\":\"https://facebook.com/clb-tienganh-uef\",\"zalo\":\"https://zalo.me/uef-english\",\"instagram\":\"https://instagram.com/uef.english.club\"}",
+                        LayoutSettings = Layout("#0284c7", "#0891b2",
+                            ("hero", "minimal", true),
+                            ("about", "default", true),
+                            ("stats", "default", true),
+                            ("events", "default", true),
+                            ("departments", "grid", true),
+                            ("posts", "list", true),
+                            ("gallery", "default", true),
+                            ("apply", "default", true),
+                            ("contact", "default", true)),
+                    },
+                    new LandingPage
+                    {
+                        ClubId = clubVolunteer.Id,
+                        HeroImage = "https://picsum.photos/seed/volunteer-hero/1200/600",
+                        Introduction = "CLB Tình nguyện UEF kết nối sinh viên với cộng đồng qua các chương trình từ thiện, bảo vệ môi trường và hỗ trợ vùng khó khăn.",
+                        Mission = "Truyền cảm hứng sống có ích, nuôi dưỡng tinh thần tình nguyện và trách nhiệm xã hội cho thế hệ sinh viên UEF.",
+                        Vision = "Triển khai 50+ dự án tình nguyện bền vững, chạm đến 10.000 người thụ hưởng tại các tỉnh thành trên cả nước.",
+                        SocialLinks = "{\"facebook\":\"https://facebook.com/clb-tinhnguyen-uef\",\"zalo\":\"https://zalo.me/uef-volunteer\",\"tiktok\":\"https://tiktok.com/@uef.volunteer\"}",
+                        LayoutSettings = Layout("#059669", "#0d9488",
+                            ("hero", "vibrant", true),
+                            ("about", "fullwidth", true),
+                            ("stats", "banner", true),
+                            ("events", "timeline", true),
+                            ("posts", "default", true),
+                            ("gallery", "masonry", true),
+                            ("departments", "list", true),
+                            ("apply", "banner", true),
+                            ("contact", "default", true)),
+                    }
+                );
+                await db.SaveChangesAsync();
+            }
+
+            // ── Events ────────────────────────────────────────────────────
+            if (!await db.Events.AnyAsync())
+            {
+                var now2 = DateTimeOffset.UtcNow;
+                db.Events.AddRange(
+                    // CLB Công nghệ
+                    new ClubEvent
+                    {
+                        ClubId = clubTech.Id,
+                        Name = "Hackathon UEF Tech 2025",
+                        Description = "Cuộc thi lập trình 24 giờ với chủ đề AI & Automation. Giải thưởng lên đến 20 triệu đồng.",
+                        Location = "Hội trường A, UEF Cơ sở 1",
+                        StartTime = now2.AddDays(14),
+                        EndTime = now2.AddDays(15),
+                        MaxParticipants = 200,
+                        Status = EventStatus.InProgress,
+                        Category = "Competition",
+                        CreatedAt = DateTime.UtcNow,
+                    },
+                    new ClubEvent
+                    {
+                        ClubId = clubTech.Id,
+                        Name = "Workshop: Làm quen với Machine Learning",
+                        Description = "Workshop thực hành từ cơ bản đến xây dựng model đơn giản với Python và scikit-learn.",
+                        Location = "Phòng máy tính B201",
+                        StartTime = now2.AddDays(7),
+                        EndTime = now2.AddDays(7).AddHours(3),
+                        MaxParticipants = 50,
+                        Status = EventStatus.InProgress,
+                        Category = "Workshop",
+                        CreatedAt = DateTime.UtcNow,
+                    },
+                    new ClubEvent
+                    {
+                        ClubId = clubTech.Id,
+                        Name = "Tech Talk: Roadmap Lập trình Web 2025",
+                        Description = "Buổi chia sẻ kinh nghiệm thực tế từ các kỹ sư phần mềm tại các công ty công nghệ.",
+                        Location = "Phòng hội thảo C301",
+                        StartTime = now2.AddDays(21),
+                        EndTime = now2.AddDays(21).AddHours(2),
+                        MaxParticipants = 100,
+                        Status = EventStatus.Draft,
+                        Category = "Talk",
+                        CreatedAt = DateTime.UtcNow,
+                    },
+                    // CLB Bóng đá
+                    new ClubEvent
+                    {
+                        ClubId = clubFootball.Id,
+                        Name = "Giải Bóng đá Sinh viên UEF Cup 2025",
+                        Description = "Giải đấu thường niên giữa các khoa và CLB trong trường. Đăng ký theo đội, tối đa 16 đội.",
+                        Location = "Sân vận động UEF",
+                        StartTime = now2.AddDays(10),
+                        EndTime = now2.AddDays(12),
+                        MaxParticipants = 256,
+                        Status = EventStatus.InProgress,
+                        Category = "Competition",
+                        CreatedAt = DateTime.UtcNow,
+                    },
+                    new ClubEvent
+                    {
+                        ClubId = clubFootball.Id,
+                        Name = "Buổi tập thể lực & kỹ thuật mùa hè",
+                        Description = "Chương trình tập luyện đặc biệt mùa hè — cải thiện thể lực nền và kỹ năng cá nhân.",
+                        Location = "Sân vận động UEF",
+                        StartTime = now2.AddDays(3),
+                        EndTime = now2.AddDays(3).AddHours(2),
+                        MaxParticipants = 60,
+                        Status = EventStatus.InProgress,
+                        Category = "Training",
+                        CreatedAt = DateTime.UtcNow,
+                    },
+                    // CLB Âm nhạc
+                    new ClubEvent
+                    {
+                        ClubId = clubMusic.Id,
+                        Name = "UEF Music Night — Đêm Nhạc Cuối Năm",
+                        Description = "Đêm biểu diễn nghệ thuật đặc sắc với hơn 20 tiết mục từ các ban nhạc và giọng ca xuất sắc của UEF.",
+                        Location = "Sân khấu lớn UEF",
+                        StartTime = now2.AddDays(30),
+                        EndTime = now2.AddDays(30).AddHours(4),
+                        MaxParticipants = 500,
+                        Status = EventStatus.Draft,
+                        Category = "Concert",
+                        CreatedAt = DateTime.UtcNow,
+                    },
+                    new ClubEvent
+                    {
+                        ClubId = clubMusic.Id,
+                        Name = "Tuyển thành viên & Audition mùa mới",
+                        Description = "CLB Âm nhạc mở cửa tuyển thành viên mới. Không cần kinh nghiệm — chỉ cần đam mê!",
+                        Location = "Phòng sinh hoạt CLB D102",
+                        StartTime = now2.AddDays(5),
+                        EndTime = now2.AddDays(5).AddHours(3),
+                        MaxParticipants = 30,
+                        Status = EventStatus.InProgress,
+                        Category = "Recruitment",
+                        CreatedAt = DateTime.UtcNow,
+                    },
+                    // CLB Tiếng Anh
+                    new ClubEvent
+                    {
+                        ClubId = clubEnglish.Id,
+                        Name = "English Speaking Contest 2025",
+                        Description = "Cuộc thi hùng biện tiếng Anh cấp trường với chủ đề \"Technology & Future Society\".",
+                        Location = "Hội trường A",
+                        StartTime = now2.AddDays(18),
+                        EndTime = now2.AddDays(18).AddHours(5),
+                        MaxParticipants = 150,
+                        Status = EventStatus.InProgress,
+                        Category = "Competition",
+                        CreatedAt = DateTime.UtcNow,
+                    },
+                    new ClubEvent
+                    {
+                        ClubId = clubEnglish.Id,
+                        Name = "IELTS Strategy Workshop",
+                        Description = "Chiến lược ôn thi IELTS hiệu quả từ 0 lên 6.5 trong 6 tháng — chia sẻ bởi cựu thành viên CLB đạt 7.5.",
+                        Location = "Phòng hội thảo C201",
+                        StartTime = now2.AddDays(8),
+                        EndTime = now2.AddDays(8).AddHours(2.5),
+                        MaxParticipants = 80,
+                        Status = EventStatus.InProgress,
+                        Category = "Workshop",
+                        CreatedAt = DateTime.UtcNow,
+                    },
+                    // CLB Tình nguyện
+                    new ClubEvent
+                    {
+                        ClubId = clubVolunteer.Id,
+                        Name = "Chiến dịch Mùa Hè Xanh 2025",
+                        Description = "Hành trình tình nguyện 5 ngày tại tỉnh Đắk Lắk — xây trường, tặng quà và dạy học cho trẻ em vùng khó.",
+                        Location = "Đắk Lắk",
+                        StartTime = now2.AddDays(25),
+                        EndTime = now2.AddDays(30),
+                        MaxParticipants = 40,
+                        Status = EventStatus.InProgress,
+                        Category = "Volunteer",
+                        CreatedAt = DateTime.UtcNow,
+                    },
+                    new ClubEvent
+                    {
+                        ClubId = clubVolunteer.Id,
+                        Name = "Ngày hội Hiến máu nhân đạo",
+                        Description = "Phối hợp với Hội Chữ thập đỏ tổ chức ngày hội hiến máu tại UEF — mỗi giọt máu là một hành động ý nghĩa.",
+                        Location = "Sảnh tầng 1, UEF Cơ sở 1",
+                        StartTime = now2.AddDays(6),
+                        EndTime = now2.AddDays(6).AddHours(6),
+                        MaxParticipants = 300,
+                        Status = EventStatus.InProgress,
+                        Category = "Community",
+                        CreatedAt = DateTime.UtcNow,
+                    },
+                    // ── Sự kiện cấp trường (ClubId = null) ──
+                    new ClubEvent
+                    {
+                        ClubId = null,
+                        Name = "Tuần lễ Định hướng Tân sinh viên UEF 2025",
+                        Description = "Chuỗi hoạt động chào đón tân sinh viên: tham quan cơ sở, gặp gỡ CLB, định hướng học tập và trải nghiệm đời sống sinh viên UEF.",
+                        Location = "Toàn bộ campus UEF",
+                        StartTime = now2.AddDays(10),
+                        EndTime = now2.AddDays(17),
+                        MaxParticipants = 2000,
+                        Status = EventStatus.InProgress,
+                        Category = "University",
+                        CreatedAt = DateTime.UtcNow,
+                    },
+                    new ClubEvent
+                    {
+                        ClubId = null,
+                        Name = "Ngày hội Câu lạc bộ UEF 2025",
+                        Description = "Sự kiện cấp trường quy tụ toàn bộ CLB — gian hàng trải nghiệm, biểu diễn và mở đơn tuyển thành viên đồng loạt.",
+                        Location = "Sân trường UEF Cơ sở 1",
+                        StartTime = now2.AddDays(21),
+                        EndTime = now2.AddDays(21).AddHours(8),
+                        MaxParticipants = 3000,
+                        Status = EventStatus.InProgress,
+                        Category = "University",
+                        CreatedAt = DateTime.UtcNow,
+                    },
+                    new ClubEvent
+                    {
+                        ClubId = null,
+                        Name = "Lễ Tuyên dương Sinh viên 5 tốt cấp Trường",
+                        Description = "Vinh danh các cá nhân và tập thể đạt danh hiệu Sinh viên 5 tốt năm học vừa qua.",
+                        Location = "Hội trường lớn, UEF Cơ sở chính",
+                        StartTime = now2.AddDays(-12),
+                        EndTime = now2.AddDays(-12).AddHours(3),
+                        MaxParticipants = 800,
+                        Status = EventStatus.Completed,
+                        Category = "University",
+                        CreatedAt = DateTime.UtcNow,
+                    }
+                );
+                await db.SaveChangesAsync();
+            }
+
+            // ── Posts ─────────────────────────────────────────────────────
+            if (!await db.Posts.AnyAsync())
+            {
+                var authorTech    = createdUsers["truong.clb@uef.edu.vn"].Id;
+                var authorFootball = createdUsers["minh.clb@uef.edu.vn"].Id;
+                var authorMusic   = createdUsers["hoa.clb@uef.edu.vn"].Id;
+                var authorEnglish = createdUsers["thu.clb@uef.edu.vn"].Id;
+                var authorVol     = createdUsers["mai.clb@uef.edu.vn"].Id;
+                var authorSchool  = createdUsers["admin@uef.edu.vn"].Id;
+
+                db.Posts.AddRange(
+                    // TECH — 3 bài
+                    new Post
+                    {
+                        ClubId = clubTech.Id, AuthorId = authorTech,
+                        Title = "CLB Công nghệ UEF đạt giải nhất Hackathon Quốc gia 2024",
+                        Content = "<p>Đội tuyển của CLB Công nghệ UEF xuất sắc đạt giải nhất tại cuộc thi Hackathon Quốc gia 2024 với giải pháp AI hỗ trợ nông nghiệp thông minh...</p>",
+                        ThumbnailUrl = "https://picsum.photos/seed/tech-p1/800/450",
+                        Category = PostCategory.News, Status = PostStatus.Published,
+                        CreatedAt = DateTime.UtcNow.AddDays(-5),
+                    },
+                    new Post
+                    {
+                        ClubId = clubTech.Id, AuthorId = authorTech,
+                        Title = "Tổng kết Workshop Python AI — 120 sinh viên tham gia",
+                        Content = "<p>Workshop lập trình AI với Python thu hút hơn 120 sinh viên từ các khoa. Các bạn được thực hành trực tiếp với dataset thực tế...</p>",
+                        ThumbnailUrl = "https://picsum.photos/seed/tech-p2/800/450",
+                        Category = PostCategory.News, Status = PostStatus.Published,
+                        CreatedAt = DateTime.UtcNow.AddDays(-12),
+                    },
+                    new Post
+                    {
+                        ClubId = clubTech.Id, AuthorId = authorTech,
+                        Title = "Thông báo: Mở đăng ký Hackathon UEF Tech 2025",
+                        Content = "<p>Hackathon UEF Tech 2025 chính thức mở đăng ký. Chủ đề năm nay: <strong>AI & Automation</strong>. Đăng ký theo nhóm 2-4 người...</p>",
+                        ThumbnailUrl = "https://picsum.photos/seed/tech-p3/800/450",
+                        Category = PostCategory.Announcement, Status = PostStatus.Published,
+                        CreatedAt = DateTime.UtcNow.AddDays(-2),
+                    },
+                    // FOOTBALL — 2 bài
+                    new Post
+                    {
+                        ClubId = clubFootball.Id, AuthorId = authorFootball,
+                        Title = "UEF FC vô địch Giải Bóng đá Sinh viên TP.HCM lần III",
+                        Content = "<p>Sau 90 phút kịch tính, UEF FC giành chức vô địch với tỷ số 2-1 trước đội chủ nhà UIT trong trận chung kết gay cấn...</p>",
+                        ThumbnailUrl = "https://picsum.photos/seed/football-p1/800/450",
+                        Category = PostCategory.News, Status = PostStatus.Published,
+                        CreatedAt = DateTime.UtcNow.AddDays(-8),
+                    },
+                    new Post
+                    {
+                        ClubId = clubFootball.Id, AuthorId = authorFootball,
+                        Title = "Lịch tập mùa hè 2025 — Tăng cường thể lực",
+                        Content = "<p>Ban huấn luyện thông báo lịch tập mùa hè với chương trình tăng cường thể lực đặc biệt. Tập luyện mỗi sáng thứ 3, 5, 7 tại sân UEF...</p>",
+                        ThumbnailUrl = "https://picsum.photos/seed/football-p2/800/450",
+                        Category = PostCategory.Announcement, Status = PostStatus.Published,
+                        CreatedAt = DateTime.UtcNow.AddDays(-3),
+                    },
+                    // MUSIC — 3 bài
+                    new Post
+                    {
+                        ClubId = clubMusic.Id, AuthorId = authorMusic,
+                        Title = "UEF Music Night 2024 — Đêm nhạc cháy hết mình",
+                        Content = "<p>Hơn 400 khán giả đã có mặt tại đêm nhạc UEF Music Night 2024. 22 tiết mục từ rock đến ballad, từ solo đến band...</p>",
+                        ThumbnailUrl = "https://picsum.photos/seed/music-p1/800/450",
+                        Category = PostCategory.News, Status = PostStatus.Published,
+                        CreatedAt = DateTime.UtcNow.AddDays(-15),
+                    },
+                    new Post
+                    {
+                        ClubId = clubMusic.Id, AuthorId = authorMusic,
+                        Title = "Tuyển thành viên Ban Nhạc cụ & Thanh nhạc học kỳ II/2025",
+                        Content = "<p>CLB Âm nhạc UEF tuyển thêm thành viên cho 2 ban: Nhạc cụ (guitar, piano, violin) và Thanh nhạc. Không yêu cầu kinh nghiệm...</p>",
+                        ThumbnailUrl = "https://picsum.photos/seed/music-p2/800/450",
+                        Category = PostCategory.Announcement, Status = PostStatus.Published,
+                        CreatedAt = DateTime.UtcNow.AddDays(-4),
+                    },
+                    new Post
+                    {
+                        ClubId = clubMusic.Id, AuthorId = authorMusic,
+                        Title = "Recap: Buổi jam session acoustic đầu xuân 2025",
+                        Content = "<p>Buổi jam session acoustic với sự tham gia của 15 nghệ sĩ sinh viên. Không gian ấm cúng, giai điệu chân thật — một buổi chiều không thể quên...</p>",
+                        ThumbnailUrl = "https://picsum.photos/seed/music-p3/800/450",
+                        Category = PostCategory.News, Status = PostStatus.Published,
+                        CreatedAt = DateTime.UtcNow.AddDays(-20),
+                    },
+                    // ENGLISH — 2 bài
+                    new Post
+                    {
+                        ClubId = clubEnglish.Id, AuthorId = authorEnglish,
+                        Title = "10 bí quyết nâng band IELTS từ 5.5 lên 6.5 trong 3 tháng",
+                        Content = "<p>Dựa trên kinh nghiệm của các thành viên CLB đã chinh phục IELTS 6.5+, chúng tôi tổng hợp 10 bí quyết học hiệu quả nhất...</p>",
+                        ThumbnailUrl = "https://picsum.photos/seed/english-p1/800/450",
+                        Category = PostCategory.News, Status = PostStatus.Published,
+                        CreatedAt = DateTime.UtcNow.AddDays(-10),
+                    },
+                    new Post
+                    {
+                        ClubId = clubEnglish.Id, AuthorId = authorEnglish,
+                        Title = "Kết quả English Speaking Contest 2024 — UEF tỏa sáng",
+                        Content = "<p>UEF giành 2 giải nhất và 1 giải nhì tại cuộc thi hùng biện tiếng Anh cấp trường. Chúc mừng các bạn đã đại diện xuất sắc cho CLB...</p>",
+                        ThumbnailUrl = "https://picsum.photos/seed/english-p2/800/450",
+                        Category = PostCategory.News, Status = PostStatus.Published,
+                        CreatedAt = DateTime.UtcNow.AddDays(-30),
+                    },
+                    // VOLUNTEER — 3 bài
+                    new Post
+                    {
+                        ClubId = clubVolunteer.Id, AuthorId = authorVol,
+                        Title = "Mùa Hè Xanh 2024 — Hành trình 7 ngày ý nghĩa tại Kon Tum",
+                        Content = "<p>Hơn 35 tình nguyện viên UEF đã đến với Kon Tum, xây dựng 2 phòng học mới, tặng 500 suất quà và tổ chức lớp học hè cho 120 em nhỏ...</p>",
+                        ThumbnailUrl = "https://picsum.photos/seed/volunteer-p1/800/450",
+                        Category = PostCategory.News, Status = PostStatus.Published,
+                        CreatedAt = DateTime.UtcNow.AddDays(-60),
+                    },
+                    new Post
+                    {
+                        ClubId = clubVolunteer.Id, AuthorId = authorVol,
+                        Title = "Chiến dịch \"Xanh hóa Trường học\" — Trồng 200 cây xanh tại UEF",
+                        Content = "<p>Nhân ngày Môi trường Thế giới 5/6, CLB Tình nguyện UEF phối hợp với Ban Quản lý cơ sở vật chất trồng 200 cây xanh trên khuôn viên trường...</p>",
+                        ThumbnailUrl = "https://picsum.photos/seed/volunteer-p2/800/450",
+                        Category = PostCategory.News, Status = PostStatus.Published,
+                        CreatedAt = DateTime.UtcNow.AddDays(-25),
+                    },
+                    new Post
+                    {
+                        ClubId = clubVolunteer.Id, AuthorId = authorVol,
+                        Title = "Đăng ký tham gia Mùa Hè Xanh 2025 — Hạn cuối 15/6",
+                        Content = "<p>Chiến dịch Mùa Hè Xanh 2025 chính thức mở đăng ký. Năm nay CLB hướng đến Đắk Lắk — vùng đất giàu văn hóa nhưng còn nhiều khó khăn...</p>",
+                        ThumbnailUrl = "https://picsum.photos/seed/volunteer-p3/800/450",
+                        Category = PostCategory.Announcement, Status = PostStatus.Published,
+                        CreatedAt = DateTime.UtcNow.AddDays(-6),
+                    },
+                    // ── Tin cấp trường (ClubId = null, tác giả SUPER_ADMIN) ──
+                    new Post
+                    {
+                        ClubId = null, AuthorId = authorSchool,
+                        Title = "Thông báo lịch nghỉ Tết Nguyên đán 2025 toàn trường",
+                        Content = "<p>Nhà trường thông báo lịch nghỉ Tết Nguyên đán dành cho toàn thể sinh viên và cán bộ. Các CLB vui lòng sắp xếp hoạt động phù hợp với lịch chung của trường...</p>",
+                        ThumbnailUrl = "https://picsum.photos/seed/school-n1/800/450",
+                        Category = PostCategory.Announcement, Status = PostStatus.Published,
+                        CreatedAt = DateTime.UtcNow.AddDays(-1),
+                    },
+                    new Post
+                    {
+                        ClubId = null, AuthorId = authorSchool,
+                        Title = "UEF khai mạc Tuần lễ Định hướng Tân sinh viên 2025",
+                        Content = "<p>Sáng nay, Trường Đại học Kinh tế - Tài chính TP.HCM chính thức khai mạc Tuần lễ Định hướng dành cho hơn 2.000 tân sinh viên khóa mới với chuỗi hoạt động trải nghiệm phong phú...</p>",
+                        ThumbnailUrl = "https://picsum.photos/seed/school-n2/800/450",
+                        Category = PostCategory.News, Status = PostStatus.Published,
+                        CreatedAt = DateTime.UtcNow.AddDays(-9),
+                    },
+                    new Post
+                    {
+                        ClubId = null, AuthorId = authorSchool,
+                        Title = "Phát động phong trào Sinh viên 5 tốt năm học 2025",
+                        Content = "<p>Đoàn trường phát động phong trào Sinh viên 5 tốt trên toàn trường. Đây là cơ hội để sinh viên rèn luyện toàn diện về đạo đức, học tập, thể lực, tình nguyện và hội nhập...</p>",
+                        ThumbnailUrl = "https://picsum.photos/seed/school-n3/800/450",
+                        Category = PostCategory.News, Status = PostStatus.Published,
+                        CreatedAt = DateTime.UtcNow.AddDays(-18),
+                    }
+                );
+                await db.SaveChangesAsync();
+            }
+
+            // ── Media Gallery ─────────────────────────────────────────────
+            if (!await db.MediaGalleries.AnyAsync())
+            {
+                var galleryItems = new List<MediaGallery>();
+
+                // Helper tạo một loạt ảnh cho 1 club
+                void AddPhotos(int clubId, string seed, string[] captions)
+                {
+                    for (int i = 0; i < captions.Length; i++)
+                        galleryItems.Add(new MediaGallery
+                        {
+                            ClubId = clubId,
+                            MediaUrl = $"https://picsum.photos/seed/{seed}-{i + 1}/600/400",
+                            MediaType = MediaType.Image,
+                            Description = captions[i],
+                        });
+                }
+
+                AddPhotos(clubTech.Id, "tech-g", [
+                    "Hackathon 2024 — Đội 1 trình bày giải pháp",
+                    "Workshop Python AI — Học viên thực hành",
+                    "Tech Talk: Chia sẻ kinh nghiệm từ kỹ sư senior",
+                    "Lễ trao giải Hackathon Quốc gia 2024",
+                    "Buổi mentor 1-1 với cố vấn kỹ thuật",
+                    "Team building cuối năm CLB Công nghệ",
+                ]);
+
+                AddPhotos(clubFootball.Id, "football-g", [
+                    "Trận chung kết UEF Cup — Khoảnh khắc ghi bàn",
+                    "Lễ nhận cúp vô địch mùa giải 2024",
+                    "Buổi tập luyện sáng thứ 5 tại sân UEF",
+                    "Ảnh đội hình chính thức năm 2025",
+                    "Giao hữu với CLB Bóng đá UIT",
+                    "Celebration sau chiến thắng",
+                ]);
+
+                AddPhotos(clubMusic.Id, "music-g", [
+                    "UEF Music Night 2024 — Tiết mục mở màn",
+                    "Ban nhạc acoustic trên sân khấu",
+                    "Jam session cuối tuần tại phòng CLB",
+                    "Rehearsal cho concert cuối năm",
+                    "Trao giải cuộc thi hát nội bộ",
+                    "Ảnh kỷ niệm các thành viên ban nhạc",
+                    "Biểu diễn tại Ngày hội sinh viên UEF",
+                ]);
+
+                AddPhotos(clubEnglish.Id, "english-g", [
+                    "English Speaking Contest 2024 — Vòng chung kết",
+                    "Workshop IELTS Writing với giáo viên khách mời",
+                    "Câu lạc bộ tiếng Anh giao lưu với sinh viên quốc tế",
+                    "Trao giải các nhà vô địch ESC 2024",
+                    "Buổi storytelling night cuối học kỳ",
+                ]);
+
+                AddPhotos(clubVolunteer.Id, "volunteer-g", [
+                    "Mùa Hè Xanh 2024 — Khánh thành phòng học mới",
+                    "Trao 500 suất quà cho trẻ em Kon Tum",
+                    "Lớp học hè tình nguyện buổi sáng",
+                    "Trồng cây xanh tại khuôn viên UEF",
+                    "Ngày hội hiến máu — Kiểm tra sức khỏe",
+                    "Team tình nguyện chụp ảnh kỷ niệm",
+                    "Dọn vệ sinh bãi biển Vũng Tàu",
+                ]);
+
+                db.MediaGalleries.AddRange(galleryItems);
+                await db.SaveChangesAsync();
+            }
+
             // ── KPI demo data ─────────────────────────────────────────────
             // Seed dữ liệu đủ để test nhanh KPI config/results/my-kpi trong môi trường dev.
             // Idempotent theo marker trong Title/Note để chạy lại app không tạo trùng task.

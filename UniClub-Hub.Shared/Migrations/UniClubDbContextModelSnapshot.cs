@@ -943,6 +943,42 @@ namespace UniClub_Hub.Shared.Migrations
                     b.ToTable("EventAttachments");
                 });
 
+            modelBuilder.Entity("UniClub_Hub.Shared.Models.EventCheckInCode", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("EventId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("EventRegistrationId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EventId");
+
+                    b.HasIndex("EventRegistrationId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("EventCheckInCodes");
+                });
+
             modelBuilder.Entity("UniClub_Hub.Shared.Models.EventClubAssignment", b =>
                 {
                     b.Property<int>("Id")
@@ -1342,11 +1378,33 @@ namespace UniClub_Hub.Shared.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("ReviewNote")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("ReviewedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("ReviewerId")
+                        .HasColumnType("text");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("UploadedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("UploadedById")
+                        .HasColumnType("text");
+
                     b.HasKey("Id");
 
                     b.HasIndex("ClubId");
 
                     b.HasIndex("EventId");
+
+                    b.HasIndex("ReviewerId");
+
+                    b.HasIndex("UploadedById");
 
                     b.ToTable("MediaGalleries");
                 });
@@ -1367,6 +1425,9 @@ namespace UniClub_Hub.Shared.Migrations
 
                     b.Property<bool>("IsRead")
                         .HasColumnType("boolean");
+
+                    b.Property<string>("Link")
+                        .HasColumnType("text");
 
                     b.Property<string>("Message")
                         .IsRequired()
@@ -1445,6 +1506,36 @@ namespace UniClub_Hub.Shared.Migrations
                     b.ToTable("NotificationPreferences");
                 });
 
+            modelBuilder.Entity("UniClub_Hub.Shared.Models.PageView", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ClubId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Path")
+                        .HasColumnType("text");
+
+                    b.Property<string>("UserAgent")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("VisitedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("VisitorIp")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClubId", "VisitedAt");
+
+                    b.ToTable("PageViews");
+                });
+
             modelBuilder.Entity("UniClub_Hub.Shared.Models.Post", b =>
                 {
                     b.Property<int>("Id")
@@ -1464,7 +1555,7 @@ namespace UniClub_Hub.Shared.Migrations
                         .HasColumnType("character varying(30)")
                         .HasDefaultValue("News");
 
-                    b.Property<int>("ClubId")
+                    b.Property<int?>("ClubId")
                         .HasColumnType("integer");
 
                     b.Property<string>("Content")
@@ -1477,8 +1568,17 @@ namespace UniClub_Hub.Shared.Migrations
                     b.Property<int?>("DepartmentId")
                         .HasColumnType("integer");
 
-                    b.Property<bool>("IsPublished")
-                        .HasColumnType("boolean");
+                    b.Property<string>("ReviewNote")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("ReviewedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("ReviewerId")
+                        .HasColumnType("text");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
 
                     b.Property<string>("ThumbnailUrl")
                         .HasColumnType("text");
@@ -1495,6 +1595,8 @@ namespace UniClub_Hub.Shared.Migrations
                     b.HasIndex("ClubId");
 
                     b.HasIndex("DepartmentId");
+
+                    b.HasIndex("ReviewerId");
 
                     b.ToTable("Posts");
                 });
@@ -2162,6 +2264,33 @@ namespace UniClub_Hub.Shared.Migrations
                     b.Navigation("UploadedByUser");
                 });
 
+            modelBuilder.Entity("UniClub_Hub.Shared.Models.EventCheckInCode", b =>
+                {
+                    b.HasOne("UniClub_Hub.Shared.Models.ClubEvent", "Event")
+                        .WithMany()
+                        .HasForeignKey("EventId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("UniClub_Hub.Shared.Models.EventRegistration", "EventRegistration")
+                        .WithMany()
+                        .HasForeignKey("EventRegistrationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("UniClub_Hub.Shared.Models.ApplicationUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Event");
+
+                    b.Navigation("EventRegistration");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("UniClub_Hub.Shared.Models.EventRegistration", b =>
                 {
                     b.HasOne("UniClub_Hub.Shared.Models.ClubEvent", "Event")
@@ -2291,9 +2420,21 @@ namespace UniClub_Hub.Shared.Migrations
                         .WithMany("MediaGalleries")
                         .HasForeignKey("EventId");
 
+                    b.HasOne("UniClub_Hub.Shared.Models.ApplicationUser", "Reviewer")
+                        .WithMany()
+                        .HasForeignKey("ReviewerId");
+
+                    b.HasOne("UniClub_Hub.Shared.Models.ApplicationUser", "UploadedBy")
+                        .WithMany()
+                        .HasForeignKey("UploadedById");
+
                     b.Navigation("Club");
 
                     b.Navigation("Event");
+
+                    b.Navigation("Reviewer");
+
+                    b.Navigation("UploadedBy");
                 });
 
             modelBuilder.Entity("UniClub_Hub.Shared.Models.Notification", b =>
@@ -2317,6 +2458,17 @@ namespace UniClub_Hub.Shared.Migrations
                     b.Navigation("Club");
                 });
 
+            modelBuilder.Entity("UniClub_Hub.Shared.Models.PageView", b =>
+                {
+                    b.HasOne("UniClub_Hub.Shared.Models.Club", "Club")
+                        .WithMany()
+                        .HasForeignKey("ClubId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Club");
+                });
+
             modelBuilder.Entity("UniClub_Hub.Shared.Models.Post", b =>
                 {
                     b.HasOne("UniClub_Hub.Shared.Models.ApplicationUser", "Author")
@@ -2328,18 +2480,23 @@ namespace UniClub_Hub.Shared.Migrations
                     b.HasOne("UniClub_Hub.Shared.Models.Club", "Club")
                         .WithMany("Posts")
                         .HasForeignKey("ClubId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Cascade);
 
                     b.HasOne("UniClub_Hub.Shared.Models.Department", "Department")
                         .WithMany("Posts")
                         .HasForeignKey("DepartmentId");
+
+                    b.HasOne("UniClub_Hub.Shared.Models.ApplicationUser", "Reviewer")
+                        .WithMany()
+                        .HasForeignKey("ReviewerId");
 
                     b.Navigation("Author");
 
                     b.Navigation("Club");
 
                     b.Navigation("Department");
+
+                    b.Navigation("Reviewer");
                 });
 
             modelBuilder.Entity("UniClub_Hub.Shared.Models.RefreshToken", b =>

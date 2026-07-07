@@ -743,7 +743,7 @@ export default function LandingPage() {
                 sinh viên
               </span><br />
               <span className="landing-title-badge" style={{
-                display: 'inline-block', background: C.coral, color: C.bg, padding: '0 14px',
+                display: 'inline-block', background: C.coral, color: '#ffffff', padding: '0 14px',
                 border: C.border, borderRadius: 12, transform: 'rotate(-1deg)',
               }}>UEF.</span>
             </h1>

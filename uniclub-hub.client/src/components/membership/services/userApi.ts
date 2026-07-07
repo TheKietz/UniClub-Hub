@@ -48,3 +48,26 @@ export interface MembershipHistory {
 
 export const getMemberHistory = () =>
   api.get<{ data: MembershipHistory[] }>('/users/me/history').then(r => r.data.data)
+
+// ── Lịch sử tham gia sự kiện ────────────────────────────────────────────────
+
+export interface MyEventRegistration {
+  eventId: number
+  eventName: string
+  clubId: number | null       // null = cấp trường
+  clubName?: string | null
+  location?: string | null
+  startTime?: string | null
+  endTime?: string | null
+  eventStatus: string         // Draft | InProgress | Completed | Cancelled
+  registeredAt: string
+  attendance: string          // Pending | CheckedIn | Absent
+  checkedInAt?: string | null
+  canCancel: boolean
+}
+
+export const getMyEventRegistrations = () =>
+  api.get<{ data: MyEventRegistration[] }>('/users/me/event-registrations').then(r => r.data.data)
+
+export const cancelMyEventRegistration = (eventId: number) =>
+  api.delete(`/users/me/event-registrations/${eventId}`)

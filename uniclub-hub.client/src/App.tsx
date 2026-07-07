@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, useParams } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useParams } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import ProtectedRoute from "@/components/shared/ProtectedRoute";
@@ -8,7 +8,6 @@ import { Toaster } from "@/components/ui/sonner";
 import { CLUB_ROLES } from "@/types/auth";
 import { CLUB_PERMISSIONS } from "@/constants/clubPermissions";
 
-import LandingPage from "@/features/landing/LandingPage";
 import ContactPage from "@/features/contact/ContactPage";
 import AboutPage from "@/features/about/AboutPage";
 import NotFoundPage from "@/features/errors/NotFoundPage";
@@ -36,7 +35,11 @@ import DepartmentsPage from "@/components/membership/pages/club/DepartmentsPage"
 import FormSchemaPage from "@/components/membership/pages/club/FormSchemaPage";
 import MemberFieldsPage from "@/components/membership/pages/club/MemberFieldsPage";
 import ClubSettingsPage from "@/components/membership/pages/club/ClubSettingsPage";
-import ResignationPage from "@/components/membership/pages/club/ResignationPage";
+import ResignationPage from "@/components/membership/pages/club/ResignationPage"
+import LandingPageManagePage from "@/components/membership/pages/club/LandingPageManagePage";
+import PostsManagePage from "@/components/membership/pages/club/PostsManagePage";
+import GalleryManagePage from "@/components/membership/pages/club/GalleryManagePage";
+import AnalyticsPage from "@/components/membership/pages/club/AnalyticsPage";
 import OrgChartPage from "@/components/membership/pages/club/OrgChartPage";
 import AuditLogPage from "@/components/membership/pages/club/AuditLogPage";
 import PipelineSettingsPage from "@/components/membership/pages/club/PipelineSettingsPage";
@@ -45,8 +48,8 @@ import KpiConfigPage from "@/components/membership/pages/club/KpiConfigPage";
 import KpiDashboardPage from "@/components/membership/pages/club/KpiDashboardPage";
 
 import MemberDashboard from "@/components/membership/pages/MemberDashboard";
-import ClubListPage from "@/components/membership/pages/ClubListPage";
 import MyActivityPage from "@/components/membership/pages/MyActivityPage";
+import MyEventsPage from "@/components/membership/pages/MyEventsPage";
 import MyKpiPage from "@/components/membership/pages/MyKpiPage";
 import SupportPage from "@/components/membership/pages/SupportPage";
 import SupportAdminPage from "@/components/membership/pages/admin/SupportAdminPage";
@@ -79,6 +82,13 @@ function WithTasksProvider({ children }: { children: React.ReactNode }) {
     </TasksProvider>
   )
 }
+import LandingPage from "@/features/landing/LandingPage";
+import ClubListPage from "@/components/membership/pages/ClubListPage";
+import ClubLandingPage from "@/components/portal/pages/ClubLandingPage";
+import LandingPagePreviewPage from "@/components/portal/pages/LandingPagePreviewPage";
+import EventsPortalPage from "@/components/portal/pages/EventsPortalPage";
+import NewsPortalPage from "@/components/portal/pages/NewsPortalPage";
+import AdminNewsPage from "@/components/membership/pages/admin/AdminNewsPage";
 
 const Soon = ({ label }: { label: string }) => (
   <div className="p-8 text-xl font-semibold text-gray-500">
@@ -92,8 +102,8 @@ export default function App() {
       <ThemeProvider>
       <AuthProvider>
         <Routes>
-          {/* Landing */}
-          <Route path="/" element={<LandingPage />} />
+          {/* Home — redirect to /portal */}
+          <Route path="/" element={<Navigate to="/portal" replace />} />
 
           {/* Public */}
           <Route path="/login" element={<LoginPage />} />
@@ -124,6 +134,7 @@ export default function App() {
               <Route path="/admin/report" element={<AdminReportPage />} />
               <Route path="/admin/events" element={<EventListPage />} />
               <Route path="/admin/events/:id" element={<UniversityEventDetailPage />} />
+              <Route path="/admin/news" element={<AdminNewsPage />} />
             </Route>
           </Route>
 
@@ -131,9 +142,18 @@ export default function App() {
           <Route path="/contact" element={<ContactPage />} />
           <Route path="/about" element={<AboutPage />} />
 
+          {/* Portal landing page */}
+          <Route path="/portal" element={<LandingPage />} />
+          <Route path="/landing-page/:clubId" element={<ClubLandingPage />} />
+          <Route path="/landing-page/preview/:clubId" element={<LandingPagePreviewPage />} />
+
           {/* Public club pages — không cần đăng nhập */}
           <Route path="/clubs" element={<ClubListPage />} />
           <Route path="/clubs/:clubId" element={<ClubDetailPage />} />
+
+          {/* Public feeds — sự kiện & tin tức toàn trường (cấp trường + cấp CLB) */}
+          <Route path="/events" element={<EventsPortalPage />} />
+          <Route path="/news" element={<NewsPortalPage />} />
 
           {/* Member routes — sidebar layout */}
           <Route element={<ProtectedRoute />}>
@@ -143,6 +163,7 @@ export default function App() {
               <Route path="/notifications" element={<NotificationsPage />} />
               <Route path="/my-history" element={<MemberHistoryPage />} />
               <Route path="/my-activity" element={<MyActivityPage />} />
+              <Route path="/my-events" element={<MyEventsPage />} />
               <Route path="/my-kpi" element={<MyKpiPage />} />
               <Route path="/support" element={<SupportPage />} />
               <Route path="/clubs/:clubId/operations" element={<ClubOperationsPage />} />
@@ -340,6 +361,20 @@ export default function App() {
                 </Route>
               </Route>
 
+              {/* Posts, Gallery, Members (read-only), Analytics — CLUB_ADMIN + DEPT_LEAD */}
+              <Route
+                element={
+                  <ClubProtectedRoute requiredRoles={[CLUB_ROLES.CLUB_ADMIN, CLUB_ROLES.DEPT_LEAD]} />
+                }
+              >
+                <Route element={<ClubManageLayout />}>
+                  <Route path="manage/posts" element={<PostsManagePage />} />
+                  <Route path="manage/gallery" element={<GalleryManagePage />} />
+                  <Route path="manage/members" element={<MembersPage />} />
+                  <Route path="manage/analytics" element={<AnalyticsPage />} />
+                </Route>
+              </Route>
+
               {/* Dashboard & operations — chỉ CLUB_ADMIN */}
               <Route
                 element={
@@ -359,6 +394,10 @@ export default function App() {
                   <Route path="manage/notifications" element={<ClubNotificationPreferencePage />} />
                   <Route path="manage/resignations" element={<ResignationPage />} />
                   <Route path="manage/settings" element={<ClubSettingsPage />} />
+                  <Route
+                    path="manage/landing-page"
+                    element={<LandingPageManagePage />}
+                  />
                 </Route>
               </Route>
             </Route>

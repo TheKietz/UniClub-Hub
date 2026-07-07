@@ -10,6 +10,7 @@ export interface NotificationItem {
   message: string
   type: NotificationType
   isRead: boolean
+  link?: string
   createdAt: string
   body?: string | null
   relatedEntityType?: string | null

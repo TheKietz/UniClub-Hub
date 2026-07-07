@@ -17,5 +17,9 @@ namespace UniClub_Hub.Membership.Services.Interfaces
         Task<UserDetailDto> CreateUserAsync(CreateUserDto dto);
         Task ChangeRoleAsync(string userId, string newRole);
         Task<IEnumerable<MembershipHistoryDto>> GetMyHistoryAsync(string userId);
+
+        // Lịch sử tham gia sự kiện của người dùng
+        Task<IEnumerable<MyEventRegistrationDto>> GetMyEventRegistrationsAsync(string userId);
+        Task CancelMyEventRegistrationAsync(string userId, int eventId);
     }
 }

@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>Đề tài 3 — Portal: Tổng kết chức năng</title>
+<style>
+  body { font-family: 'Times New Roman', Times, serif; font-size: 13pt; margin: 2.5cm; color: #111; line-height: 1.6; }
+  h1 { font-size: 18pt; font-weight: bold; text-align: center; margin-bottom: 6pt; }
+  h2 { font-size: 14pt; font-weight: bold; margin-top: 20pt; margin-bottom: 6pt; border-bottom: 1.5px solid #333; padding-bottom: 4px; }
+  h3 { font-size: 13pt; font-weight: bold; margin-top: 14pt; margin-bottom: 4pt; }
+  table { border-collapse: collapse; width: 100%; margin-bottom: 14pt; font-size: 11pt; }
+  th { background-color: #1a1a1a; color: #fff; padding: 7px 10px; text-align: left; }
+  td { border: 1px solid #bbb; padding: 6px 10px; vertical-align: top; }
+  tr:nth-child(even) td { background-color: #f5f5f5; }
+  .badge-yes  { background: #d4edda; color: #155724; padding: 1px 6px; border-radius: 4px; font-weight: bold; }
+  .badge-pend { background: #fff3cd; color: #856404; padding: 1px 6px; border-radius: 4px; font-weight: bold; }
+  ul { margin: 4pt 0 4pt 16pt; padding: 0; }
+  li { margin-bottom: 3pt; }
+  .subtitle { text-align: center; font-style: italic; color: #555; margin-bottom: 16pt; }
+  .note { background: #fff8dc; border-left: 4px solid #f0a500; padding: 8px 12px; margin: 10pt 0; font-size: 11pt; }
+</style>
+</head>
+<body>
+
+<h1>Đề tài 3 — Portal (Cổng thông tin công khai)</h1>
+<p class="subtitle">UniClub-Hub · Tổng kết chức năng đã hoàn thiện · 06/06/2026</p>
+
+<!-- ─────────────────────────────────────── -->
+<h2>1. Cơ sở dữ liệu (Neon PostgreSQL)</h2>
+<p>Các bảng liên quan Đề tài 3 đã được migrate vào DB:</p>
+
+<table>
+  <tr>
+    <th>Bảng</th>
+    <th>Trạng thái</th>
+    <th>Dữ liệu lưu trữ</th>
+  </tr>
+  <tr>
+    <td><strong>LandingPages</strong></td>
+    <td><span class="badge-yes">✅ Đã migrate</span></td>
+    <td>HeroImage, Introduction, Mission, Vision, SocialLinks (JSON), LayoutSettings (JSON — theme màu sắc, thứ tự section)</td>
+  </tr>
+  <tr>
+    <td><strong>Posts</strong></td>
+    <td><span class="badge-yes">✅ Đã migrate</span></td>
+    <td>Title, Content (rich text), ThumbnailUrl (Cloudinary), Category (enum), IsPublished, AuthorId, CreatedAt</td>
+  </tr>
+  <tr>
+    <td><strong>MediaGalleries</strong></td>
+    <td><span class="badge-yes">✅ Đã migrate</span></td>
+    <td>MediaUrl (Cloudinary), MediaType (Image / Video), Description, ClubId</td>
+  </tr>
+  <tr>
+    <td><strong>PageViews</strong></td>
+    <td><span class="badge-yes">✅ Đã migrate (05/06/2026)</span></td>
+    <td>ClubId, VisitedAt, VisitorIp, UserAgent, Path — dùng cho Analytics lượt truy cập</td>
+  </tr>
+</table>
+
+<div class="note">
+  <strong>Lưu ý:</strong> Đây là các bảng chuyên biệt của Đề tài 3. Ngoài ra, Portal còn đọc dữ liệu từ các bảng dùng chung: <em>Clubs, Departments, ClubMemberships, Events, Categories</em> (thuộc Đề tài 1 &amp; 2).
+</div>
+
+<!-- ─────────────────────────────────────── -->
+<h2>2. Backend API — Danh sách endpoint</h2>
+
+<h3>2.1. Trang khám phá CLB (Public — không cần đăng nhập)</h3>
+<table>
+  <tr><th>Endpoint</th><th>Method</th><th>Mô tả</th></tr>
+  <tr><td>/api/v1/portal/clubs</td><td>GET</td><td>Danh sách CLB đang hoạt động (phân trang, tìm kiếm theo tên, lọc theo category)</td></tr>
+  <tr><td>/api/v1/portal/clubs/{clubId}</td><td>GET</td><td>Toàn bộ dữ liệu landing page: thông tin CLB + ban + sự kiện sắp tới + bài viết mới + gallery + số liệu thống kê</td></tr>
+  <tr><td>/api/v1/portal/clubs/{clubId}/view</td><td>POST</td><td>Ghi nhận 1 lượt xem trang — được gọi bởi frontend khi người dùng mở landing page</td></tr>
+</table>
+
+<h3>2.2. Quản lý Landing Page (CLUB_ADMIN)</h3>
+<table>
+  <tr><th>Endpoint</th><th>Method</th><th>CRUD</th><th>Mô tả</th></tr>
+  <tr><td>/api/clubs/{clubId}/landing-page</td><td>GET</td><td>Read</td><td>Lấy nội dung landing page hiện tại của CLB</td></tr>
+  <tr><td>/api/clubs/{clubId}/landing-page</td><td>PUT</td><td>Create / Update</td><td>Lưu toàn bộ nội dung (tự tạo mới nếu chưa có, cập nhật nếu đã có)</td></tr>
+  <tr><td>/api/clubs/{clubId}/landing-page/hero</td><td>POST</td><td>Upload</td><td>Upload ảnh bìa (hero) lên Cloudinary, lưu URL vào DB</td></tr>
+</table>
+
+<h3>2.3. Bài viết / Tin tức (Posts — CRUD đầy đủ)</h3>
+<table>
+  <tr><th>Endpoint</th><th>Method</th><th>CRUD</th><th>Mô tả</th></tr>
+  <tr><td>/api/clubs/{clubId}/posts/public</td><td>GET</td><td>Read</td><td>Công khai — danh sách bài đã publish (phân trang, tìm kiếm, lọc theo loại)</td></tr>
+  <tr><td>/api/clubs/{clubId}/posts</td><td>GET</td><td>Read</td><td>Admin — toàn bộ bài (bao gồm cả bản nháp)</td></tr>
+  <tr><td>/api/clubs/{clubId}/posts/{id}</td><td>GET</td><td>Read</td><td>Chi tiết 1 bài viết</td></tr>
+  <tr><td>/api/clubs/{clubId}/posts</td><td>POST</td><td>Create</td><td>Tạo bài viết mới</td></tr>
+  <tr><td>/api/clubs/{clubId}/posts/{id}</td><td>PUT</td><td>Update</td><td>Chỉnh sửa nội dung bài viết, thay đổi trạng thái publish</td></tr>
+  <tr><td>/api/clubs/{clubId}/posts/{id}</td><td>DELETE</td><td>Delete</td><td>Xóa bài viết</td></tr>
+  <tr><td>/api/clubs/{clubId}/posts/{id}/thumbnail</td><td>POST</td><td>Upload</td><td>Upload ảnh thumbnail lên Cloudinary</td></tr>
+</table>
+
+<h3>2.4. Thư viện ảnh/video (Gallery — CRUD đầy đủ)</h3>
+<table>
+  <tr><th>Endpoint</th><th>Method</th><th>CRUD</th><th>Mô tả</th></tr>
+  <tr><td>/api/clubs/{clubId}/gallery</td><td>GET</td><td>Read</td><td>Công khai — danh sách toàn bộ media của CLB</td></tr>
+  <tr><td>/api/clubs/{clubId}/gallery/upload</td><td>POST</td><td>Create</td><td>Upload 1 hoặc nhiều ảnh cùng lúc lên Cloudinary</td></tr>
+  <tr><td>/api/clubs/{clubId}/gallery/video</td><td>POST</td><td>Create</td><td>Thêm video bằng URL (YouTube, v.v.)</td></tr>
+  <tr><td>/api/clubs/{clubId}/gallery/{id}</td><td>PUT</td><td>Update</td><td>Cập nhật mô tả (description) của media item</td></tr>
+  <tr><td>/api/clubs/{clubId}/gallery/{id}</td><td>DELETE</td><td>Delete</td><td>Xóa media item khỏi DB và Cloudinary</td></tr>
+</table>
+
+<h3>2.5. Analytics — Phân tích lượt truy cập (CLUB_ADMIN)</h3>
+<table>
+  <tr><th>Endpoint</th><th>Method</th><th>Mô tả</th></tr>
+  <tr><td>/api/clubs/{clubId}/analytics/overview</td><td>GET</td><td>Tổng lượt xem, lượt xem tuần này/tuần trước, tháng này/tháng trước, % tăng trưởng</td></tr>
+  <tr><td>/api/clubs/{clubId}/analytics/daily-views?days=30</td><td>GET</td><td>Dữ liệu lượt xem theo từng ngày để vẽ biểu đồ (có thể chọn 7N / 30N / 60N / 90N)</td></tr>
+</table>
+
+<h3>2.6. AI Gợi ý CLB</h3>
+<table>
+  <tr><th>Endpoint</th><th>Method</th><th>Mô tả</th></tr>
+  <tr><td>/api/v1/recommendations/clubs?topN=3</td><td>GET</td><td>Gợi ý CLB phù hợp dùng HuggingFace sentence-transformers (all-MiniLM-L6-v2) và cosine similarity. Không cần đăng nhập (fallback theo độ phổ biến). Có đăng nhập → cá nhân hóa theo ngành học và CLB đang tham gia.</td></tr>
+</table>
+
+<!-- ─────────────────────────────────────── -->
+<h2>3. Frontend — Các trang đã hoàn thiện</h2>
+
+<table>
+  <tr><th>Trang</th><th>Route</th><th>Phân quyền</th><th>Mô tả</th></tr>
+  <tr>
+    <td>Danh sách CLB</td>
+    <td>/clubs</td>
+    <td>Công khai</td>
+    <td>Tìm kiếm, lọc theo category, sắp xếp, section "✦ AI GỢI Ý" phía trên</td>
+  </tr>
+  <tr>
+    <td>Landing page CLB</td>
+    <td>/landing-page/:clubId</td>
+    <td>Công khai</td>
+    <td>Hiển thị đầy đủ: Hero, Giới thiệu, Ban bộ phận, Sự kiện, Bài viết, Gallery, Thống kê, Liên hệ</td>
+  </tr>
+  <tr>
+    <td>Quản lý Landing Page</td>
+    <td>Dashboard → Landing Page</td>
+    <td>CLUB_ADMIN</td>
+    <td>Chỉnh sửa hero ảnh, introduction, mission, vision, mạng xã hội, màu theme, thứ tự section</td>
+  </tr>
+  <tr>
+    <td>Preview Landing Page</td>
+    <td>Dashboard → Preview</td>
+    <td>CLUB_ADMIN</td>
+    <td>Xem trước landing page trước khi xuất bản</td>
+  </tr>
+  <tr>
+    <td>Quản lý Bài viết</td>
+    <td>Dashboard → Bài viết</td>
+    <td>CLUB_ADMIN</td>
+    <td>Tạo / sửa / xóa bài, upload thumbnail, publish / lưu nháp</td>
+  </tr>
+  <tr>
+    <td>Quản lý Gallery</td>
+    <td>Dashboard → Gallery</td>
+    <td>CLUB_ADMIN</td>
+    <td>Upload nhiều ảnh cùng lúc, thêm video URL, sửa mô tả, xóa</td>
+  </tr>
+  <tr>
+    <td>Analytics Dashboard</td>
+    <td>Dashboard → Analytics</td>
+    <td>CLUB_ADMIN</td>
+    <td>4 thẻ số liệu, 2 thẻ so sánh tăng trưởng, biểu đồ đường theo ngày (recharts)</td>
+  </tr>
+</table>
+
+<!-- ─────────────────────────────────────── -->
+<h2>4. Tóm tắt CRUD theo tính năng</h2>
+
+<table>
+  <tr><th>Tính năng</th><th>Create</th><th>Read</th><th>Update</th><th>Delete</th></tr>
+  <tr><td>Landing Page</td><td>✅ (upsert)</td><td>✅</td><td>✅ (upsert)</td><td>—</td></tr>
+  <tr><td>Bài viết (Posts)</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td></tr>
+  <tr><td>Thư viện media (Gallery)</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td></tr>
+  <tr><td>Lượt xem (PageViews)</td><td>✅ (tracking)</td><td>✅ (analytics)</td><td>—</td><td>—</td></tr>
+  <tr><td>AI Gợi ý CLB</td><td>—</td><td>✅ (real-time)</td><td>—</td><td>—</td></tr>
+  <tr><td>Trang khám phá (Portal)</td><td>—</td><td>✅</td><td>—</td><td>—</td></tr>
+</table>
+
+<!-- ─────────────────────────────────────── -->
+<h2>5. Phụ thuộc bên ngoài</h2>
+<ul>
+  <li><strong>Cloudinary</strong>: Lưu trữ ảnh hero, thumbnail bài viết, ảnh gallery</li>
+  <li><strong>HuggingFace Inference API</strong>: Model <em>sentence-transformers/all-MiniLM-L6-v2</em> — tính similarity để gợi ý CLB</li>
+  <li><strong>Neon PostgreSQL</strong>: Lưu trữ toàn bộ dữ liệu (DB chung cho 3 đề tài)</li>
+</ul>
+
+<hr>
+<p style="text-align:center; font-size:10pt; color:#888;">Tài liệu được tạo tự động từ source code — UniClub-Hub 2026</p>
+
+</body>
+</html>

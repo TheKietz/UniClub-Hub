@@ -55,6 +55,7 @@ public class NotificationPreferenceServiceTests : DbTestBase
                 It.Is<string>(m => m.Contains("Có đơn đăng ký mới")),
                 NotificationType.System,
                 null,
+                null,
                 "Club",
                 1),
             Times.Once);
@@ -65,6 +66,7 @@ public class NotificationPreferenceServiceTests : DbTestBase
                 It.IsAny<string>(),
                 It.IsAny<string>(),
                 It.IsAny<NotificationType>(),
+                It.IsAny<string?>(),
                 It.IsAny<string?>(),
                 It.IsAny<string?>(),
                 It.IsAny<int?>()),

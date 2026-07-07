@@ -13,5 +13,7 @@ namespace UniClub_Hub.Operations.DTOs.Event
         public string Attendance { get; set; } = null!;
         public DateTimeOffset? CheckedInAt { get; set; }
         public string? Note { get; set; }
+        /// <summary>Mã QR check-in (Base64 của "{eventId}_{userId}"); chỉ trả về cho endpoint tự đăng ký / xem đăng ký của tôi.</summary>
+        public string? CheckInCode { get; set; }
     }
 }

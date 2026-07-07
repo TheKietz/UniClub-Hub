@@ -50,6 +50,35 @@ namespace UniClub_Hub.Server.Controllers.Membership
             return Ok(ApiResponse<IEnumerable<MembershipHistoryDto>>.Ok(history));
         }
 
+        // GET /api/users/me/event-registrations — lịch sử tham gia sự kiện của tôi
+        [HttpGet("me/event-registrations")]
+        public async Task<IActionResult> GetMyEventRegistrations()
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+            var result = await _userService.GetMyEventRegistrationsAsync(userId);
+            return Ok(ApiResponse<IEnumerable<MyEventRegistrationDto>>.Ok(result));
+        }
+
+        // DELETE /api/users/me/event-registrations/{eventId} — tự hủy tham gia (nếu sự kiện chưa kết thúc)
+        [HttpDelete("me/event-registrations/{eventId:int}")]
+        public async Task<IActionResult> CancelMyEventRegistration(int eventId)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+            try
+            {
+                await _userService.CancelMyEventRegistrationAsync(userId, eventId);
+                return Ok(ApiResponse<object>.Ok(null!, "Đã hủy tham gia sự kiện."));
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(ApiResponse<object>.Fail(ex.Message));
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ApiResponse<object>.Fail(ex.Message));
+            }
+        }
+
         [HttpPatch("me")]
         public async Task<IActionResult> UpdateMe([FromBody] UpdateProfileDto dto)
         {

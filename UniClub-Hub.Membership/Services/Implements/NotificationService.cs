@@ -23,7 +23,7 @@ namespace UniClub_Hub.Membership.Services.Implements
 
         public async Task SendAsync(string userId, string title, string message,
             NotificationType type = NotificationType.System,
-            string? body = null, string? relatedEntityType = null, int? relatedEntityId = null)
+            string? link = null, string? body = null, string? relatedEntityType = null, int? relatedEntityId = null)
         {
             var notification = new Notification
             {
@@ -31,6 +31,7 @@ namespace UniClub_Hub.Membership.Services.Implements
                 Title = title,
                 Message = message,
                 Type = type,
+                Link = link,
                 CreatedAt = DateTime.UtcNow,
                 Body = body,
                 RelatedEntityType = relatedEntityType,
@@ -111,6 +112,7 @@ namespace UniClub_Hub.Membership.Services.Implements
                     Message = n.Message,
                     Type = n.Type,
                     IsRead = n.IsRead,
+                    Link = n.Link,
                     CreatedAt = n.CreatedAt,
                     Body = n.Body,
                     RelatedEntityType = n.RelatedEntityType,

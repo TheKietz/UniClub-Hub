@@ -248,28 +248,46 @@ code {
   html {
     @apply font-sans;}}
 
-/* ─── v3 Public Pages Design System ─────────────────────────────── */
+/* ─── v3 Public Pages Design System — UEF Theme ─────────────────── */
 
 :root {
-  --v3-bg: #f8fafc;
+  --v3-bg: #EBF3FF;
   --v3-card: #ffffff;
-  --v3-ink: #1e293b;
-  --v3-ink-dim: #475569;
-  --v3-ink-muted: #94a3b8;
-  --v3-rule: #e2e8f0;
-  --v3-indigo: #2563eb;
+  --v3-ink: #003087;
+  --v3-ink-dim: #1A4A8A;
+  --v3-ink-muted: #5E7AA8;
+  --v3-rule: #C5D8F0;
+  --v3-indigo: #0055B8;
   --v3-violet: #7c3aed;
-  --v3-coral: #e11d48;
-  --v3-lemon: #facc15;
+  --v3-coral: #C8102E;
+  --v3-lemon: #ffffff;
   --v3-mint: #14b8a6;
   --v3-sky: #38bdf8;
   --v3-pink: #ec4899;
-  --v3-navy: #0a2f6e;
-  --v3-border: 1.5px solid #1e293b;
-  --v3-shadow: 4px 4px 0 #1e293b;
-  --v3-shadow-sm: 2px 2px 0 #1e293b;
-  --v3-shadow-lg: 6px 6px 0 #1e293b;
+  --v3-navy: #001A5E;
+  --v3-border: 1.5px solid #003087;
+  --v3-shadow: 4px 4px 0 #003087;
+  --v3-shadow-sm: 2px 2px 0 #003087;
+  --v3-shadow-lg: 6px 6px 0 #003087;
 }
+
+/* ─── Portal Landing Page — Override Tailwind black → UEF navy ───── */
+.portal-page .border-black,
+.portal-page [class*="border-black"] { border-color: #003087 !important; }
+.portal-page .text-black { color: #003087 !important; }
+.portal-page .bg-black { background-color: #003087 !important; }
+.portal-page .divide-black > * + * { border-color: #003087 !important; }
+.portal-page .bg-zinc-950 { background-color: #001A5E !important; }
+.portal-page .bg-zinc-50  { background-color: #EBF3FF !important; }
+.portal-page .bg-zinc-800 { background-color: #002D6B !important; }
+.portal-page .bg-zinc-900 { background-color: #001A5E !important; }
+.portal-page .bg-zinc-200 { background-color: #C5D8F0 !important; }
+.portal-page .bg-zinc-100 { background-color: #EBF3FF !important; }
+.portal-page .hover\:bg-zinc-50:hover { background-color: #E0ECFF !important; }
+.portal-page .bg-gray-200 { background-color: #C5D8F0 !important; }
+.portal-page .divide-x-2 > * + * { border-left-color: #003087 !important; }
+.portal-page .divide-y-2 > * + * { border-top-color: #003087 !important; }
+.portal-page .sticky.border-b-2 { border-bottom-color: #003087 !important; }
 
 /* ── Public page wrapper ── */
 .v3-page {
@@ -278,6 +296,13 @@ code {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+}
+
+/* ── Portal landing page wrapper ── */
+.portal-page {
+  background: #EBF3FF;
+  font-family: 'Be Vietnam Pro', system-ui, sans-serif;
+  min-height: 100vh;
 }
 
 /* ── Scroll reveal ── */
@@ -320,11 +345,20 @@ code {
   50%       { transform: rotate(var(--rot, 0deg)) translateY(-8px); }
 }
 
+/* ── Hide scrollbar ── */
+.scroll-x {
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scroll-x::-webkit-scrollbar { display: none; }
+
 /* ── Pulse dot ── */
 @keyframes pulse {
   0%, 100% { opacity: 1; }
   50%       { opacity: 0.35; }
 }
+
 
 /* ── Membership / dashboard responsive ── */
 .dashboard-layout {
@@ -821,4 +855,58 @@ code {
     padding-top: 40px;
     padding-bottom: 40px;
   }
+}
+
+/* ── Skeleton shimmer ── */
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ═══ Responsive dashboard utilities ══════════════════════════════════════════
+   Các trang internal (Operations, Membership, Admin) dùng inline-style với grid
+   cố định. Những class dưới đây chỉ cần THÊM className vào phần tử — giá trị inline
+   cho desktop giữ nguyên, còn media query dùng !important để ghi đè ở màn hình nhỏ.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+/* Padding trang: 28px 32px → nhỏ lại trên điện thoại */
+@media (max-width: 640px) {
+  .rsp-page { padding: 16px 14px !important; }
+}
+
+/* Hàng thẻ thống kê: repeat(3/4,1fr) → 2 cột → 1 cột */
+@media (max-width: 820px) {
+  .rsp-grid-stats { grid-template-columns: repeat(2, 1fr) !important; }
+}
+@media (max-width: 460px) {
+  .rsp-grid-stats { grid-template-columns: 1fr !important; }
+}
+
+/* Lưới nội dung nhiều cột (2fr 1fr, 1fr 1.4fr, 1fr 300px, 1fr 1fr, 1fr 1fr 1fr)
+   → xếp chồng 1 cột trên tablet/điện thoại */
+@media (max-width: 768px) {
+  .rsp-split { grid-template-columns: 1fr !important; }
+}
+
+/* Vùng flex-row (nội dung + panel bên) → xếp chồng dọc trên điện thoại */
+@media (max-width: 768px) {
+  .rsp-flexcol { flex-direction: column !important; }
+  .rsp-flexcol > * { width: 100% !important; }
+}
+
+/* Lưới form 1fr 1fr trong modal → 1 cột trên điện thoại */
+@media (max-width: 560px) {
+  .rsp-form-2 { grid-template-columns: 1fr !important; }
+}
+
+/* Bảng / bảng Kanban rộng: cuộn ngang trong khung riêng thay vì tràn trang.
+   Đặt min-width cho phần tử con để các cột không bị bóp méo. */
+.rsp-xscroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Thanh tab ngang (Operations) — giảm padding hai bên trên điện thoại */
+@media (max-width: 640px) {
+  .rsp-optabbar { padding-left: 10px !important; padding-right: 10px !important; }
 }

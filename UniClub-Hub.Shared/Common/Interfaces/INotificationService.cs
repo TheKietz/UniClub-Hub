@@ -9,6 +9,7 @@ namespace UniClub_Hub.Shared.Common.Interfaces
             string title,
             string message,
             NotificationType type = NotificationType.System,
+            string? link = null,
             string? body = null,
             string? relatedEntityType = null,
             int? relatedEntityId = null);

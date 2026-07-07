@@ -353,5 +353,57 @@ namespace UniClub_Hub.Membership.Services.Implements
                 })
                 .ToListAsync();
         }
+
+        public async Task<IEnumerable<MyEventRegistrationDto>> GetMyEventRegistrationsAsync(string userId)
+        {
+            var now = DateTimeOffset.UtcNow;
+            return await _db.EventRegistrations
+                .AsNoTracking()
+                .Where(er => er.UserId == userId && er.Event != null)
+                .OrderByDescending(er => er.RegisteredAt)
+                .Select(er => new MyEventRegistrationDto
+                {
+                    EventId = er.EventId,
+                    EventName = er.Event.Name,
+                    ClubId = er.Event.ClubId,
+                    ClubName = er.Event.Club != null ? er.Event.Club.Name : null,
+                    Location = er.Event.Location,
+                    StartTime = er.Event.StartTime,
+                    EndTime = er.Event.EndTime,
+                    EventStatus = er.Event.Status.ToString(),
+                    RegisteredAt = er.RegisteredAt,
+                    Attendance = er.Attendance.ToString(),
+                    CheckedInAt = er.CheckedInAt,
+                    CanCancel = er.Event.Status != EventStatus.Completed
+                             && er.Event.Status != EventStatus.Cancelled
+                             && (er.Event.EndTime == null || er.Event.EndTime >= now),
+                })
+                .ToListAsync();
+        }
+
+        public async Task CancelMyEventRegistrationAsync(string userId, int eventId)
+        {
+            var reg = await _db.EventRegistrations
+                .Include(er => er.Event)
+                .FirstOrDefaultAsync(er => er.EventId == eventId && er.UserId == userId)
+                ?? throw new KeyNotFoundException("Không tìm thấy đăng ký sự kiện.");
+
+            var ev = reg.Event;
+            var ended = ev == null
+                || ev.Status == EventStatus.Completed
+                || ev.Status == EventStatus.Cancelled
+                || (ev.EndTime != null && ev.EndTime < DateTimeOffset.UtcNow);
+            if (ended)
+                throw new InvalidOperationException("Sự kiện đã kết thúc, không thể hủy tham gia.");
+
+            // Xóa mã check-in trước (không phụ thuộc hành vi FK trên DB).
+            var codes = await _db.EventCheckInCodes
+                .Where(c => c.EventRegistrationId == reg.Id)
+                .ToListAsync();
+            if (codes.Count > 0) _db.EventCheckInCodes.RemoveRange(codes);
+
+            _db.EventRegistrations.Remove(reg);
+            await _db.SaveChangesAsync();
+        }
     }
 }
