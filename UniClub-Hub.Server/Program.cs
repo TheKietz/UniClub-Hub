@@ -194,9 +194,13 @@ builder.Services.AddHostedService<UniClub_Hub.Server.BackgroundServices.Reminder
 
 var app = builder.Build();
 
-// Apply pending EF Core migrations on startup
-using (var scope = app.Services.CreateScope())
+// Apply pending EF Core migrations on startup.
+// Skip under the Testing environment: the integration-test fixture owns schema creation
+// (EnsureCreated), so running migrations here would collide ("relation already exists").
+// This mirrors the guard already present in DatabaseMigrationHostedService.
+if (!app.Environment.IsEnvironment("Testing"))
 {
+    using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<UniClubDbContext>();
     await db.Database.MigrateAsync();
 }

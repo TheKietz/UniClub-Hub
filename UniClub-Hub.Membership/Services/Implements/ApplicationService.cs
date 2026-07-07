@@ -444,12 +444,10 @@ namespace UniClub_Hub.Membership.Services.Implements
             }
 
             application.CurrentStageId = nextStage.Id;
-            application.Status = application.Status switch
-            {
-                ApplicationStatus.Pending   => ApplicationStatus.Interview,
-                ApplicationStatus.Interview => ApplicationStatus.Reviewing,
-                _                           => ApplicationStatus.Reviewing,
-            };
+            // Advancing through custom pipeline stages keeps the coarse status at Reviewing;
+            // the specific stage is tracked via CurrentStageId/CurrentStageName. "Interview" is a
+            // distinct explicit decision made through ReviewAsync, not a pipeline-progression state.
+            application.Status = ApplicationStatus.Reviewing;
             application.ReviewNote = req.ReviewNote;
             application.ReviewedAt = DateTime.UtcNow;
             application.ReviewerId = reviewerId;
