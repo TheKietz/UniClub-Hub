@@ -41,6 +41,7 @@ namespace UniClub_Hub.Shared.Data
         public DbSet<MediaGallery> MediaGalleries { get; set; }
         public DbSet<ClubEvent> Events { get; set; }
         public DbSet<EventRegistration> EventRegistrations { get; set; }
+        public DbSet<EventCheckInCode> EventCheckInCodes { get; set; }
         public DbSet<ClubTask> Tasks { get; set; }
         public DbSet<ClubApplication> Applications { get; set; }
         public DbSet<Contribution> Contributions { get; set; }
@@ -109,6 +110,32 @@ namespace UniClub_Hub.Shared.Data
                 .HasOne(lp => lp.Club)
                 .WithOne(c => c.LandingPage)
                 .HasForeignKey<LandingPage>(lp => lp.ClubId);
+
+            // Post — ClubId nullable (null = tin cấp trường). Cấu hình tường minh để
+            // tránh EF tạo shadow FK "ClubId1" khi cột trở thành optional.
+            builder
+                .Entity<Post>()
+                .HasOne(p => p.Club)
+                .WithMany(c => c.Posts)
+                .HasForeignKey(p => p.ClubId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // EventCheckInCode — mã check-in theo từng đăng ký sự kiện.
+            builder.Entity<EventCheckInCode>(e =>
+            {
+                e.HasOne(c => c.EventRegistration)
+                    .WithMany()
+                    .HasForeignKey(c => c.EventRegistrationId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                e.HasOne(c => c.Event)
+                    .WithMany()
+                    .HasForeignKey(c => c.EventId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(c => c.User)
+                    .WithMany()
+                    .HasForeignKey(c => c.UserId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
 
             // ClubTask có 2 FK vào ApplicationUser
             builder

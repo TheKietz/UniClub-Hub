@@ -191,6 +191,123 @@ namespace UniClub_Hub.Portal.Services.Implements
             };
         }
 
+        // ── Aggregate feeds (all clubs + school-level) ───────────────────────
+
+        public async Task<PortalPagedResult<PortalEventDto>> GetEventsFeedAsync(
+            string? scope, int? clubId, string? status, string? search, int page, int pageSize)
+        {
+            var query = db.Events.AsNoTracking().AsQueryable();
+
+            if (clubId.HasValue)
+                query = query.Where(e => e.ClubId == clubId.Value);
+            else if (string.Equals(scope, "university", StringComparison.OrdinalIgnoreCase))
+                query = query.Where(e => e.ClubId == null);
+            else if (string.Equals(scope, "club", StringComparison.OrdinalIgnoreCase))
+                query = query.Where(e => e.ClubId != null);
+
+            // Chỉ hiển thị sự kiện của CLB đang hoạt động; sự kiện cấp trường luôn hiện.
+            query = query.Where(e => e.ClubId == null || (e.Club != null && e.Club.Status == ClubStatus.Active));
+
+            if (Enum.TryParse<EventStatus>(status, true, out var st))
+                query = query.Where(e => e.Status == st);
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var term = search.Trim().ToLower();
+                query = query.Where(e => e.Name.ToLower().Contains(term)
+                    || (e.Description != null && e.Description.ToLower().Contains(term)));
+            }
+
+            var total = await query.CountAsync();
+
+            var items = await query
+                .OrderByDescending(e => e.StartTime)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .Select(e => new PortalEventDto
+                {
+                    Id = e.Id,
+                    ClubId = e.ClubId,
+                    ClubName = e.Club != null ? e.Club.Name : null,
+                    ClubLogoUrl = e.Club != null ? e.Club.LogoUrl : null,
+                    Name = e.Name,
+                    Description = e.Description,
+                    Location = e.Location,
+                    BannerUrl = e.BannerUrl,
+                    StartTime = e.StartTime,
+                    EndTime = e.EndTime,
+                    MaxParticipants = e.MaxParticipants,
+                    ParticipantCount = e.Registrations != null ? e.Registrations.Count : 0,
+                    Status = e.Status.ToString(),
+                    Category = e.Category,
+                })
+                .ToListAsync();
+
+            return new PortalPagedResult<PortalEventDto>
+            {
+                Data = items,
+                TotalCount = total,
+                Page = page,
+                PageSize = pageSize,
+            };
+        }
+
+        public async Task<PortalPagedResult<PortalNewsDto>> GetNewsFeedAsync(
+            string? scope, int? clubId, string? category, string? search, int page, int pageSize)
+        {
+            var query = db.Posts.AsNoTracking()
+                .Where(p => p.Status == PostStatus.Published);
+
+            if (clubId.HasValue)
+                query = query.Where(p => p.ClubId == clubId.Value);
+            else if (string.Equals(scope, "university", StringComparison.OrdinalIgnoreCase))
+                query = query.Where(p => p.ClubId == null);
+            else if (string.Equals(scope, "club", StringComparison.OrdinalIgnoreCase))
+                query = query.Where(p => p.ClubId != null);
+
+            // Chỉ hiển thị tin của CLB đang hoạt động; tin cấp trường luôn hiện.
+            query = query.Where(p => p.ClubId == null || (p.Club != null && p.Club.Status == ClubStatus.Active));
+
+            if (!string.IsNullOrWhiteSpace(category)
+                && Enum.TryParse<PostCategory>(category, true, out var cat))
+                query = query.Where(p => p.Category == cat);
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var term = search.Trim().ToLower();
+                query = query.Where(p => p.Title.ToLower().Contains(term));
+            }
+
+            var total = await query.CountAsync();
+
+            var items = await query
+                .OrderByDescending(p => p.CreatedAt)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .Select(p => new PortalNewsDto
+                {
+                    Id = p.Id,
+                    ClubId = p.ClubId,
+                    ClubName = p.Club != null ? p.Club.Name : null,
+                    ClubLogoUrl = p.Club != null ? p.Club.LogoUrl : null,
+                    Title = p.Title,
+                    Content = p.Content,
+                    ThumbnailUrl = p.ThumbnailUrl,
+                    Category = p.Category.ToString(),
+                    CreatedAt = p.CreatedAt,
+                    AuthorName = p.Author != null ? p.Author.FullName : null,
+                })
+                .ToListAsync();
+
+            return new PortalPagedResult<PortalNewsDto>
+            {
+                Data = items,
+                TotalCount = total,
+                Page = page,
+                PageSize = pageSize,
+            };
+        }
+
         // ── Helpers ──────────────────────────────────────────────────────────
 
         private static LandingPageContentDto BuildLandingPageContent(

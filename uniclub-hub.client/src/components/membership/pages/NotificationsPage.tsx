@@ -127,6 +127,13 @@ export default function NotificationsPage() {
     setUnreadCount(0)
   }
 
+  async function markRead(item: NotificationItem) {
+    if (item.isRead) return
+    await markNotificationRead(item.id).catch(() => {})
+    setItems(prev => prev.map(n => (n.id === item.id ? { ...n, isRead: true } : n)))
+    setUnreadCount(prev => Math.max(0, prev - 1))
+  }
+
   async function handleOpen(item: NotificationItem) {
     await markRead(item)
     const link = item.navigationUrl ?? item.link ?? deriveLink(item.type, user?.memberships ?? [])

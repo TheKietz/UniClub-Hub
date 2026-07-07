@@ -44,6 +44,40 @@ namespace UniClub_Hub.Server.Controllers.Portal
             }
         }
 
+        // GET /api/v1/portal/events?scope=all|university|club&clubId=&status=&search=&page=1&pageSize=12
+        [HttpGet("events")]
+        public async Task<IActionResult> GetEventsFeed(
+            [FromQuery] string? scope,
+            [FromQuery] int? clubId,
+            [FromQuery] string? status,
+            [FromQuery] string? search,
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 12)
+        {
+            if (page < 1) page = 1;
+            if (pageSize is < 1 or > 60) pageSize = 12;
+
+            var result = await portalService.GetEventsFeedAsync(scope, clubId, status, search, page, pageSize);
+            return Ok(ApiResponse<PortalPagedResult<PortalEventDto>>.Ok(result));
+        }
+
+        // GET /api/v1/portal/news?scope=all|university|club&clubId=&category=&search=&page=1&pageSize=12
+        [HttpGet("news")]
+        public async Task<IActionResult> GetNewsFeed(
+            [FromQuery] string? scope,
+            [FromQuery] int? clubId,
+            [FromQuery] string? category,
+            [FromQuery] string? search,
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 12)
+        {
+            if (page < 1) page = 1;
+            if (pageSize is < 1 or > 60) pageSize = 12;
+
+            var result = await portalService.GetNewsFeedAsync(scope, clubId, category, search, page, pageSize);
+            return Ok(ApiResponse<PortalPagedResult<PortalNewsDto>>.Ok(result));
+        }
+
         // POST /api/v1/portal/clubs/:clubId/view — explicit tracking, called once by the public landing page
         [HttpPost("clubs/{clubId:int}/view")]
         public async Task<IActionResult> RecordView(int clubId)

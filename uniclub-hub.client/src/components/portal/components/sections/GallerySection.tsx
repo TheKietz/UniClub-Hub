@@ -160,7 +160,7 @@ function VideoThumb({ url, iconSize, rounded }: { url: string; iconSize: number;
   )
 }
 
-function Lightbox({ item, onClose, theme, dark }: { item: MediaItem; onClose: () => void; theme: PortalTheme; dark?: boolean }) {
+function Lightbox({ item, onClose }: { item: MediaItem; onClose: () => void; theme?: PortalTheme; dark?: boolean }) {
   return (
     <div className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center p-4" onClick={onClose}>
       {/* X button on overlay — above overflow-hidden container */}

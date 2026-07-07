@@ -148,3 +148,43 @@ export interface CategoryItem {
   name: string
   description?: string
 }
+
+// ── Aggregate feeds (school + all clubs) ─────────────────────────────
+export type PortalFeedScope = 'all' | 'university' | 'club'
+
+export interface PortalEventItem {
+  id: number
+  clubId: number | null        // null = cấp trường
+  clubName?: string | null
+  clubLogoUrl?: string | null
+  name: string
+  description?: string | null
+  location?: string | null
+  bannerUrl?: string | null
+  startTime?: string | null
+  endTime?: string | null
+  maxParticipants?: number | null
+  participantCount: number
+  status: string
+  category?: string | null
+}
+
+export interface PortalNewsItem {
+  id: number
+  clubId: number | null        // null = cấp trường
+  clubName?: string | null
+  clubLogoUrl?: string | null
+  title: string
+  content?: string | null
+  thumbnailUrl?: string | null
+  category: string
+  createdAt: string
+  authorName?: string | null
+}
+
+export interface PortalFeedResult<T> {
+  data: T[]
+  totalCount: number
+  page: number
+  pageSize: number
+}

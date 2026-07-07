@@ -268,6 +268,50 @@ namespace UniClub_Hub.Server.Controllers.Operations
             }
         }
 
+        // ── Self-service registration (bất kỳ người dùng đã đăng nhập) ─────────
+
+        // GET /events/{id}/my-registration — đăng ký của người dùng hiện tại (null nếu chưa)
+        [HttpGet("{id:int}/my-registration")]
+        [Authorize]
+        public async Task<IActionResult> GetMyRegistration(int id)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+            var result = await eventService.GetMyRegistrationAsync(id, userId);
+            return Ok(ApiResponse<EventRegistrationDto?>.Ok(result));
+        }
+
+        // POST /events/{id}/register — tự đăng ký + sinh mã check-in
+        [HttpPost("{id:int}/register")]
+        [Authorize]
+        public async Task<IActionResult> RegisterSelf(int id)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+            try
+            {
+                var result = await eventService.RegisterSelfAsync(id, userId);
+                return Ok(ApiResponse<EventRegistrationDto>.Ok(result, "Đăng ký tham gia thành công."));
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(ApiResponse<object>.Fail(ex.Message));
+            }
+            catch (InvalidOperationException ex)
+            {
+                // Bao gồm "Sự kiện đã đủ số lượng tham gia".
+                return BadRequest(ApiResponse<object>.Fail(ex.Message));
+            }
+        }
+
+        // DELETE /events/{id}/register — tự hủy đăng ký
+        [HttpDelete("{id:int}/register")]
+        [Authorize]
+        public async Task<IActionResult> UnregisterSelf(int id)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+            await eventService.UnregisterSelfAsync(id, userId);
+            return Ok(ApiResponse<object>.Ok(null!, "Đã hủy đăng ký."));
+        }
+
         // ── Attachments ───────────────────────────────────────────────────────
 
         [HttpGet("{id:int}/attachments")]

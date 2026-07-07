@@ -108,7 +108,7 @@ export default function ClubOperationsPage() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--c-bg)' }}>
       {/* ── Top tab bar ─────────────────────────────────────────────────── */}
-      <div style={{
+      <div className="rsp-optabbar" style={{
         display: 'flex',
         alignItems: 'stretch',
         background: 'var(--c-chrome)',

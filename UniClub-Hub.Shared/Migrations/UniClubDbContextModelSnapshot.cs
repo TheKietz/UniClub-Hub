@@ -943,6 +943,42 @@ namespace UniClub_Hub.Shared.Migrations
                     b.ToTable("EventAttachments");
                 });
 
+            modelBuilder.Entity("UniClub_Hub.Shared.Models.EventCheckInCode", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("EventId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("EventRegistrationId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EventId");
+
+                    b.HasIndex("EventRegistrationId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("EventCheckInCodes");
+                });
+
             modelBuilder.Entity("UniClub_Hub.Shared.Models.EventClubAssignment", b =>
                 {
                     b.Property<int>("Id")
@@ -1519,7 +1555,7 @@ namespace UniClub_Hub.Shared.Migrations
                         .HasColumnType("character varying(30)")
                         .HasDefaultValue("News");
 
-                    b.Property<int>("ClubId")
+                    b.Property<int?>("ClubId")
                         .HasColumnType("integer");
 
                     b.Property<string>("Content")
@@ -2228,6 +2264,33 @@ namespace UniClub_Hub.Shared.Migrations
                     b.Navigation("UploadedByUser");
                 });
 
+            modelBuilder.Entity("UniClub_Hub.Shared.Models.EventCheckInCode", b =>
+                {
+                    b.HasOne("UniClub_Hub.Shared.Models.ClubEvent", "Event")
+                        .WithMany()
+                        .HasForeignKey("EventId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("UniClub_Hub.Shared.Models.EventRegistration", "EventRegistration")
+                        .WithMany()
+                        .HasForeignKey("EventRegistrationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("UniClub_Hub.Shared.Models.ApplicationUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Event");
+
+                    b.Navigation("EventRegistration");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("UniClub_Hub.Shared.Models.EventRegistration", b =>
                 {
                     b.HasOne("UniClub_Hub.Shared.Models.ClubEvent", "Event")
@@ -2417,8 +2480,7 @@ namespace UniClub_Hub.Shared.Migrations
                     b.HasOne("UniClub_Hub.Shared.Models.Club", "Club")
                         .WithMany("Posts")
                         .HasForeignKey("ClubId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Cascade);
 
                     b.HasOne("UniClub_Hub.Shared.Models.Department", "Department")
                         .WithMany("Posts")

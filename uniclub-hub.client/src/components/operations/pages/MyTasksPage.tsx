@@ -167,10 +167,12 @@ export default function MyTasksPage() {
   const { user } = useAuth()
   const { tasks, tasksLoading, reloadTasks, departmentId } = useTasks()
 
-  const myTasks = useMemo(
-    () => tasks.filter(t => t.assignedTo === user?.id),
-    [tasks, user?.id],
-  )
+  // Hiện task của ban mà người thực hiện (chính hoặc phụ) bao gồm người đăng nhập
+  const myTasks = useMemo(() => {
+    const uid = user?.id
+    if (!uid) return []
+    return tasks.filter(t => t.assignedTo === uid || t.assigneeIds?.includes(uid))
+  }, [tasks, user?.id])
 
   const [activeTab, setActiveTab]     = useState("all")
   const [searchQuery, setSearchQuery] = useState("")
@@ -224,7 +226,7 @@ export default function MyTasksPage() {
   }
 
   return (
-    <div style={{ padding: '28px 32px', minHeight: '100%', background: D.bg, fontFamily: "'Be Vietnam Pro', sans-serif" }}>
+    <div className="rsp-page" style={{ padding: '28px 32px', minHeight: '100%', background: D.bg, fontFamily: "'Be Vietnam Pro', sans-serif" }}>
 
       {/* ── Header ─────────────────────────────────────────────────── */}
       <div style={{ marginBottom: 24 }}>
@@ -237,7 +239,7 @@ export default function MyTasksPage() {
       </div>
 
       {/* ── Stats ──────────────────────────────────────────────────── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 24 }}>
+      <div className="rsp-grid-stats" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 24 }}>
         <StatCard icon={ListTodo}      iconBg="#eef2ff" iconColor={D.indigo}   value={stats.total}  label="Tổng công việc" />
         <StatCard icon={Clock}         iconBg="#fef3c7" iconColor={D.amber}    value={stats.doing}  label="Đang thực hiện" />
         <StatCard
@@ -293,7 +295,7 @@ export default function MyTasksPage() {
       </div>
 
       {/* ── Main grid ──────────────────────────────────────────────── */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 20 }}>
+      <div className="rsp-split" style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 20 }}>
         {/* Task list */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {tasksLoading ? (

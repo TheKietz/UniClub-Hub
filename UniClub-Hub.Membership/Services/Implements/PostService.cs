@@ -12,14 +12,19 @@ namespace UniClub_Hub.Membership.Services.Implements
     public class PostService(UniClubDbContext db, IFileStorageService storage) : IPostService
     {
         public async Task<PostListResponse> GetByClubAsync(
-            int clubId, int page, int pageSize, string? search, string? category, string? status)
+            int? clubId, int page, int pageSize, string? search, string? category, string? status)
         {
             var query = db.Posts
+                .Include(p => p.Club)
                 .Include(p => p.Author)
                 .Include(p => p.Reviewer)
                 .Include(p => p.Department)
-                .Where(p => p.ClubId == clubId)
                 .AsNoTracking();
+
+            // clubId == null ⇒ tin cấp trường; dùng nhánh tường minh để EF sinh "IS NULL".
+            query = clubId == null
+                ? query.Where(p => p.ClubId == null)
+                : query.Where(p => p.ClubId == clubId);
 
             if (!string.IsNullOrWhiteSpace(search))
             {
@@ -51,9 +56,10 @@ namespace UniClub_Hub.Membership.Services.Implements
             };
         }
 
-        public async Task<PostResponse> GetByIdAsync(int clubId, int id)
+        public async Task<PostResponse> GetByIdAsync(int? clubId, int id)
         {
             var post = await db.Posts
+                .Include(p => p.Club)
                 .Include(p => p.Author)
                 .Include(p => p.Reviewer)
                 .Include(p => p.Department)
@@ -64,9 +70,9 @@ namespace UniClub_Hub.Membership.Services.Implements
             return ToResponse(post);
         }
 
-        public async Task<PostResponse> CreateAsync(int clubId, string authorId, CreatePostRequest dto, bool isAdmin)
+        public async Task<PostResponse> CreateAsync(int? clubId, string authorId, CreatePostRequest dto, bool isAdmin)
         {
-            if (!await db.Clubs.AnyAsync(c => c.Id == clubId))
+            if (clubId != null && !await db.Clubs.AnyAsync(c => c.Id == clubId))
                 throw new KeyNotFoundException("Không tìm thấy CLB.");
 
             var status = isAdmin && dto.PublishDirectly ? PostStatus.Published : PostStatus.Draft;
@@ -79,7 +85,7 @@ namespace UniClub_Hub.Membership.Services.Implements
                 Content = dto.Content,
                 Category = dto.Category,
                 Status = status,
-                DepartmentId = dto.DepartmentId,
+                DepartmentId = clubId == null ? null : dto.DepartmentId,
                 CreatedAt = DateTime.UtcNow,
             };
 
@@ -89,7 +95,7 @@ namespace UniClub_Hub.Membership.Services.Implements
             return await GetByIdAsync(clubId, post.Id);
         }
 
-        public async Task<PostResponse> UpdateAsync(int clubId, int id, string userId, UpdatePostRequest dto, bool isAdmin)
+        public async Task<PostResponse> UpdateAsync(int? clubId, int id, string userId, UpdatePostRequest dto, bool isAdmin)
         {
             var post = await db.Posts.FirstOrDefaultAsync(p => p.Id == id && p.ClubId == clubId)
                 ?? throw new KeyNotFoundException("Không tìm thấy bài viết.");
@@ -103,7 +109,7 @@ namespace UniClub_Hub.Membership.Services.Implements
             post.Title = dto.Title.Trim();
             post.Content = dto.Content;
             post.Category = dto.Category;
-            post.DepartmentId = dto.DepartmentId;
+            post.DepartmentId = clubId == null ? null : dto.DepartmentId;
 
             // Editing a rejected post resets it to draft
             if (post.Status == PostStatus.Rejected)
@@ -113,7 +119,7 @@ namespace UniClub_Hub.Membership.Services.Implements
             return await GetByIdAsync(clubId, id);
         }
 
-        public async Task DeleteAsync(int clubId, int id, string userId, bool isAdmin)
+        public async Task DeleteAsync(int? clubId, int id, string userId, bool isAdmin)
         {
             var post = await db.Posts.FirstOrDefaultAsync(p => p.Id == id && p.ClubId == clubId)
                 ?? throw new KeyNotFoundException("Không tìm thấy bài viết.");
@@ -131,7 +137,7 @@ namespace UniClub_Hub.Membership.Services.Implements
             await db.SaveChangesAsync();
         }
 
-        public async Task<PostResponse> UploadThumbnailAsync(int clubId, int id, IFormFile file)
+        public async Task<PostResponse> UploadThumbnailAsync(int? clubId, int id, IFormFile file)
         {
             var post = await db.Posts.FirstOrDefaultAsync(p => p.Id == id && p.ClubId == clubId)
                 ?? throw new KeyNotFoundException("Không tìm thấy bài viết.");
@@ -148,7 +154,7 @@ namespace UniClub_Hub.Membership.Services.Implements
             return await GetByIdAsync(clubId, id);
         }
 
-        public async Task<PostResponse> SubmitForReviewAsync(int clubId, int id, string userId)
+        public async Task<PostResponse> SubmitForReviewAsync(int? clubId, int id, string userId)
         {
             var post = await db.Posts.FirstOrDefaultAsync(p => p.Id == id && p.ClubId == clubId)
                 ?? throw new KeyNotFoundException("Không tìm thấy bài viết.");
@@ -164,7 +170,7 @@ namespace UniClub_Hub.Membership.Services.Implements
             return await GetByIdAsync(clubId, id);
         }
 
-        public async Task<PostResponse> ApprovePostAsync(int clubId, int id, string reviewerId)
+        public async Task<PostResponse> ApprovePostAsync(int? clubId, int id, string reviewerId)
         {
             var post = await db.Posts.FirstOrDefaultAsync(p => p.Id == id && p.ClubId == clubId)
                 ?? throw new KeyNotFoundException("Không tìm thấy bài viết.");
@@ -180,7 +186,7 @@ namespace UniClub_Hub.Membership.Services.Implements
             return await GetByIdAsync(clubId, id);
         }
 
-        public async Task<PostResponse> RejectPostAsync(int clubId, int id, string reviewerId, string? note)
+        public async Task<PostResponse> RejectPostAsync(int? clubId, int id, string reviewerId, string? note)
         {
             var post = await db.Posts.FirstOrDefaultAsync(p => p.Id == id && p.ClubId == clubId)
                 ?? throw new KeyNotFoundException("Không tìm thấy bài viết.");
@@ -196,10 +202,24 @@ namespace UniClub_Hub.Membership.Services.Implements
             return await GetByIdAsync(clubId, id);
         }
 
+        public async Task<PostResponse> SetPublishStateAsync(int? clubId, int id, bool published, string actorId)
+        {
+            var post = await db.Posts.FirstOrDefaultAsync(p => p.Id == id && p.ClubId == clubId)
+                ?? throw new KeyNotFoundException("Không tìm thấy bài viết.");
+
+            post.Status = published ? PostStatus.Published : PostStatus.Draft;
+            post.ReviewerId = published ? actorId : null;
+            post.ReviewedAt = published ? DateTime.UtcNow : null;
+            post.ReviewNote = null;
+            await db.SaveChangesAsync();
+            return await GetByIdAsync(clubId, id);
+        }
+
         private static PostResponse ToResponse(Post p) => new()
         {
             Id = p.Id,
             ClubId = p.ClubId,
+            ClubName = p.Club?.Name,
             Title = p.Title,
             Content = p.Content,
             ThumbnailUrl = p.ThumbnailUrl,

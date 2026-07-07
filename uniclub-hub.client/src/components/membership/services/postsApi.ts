@@ -5,7 +5,8 @@ export type PostStatus = 'Draft' | 'PendingReview' | 'Published' | 'Rejected'
 
 export interface PostResponse {
   id: number
-  clubId: number
+  clubId: number | null   // null = tin cấp trường
+  clubName?: string | null
   title: string
   content: string
   thumbnailUrl?: string

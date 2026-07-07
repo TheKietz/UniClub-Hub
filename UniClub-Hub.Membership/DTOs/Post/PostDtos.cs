@@ -5,7 +5,9 @@ namespace UniClub_Hub.Membership.DTOs.Post
     public class PostResponse
     {
         public int Id { get; set; }
-        public int ClubId { get; set; }
+        /// <summary>Null = tin cấp trường.</summary>
+        public int? ClubId { get; set; }
+        public string? ClubName { get; set; }
         public string Title { get; set; } = "";
         public string Content { get; set; } = "";
         public string? ThumbnailUrl { get; set; }

@@ -49,6 +49,7 @@ import KpiDashboardPage from "@/components/membership/pages/club/KpiDashboardPag
 
 import MemberDashboard from "@/components/membership/pages/MemberDashboard";
 import MyActivityPage from "@/components/membership/pages/MyActivityPage";
+import MyEventsPage from "@/components/membership/pages/MyEventsPage";
 import MyKpiPage from "@/components/membership/pages/MyKpiPage";
 import SupportPage from "@/components/membership/pages/SupportPage";
 import SupportAdminPage from "@/components/membership/pages/admin/SupportAdminPage";
@@ -85,6 +86,9 @@ import LandingPage from "@/features/landing/LandingPage";
 import ClubListPage from "@/components/membership/pages/ClubListPage";
 import ClubLandingPage from "@/components/portal/pages/ClubLandingPage";
 import LandingPagePreviewPage from "@/components/portal/pages/LandingPagePreviewPage";
+import EventsPortalPage from "@/components/portal/pages/EventsPortalPage";
+import NewsPortalPage from "@/components/portal/pages/NewsPortalPage";
+import AdminNewsPage from "@/components/membership/pages/admin/AdminNewsPage";
 
 const Soon = ({ label }: { label: string }) => (
   <div className="p-8 text-xl font-semibold text-gray-500">
@@ -130,6 +134,7 @@ export default function App() {
               <Route path="/admin/report" element={<AdminReportPage />} />
               <Route path="/admin/events" element={<EventListPage />} />
               <Route path="/admin/events/:id" element={<UniversityEventDetailPage />} />
+              <Route path="/admin/news" element={<AdminNewsPage />} />
             </Route>
           </Route>
 
@@ -146,6 +151,10 @@ export default function App() {
           <Route path="/clubs" element={<ClubListPage />} />
           <Route path="/clubs/:clubId" element={<ClubDetailPage />} />
 
+          {/* Public feeds — sự kiện & tin tức toàn trường (cấp trường + cấp CLB) */}
+          <Route path="/events" element={<EventsPortalPage />} />
+          <Route path="/news" element={<NewsPortalPage />} />
+
           {/* Member routes — sidebar layout */}
           <Route element={<ProtectedRoute />}>
             <Route element={<MemberLayout />}>
@@ -154,6 +163,7 @@ export default function App() {
               <Route path="/notifications" element={<NotificationsPage />} />
               <Route path="/my-history" element={<MemberHistoryPage />} />
               <Route path="/my-activity" element={<MyActivityPage />} />
+              <Route path="/my-events" element={<MyEventsPage />} />
               <Route path="/my-kpi" element={<MyKpiPage />} />
               <Route path="/support" element={<SupportPage />} />
               <Route path="/clubs/:clubId/operations" element={<ClubOperationsPage />} />

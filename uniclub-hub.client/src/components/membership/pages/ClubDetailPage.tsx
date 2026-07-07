@@ -19,8 +19,6 @@ import { getApiErrorMessage } from '@/lib/apiError'
 import { getClubLandingPage } from '@/components/portal/services/portal.api'
 import type { ClubLandingData } from '@/components/portal/services/portal.types'
 
-const AVATAR_COLORS = ['bg-indigo-500', 'bg-emerald-500', 'bg-violet-500', 'bg-rose-500', 'bg-amber-500', 'bg-cyan-500']
-
 const APP_STATUS: Record<string, { label: string; color: string; icon: React.ElementType }> = {
   Pending: { label: 'Đang chờ duyệt', color: '#d97706', icon: Clock },
   Interview: { label: 'Được mời phỏng vấn', color: '#2563eb', icon: MessageCircle },

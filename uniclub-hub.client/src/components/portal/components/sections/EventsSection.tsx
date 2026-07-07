@@ -10,9 +10,6 @@ interface Props {
 function fmtDate(d: string) {
   return new Date(d).toLocaleDateString('vi-VN', { day: 'numeric', month: 'long', year: 'numeric' })
 }
-function fmtDateShort(d: string) {
-  return new Date(d).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })
-}
 function fmtTime(d: string) {
   return new Date(d).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
 }

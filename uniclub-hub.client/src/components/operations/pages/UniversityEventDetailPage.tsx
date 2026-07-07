@@ -158,7 +158,7 @@ function AssignTaskPanel({ eventId, clubs, eventStart, eventEnd, onCreated }: {
       <h3 style={{ margin: '0 0 16px', fontSize: 14, fontWeight: 800, color: D.ink }}>Tạo phiếu giao việc cho CLB</h3>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         <div><label style={pl}>Nội dung công việc *</label><input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} style={pi} placeholder="Mô tả công việc cần CLB thực hiện..." /></div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+        <div className="rsp-form-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
           <div>
             <label style={pl}>CLB nhận việc *</label>
             <select value={form.clubId ?? ''} onChange={e => setForm(f => ({ ...f, clubId: Number(e.target.value) || null }))} style={{ ...pi, cursor: 'pointer' }}>
@@ -267,7 +267,7 @@ function EditAssignmentModal({ open, assignment, clubs, eventStart, eventEnd, on
 
   return (
     <Dialog open={open} onOpenChange={v => !v && onClose()}>
-      <DialogContent style={{ maxWidth: 520, fontFamily: "'Be Vietnam Pro', sans-serif" }}>
+      <DialogContent style={{ maxWidth: 'min(520px, calc(100vw - 2rem))', fontFamily: "'Be Vietnam Pro', sans-serif" }}>
         <DialogHeader>
           <DialogTitle style={{ fontSize: 15, fontWeight: 900, color: D.ink }}>Chỉnh sửa phiếu giao việc</DialogTitle>
         </DialogHeader>
@@ -282,7 +282,7 @@ function EditAssignmentModal({ open, assignment, clubs, eventStart, eventEnd, on
               {clubs.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div className="rsp-form-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
               <label style={labelStyle}>Độ ưu tiên</label>
               <select value={form.priority} onChange={e => set('priority', e.target.value as TaskPriority)} style={{ ...inputStyle, cursor: 'pointer' }}>
@@ -706,7 +706,7 @@ export default function UniversityEventDetailPage() {
   }
 
   return (
-    <div style={{ padding: '28px 32px', background: D.bg, minHeight: '100%', fontFamily: "'Be Vietnam Pro', sans-serif" }}>
+    <div className="rsp-page" style={{ padding: '28px 32px', background: D.bg, minHeight: '100%', fontFamily: "'Be Vietnam Pro', sans-serif" }}>
 
       {/* Back */}
       <button type="button" onClick={() => navigate(backPath)}
@@ -737,7 +737,7 @@ export default function UniversityEventDetailPage() {
       </div>
 
       {/* 2-column body */}
-      <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start' }}>
+      <div className="rsp-flexcol" style={{ display: 'flex', gap: 20, alignItems: 'flex-start' }}>
 
         {/* Left column */}
         <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 16 }}>

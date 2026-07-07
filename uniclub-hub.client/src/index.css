@@ -364,3 +364,51 @@ code {
   0%   { background-position: 200% 0; }
   100% { background-position: -200% 0; }
 }
+
+/* ═══ Responsive dashboard utilities ══════════════════════════════════════════
+   Các trang internal (Operations, Membership, Admin) dùng inline-style với grid
+   cố định. Những class dưới đây chỉ cần THÊM className vào phần tử — giá trị inline
+   cho desktop giữ nguyên, còn media query dùng !important để ghi đè ở màn hình nhỏ.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+/* Padding trang: 28px 32px → nhỏ lại trên điện thoại */
+@media (max-width: 640px) {
+  .rsp-page { padding: 16px 14px !important; }
+}
+
+/* Hàng thẻ thống kê: repeat(3/4,1fr) → 2 cột → 1 cột */
+@media (max-width: 820px) {
+  .rsp-grid-stats { grid-template-columns: repeat(2, 1fr) !important; }
+}
+@media (max-width: 460px) {
+  .rsp-grid-stats { grid-template-columns: 1fr !important; }
+}
+
+/* Lưới nội dung nhiều cột (2fr 1fr, 1fr 1.4fr, 1fr 300px, 1fr 1fr, 1fr 1fr 1fr)
+   → xếp chồng 1 cột trên tablet/điện thoại */
+@media (max-width: 768px) {
+  .rsp-split { grid-template-columns: 1fr !important; }
+}
+
+/* Vùng flex-row (nội dung + panel bên) → xếp chồng dọc trên điện thoại */
+@media (max-width: 768px) {
+  .rsp-flexcol { flex-direction: column !important; }
+  .rsp-flexcol > * { width: 100% !important; }
+}
+
+/* Lưới form 1fr 1fr trong modal → 1 cột trên điện thoại */
+@media (max-width: 560px) {
+  .rsp-form-2 { grid-template-columns: 1fr !important; }
+}
+
+/* Bảng / bảng Kanban rộng: cuộn ngang trong khung riêng thay vì tràn trang.
+   Đặt min-width cho phần tử con để các cột không bị bóp méo. */
+.rsp-xscroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Thanh tab ngang (Operations) — giảm padding hai bên trên điện thoại */
+@media (max-width: 640px) {
+  .rsp-optabbar { padding-left: 10px !important; padding-right: 10px !important; }
+}

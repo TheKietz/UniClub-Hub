@@ -1480,6 +1480,46 @@ namespace UniClub_Hub.Server.Data
                         Status = EventStatus.InProgress,
                         Category = "Community",
                         CreatedAt = DateTime.UtcNow,
+                    },
+                    // ── Sự kiện cấp trường (ClubId = null) ──
+                    new ClubEvent
+                    {
+                        ClubId = null,
+                        Name = "Tuần lễ Định hướng Tân sinh viên UEF 2025",
+                        Description = "Chuỗi hoạt động chào đón tân sinh viên: tham quan cơ sở, gặp gỡ CLB, định hướng học tập và trải nghiệm đời sống sinh viên UEF.",
+                        Location = "Toàn bộ campus UEF",
+                        StartTime = now2.AddDays(10),
+                        EndTime = now2.AddDays(17),
+                        MaxParticipants = 2000,
+                        Status = EventStatus.InProgress,
+                        Category = "University",
+                        CreatedAt = DateTime.UtcNow,
+                    },
+                    new ClubEvent
+                    {
+                        ClubId = null,
+                        Name = "Ngày hội Câu lạc bộ UEF 2025",
+                        Description = "Sự kiện cấp trường quy tụ toàn bộ CLB — gian hàng trải nghiệm, biểu diễn và mở đơn tuyển thành viên đồng loạt.",
+                        Location = "Sân trường UEF Cơ sở 1",
+                        StartTime = now2.AddDays(21),
+                        EndTime = now2.AddDays(21).AddHours(8),
+                        MaxParticipants = 3000,
+                        Status = EventStatus.InProgress,
+                        Category = "University",
+                        CreatedAt = DateTime.UtcNow,
+                    },
+                    new ClubEvent
+                    {
+                        ClubId = null,
+                        Name = "Lễ Tuyên dương Sinh viên 5 tốt cấp Trường",
+                        Description = "Vinh danh các cá nhân và tập thể đạt danh hiệu Sinh viên 5 tốt năm học vừa qua.",
+                        Location = "Hội trường lớn, UEF Cơ sở chính",
+                        StartTime = now2.AddDays(-12),
+                        EndTime = now2.AddDays(-12).AddHours(3),
+                        MaxParticipants = 800,
+                        Status = EventStatus.Completed,
+                        Category = "University",
+                        CreatedAt = DateTime.UtcNow,
                     }
                 );
                 await db.SaveChangesAsync();
@@ -1493,6 +1533,7 @@ namespace UniClub_Hub.Server.Data
                 var authorMusic   = createdUsers["hoa.clb@uef.edu.vn"].Id;
                 var authorEnglish = createdUsers["thu.clb@uef.edu.vn"].Id;
                 var authorVol     = createdUsers["mai.clb@uef.edu.vn"].Id;
+                var authorSchool  = createdUsers["admin@uef.edu.vn"].Id;
 
                 db.Posts.AddRange(
                     // TECH — 3 bài
@@ -1616,6 +1657,34 @@ namespace UniClub_Hub.Server.Data
                         ThumbnailUrl = "https://picsum.photos/seed/volunteer-p3/800/450",
                         Category = PostCategory.Announcement, Status = PostStatus.Published,
                         CreatedAt = DateTime.UtcNow.AddDays(-6),
+                    },
+                    // ── Tin cấp trường (ClubId = null, tác giả SUPER_ADMIN) ──
+                    new Post
+                    {
+                        ClubId = null, AuthorId = authorSchool,
+                        Title = "Thông báo lịch nghỉ Tết Nguyên đán 2025 toàn trường",
+                        Content = "<p>Nhà trường thông báo lịch nghỉ Tết Nguyên đán dành cho toàn thể sinh viên và cán bộ. Các CLB vui lòng sắp xếp hoạt động phù hợp với lịch chung của trường...</p>",
+                        ThumbnailUrl = "https://picsum.photos/seed/school-n1/800/450",
+                        Category = PostCategory.Announcement, Status = PostStatus.Published,
+                        CreatedAt = DateTime.UtcNow.AddDays(-1),
+                    },
+                    new Post
+                    {
+                        ClubId = null, AuthorId = authorSchool,
+                        Title = "UEF khai mạc Tuần lễ Định hướng Tân sinh viên 2025",
+                        Content = "<p>Sáng nay, Trường Đại học Kinh tế - Tài chính TP.HCM chính thức khai mạc Tuần lễ Định hướng dành cho hơn 2.000 tân sinh viên khóa mới với chuỗi hoạt động trải nghiệm phong phú...</p>",
+                        ThumbnailUrl = "https://picsum.photos/seed/school-n2/800/450",
+                        Category = PostCategory.News, Status = PostStatus.Published,
+                        CreatedAt = DateTime.UtcNow.AddDays(-9),
+                    },
+                    new Post
+                    {
+                        ClubId = null, AuthorId = authorSchool,
+                        Title = "Phát động phong trào Sinh viên 5 tốt năm học 2025",
+                        Content = "<p>Đoàn trường phát động phong trào Sinh viên 5 tốt trên toàn trường. Đây là cơ hội để sinh viên rèn luyện toàn diện về đạo đức, học tập, thể lực, tình nguyện và hội nhập...</p>",
+                        ThumbnailUrl = "https://picsum.photos/seed/school-n3/800/450",
+                        Category = PostCategory.News, Status = PostStatus.Published,
+                        CreatedAt = DateTime.UtcNow.AddDays(-18),
                     }
                 );
                 await db.SaveChangesAsync();

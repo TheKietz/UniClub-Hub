@@ -215,7 +215,7 @@ export default function ClubLandingPage() {
     <div className="portal-page" style={{ '--p': theme.primaryColor, '--a': theme.accentColor } as React.CSSProperties}>
       {/* Sub-nav bar */}
       <div className="sticky top-0 z-40 bg-white" style={{ borderBottom: '2px solid #003087' }}>
-        <div className="max-w-5xl mx-auto px-6 h-11 flex items-center gap-3 justify-between">
+        <div className="max-w-5xl mx-auto px-3 sm:px-6 h-11 flex items-center gap-3 justify-between">
           {/* Left: back + switcher */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <button
@@ -231,7 +231,7 @@ export default function ClubLandingPage() {
           <div className="flex items-center gap-4">
             {data.club.code && (
               <span
-                className="rounded-md text-xs font-black uppercase tracking-widest px-2 py-0.5 text-white"
+                className="hidden sm:inline-block rounded-md text-xs font-black uppercase tracking-widest px-2 py-0.5 text-white"
                 style={{ backgroundColor: theme.primaryColor, border: '1px solid #003087' }}
               >
                 {data.club.code}
@@ -267,7 +267,7 @@ function LandingPageSkeleton() {
       <div className="animate-pulse">
         <div className="h-[520px]" style={{ backgroundColor: '#002D6B', borderBottom: '4px solid #003087' }} />
         <div style={{ borderBottom: '4px solid #003087' }}>
-          <div className="max-w-5xl mx-auto px-6 grid grid-cols-4" style={{ borderLeft: '2px solid #003087', borderRight: '2px solid #003087' }}>
+          <div className="max-w-5xl mx-auto px-6 grid grid-cols-2 md:grid-cols-4" style={{ borderLeft: '2px solid #003087', borderRight: '2px solid #003087' }}>
             {[...Array(4)].map((_, i) => (
               <div key={i} className="text-center py-10 px-4" style={{ borderRight: i < 3 ? '2px solid #003087' : 'none' }}>
                 <div className="w-5 h-5 mx-auto mb-3" style={{ backgroundColor: '#C5D8F0' }} />

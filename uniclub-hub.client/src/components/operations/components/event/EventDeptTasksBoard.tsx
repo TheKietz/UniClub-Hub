@@ -124,7 +124,7 @@ function EditTaskModal({ open, task, departments, minDate, maxDate, onClose, onS
 
   return (
     <Dialog open={open} onOpenChange={v => !v && onClose()}>
-      <DialogContent style={{ maxWidth: 460, fontFamily: "'Be Vietnam Pro', sans-serif" }}>
+      <DialogContent style={{ maxWidth: 'min(460px, calc(100vw - 2rem))', fontFamily: "'Be Vietnam Pro', sans-serif" }}>
         <DialogHeader>
           <DialogTitle style={{ fontSize: 15, fontWeight: 900, color: D.ink }}>Chỉnh sửa công việc</DialogTitle>
         </DialogHeader>
@@ -140,7 +140,7 @@ function EditTaskModal({ open, task, departments, minDate, maxDate, onClose, onS
               {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
             </select>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div className="rsp-form-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
               <label style={labelStyle}>Độ ưu tiên</label>
               <select style={{ ...inputStyle, cursor: 'pointer' }} value={form.priority} onChange={e => set('priority', e.target.value as TaskPriority)}>
@@ -599,7 +599,7 @@ export default function EventDeptTasksBoard({ eventId, clubId, isManager, eventS
                       rows={2}
                       style={{ ...inputStyle, resize: 'vertical', marginTop: 8 }}
                     />
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 8 }}>
+                    <div className="rsp-form-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 8 }}>
                       <select
                         aria-label="Mức độ ưu tiên"
                         value={form.priority}

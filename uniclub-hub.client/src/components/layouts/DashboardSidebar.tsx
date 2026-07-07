@@ -18,6 +18,10 @@ type NavItem = { to: string; icon: string; label: string; end?: boolean; divider
 interface Props {
   mode: Mode
   clubId?: string
+  /** Gọi khi người dùng điều hướng — dùng để đóng drawer trên mobile. */
+  onNavigate?: () => void
+  /** Buộc sidebar luôn mở rộng (không cho thu gọn) — dùng trong drawer mobile. */
+  forceExpanded?: boolean
 }
 
 const CLUB_COLORS = ['#4f46e5', '#7c3aed', '#ef4444', '#14b8a6', '#38bdf8', '#ec4899', '#f59e0b', '#10b981']
@@ -76,6 +80,7 @@ const MEMBER_NAV: NavItem[] = [
   { to: '/profile', icon: '◐', label: 'Hồ sơ cá nhân'},
   { to: '/my-kpi', icon: '▦', label: 'KPI của tôi', dividerAfter: true  },
   { to: '/my-activity', icon: '↗', label: 'Hoạt động của tôi' },
+  { to: '/my-events', icon: '◈', label: 'Sự kiện của tôi' },
   { to: '/my-history', icon: '◎', label: 'Lịch sử thành viên', dividerAfter: true },
   { to: '/support', icon: '◉', label: 'Hỗ trợ' },  
 ]
@@ -85,6 +90,7 @@ const ADMIN_NAV: NavItem[] = [
   { to: '/admin/users', icon: '◐', label: 'Người dùng' },
   { to: '/admin/clubs', icon: '▦', label: 'Câu lạc bộ' },
   { to: '/admin/events', icon: '◈', label: 'Sự kiện toàn trường' },
+  { to: '/admin/news', icon: '✎', label: 'Tin tức cấp trường' },
   { to: '/admin/categories', icon: '✦', label: 'Lĩnh vực', dividerAfter: true },
   { to: '/admin/positions', icon: '✣', label: 'Vị trí & quyền', dividerAfter: true },
   { to: '/admin/support', icon: '◉', label: 'Hỗ trợ' },
@@ -154,10 +160,13 @@ function clubNav(id: string, role?: string, isSuperAdmin = false, perms: ClubPer
   ]
 }
 
-export default function DashboardSidebar({ mode, clubId }: Props) {
+export default function DashboardSidebar({ mode, clubId, onNavigate, forceExpanded = false }: Props) {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
-  const [collapsed, setCollapsed] = useState(false)
+  const [collapsedState, setCollapsedState] = useState(false)
+  // Trong drawer mobile: luôn mở rộng, không cho thu gọn.
+  const collapsed = forceExpanded ? false : collapsedState
+  const setCollapsed = setCollapsedState
   const [clubPickerOpen, setClubPickerOpen] = useState(false)
   const [clubPermissionCodes, setClubPermissionCodes] = useState<string[]>([])
   const pickerRef = useRef<HTMLDivElement>(null)
@@ -254,6 +263,7 @@ export default function DashboardSidebar({ mode, clubId }: Props) {
     } else {
       navigate('/dashboard')
     }
+    onNavigate?.()
   }
 
   function getClubManageEntry(club: UserMembership) {
@@ -266,6 +276,7 @@ export default function DashboardSidebar({ mode, clubId }: Props) {
   }
 
   function handleLogout() {
+    onNavigate?.()
     logout()
     navigate('/login', { replace: true })
   }
@@ -281,7 +292,7 @@ export default function DashboardSidebar({ mode, clubId }: Props) {
       {/* Logo — click to go home */}
       {collapsed ? (
         <div style={{ padding: '12px 0 8px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-          <button onClick={() => navigate('/')} title="Về trang chủ" style={{
+          <button onClick={() => { navigate('/'); onNavigate?.() }} title="Về trang chủ" style={{
             background: 'transparent', border: 'none', cursor: 'pointer', padding: 0,
             transition: 'opacity .15s',
           }}
@@ -307,7 +318,7 @@ export default function DashboardSidebar({ mode, clubId }: Props) {
         </div>
       ) : (
         <div style={{ padding: '14px 10px 10px', display: 'flex', alignItems: 'center', gap: 8 }}>
-          <button onClick={() => navigate('/')} title="Về trang chủ" style={{
+          <button onClick={() => { navigate('/'); onNavigate?.() }} title="Về trang chủ" style={{
             flex: 1, display: 'flex', alignItems: 'center', gap: 10, minWidth: 0,
             background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left',
             fontFamily: 'inherit', padding: 0, transition: 'opacity .15s',
@@ -325,6 +336,7 @@ export default function DashboardSidebar({ mode, clubId }: Props) {
               <div style={{ fontSize: 9, fontWeight: 700, color: '#e11d48', letterSpacing: '.08em', textTransform: 'uppercase', marginTop: 1 }}>★ UEF Campus</div>
             </div>
           </button>
+          {!forceExpanded && (
           <button
             onClick={() => { setCollapsed(true); setClubPickerOpen(false) }}
             title="Thu gọn"
@@ -337,6 +349,7 @@ export default function DashboardSidebar({ mode, clubId }: Props) {
             onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,.12)')}
             onMouseLeave={e => (e.currentTarget.style.background = 'rgba(255,255,255,.06)')}
           >‹</button>
+          )}
         </div>
       )}
 
@@ -405,7 +418,7 @@ export default function DashboardSidebar({ mode, clubId }: Props) {
                 const isActive = club.clubId === Number(clubId)
                 return (
                   <button key={club.clubId}
-                    onClick={() => { navigate(getClubManageEntry(club)); setClubPickerOpen(false) }}
+                    onClick={() => { navigate(getClubManageEntry(club)); setClubPickerOpen(false); onNavigate?.() }}
                     style={{
                       width: '100%', display: 'flex', alignItems: 'center', gap: 10,
                       padding: '9px 10px', borderRadius: 8, marginBottom: 2, border: 'none',
@@ -452,7 +465,7 @@ export default function DashboardSidebar({ mode, clubId }: Props) {
       <nav style={{ flex: 1, padding: '0 8px', overflowY: 'auto' }}>
         {navItems.map((item) => (
           <div key={item.to}>
-            <NavLink to={item.to} end={item.end ?? false} style={{ textDecoration: 'none', display: 'block' }}>
+            <NavLink to={item.to} end={item.end ?? false} onClick={() => onNavigate?.()} style={{ textDecoration: 'none', display: 'block' }}>
               {({ isActive }) => (
                 <div title={collapsed ? item.label : undefined} style={{
                   display: 'flex', alignItems: 'center', gap: 10,
@@ -491,7 +504,7 @@ export default function DashboardSidebar({ mode, clubId }: Props) {
               </div>
             )}
             {uniqueActiveMemberships.map(m => (
-              <NavLink key={m.clubId} to={`/clubs/${m.clubId}/operations`} style={{ textDecoration: 'none', display: 'block' }}>
+              <NavLink key={m.clubId} to={`/clubs/${m.clubId}/operations`} onClick={() => onNavigate?.()} style={{ textDecoration: 'none', display: 'block' }}>
                 {({ isActive }) => (
                   <div title={collapsed ? m.clubName : undefined} style={{
                     display: 'flex', alignItems: 'center', gap: 10,

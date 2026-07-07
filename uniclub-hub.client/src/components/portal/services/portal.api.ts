@@ -1,5 +1,8 @@
 import axios from 'axios'
-import type { ClubLandingData, ExploreResponse, CategoryItem } from './portal.types'
+import type {
+  ClubLandingData, ExploreResponse, CategoryItem,
+  PortalEventItem, PortalNewsItem, PortalFeedResult, PortalFeedScope,
+} from './portal.types'
 
 const BASE = '/api/v1/portal'
 
@@ -34,5 +37,35 @@ export async function getExploreClubs(params?: {
 
 export async function getCategories(): Promise<CategoryItem[]> {
   const { data } = await axios.get<{ data: CategoryItem[] }>('/api/v1/membership/categories')
+  return data.data
+}
+
+// ── Aggregate feeds (school-level + all clubs) ───────────────────────
+
+export interface PortalEventsQuery {
+  scope?: PortalFeedScope
+  clubId?: number
+  status?: string
+  search?: string
+  page?: number
+  pageSize?: number
+}
+
+export async function getPortalEvents(params?: PortalEventsQuery): Promise<PortalFeedResult<PortalEventItem>> {
+  const { data } = await axios.get<{ data: PortalFeedResult<PortalEventItem> }>(`${BASE}/events`, { params })
+  return data.data
+}
+
+export interface PortalNewsQuery {
+  scope?: PortalFeedScope
+  clubId?: number
+  category?: string
+  search?: string
+  page?: number
+  pageSize?: number
+}
+
+export async function getPortalNews(params?: PortalNewsQuery): Promise<PortalFeedResult<PortalNewsItem>> {
+  const { data } = await axios.get<{ data: PortalFeedResult<PortalNewsItem> }>(`${BASE}/news`, { params })
   return data.data
 }

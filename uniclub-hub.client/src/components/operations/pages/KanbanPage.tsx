@@ -427,11 +427,12 @@ export default function KanbanPage() {
       <div className={`absolute inset-0 pointer-events-none ${overlayClass}`} />
 
       {/* All content sits above the overlay */}
-      <div className="relative z-10 p-6 flex flex-col min-h-screen">
+      <div className="relative z-10 p-3 sm:p-6 flex flex-col min-h-screen">
 
         {/* ── Header — neo-brutalism card ──────────────────────────────────────── */}
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          flexWrap: 'wrap', gap: 12,
           marginBottom: 16, padding: '12px 18px',
           background: '#ffffff', border: '1.5px solid #0a2f6e',
           borderRadius: 14, boxShadow: '3px 3px 0 #0a2f6e',
@@ -446,7 +447,7 @@ export default function KanbanPage() {
             </p>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             <button
               type="button"
               onClick={() => { reloadTasks(); setRefreshKey(k => k + 1); }}

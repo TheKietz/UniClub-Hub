@@ -1074,7 +1074,7 @@ export default function SprintsPage() {
 
   return (
     <DragDropContext onDragEnd={onDragEnd}>
-      <div style={{ padding: `24px ${SPRINT_LAYOUT.pageX}px 32px`, background: 'var(--c-bg)', minHeight: '100%', boxSizing: 'border-box' }}>
+      <div className="rsp-page" style={{ padding: `24px ${SPRINT_LAYOUT.pageX}px 32px`, background: 'var(--c-bg)', minHeight: '100%', boxSizing: 'border-box' }}>
         {/* ── Header ──────────────────────────────────────────────── */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
           <div>
@@ -1290,9 +1290,9 @@ function EditSprintInline({ sprint, onClose, onSave }: {
   };
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: 60 }}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '60px 16px 24px', boxSizing: 'border-box' }}>
       <div style={{ position: 'absolute', inset: 0, background: 'rgba(10,10,10,0.45)' }} onClick={onClose} />
-      <div style={{ position: 'relative', width: '100%', maxWidth: 440, background: 'white', border: '3px solid #0A0A0A', boxShadow: '8px 8px 0 #0A0A0A', borderRadius: 0 }}>
+      <div style={{ position: 'relative', width: '100%', maxWidth: 440, maxHeight: 'calc(100vh - 84px)', overflowY: 'auto', background: 'white', border: '3px solid #0A0A0A', boxShadow: '8px 8px 0 #0A0A0A', borderRadius: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', borderBottom: '2px solid #0A0A0A', background: '#0A0A0A' }}>
           <h2 style={{ margin: 0, fontSize: 15, fontWeight: 900, color: '#FFE500', textTransform: 'uppercase', letterSpacing: '.04em' }}>Chỉnh sửa Sprint</h2>
           <button type="button" onClick={onClose} style={{ width: 26, height: 26, border: '2px solid #FFE500', borderRadius: 0, background: 'transparent', color: '#FFE500', cursor: 'pointer', fontWeight: 900 }}>✕</button>
@@ -1302,7 +1302,7 @@ function EditSprintInline({ sprint, onClose, onSave }: {
             <label style={labelStyle}>Tên tuần công việc *</label>
             <input type="text" value={name} onChange={e => setName(e.target.value)} style={inputStyle} />
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div className="rsp-form-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
               <label style={labelStyle}>Ngày bắt đầu</label>
               <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} style={inputStyle} />
