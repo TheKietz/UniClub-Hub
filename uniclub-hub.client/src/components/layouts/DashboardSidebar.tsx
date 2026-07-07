@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect, useMemo } from 'react'
-import { NavLink, useNavigate } from 'react-router-dom'
+import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { CLUB_ROLE_COLORS, CLUB_ROLE_LABELS, roleRank } from '@/constants/clubRoles'
 import { CLUB_ROLES, MEMBERSHIP_STATUS } from '@/types/auth'
@@ -163,6 +163,8 @@ export default function DashboardSidebar({
 }: Props) {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
+  const navRef = useRef<HTMLElement>(null)
   const [collapsedState, setCollapsedState] = useState(false)
   // Trong drawer mobile: luôn mở rộng, không cho thu gọn.
   const collapsed = forceExpanded || mobile ? false : collapsedState
@@ -254,6 +256,13 @@ export default function DashboardSidebar({
 
     return () => { cancelled = true }
   }, [activeClub?.clubRole, clubId, isSuperAdmin, mode])
+
+  useEffect(() => {
+    const nav = navRef.current
+    if (!nav || (collapsed && !mobile)) return
+    const active = nav.querySelector<HTMLElement>('[data-nav-active="true"]')
+    active?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  }, [location.pathname, navItems, collapsed, mobile])
 
   function switchMode(m: Mode) {
     if (m === 'admin') navigate('/admin')
@@ -469,12 +478,15 @@ export default function DashboardSidebar({
       )}
 
       {/* Nav */}
-      <nav style={{ flex: 1, padding: '0 8px', overflowY: 'auto' }}>
+      <nav ref={navRef} style={{ flex: 1, padding: '0 8px', overflowY: 'auto' }}>
         {navItems.map((item) => (
           <div key={item.to}>
             <NavLink to={item.to} end={item.end ?? false} style={{ textDecoration: 'none', display: 'block' }} onClick={() => { onMobileClose?.(); onNavigate?.() }}>
               {({ isActive }) => (
-                <div title={showCollapsed ? item.label : undefined} style={{
+                <div
+                  data-nav-active={isActive ? 'true' : undefined}
+                  title={showCollapsed ? item.label : undefined}
+                  style={{
                   display: 'flex', alignItems: 'center', gap: 10,
                   padding: showCollapsed ? '9px 0' : '9px 12px',
                   justifyContent: showCollapsed ? 'center' : 'flex-start',
