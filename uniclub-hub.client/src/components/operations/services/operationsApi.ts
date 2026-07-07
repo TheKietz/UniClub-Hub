@@ -158,7 +158,7 @@ export const createAssignment = (
   }).then(r => r.data.data)
 }
 
-export const updateAssignment = (id: number, dto: { title: string; description?: string; priority: string; deadline?: string }) =>
+export const updateAssignment = (id: number, dto: { title: string; description?: string; priority: string; deadline?: string; clubId: number }) =>
   api.put<ApiResponse<AssignmentItem>>(`/v1/operations/assignments/${id}`, dto).then(r => r.data.data)
 
 export const updateAssignmentStatus = (id: number, status: string) =>

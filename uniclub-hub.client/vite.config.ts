@@ -59,7 +59,8 @@ function buildDevServerConfig(): Record<string, unknown> | undefined {
         https: {
             key: fs.readFileSync(keyFilePath),
             cert: fs.readFileSync(certFilePath),
-        }
+        },
+        host: true
     };
 }
 

@@ -103,7 +103,7 @@ namespace UniClub_Hub.Server.Controllers.Operations
 
             try
             {
-                var result = await assignmentService.UpdateAsync(id, dto.Title, dto.Description, parsedPriority, parsedDeadline);
+                var result = await assignmentService.UpdateAsync(id, dto.Title, dto.Description, parsedPriority, parsedDeadline, dto.ClubId);
                 return Ok(ApiResponse<object>.Ok(result, "Đã cập nhật phiếu giao việc."));
             }
             catch (InvalidOperationException ex)
@@ -207,6 +207,7 @@ namespace UniClub_Hub.Server.Controllers.Operations
         public string? Description { get; set; }
         public string Priority { get; set; } = "Medium";
         public string? Deadline { get; set; }
+        public int ClubId { get; set; }
     }
 
     public class UpdateAssignmentStatusDto
