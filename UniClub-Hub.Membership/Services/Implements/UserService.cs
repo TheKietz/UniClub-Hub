@@ -283,9 +283,13 @@ namespace UniClub_Hub.Membership.Services.Implements
             var currentRoles = await _userManager.GetRolesAsync(user);
             if (currentRoles.Contains("SUPER_ADMIN") && newRole == "USER")
             {
+                // Chỉ đếm Super Admin còn hoạt động — bảng Identity (UserRoles/Roles) không có
+                // query filter IsDeleted như bảng Users, nên phải join Users và lọc thủ công,
+                // nếu không sẽ đếm cả tài khoản đã vô hiệu hóa và cho hạ cấp Super Admin cuối cùng.
                 var superAdminCount = await _db.UserRoles
-                    .Join(_db.Roles, ur => ur.RoleId, r => r.Id, (ur, r) => new { ur, r })
-                    .CountAsync(x => x.r.NormalizedName == "SUPER_ADMIN");
+                    .Join(_db.Roles, ur => ur.RoleId, r => r.Id, (ur, r) => new { ur.UserId, r.NormalizedName })
+                    .Join(_db.Users, x => x.UserId, u => u.Id, (x, u) => new { x.NormalizedName, u.IsDeleted })
+                    .CountAsync(x => x.NormalizedName == "SUPER_ADMIN" && !x.IsDeleted);
                 if (superAdminCount <= 1)
                     throw new InvalidOperationException(
                         "LAST_SUPER_ADMIN: Không thể hạ cấp Super Admin cuối cùng. Hệ thống sẽ không có quản trị viên.");
@@ -319,6 +323,7 @@ namespace UniClub_Hub.Membership.Services.Implements
                 StudentId = dto.StudentId,
                 Major = dto.Major,
                 Gender = dto.Gender,
+                LockoutEnabled = true,
             };
 
             var result = await _userManager.CreateAsync(user, dto.Password);
