@@ -345,6 +345,16 @@ namespace UniClub_Hub.Server.Data
                         Description = "Tổ chức các buổi biểu diễn và concert.",
                         CreatedAt = DateTime.UtcNow,
                         UpdatedAt = DateTime.UtcNow,
+                    },
+                    // ENGLISH cần có ban này — các block sau (membership của Linh, KPI demo)
+                    // tra cứu GetDeptId("ENGLISH", "Ban Đào tạo"); thiếu thì trưởng ban không có ban.
+                    new Department
+                    {
+                        ClubId = clubEnglish.Id,
+                        Name = "Ban Đào tạo",
+                        Description = "Thiết kế giáo trình, tổ chức lớp học và câu lạc bộ giao tiếp.",
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow,
                     }
                 };
                 db.Departments.AddRange(depts);
