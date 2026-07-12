@@ -104,6 +104,15 @@ namespace UniClub_Hub.Shared.Data
             // Club.Code phải unique
             builder.Entity<Club>().HasIndex(c => c.Code).IsUnique();
 
+            // Mỗi user chỉ có 1 membership đang hoạt động (Active/Probation) trong mỗi CLB.
+            // Enum lưu dạng chuỗi (xem ClubMembershipConfiguration) nên filter so sánh chuỗi.
+            // Các dòng Resigned được giữ lại làm lịch sử nên nằm ngoài ràng buộc.
+            builder
+                .Entity<ClubMembership>()
+                .HasIndex(m => new { m.ClubId, m.UserId })
+                .IsUnique()
+                .HasFilter("\"Status\" IN ('Active', 'Probation')");
+
             // LandingPage — quan hệ 1-1 với Club
             builder
                 .Entity<LandingPage>()

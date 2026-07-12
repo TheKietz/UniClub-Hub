@@ -20,13 +20,14 @@ export function useClubPermissions(clubId?: number | string | null): PermissionR
   const [permissionCodes, setPermissionCodes] = useState<string[]>([])
 
   const isSuperAdmin = user?.roles.includes('SUPER_ADMIN') ?? false
-  const activeMembership = useMemo(
-    () => user?.memberships.find(m =>
+  // 1 user có thể có nhiều membership trong cùng CLB — xét mọi dòng đang hoạt động
+  const isClubAdmin = useMemo(
+    () => isSuperAdmin || (user?.memberships.some(m =>
       m.clubId === parsedClubId &&
-      (m.status === MEMBERSHIP_STATUS.ACTIVE || m.status === MEMBERSHIP_STATUS.PROBATION)),
-    [parsedClubId, user?.memberships]
+      m.clubRole === CLUB_ROLES.CLUB_ADMIN &&
+      (m.status === MEMBERSHIP_STATUS.ACTIVE || m.status === MEMBERSHIP_STATUS.PROBATION)) ?? false),
+    [isSuperAdmin, parsedClubId, user?.memberships]
   )
-  const isClubAdmin = isSuperAdmin || activeMembership?.clubRole === CLUB_ROLES.CLUB_ADMIN
   const shouldFetch = Boolean(parsedClubId && !Number.isNaN(parsedClubId) && !isClubAdmin)
 
   useDeferredEffect(async (isCancelled) => {

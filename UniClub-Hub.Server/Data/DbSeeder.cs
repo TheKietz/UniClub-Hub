@@ -167,6 +167,7 @@ namespace UniClub_Hub.Server.Data
                         StudentId = studentId,
                         Major = major,
                         Gender = gender,
+                        LockoutEnabled = true,
                     };
                     var result = await userManager.CreateAsync(user, password);
                     if (result.Succeeded)
@@ -384,6 +385,8 @@ namespace UniClub_Hub.Server.Data
                         JoinedDate = new DateOnly(2022, 9, 1),
                         Status = MembershipStatus.Active,
                     },
+                    // Linh chỉ có 1 membership đang hoạt động trong TECH — ràng buộc unique
+                    // (ClubId, UserId) WHERE Status IN (Active, Probation) không cho phép nhiều dòng.
                     new()
                     {
                         UserId = createdUsers["linh.clb@uef.edu.vn"].Id,
@@ -392,24 +395,6 @@ namespace UniClub_Hub.Server.Data
                         JoinedDate = new DateOnly(2022, 9, 5),
                         Status = MembershipStatus.Active,
                         DepartmentId = GetDeptId("TECH", "Ban Kỹ thuật"),
-                    },
-                    new()
-                    {
-                        UserId = createdUsers["linh.clb@uef.edu.vn"].Id,
-                        ClubId = clubTech.Id,
-                        ClubRole = ClubRole.DEPT_LEAD,
-                        JoinedDate = new DateOnly(2023, 9, 10), // Hoặc chọn ngày bất kỳ
-                        Status = MembershipStatus.Active,
-                        DepartmentId = GetDeptId("TECH", "Ban Truyền thông"),
-                    },
-                    new()
-                    {
-                        UserId = createdUsers["linh.clb@uef.edu.vn"].Id,
-                        ClubId = clubTech.Id,
-                        ClubRole = ClubRole.MEMBER,
-                        JoinedDate = new DateOnly(2023, 9, 10), // Hoặc chọn ngày bất kỳ
-                        Status = MembershipStatus.Active,
-                        DepartmentId = GetDeptId("TECH", "Ban Sự kiện"),
                     },
                     new()
                     {
@@ -940,16 +925,17 @@ namespace UniClub_Hub.Server.Data
 
                 await AssignPositionAsync("truong.clb@uef.edu.vn", clubTech, null, clubPresident);
                 await AssignPositionAsync("khoa.clb@uef.edu.vn", clubTech, null, treasurer);
+                // Linh chỉ thuộc Ban Kỹ thuật (1 membership/CLB) — không gán chức vụ ở ban khác.
                 await AssignPositionAsync("linh.clb@uef.edu.vn", clubTech, techDeptId, techLead);
                 await AssignPositionAsync("linh.clb@uef.edu.vn", clubTech, techDeptId, developerLead);
-                await AssignPositionAsync("linh.clb@uef.edu.vn", clubTech, mediaDeptId, mediaLead);
-                await AssignPositionAsync("linh.clb@uef.edu.vn", clubTech, eventDeptId, eventCoordinator);
                 await AssignPositionAsync("an.clb@uef.edu.vn", clubTech, mediaDeptId, contentWriter);
                 await AssignPositionAsync("an.clb@uef.edu.vn", clubTech, mediaDeptId, designer);
                 _ = vicePresident;
                 _ = developer;
                 _ = eventLead;
                 _ = logistics;
+                _ = mediaLead;
+                _ = eventCoordinator;
             }
 
             // ── Resignation requests ──────────────────────────────────────
@@ -958,22 +944,18 @@ namespace UniClub_Hub.Server.Data
                 var techClubId = (await db.Clubs.IgnoreQueryFilters().FirstAsync(c => c.Code == "TECH")).Id;
                 var techAdminId = createdUsers["truong.clb@uef.edu.vn"].Id;
                 var linhId = createdUsers["linh.clb@uef.edu.vn"].Id;
+                var anId = createdUsers["an.clb@uef.edu.vn"].Id;
 
-                var linhTechLeadMemberships = await db.ClubMemberships
-                    .Where(m =>
-                        m.ClubId == techClubId &&
-                        m.UserId == linhId &&
-                        m.ClubRole == ClubRole.DEPT_LEAD)
-                    .OrderBy(m => m.DepartmentId)
-                    .ToListAsync();
-
-                if (linhTechLeadMemberships.Count > 0)
+                // Đơn Pending: Linh (Trưởng ban Kỹ thuật) xin chuyển xuống thành viên thường
+                var linhTechLead = await db.ClubMemberships.FirstOrDefaultAsync(m =>
+                    m.ClubId == techClubId && m.UserId == linhId && m.ClubRole == ClubRole.DEPT_LEAD);
+                if (linhTechLead != null)
                 {
                     db.ResignationRequests.Add(new ResignationRequest
                     {
                         UserId = linhId,
                         ClubId = techClubId,
-                        MembershipId = linhTechLeadMemberships[0].Id,
+                        MembershipId = linhTechLead.Id,
                         Preference = ResignationPreference.BecomeMember,
                         Status = ResignationStatus.Pending,
                         RequestedAt = DateTime.UtcNow.AddDays(-2),
@@ -981,18 +963,19 @@ namespace UniClub_Hub.Server.Data
                     });
                 }
 
-                if (linhTechLeadMemberships.Count > 1)
+                // Đơn Approved: An từng là Trưởng ban Truyền thông, đã được duyệt xuống thành viên
+                // thường — khớp đúng hiệu ứng của ResignationService.ReviewAsync nhánh BecomeMember
+                // (membership hiện tại của An trong seed là MEMBER thuộc Ban Truyền thông).
+                var anTechMembership = await db.ClubMemberships.FirstOrDefaultAsync(m =>
+                    m.ClubId == techClubId && m.UserId == anId);
+                if (anTechMembership != null)
                 {
-                    var resignedMembership = linhTechLeadMemberships[1];
-                    resignedMembership.Status = MembershipStatus.Resigned;
-                    resignedMembership.ResignedDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-10));
-
                     db.ResignationRequests.Add(new ResignationRequest
                     {
-                        UserId = linhId,
+                        UserId = anId,
                         ClubId = techClubId,
-                        MembershipId = resignedMembership.Id,
-                        Preference = ResignationPreference.LeaveClub,
+                        MembershipId = anTechMembership.Id,
+                        Preference = ResignationPreference.BecomeMember,
                         Status = ResignationStatus.Approved,
                         RequestedAt = DateTime.UtcNow.AddDays(-12),
                         ReviewedAt = DateTime.UtcNow.AddDays(-10),

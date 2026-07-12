@@ -45,7 +45,8 @@ namespace UniClub_Hub.Portal.Services.Implements
                 .Where(m => clubs.Select(c => c.Id).Contains(m.ClubId)
                          && (m.Status == MembershipStatus.Active || m.Status == MembershipStatus.Probation))
                 .GroupBy(m => m.ClubId)
-                .Select(g => new { ClubId = g.Key, Count = g.Count() })
+                // Đếm distinct user — 1 người có thể có nhiều dòng membership trong cùng CLB
+                .Select(g => new { ClubId = g.Key, Count = g.Select(m => m.UserId).Distinct().Count() })
                 .ToDictionaryAsync(x => x.ClubId, x => x.Count);
 
             var items = clubs.Select(c => new ClubExploreDto
@@ -154,9 +155,12 @@ namespace UniClub_Hub.Portal.Services.Implements
                 .ToListAsync();
 
             // Stats — sequential (EF Core DbContext is not thread-safe)
-            var memberCount = await db.ClubMemberships.CountAsync(m =>
-                m.ClubId == clubId &&
-                (m.Status == MembershipStatus.Active || m.Status == MembershipStatus.Probation));
+            var memberCount = await db.ClubMemberships
+                .Where(m => m.ClubId == clubId &&
+                    (m.Status == MembershipStatus.Active || m.Status == MembershipStatus.Probation))
+                .Select(m => m.UserId)
+                .Distinct()
+                .CountAsync();
             var eventCount = await db.Events.CountAsync(e => e.ClubId == clubId && !e.IsDeleted);
             var postCount = await db.Posts.CountAsync(p => p.ClubId == clubId && p.Status == PostStatus.Published);
             var deptCount = await db.Departments.CountAsync(d => d.ClubId == clubId && !d.IsDeleted);

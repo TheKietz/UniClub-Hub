@@ -118,15 +118,16 @@ namespace UniClub_Hub.Operations.Services.Implements
         // DEPT_LEAD or CLUB_ADMIN only.
         private async Task RequireManagerRoleAsync(string userId, int clubId)
         {
-            var membership = await db.ClubMemberships
+            // 1 user có thể có nhiều dòng membership trong cùng CLB — xét mọi dòng Active
+            var isManager = await db.ClubMemberships
                 .AsNoTracking()
-                .FirstOrDefaultAsync(m =>
+                .AnyAsync(m =>
                     m.UserId == userId &&
                     m.ClubId == clubId &&
-                    m.Status == MembershipStatus.Active);
+                    m.Status == MembershipStatus.Active &&
+                    (m.ClubRole == ClubRole.DEPT_LEAD || m.ClubRole == ClubRole.CLUB_ADMIN));
 
-            if (membership == null ||
-                (membership.ClubRole != ClubRole.DEPT_LEAD && membership.ClubRole != ClubRole.CLUB_ADMIN))
+            if (!isManager)
             {
                 throw new UnauthorizedAccessException("Chỉ Trưởng ban hoặc Quản lý CLB mới có quyền thực hiện thao tác này.");
             }

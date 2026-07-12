@@ -214,9 +214,13 @@ namespace UniClub_Hub.Membership.Services.Implements
             if (!int.TryParse(maxMembersVal, out var maxMembers) || maxMembers <= 0)
                 return;
 
-            var currentCount = await _db.ClubMemberships.CountAsync(m =>
-                m.ClubId == clubId &&
-                (m.Status == MembershipStatus.Active || m.Status == MembershipStatus.Probation));
+            // Đếm distinct user — 1 người có nhiều dòng membership chỉ tính 1 suất
+            var currentCount = await _db.ClubMemberships
+                .Where(m => m.ClubId == clubId &&
+                    (m.Status == MembershipStatus.Active || m.Status == MembershipStatus.Probation))
+                .Select(m => m.UserId)
+                .Distinct()
+                .CountAsync();
 
             if (currentCount + pendingAdds >= maxMembers)
                 throw new InvalidOperationException($"CLB đã đạt giới hạn {maxMembers} thành viên.");
@@ -541,18 +545,26 @@ namespace UniClub_Hub.Membership.Services.Implements
         {
             await EnsureClubExistsAsync(clubId);
 
-            var membership = await _db.ClubMemberships.FirstOrDefaultAsync(m =>
-                m.ClubId == clubId && m.UserId == userId &&
-                (m.Status == MembershipStatus.Active || m.Status == MembershipStatus.Probation))
-                ?? throw new InvalidOperationException("Bạn không phải thành viên của CLB này.");
+            // 1 user có thể có nhiều dòng membership trong cùng CLB — xét và resign tất cả
+            var memberships = await _db.ClubMemberships
+                .Where(m => m.ClubId == clubId && m.UserId == userId &&
+                    (m.Status == MembershipStatus.Active || m.Status == MembershipStatus.Probation))
+                .ToListAsync();
+
+            if (memberships.Count == 0)
+                throw new InvalidOperationException("Bạn không phải thành viên của CLB này.");
 
             // CLUB_ADMIN và DEPT_LEAD phải đệ đơn từ chức qua flow riêng
-            if (membership.ClubRole == ClubRole.CLUB_ADMIN || membership.ClubRole == ClubRole.DEPT_LEAD)
+            if (memberships.Any(m => m.ClubRole == ClubRole.CLUB_ADMIN || m.ClubRole == ClubRole.DEPT_LEAD))
                 throw new InvalidOperationException(
                     "NEEDS_RESIGNATION_REQUEST: Trưởng CLB và Trưởng ban phải gửi đơn từ chức để được phê duyệt.");
 
-            membership.Status = MembershipStatus.Resigned;
-            membership.ResignedDate = DateOnly.FromDateTime(DateTime.UtcNow);
+            var resignedDate = DateOnly.FromDateTime(DateTime.UtcNow);
+            foreach (var membership in memberships)
+            {
+                membership.Status = MembershipStatus.Resigned;
+                membership.ResignedDate = resignedDate;
+            }
             await _db.SaveChangesAsync();
 
             var clubName = await _db.Clubs.Where(c => c.Id == clubId).Select(c => c.Name).FirstAsync();

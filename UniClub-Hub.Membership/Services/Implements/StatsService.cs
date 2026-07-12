@@ -20,8 +20,13 @@ namespace UniClub_Hub.Membership.Services.Implements
             var totalUsers = await _db.Users.CountAsync();
             var totalClubs = await _db.Clubs.CountAsync();
             var activeClubs = await _db.Clubs.CountAsync(c => c.Status == ClubStatus.Active);
-            var totalActiveMembers = await _db.ClubMemberships.CountAsync(m => m.Status == MembershipStatus.Active);
-            var totalProbationMembers = await _db.ClubMemberships.CountAsync(m => m.Status == MembershipStatus.Probation);
+            // Đếm distinct (user, club) — 1 người có thể có nhiều dòng membership trong cùng CLB
+            var totalActiveMembers = await _db.ClubMemberships
+                .Where(m => m.Status == MembershipStatus.Active)
+                .Select(m => new { m.UserId, m.ClubId }).Distinct().CountAsync();
+            var totalProbationMembers = await _db.ClubMemberships
+                .Where(m => m.Status == MembershipStatus.Probation)
+                .Select(m => new { m.UserId, m.ClubId }).Distinct().CountAsync();
 
             var appCounts = await _db.Applications
                 .GroupBy(a => a.Status)
@@ -47,7 +52,7 @@ namespace UniClub_Hub.Membership.Services.Implements
                 {
                     ClubId = g.Key.ClubId,
                     ClubName = g.Key.ClubName,
-                    MemberCount = g.Count()
+                    MemberCount = g.Select(m => m.UserId).Distinct().Count()
                 })
                 .OrderByDescending(c => c.MemberCount)
                 .Take(5)
