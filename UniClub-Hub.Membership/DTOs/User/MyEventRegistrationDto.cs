@@ -18,5 +18,7 @@ namespace UniClub_Hub.Membership.DTOs.User
         public DateTimeOffset? CheckedInAt { get; set; }
         /// <summary>Có thể tự hủy tham gia không (sự kiện chưa kết thúc).</summary>
         public bool CanCancel { get; set; }
+        /// <summary>Mã QR check-in — Base64("{eventId}_{userId}").</summary>
+        public string? CheckInCode { get; set; }
     }
 }

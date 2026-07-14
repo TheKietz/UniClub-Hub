@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
-import { CalendarDays, MapPin, Ticket, Trash2 } from 'lucide-react'
+import { QRCodeCanvas } from 'qrcode.react'
+import { CalendarDays, MapPin, Ticket, Trash2, X } from 'lucide-react'
 import { getMyEventRegistrations, cancelMyEventRegistration, type MyEventRegistration } from '@/components/membership/services/userApi'
 import { D } from '@/components/shared/managementTheme'
 
@@ -41,6 +42,7 @@ export default function MyEventsPage() {
   const [filter, setFilter] = useState<Filter>('all')
   const [cancelTarget, setCancelTarget] = useState<MyEventRegistration | null>(null)
   const [cancelling, setCancelling] = useState(false)
+  const [qrTarget, setQrTarget] = useState<MyEventRegistration | null>(null)
 
   function load() {
     setLoading(true)
@@ -51,6 +53,14 @@ export default function MyEventsPage() {
   }
 
   useEffect(() => { load() }, [])
+
+  // Esc để đóng popup mã QR
+  useEffect(() => {
+    if (!qrTarget) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setQrTarget(null) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [qrTarget])
 
   const filtered = useMemo(() => {
     if (filter === 'upcoming') return items.filter(i => i.eventStatus === 'Draft' || i.eventStatus === 'InProgress')
@@ -127,6 +137,7 @@ export default function MyEventsPage() {
                   <th style={thS}>Thời gian</th>
                   <th style={thS}>Trạng thái</th>
                   <th style={thS}>Tham gia</th>
+                  <th style={thS}>Mã QR</th>
                   <th style={{ ...thS, textAlign: 'right' }}>Thao tác</th>
                 </tr>
               </thead>
@@ -171,6 +182,27 @@ export default function MyEventsPage() {
                           </span>
                         )}
                       </td>
+                      {/* QR thumbnail — click để phóng to */}
+                      <td style={tdS}>
+                        {reg.checkInCode ? (
+                          <button
+                            type="button"
+                            onClick={() => setQrTarget(reg)}
+                            title="Nhấn để phóng to mã QR"
+                            aria-label={`Xem mã QR check-in của ${reg.eventName}`}
+                            style={{
+                              padding: 4, borderRadius: 8, border: D.borderLight, background: '#fff',
+                              cursor: 'pointer', lineHeight: 0, display: 'inline-flex', transition: 'box-shadow .15s, transform .15s',
+                            }}
+                            onMouseEnter={e => { e.currentTarget.style.boxShadow = D.shadow(2, 2); e.currentTarget.style.transform = 'translate(-1px,-1px)' }}
+                            onMouseLeave={e => { e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.transform = '' }}
+                          >
+                            <QRCodeCanvas value={reg.checkInCode} size={40} level="L" includeMargin={false} />
+                          </button>
+                        ) : (
+                          <span style={{ fontSize: 11.5, color: D.inkMuted }}>—</span>
+                        )}
+                      </td>
                       {/* Action */}
                       <td style={{ ...tdS, textAlign: 'right', whiteSpace: 'nowrap' }}>
                         {reg.canCancel ? (
@@ -207,6 +239,48 @@ export default function MyEventsPage() {
                 {cancelling ? 'Đang hủy...' : 'Hủy tham gia'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* QR popup */}
+      {qrTarget?.checkInCode && (
+        <div
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.55)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
+          onClick={() => setQrTarget(null)}
+        >
+          <div
+            style={{ position: 'relative', background: '#fff', borderRadius: 16, border: D.border, boxShadow: D.shadow(6, 6), padding: '24px 24px 22px', width: '100%', maxWidth: 380, textAlign: 'center' }}
+            onClick={e => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setQrTarget(null)}
+              aria-label="Đóng"
+              style={{ position: 'absolute', top: 12, right: 12, width: 30, height: 30, borderRadius: 999, border: D.borderLight, background: D.bg, color: D.inkMuted, display: 'grid', placeItems: 'center', cursor: 'pointer', padding: 0 }}
+            ><X size={15} /></button>
+
+            <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase', color: D.inkMuted, marginBottom: 8 }}>
+              Mã QR check-in
+            </div>
+            <h3 style={{ margin: '0 0 4px', fontSize: 15.5, fontWeight: 800, color: D.ink, lineHeight: 1.35, paddingRight: 20 }}>{qrTarget.eventName}</h3>
+            <p style={{ margin: '0 0 16px', fontSize: 12, color: D.inkMuted }}>
+              {qrTarget.clubId == null ? 'Sự kiện cấp trường' : (qrTarget.clubName ?? 'CLB')}
+            </p>
+
+            <div style={{ display: 'inline-block', background: '#fff', border: D.border, borderRadius: 14, padding: 14, lineHeight: 0, boxShadow: D.shadow(3, 3) }}>
+              <QRCodeCanvas value={qrTarget.checkInCode} size={220} level="M" includeMargin={false} />
+            </div>
+
+            {qrTarget.attendance === 'CheckedIn' ? (
+              <div style={{ marginTop: 16, display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: '#15803d', background: '#dcfce7', borderRadius: D.pill, padding: '5px 12px' }}>
+                ✓ Đã điểm danh{qrTarget.checkedInAt ? ` lúc ${new Date(qrTarget.checkedInAt).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}` : ''}
+              </div>
+            ) : (
+              <p style={{ margin: '16px 0 0', fontSize: 12.5, color: D.inkDim, lineHeight: 1.5 }}>
+                Đưa mã này cho ban tổ chức tại sự kiện để check-in.
+              </p>
+            )}
           </div>
         </div>
       )}

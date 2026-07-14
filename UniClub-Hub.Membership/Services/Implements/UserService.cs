@@ -362,7 +362,7 @@ namespace UniClub_Hub.Membership.Services.Implements
         public async Task<IEnumerable<MyEventRegistrationDto>> GetMyEventRegistrationsAsync(string userId)
         {
             var now = DateTimeOffset.UtcNow;
-            return await _db.EventRegistrations
+            var items = await _db.EventRegistrations
                 .AsNoTracking()
                 .Where(er => er.UserId == userId && er.Event != null)
                 .OrderByDescending(er => er.RegisteredAt)
@@ -382,8 +382,19 @@ namespace UniClub_Hub.Membership.Services.Implements
                     CanCancel = er.Event.Status != EventStatus.Completed
                              && er.Event.Status != EventStatus.Cancelled
                              && (er.Event.EndTime == null || er.Event.EndTime >= now),
+                    CheckInCode = _db.EventCheckInCodes
+                        .Where(c => c.EventRegistrationId == er.Id)
+                        .Select(c => c.Code)
+                        .FirstOrDefault(),
                 })
                 .ToListAsync();
+
+            // Đăng ký cũ (thêm bởi ban tổ chức, trước khi có bảng mã) chưa có row mã —
+            // mã là tất định nên suy ra được, không cần ghi DB trong một request GET.
+            foreach (var item in items)
+                item.CheckInCode ??= CheckInCodeCodec.Encode(item.EventId, userId);
+
+            return items;
         }
 
         public async Task CancelMyEventRegistrationAsync(string userId, int eventId)

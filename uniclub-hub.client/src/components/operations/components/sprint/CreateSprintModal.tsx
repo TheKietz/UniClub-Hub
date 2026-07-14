@@ -81,7 +81,7 @@ export default function CreateSprintModal({ open, onClose, onSubmit, editData }:
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         }}>
           <h2 style={{ margin: 0, fontSize: 15, fontWeight: 900, color: '#ffffff', letterSpacing: '.04em', textTransform: 'uppercase' }}>
-            {editData ? 'Chỉnh sửa Sprint' : 'Tạo Sprint mới'}
+            {editData ? 'Chỉnh sửa tuần công việc' : 'Tạo tuần công việc mới'}
           </h2>
           <button
             type="button"
@@ -100,7 +100,7 @@ export default function CreateSprintModal({ open, onClose, onSubmit, editData }:
         <div style={{ padding: '24px 20px', flex: 1, display: 'flex', flexDirection: 'column', gap: 20 }}>
           {/* Sprint name */}
           <div>
-            <label style={labelStyle}>Sprint Name <span style={{ color: D.red }}>*</span></label>
+            <label style={labelStyle}>Tên sprint <span style={{ color: D.red }}>*</span></label>
             <input
               type="text"
               value={form.name}
@@ -137,7 +137,7 @@ export default function CreateSprintModal({ open, onClose, onSubmit, editData }:
 
           {/* Sprint goal */}
           <div>
-            <label style={{ ...labelStyle, color: D.inkMuted }}>Sprint Goal</label>
+            <label style={{ ...labelStyle, color: D.inkMuted }}>Mục tiêu</label>
             <textarea
               value={form.goal ?? ''}
               onChange={e => set('goal', e.target.value)}

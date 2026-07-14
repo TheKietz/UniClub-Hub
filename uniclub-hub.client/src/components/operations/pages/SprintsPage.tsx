@@ -1294,7 +1294,7 @@ function EditSprintInline({ sprint, onClose, onSave }: {
       <div style={{ position: 'absolute', inset: 0, background: 'rgba(10,10,10,0.45)' }} onClick={onClose} />
       <div style={{ position: 'relative', width: '100%', maxWidth: 440, background: 'white', border: '3px solid #0A0A0A', boxShadow: '8px 8px 0 #0A0A0A', borderRadius: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', borderBottom: '2px solid #0A0A0A', background: '#0A0A0A' }}>
-          <h2 style={{ margin: 0, fontSize: 15, fontWeight: 900, color: '#FFE500', textTransform: 'uppercase', letterSpacing: '.04em' }}>Chỉnh sửa Sprint</h2>
+          <h2 style={{ margin: 0, fontSize: 15, fontWeight: 900, color: '#FFE500', textTransform: 'uppercase', letterSpacing: '.04em' }}>Chỉnh sửa tuần công việc</h2>
           <button type="button" onClick={onClose} style={{ width: 26, height: 26, border: '2px solid #FFE500', borderRadius: 0, background: 'transparent', color: '#FFE500', cursor: 'pointer', fontWeight: 900 }}>✕</button>
         </div>
         <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
