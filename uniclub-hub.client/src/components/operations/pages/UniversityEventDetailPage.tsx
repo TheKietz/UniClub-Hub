@@ -116,7 +116,15 @@ function deadlineHint(minDate?: string, maxDate?: string): string | null {
   if (minDate) return `Từ ${fmtDate(minDate)} trở đi`
   return `Trước ${fmtDate(maxDate)}`
 }
-
+function toDateTimeLocal(iso?: string): string {
+  if (!iso) return '';
+  return iso.slice(0, 16); 
+}
+function getMinAvailableTime(): string {
+  const now = new Date();
+  now.setMinutes(now.getMinutes() + 5); // Cộng thêm 5 phút
+  return now.toISOString().slice(0, 16); // Định dạng YYYY-MM-DDThh:mm
+}
 /* ─── Assign Task Panel ──────────────────────────────────────────────────── */
 interface AssignForm { title: string; clubId: number | null; priority: TaskPriority; deadline: string; description: string }
 
@@ -127,6 +135,7 @@ function AssignTaskPanel({ eventId, clubs, eventStart, eventEnd, onCreated }: {
   const [files, setFiles] = useState<File[]>([])
   const [saving, setSaving] = useState(false)
 
+  const minAvailable = getMinAvailableTime();
   const minDate = toDateInput(eventStart)
   const maxDate = toDateInput(eventEnd)
   const hint = deadlineHint(minDate || undefined, maxDate || undefined)
@@ -135,23 +144,63 @@ function AssignTaskPanel({ eventId, clubs, eventStart, eventEnd, onCreated }: {
   const pl: React.CSSProperties = { display: 'block', fontSize: 11, fontWeight: 800, color: D.inkMuted, marginBottom: 4, textTransform: 'uppercase', letterSpacing: '.05em' }
 
   async function submit() {
-    if (!form.title.trim()) { toast.error('Nhập tên phiếu giao việc'); return }
-    if (!form.clubId) { toast.error('Chọn CLB để giao việc'); return }
-    if (form.deadline) {
-      if (minDate && form.deadline < minDate) { toast.error(`Deadline không được trước ngày bắt đầu sự kiện (${fmtDate(minDate)})`); return }
-      if (maxDate && form.deadline > maxDate) { toast.error(`Deadline không được sau ngày kết thúc sự kiện (${fmtDate(maxDate)})`); return }
-    }
-    setSaving(true)
-    try {
-      const a = await createAssignment(eventId, form.clubId,
-        { title: form.title.trim(), priority: form.priority, deadline: form.deadline || undefined, description: form.description || undefined },
-        files.length > 0 ? files : undefined)
-      toast.success('Đã tạo phiếu giao việc cho CLB')
-      setForm({ title: '', clubId: null, priority: 'Medium', deadline: '', description: '' }); setFiles([])
-      onCreated(a)
-    } catch { toast.error('Không thể tạo phiếu giao việc') }
-    finally { setSaving(false) }
+  // 1. Kiểm tra các trường bắt buộc
+  if (!form.title.trim()) { toast.error('Nhập tên phiếu giao việc'); return }
+  if (!form.clubId) { toast.error('Chọn CLB để giao việc'); return }
+  
+  // Kiểm tra mô tả bắt buộc
+  if (!form.description || form.description.trim() === '') {
+    toast.error('Vui lòng nhập mô tả hoặc yêu cầu chi tiết');
+    return;
   }
+
+  // 2. Validate thời gian
+  if (form.deadline) {
+    const selected = new Date(form.deadline);
+    const nowPlus5 = new Date();
+    nowPlus5.setMinutes(nowPlus5.getMinutes() + 5);
+
+    const end = eventEnd ? new Date(eventEnd) : null;
+
+    if (selected < nowPlus5) {
+      toast.error('Deadline phải sau thời điểm hiện tại ít nhất 5 phút');
+      return;
+    }
+    if (end && selected > end) { 
+      toast.error(`Deadline không được sau ${new Date(end).toLocaleString('vi-VN')}`); 
+      return; 
+    }
+  } else {
+    toast.error('Vui lòng chọn deadline');
+    return;
+  }
+
+  setSaving(true);
+  try {
+    // API yêu cầu định dạng ISO string, datetime-local trả về 'YYYY-MM-DDThh:mm'
+    // Bạn cần thêm :00 vào để biến nó thành định dạng ISO đầy đủ nếu API của bạn yêu cầu
+    const isoDeadline = form.deadline ? `${form.deadline}:00` : undefined;
+
+    const a = await createAssignment(eventId, form.clubId,
+      { 
+        title: form.title.trim(), 
+        priority: form.priority, 
+        deadline: isoDeadline, 
+        description: form.description.trim() 
+      },
+      files.length > 0 ? files : undefined
+    );
+    
+    toast.success('Đã tạo phiếu giao việc cho CLB');
+    setForm({ title: '', clubId: null, priority: 'Medium', deadline: '', description: '' }); 
+    setFiles([]);
+    onCreated(a);
+  } catch { 
+    toast.error('Không thể tạo phiếu giao việc'); 
+  } finally { 
+    setSaving(false); 
+  }
+}
 
   return (
     <div style={{ background: D.bg, border: D.border, borderRadius: D.radius, padding: 20, marginBottom: 16 }}>
@@ -175,16 +224,16 @@ function AssignTaskPanel({ eventId, clubs, eventStart, eventEnd, onCreated }: {
           <div>
             <label style={pl}>Deadline {hint && <span style={{ fontWeight: 500, textTransform: 'none', letterSpacing: 0, color: D.indigo }}>({hint})</span>}</label>
             <input
-              type="date"
+              type="datetime-local"
               value={form.deadline}
-              min={minDate || undefined}
-              max={maxDate || undefined}
+              min={minAvailable} 
+              max={toDateTimeLocal(maxDate) || undefined}
               onChange={e => setForm(f => ({ ...f, deadline: e.target.value }))}
               style={{ ...pi, colorScheme: 'light' }}
             />
           </div>
         </div>
-        <div><label style={pl}>Mô tả / Yêu cầu chi tiết</label><textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={2} style={{ ...pi, resize: 'vertical' }} /></div>
+        <div><label style={pl}>Mô tả / Yêu cầu chi tiết *</label><textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={2} style={{ ...pi, resize: 'vertical' }} /></div>
         <FilePicker files={files} onChange={setFiles} />
         <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
           <button type="button" onClick={submit} disabled={saving} style={{ padding: '8px 22px', fontSize: 13, fontWeight: 800, border: D.border, borderRadius: 8, background: D.ink, color: '#fff', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1, boxShadow: D.shadow() }}>
@@ -217,7 +266,7 @@ function EditAssignmentModal({ open, assignment, clubs, eventStart, eventEnd, on
         title: assignment.title,
         description: assignment.description ?? '',
         priority: assignment.priority,
-        deadline: assignment.deadline ? assignment.deadline.slice(0, 10) : '',
+        deadline: assignment.deadline ? assignment.deadline.slice(0, 16) : '',
         clubId: assignment.clubId,
       })
       setAttachments(assignment.attachmentUrls)

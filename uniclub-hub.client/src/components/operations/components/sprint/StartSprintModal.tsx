@@ -174,7 +174,7 @@ export default function StartSprintModal({
           flexShrink: 0,
         }}>
           <h2 style={{ margin: 0, fontSize: 16, fontWeight: 900, color: '#FFE500', letterSpacing: '.04em', textTransform: 'uppercase' }}>
-            Start Sprint
+            Bắt đầu tuần công việc
           </h2>
           <button
             type="button"
@@ -198,16 +198,16 @@ export default function StartSprintModal({
 
           {/* Work items hint */}
           <p style={{ margin: '0 0 16px', fontSize: 13, fontWeight: 700, color: '#444' }}>
-            <strong style={{ color: '#0A0A0A' }}>{taskCount}</strong> work item{taskCount !== 1 ? 's' : ''} will be included in this sprint.
+            <strong style={{ color: '#0A0A0A' }}>{taskCount}</strong> công việc đã được đưa vào tuần công việc này. Bạn có thể chỉnh sửa tên, thời lượng, ngày bắt đầu/kết thúc và mục tiêu trước khi bắt đầu.
           </p>
           <p style={{ margin: '0 0 18px', fontSize: 12, fontWeight: 700, color: '#888' }}>
-            Required fields are marked with an asterisk <span style={{ color: '#FF3B3B' }}>*</span>
+            Các trường bắt buộc <span style={{ color: '#FF3B3B' }}>*</span> 
           </p>
 
           {/* Sprint name */}
           <div style={{ marginBottom: 16 }}>
             <label style={labelStyle}>
-              Sprint name <span style={{ color: '#FF3B3B' }}>*</span>
+              Tên tuần công việc <span style={{ color: '#FF3B3B' }}>*</span>
             </label>
             <input
               type="text"
@@ -221,7 +221,7 @@ export default function StartSprintModal({
           {/* Duration */}
           <div style={{ marginBottom: 16 }}>
             <label style={labelStyle}>
-              Duration <span style={{ color: '#FF3B3B' }}>*</span>
+              Thời lượng <span style={{ color: '#FF3B3B' }}>*</span>
             </label>
             <FilterSelect
               value={duration}
@@ -233,7 +233,7 @@ export default function StartSprintModal({
           {/* Start date */}
           <div style={{ marginBottom: 16 }}>
             <label style={labelStyle}>
-              Start date <span style={{ color: '#FF3B3B' }}>*</span>
+              Ngày bắt đầu <span style={{ color: '#FF3B3B' }}>*</span>
             </label>
             <input
               type="datetime-local"
@@ -247,7 +247,7 @@ export default function StartSprintModal({
           {/* End date */}
           <div style={{ marginBottom: 20 }}>
             <label style={labelStyle}>
-              End date <span style={{ color: '#FF3B3B' }}>*</span>
+              Ngày kết thúc <span style={{ color: '#FF3B3B' }}>*</span>
             </label>
             <input
               type="datetime-local"
@@ -275,7 +275,7 @@ export default function StartSprintModal({
 
           {/* Sprint goal */}
           <div>
-            <label style={{ ...labelStyle, color: '#555' }}>Sprint goal</label>
+            <label style={{ ...labelStyle, color: '#555' }}>Mục tiêu</label>
             <textarea
               value={goal}
               onChange={e => setGoal(e.target.value)}
