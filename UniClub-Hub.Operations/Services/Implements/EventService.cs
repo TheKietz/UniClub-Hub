@@ -397,13 +397,6 @@ namespace UniClub_Hub.Operations.Services.Implements
 
         // ── Self-service registration ────────────────────────────────────────
 
-        /// <summary>
-        /// QR payload cho scanner check-in = Base64("{eventId}_{userId}") — khớp với
-        /// decodeQrPayload ở client (atob → tách theo '_' đầu tiên).
-        /// </summary>
-        private static string EncodeCheckInCode(int eventId, string userId)
-            => Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes($"{eventId}_{userId}"));
-
         private async Task<string> GetOrCreateCheckInCodeAsync(int eventId, int registrationId, string userId)
         {
             var existing = await db.EventCheckInCodes
@@ -412,7 +405,7 @@ namespace UniClub_Hub.Operations.Services.Implements
                 .FirstOrDefaultAsync();
             if (existing != null) return existing;
 
-            var code = EncodeCheckInCode(eventId, userId);
+            var code = CheckInCodeCodec.Encode(eventId, userId);
             db.EventCheckInCodes.Add(new EventCheckInCode
             {
                 EventRegistrationId = registrationId,

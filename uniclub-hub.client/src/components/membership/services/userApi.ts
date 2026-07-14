@@ -64,6 +64,8 @@ export interface MyEventRegistration {
   attendance: string          // Pending | CheckedIn | Absent
   checkedInAt?: string | null
   canCancel: boolean
+  /** Mã QR check-in — Base64("{eventId}_{userId}") */
+  checkInCode?: string | null
 }
 
 export const getMyEventRegistrations = () =>
