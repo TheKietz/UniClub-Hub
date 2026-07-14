@@ -119,14 +119,17 @@ namespace UniClub_Hub.Operations.Services.Implements
         {
             if (!deadline.HasValue) return;
 
+            if (deadline.Value < DateTimeOffset.UtcNow)
+            {
+                throw new InvalidOperationException("Deadline không được trước thời điểm hiện tại.");
+            }
+
             var ev = await db.Events.AsNoTracking()
                 .Where(e => e.Id == eventId)
-                .Select(e => new { e.StartTime, e.EndTime })
-                .FirstOrDefaultAsync();
-            if (ev == null) return;
+                .Select(e => new { e.EndTime })
+                .FirstOrDefaultAsync()
+                ?? throw new KeyNotFoundException($"Event {eventId} not found.");
 
-            if (ev.StartTime.HasValue && deadline < ev.StartTime)
-                throw new InvalidOperationException("Deadline không thể trước ngày bắt đầu sự kiện.");
             if (ev.EndTime.HasValue && deadline > ev.EndTime)
                 throw new InvalidOperationException("Deadline không thể sau ngày kết thúc sự kiện.");
         }

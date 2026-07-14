@@ -106,29 +106,22 @@ function FilePicker({ files, onChange }: { files: File[]; onChange: (f: File[]) 
 }
 
 /* ─── Deadline helpers ───────────────────────────────────────────────────── */
-function toDateInput(iso?: string): string {
-  return iso ? iso.slice(0, 10) : ''
-}
 
-function deadlineHint(minDate?: string, maxDate?: string): string | null {
-  if (!minDate && !maxDate) return null
-  if (minDate && maxDate) return `Từ ${fmtDate(minDate)} đến ${fmtDate(maxDate)}`
-  if (minDate) return `Từ ${fmtDate(minDate)} trở đi`
-  return `Trước ${fmtDate(maxDate)}`
+function deadlineHint(maxDate?: string): string | null {
+  if (!maxDate) return 'Từ thời điểm hiện tại trở đi';
+  return `Từ hiện tại đến ${fmtDate(maxDate)}`;
 }
 function toDateTimeLocal(iso?: string): string {
   if (!iso) return '';
   return iso.slice(0, 16); 
 }
 function getMinAvailableTime(): string {
-  const now = new Date();
-  now.setMinutes(now.getMinutes() + 5); // Cộng thêm 5 phút
-  return now.toISOString().slice(0, 16); // Định dạng YYYY-MM-DDThh:mm
+  return new Date().toISOString().slice(0, 16);
 }
 /* ─── Assign Task Panel ──────────────────────────────────────────────────── */
 interface AssignForm { title: string; clubId: number | null; priority: TaskPriority; deadline: string; description: string }
 
-function AssignTaskPanel({ eventId, clubs, eventStart, eventEnd, onCreated }: {
+function AssignTaskPanel({ eventId, clubs, eventEnd, onCreated }: {
   eventId: number; clubs: ClubListItem[]; eventStart?: string; eventEnd?: string; onCreated: (a: AssignmentItem) => void
 }) {
   const [form, setForm] = useState<AssignForm>({ title: '', clubId: null, priority: 'Medium', deadline: '', description: '' })
@@ -136,9 +129,8 @@ function AssignTaskPanel({ eventId, clubs, eventStart, eventEnd, onCreated }: {
   const [saving, setSaving] = useState(false)
 
   const minAvailable = getMinAvailableTime();
-  const minDate = toDateInput(eventStart)
-  const maxDate = toDateInput(eventEnd)
-  const hint = deadlineHint(minDate || undefined, maxDate || undefined)
+  const maxAvailable = toDateTimeLocal(eventEnd);
+  const hint = deadlineHint(eventEnd);
 
   const pi: React.CSSProperties = { width: '100%', padding: '8px 12px', fontSize: 13, fontWeight: 600, border: D.border, borderRadius: 8, outline: 'none', background: D.card, color: D.ink, boxSizing: 'border-box' }
   const pl: React.CSSProperties = { display: 'block', fontSize: 11, fontWeight: 800, color: D.inkMuted, marginBottom: 4, textTransform: 'uppercase', letterSpacing: '.05em' }
@@ -157,14 +149,13 @@ function AssignTaskPanel({ eventId, clubs, eventStart, eventEnd, onCreated }: {
   // 2. Validate thời gian
   if (form.deadline) {
     const selected = new Date(form.deadline);
-    const nowPlus5 = new Date();
-    nowPlus5.setMinutes(nowPlus5.getMinutes() + 5);
+    const now = new Date();
 
     const end = eventEnd ? new Date(eventEnd) : null;
 
-    if (selected < nowPlus5) {
-      toast.error('Deadline phải sau thời điểm hiện tại ít nhất 5 phút');
-      return;
+    if (selected < now) {
+    toast.error('Deadline không được trước thời điểm hiện tại');
+    return;
     }
     if (end && selected > end) { 
       toast.error(`Deadline không được sau ${new Date(end).toLocaleString('vi-VN')}`); 
@@ -226,8 +217,8 @@ function AssignTaskPanel({ eventId, clubs, eventStart, eventEnd, onCreated }: {
             <input
               type="datetime-local"
               value={form.deadline}
-              min={minAvailable} 
-              max={toDateTimeLocal(maxDate) || undefined}
+              min={minAvailable}
+              max={maxAvailable || undefined}
               onChange={e => setForm(f => ({ ...f, deadline: e.target.value }))}
               style={{ ...pi, colorScheme: 'light' }}
             />
@@ -246,7 +237,7 @@ function AssignTaskPanel({ eventId, clubs, eventStart, eventEnd, onCreated }: {
 }
 
 /* ─── Edit Assignment Modal ──────────────────────────────────────────────── */
-function EditAssignmentModal({ open, assignment, clubs, eventStart, eventEnd, onClose, onSaved }: {
+function EditAssignmentModal({ open, assignment, clubs, eventEnd, onClose, onSaved }: {
   open: boolean; assignment: AssignmentItem; clubs: ClubListItem[]; eventStart?: string; eventEnd?: string
   onClose: () => void; onSaved: (updated: AssignmentItem) => void
 }) {
@@ -256,9 +247,13 @@ function EditAssignmentModal({ open, assignment, clubs, eventStart, eventEnd, on
   const [saving, setSaving] = useState(false)
   const [removingUrl, setRemovingUrl] = useState<string | null>(null)
 
-  const minDate = toDateInput(eventStart)
-  const maxDate = toDateInput(eventEnd)
-  const hint = deadlineHint(minDate || undefined, maxDate || undefined)
+  const minAvailable = getMinAvailableTime();
+  const maxAvailable = toDateTimeLocal(eventEnd);
+  function deadlineHint(maxDate?: string): string | null {
+    if (!maxDate) return 'Từ thời điểm hiện tại trở đi';
+    return `Từ hiện tại đến ${fmtDate(maxDate)}`;
+  }
+  const hint = deadlineHint(eventEnd);
 
   useEffect(() => {
     if (open) {
@@ -289,9 +284,20 @@ function EditAssignmentModal({ open, assignment, clubs, eventStart, eventEnd, on
 
   async function handleSave() {
     if (!form.title.trim()) { toast.error('Tên không được để trống'); return }
-    if (form.deadline) {
-      if (minDate && form.deadline < minDate) { toast.error(`Deadline không được trước ngày bắt đầu sự kiện (${fmtDate(minDate)})`); return }
-      if (maxDate && form.deadline > maxDate) { toast.error(`Deadline không được sau ngày kết thúc sự kiện (${fmtDate(maxDate)})`); return }
+    const selected = new Date(form.deadline);
+
+    const now = new Date();
+
+    const end = eventEnd ? new Date(eventEnd) : null;
+
+    if (selected < now) {
+    toast.error('Deadline không được trước thời điểm hiện tại');
+    return;
+    }
+
+    if (end && selected > end) {
+        toast.error(`Deadline không được sau ${end.toLocaleString('vi-VN')}`);
+        return;
     }
     setSaving(true)
     try {
@@ -299,7 +305,9 @@ function EditAssignmentModal({ open, assignment, clubs, eventStart, eventEnd, on
         title: form.title.trim(),
         description: form.description || undefined,
         priority: form.priority,
-        deadline: form.deadline || undefined,
+        deadline: form.deadline
+                  ? `${form.deadline}:00`
+                  : undefined,
         clubId: form.clubId,
       })
       if (newFiles.length > 0) {
@@ -344,7 +352,7 @@ function EditAssignmentModal({ open, assignment, clubs, eventStart, eventEnd, on
               <label style={labelStyle}>
                 Deadline{hint && <span style={{ fontWeight: 500, textTransform: 'none', letterSpacing: 0, color: D.indigo, marginLeft: 4 }}>({hint})</span>}
               </label>
-              <input type="date" value={form.deadline} min={minDate || undefined} max={maxDate || undefined}
+              <input type="datetime-local" value={form.deadline} min={minAvailable || undefined} max={maxAvailable || undefined}
                 onChange={e => set('deadline', e.target.value)} style={{ ...inputStyle, colorScheme: 'light' }} />
             </div>
           </div>
@@ -926,7 +934,6 @@ export default function UniversityEventDetailPage() {
             <AssignTaskPanel
               eventId={event.id}
               clubs={clubs}
-              eventStart={event.startTime}
               eventEnd={event.endTime}
               onCreated={async a => {
               const next = [a, ...assignments]
@@ -1010,7 +1017,6 @@ export default function UniversityEventDetailPage() {
           open={!!editingAssignment}
           assignment={editingAssignment}
           clubs={clubs}
-          eventStart={event.startTime}
           eventEnd={event.endTime}
           onClose={() => setEditingAssignment(null)}
           onSaved={updated => {
