@@ -120,26 +120,15 @@ namespace UniClub_Hub.Membership.Services.Implements
                 .FirstOrDefaultAsync(d => d.ClubId == clubId && d.Id == id)
                 ?? throw new KeyNotFoundException($"Không tìm thấy ban với ID {id} trong CLB này.");
 
-            // Gỡ position assignments và positions của ban trước khi xoá
-            var deptPositionIds = await _db.ClubPositions
-                .IgnoreQueryFilters()
+            // Soft-delete các vị trí riêng của ban — giữ lại để khôi phục được cùng Ban,
+            // ClubMemberPosition/ClubPositionPermission tự ẩn theo nhờ query filter trên Position.IsDeleted.
+            var positions = await _db.ClubPositions
                 .Where(p => p.DepartmentId == id)
-                .Select(p => p.Id)
                 .ToListAsync();
-
-            if (deptPositionIds.Count > 0)
+            foreach (var position in positions)
             {
-                var memberPositions = await _db.ClubMemberPositions
-                    .IgnoreQueryFilters()
-                    .Where(mp => deptPositionIds.Contains(mp.PositionId))
-                    .ToListAsync();
-                _db.ClubMemberPositions.RemoveRange(memberPositions);
-
-                var positions = await _db.ClubPositions
-                    .IgnoreQueryFilters()
-                    .Where(p => p.DepartmentId == id)
-                    .ToListAsync();
-                _db.ClubPositions.RemoveRange(positions);
+                position.IsDeleted = true;
+                position.DeletedBy = requesterUserId;
             }
 
             // Lấy tất cả thành viên đang hoạt động trong ban
@@ -148,7 +137,7 @@ namespace UniClub_Hub.Membership.Services.Implements
                     (m.Status == MembershipStatus.Active || m.Status == MembershipStatus.Probation))
                 .ToListAsync();
 
-            // Auto-demote: xóa department, hạ DEPT_LEAD → MEMBER
+            // Auto-demote: gỡ khỏi ban, hạ DEPT_LEAD → MEMBER
             foreach (var m in affected)
             {
                 m.DepartmentId = null;
@@ -156,7 +145,8 @@ namespace UniClub_Hub.Membership.Services.Implements
                     m.ClubRole = ClubRole.MEMBER;
             }
 
-            _db.Departments.Remove(department);
+            department.IsDeleted = true;
+            department.DeletedBy = requesterUserId;
             await _db.SaveChangesAsync();
 
             // Thông báo cho từng người bị ảnh hưởng
@@ -164,6 +154,32 @@ namespace UniClub_Hub.Membership.Services.Implements
             if (!string.IsNullOrEmpty(deptDeletedMsg))
                 foreach (var m in affected)
                     await _notifications.SendAsync(m.UserId, "Ban bộ phận đã bị giải thể", deptDeletedMsg, NotificationType.System);
+        }
+
+        public async Task<AdminDepartmentDto> RestoreAsync(int clubId, int id, string requesterUserId, bool isSuperAdmin)
+        {
+            await EnsureCanManageAsync(clubId, requesterUserId, isSuperAdmin);
+            var department = await _db.Departments
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(d => d.ClubId == clubId && d.Id == id && d.IsDeleted)
+                ?? throw new KeyNotFoundException($"Không tìm thấy ban đã xóa với ID {id} trong CLB này.");
+
+            department.IsDeleted = false;
+            department.DeletedBy = null;
+
+            var positions = await _db.ClubPositions
+                .IgnoreQueryFilters()
+                .Where(p => p.DepartmentId == id && p.IsDeleted)
+                .ToListAsync();
+            foreach (var position in positions)
+            {
+                position.IsDeleted = false;
+                position.DeletedBy = null;
+            }
+
+            await _db.SaveChangesAsync();
+
+            return await GetAdminByIdAsync(clubId, id);
         }
 
         public async Task SetLeadAsync(

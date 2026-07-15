@@ -92,6 +92,20 @@ namespace UniClub_Hub.Server.Controllers.Membership
             catch (InvalidOperationException ex) { return BadRequest(ApiResponse<object>.Fail(ex.Message)); }
         }
 
+        [HttpPost("{id}/restore")]
+        [Authorize]
+        public async Task<IActionResult> Restore(int clubId, int id)
+        {
+            var (userId, isSuperAdmin) = GetRequester();
+            try
+            {
+                var result = await _departmentService.RestoreAsync(clubId, id, userId, isSuperAdmin);
+                return Ok(ApiResponse<AdminDepartmentDto>.Ok(result, "Khôi phục ban thành công."));
+            }
+            catch (UnauthorizedAccessException) { return Forbid(); }
+            catch (KeyNotFoundException ex) { return NotFound(ApiResponse<object>.Fail(ex.Message)); }
+        }
+
         [HttpPatch("{id}/lead")]
         [Authorize]
         public async Task<IActionResult> SetLead(int clubId, int id, [FromBody] SetDeptLeadDto dto)

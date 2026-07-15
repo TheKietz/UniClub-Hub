@@ -37,7 +37,7 @@ public class DepartmentServiceWorkflowTests : DbTestBase
     }
 
     [Fact]
-    public async Task DeleteAsync_AsSuperAdmin_RemovesDepartmentAndDemotesLead()
+    public async Task DeleteAsync_AsSuperAdmin_SoftDeletesDepartmentAndDemotesLead()
     {
         await using var db = Fx.CreateDbContext();
         SeedClubWithDepartment(db);
@@ -51,9 +51,45 @@ public class DepartmentServiceWorkflowTests : DbTestBase
         await service.DeleteAsync(1, 1, "admin", isSuperAdmin: true);
 
         Assert.False(await db.Departments.AnyAsync(d => d.Id == 1));
+        var department = await db.Departments.IgnoreQueryFilters().SingleAsync(d => d.Id == 1);
+        Assert.True(department.IsDeleted);
+        Assert.Equal("admin", department.DeletedBy);
+
         var membership = await db.ClubMemberships.FindAsync(2);
         Assert.Null(membership!.DepartmentId);
         Assert.Equal(ClubRole.MEMBER, membership.ClubRole);
+    }
+
+    [Fact]
+    public async Task RestoreAsync_BringsBackDepartmentAndItsPositions()
+    {
+        await using var db = Fx.CreateDbContext();
+        SeedClubWithDepartment(db);
+        db.Users.Add(PagedServiceTestHelpers.User(1));
+        db.ClubMemberships.Add(PagedServiceTestHelpers.Membership(1, "u1", departmentId: 1));
+        db.ClubPositions.Add(new ClubPosition { Id = 1, ClubId = 1, DepartmentId = 1, Name = "Reviewer" });
+        db.ClubPositionPermissions.Add(new ClubPositionPermission
+        {
+            PositionId = 1,
+            PermissionCode = ClubPermissions.ApplicationsView,
+        });
+        db.ClubMemberPositions.Add(new ClubMemberPosition { MembershipId = 1, PositionId = 1 });
+        await db.SaveChangesAsync();
+
+        var service = CreateService(db);
+        await service.DeleteAsync(1, 1, "admin", isSuperAdmin: true);
+
+        var restored = await service.RestoreAsync(1, 1, "admin", isSuperAdmin: true);
+
+        Assert.False(restored.IsDeleted);
+        Assert.True(await db.Departments.AnyAsync(d => d.Id == 1));
+
+        var position = await db.ClubPositions.SingleAsync(p => p.Id == 1);
+        Assert.False(position.IsDeleted);
+
+        var permissions = new ClubPermissionService(db);
+        var effective = await permissions.GetEffectivePermissionsAsync(1, "u1", isSuperAdmin: false);
+        Assert.Contains(ClubPermissions.ApplicationsView, effective.PermissionCodes);
     }
 
     [Fact]
@@ -98,7 +134,7 @@ public class DepartmentServiceWorkflowTests : DbTestBase
     }
 
     [Fact]
-    public async Task DeleteAsync_RemovesPositionAssignmentsForDepartment()
+    public async Task DeleteAsync_HidesPositionAssignmentsForDepartment_ButKeepsThemForRestore()
     {
         await using var db = Fx.CreateDbContext();
         SeedClubWithDepartment(db);
@@ -116,10 +152,15 @@ public class DepartmentServiceWorkflowTests : DbTestBase
         var service = CreateService(db);
         await service.DeleteAsync(1, 1, "admin", isSuperAdmin: true);
 
+        // Quyền hạn bị ẩn ngay (permission hiệu lực rỗng) vì Position đã soft-delete...
         var permissions = new ClubPermissionService(db);
         var effective = await permissions.GetEffectivePermissionsAsync(1, "u1", isSuperAdmin: false);
         Assert.Empty(effective.PermissionCodes);
-        Assert.False(await db.ClubMemberPositions.IgnoreQueryFilters().AnyAsync());
+
+        // ...nhưng dữ liệu gán vị trí vẫn còn nguyên trong DB để khôi phục được, không bị xóa cứng.
+        Assert.True(await db.ClubMemberPositions.IgnoreQueryFilters().AnyAsync());
+        var position = await db.ClubPositions.IgnoreQueryFilters().SingleAsync(p => p.Id == 1);
+        Assert.True(position.IsDeleted);
     }
 
     private static DepartmentService CreateService(UniClub_Hub.Shared.Data.UniClubDbContext db)

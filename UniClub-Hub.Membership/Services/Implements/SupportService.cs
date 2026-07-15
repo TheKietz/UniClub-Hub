@@ -4,6 +4,7 @@ using UniClub_Hub.Membership.DTOs.Common;
 using UniClub_Hub.Membership.DTOs.Support;
 using UniClub_Hub.Membership.Services.Interfaces;
 using UniClub_Hub.Shared.Common;
+using UniClub_Hub.Shared.Constants;
 using UniClub_Hub.Shared.Data;
 using UniClub_Hub.Shared.Enums;
 using UniClub_Hub.Shared.Models;

@@ -1,4 +1,4 @@
-namespace UniClub_Hub.Shared.Common
+namespace UniClub_Hub.Shared.Constants
 {
     public static class SystemRole
     {

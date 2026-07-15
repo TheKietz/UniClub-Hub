@@ -28,15 +28,15 @@ UniClub-Hub là **modular monolith**: một solution .NET + một SPA React, **d
 
 ## 3. Cấu trúc solution
 
-| Project                  | Vai trò                                                                   |
-| ------------------------ | ------------------------------------------------------------------------- |
-| `UniClub-Hub.Server`     | Entry point — `Program.cs`, Controllers, Hubs. Output assembly: `UniClub-Hub.API` (`UniClub-Hub.API.csproj`) |
-| `UniClub-Hub.Shared`     | `UniClubDbContext`, **tất cả Models/Entities**, Enums, Constants, helpers |
-| `UniClub-Hub.Membership` | Phân hệ thành viên (Đề tài 1) — DTOs + Services                           |
-| `UniClub-Hub.Operations` | Phân hệ vận hành (Đề tài 2)                                                |
-| `UniClub-Hub.Portal`     | Phân hệ cổng thông tin (Đề tài 3)                                          |
-| `UniClub-Hub.Tests`      | Test project (mirror module structure)                                    |
-| `uniclub-hub.client`     | React 19 + TypeScript frontend                                            |
+| Project                  | Vai trò                                                   |
+| ------------------------ | ---------------------------------------------------------- |
+| `UniClub-Hub.Server`     | Entry point — `Program.cs`, Controllers, Hubs (xem ghi chú bên dưới) |
+| `UniClub-Hub.Shared`     | `UniClubDbContext`, **tất cả Models/Entities**, Enums, Constants helpers |
+| `UniClub-Hub.Membership` | Phân hệ thành viên (Đề tài 1) — DTOs + Services           |
+| `UniClub-Hub.Operations` | Phân hệ vận hành (Đề tài 2)                               |
+| `UniClub-Hub.Portal`     | Phân hệ cổng thông tin (Đề tài 3)                          |
+| `UniClub-Hub.Tests`      | Test project (mirror module structure)                    |
+| `uniclub-hub.client`     | React 19 + TypeScript frontend                            |
 
 > ⚠️ Lưu ý đặt tên: thư mục/project dùng gạch nối `UniClub-Hub.*`. Project Server build ra assembly tên `UniClub-Hub.API`. Controllers nằm trong `UniClub-Hub.Server/Controllers/`, Hub nằm trong `UniClub-Hub.Server/Hubs/`.
 

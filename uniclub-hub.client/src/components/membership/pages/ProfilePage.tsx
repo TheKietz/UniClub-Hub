@@ -142,7 +142,7 @@ export default function ProfilePage() {
     ? user.fullName.trim().split(' ').filter(Boolean).slice(-2).map(w => w[0]).join('').toUpperCase()
     : (user?.email?.[0] ?? '?').toUpperCase()
   const avatarColor = AVATAR_COLORS[(user?.fullName?.charCodeAt(0) ?? 0) % AVATAR_COLORS.length]
-  const activeMemberships = user?.memberships.filter(m => m.status === MEMBERSHIP_STATUS.ACTIVE) ?? []
+  const joinedMemberships = user?.memberships.filter(m => m.status === MEMBERSHIP_STATUS.ACTIVE || m.status === MEMBERSHIP_STATUS.PROBATION) ?? []
 
   return (
     <div className="mgmt-page">
@@ -197,7 +197,7 @@ export default function ProfilePage() {
             <div style={{ padding: '12px 18px', borderBottom: D.borderLight, background: D.bg }}>
               <p style={{ fontSize: 13, fontWeight: 700, color: D.ink, margin: 0 }}>CLB đang tham gia</p>
             </div>
-            {activeMemberships.length === 0 ? (
+            {joinedMemberships.length === 0 ? (
               <div style={{ padding: '20px 18px', display: 'flex', alignItems: 'center', gap: 12 }}>
                 <div style={{ width: 36, height: 36, borderRadius: 9, flexShrink: 0, background: D.bg, border: `1.5px dashed #c4bdb1`, display: 'grid', placeItems: 'center', fontSize: 16, color: D.inkMuted }}>◇</div>
                 <div>
@@ -206,8 +206,8 @@ export default function ProfilePage() {
               </div>
             ) : (
               <div>
-                {activeMemberships.map((m, i) => (
-                  <div key={m.clubId} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 18px', borderBottom: i < activeMemberships.length - 1 ? D.borderLight : 'none' }}>
+                {joinedMemberships.map((m, i) => (
+                  <div key={m.clubId} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 18px', borderBottom: i < joinedMemberships.length - 1 ? D.borderLight : 'none' }}>
                     {m.clubLogoUrl ? (
                       <img src={m.clubLogoUrl} alt="" style={{ width: 36, height: 36, borderRadius: 9, objectFit: 'cover', border: D.borderLight, flexShrink: 0 }} />
                     ) : (
@@ -219,8 +219,8 @@ export default function ProfilePage() {
                       <p style={{ fontSize: 13, fontWeight: 700, color: D.ink, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.clubName}</p>
                       {m.departmentName && <p style={{ fontSize: 11, color: D.inkMuted, marginTop: 2 }}>{m.departmentName}</p>}
                     </div>
-                    <span style={{ fontSize: 9, fontWeight: 700, padding: '3px 8px', borderRadius: 4, background: CLUB_ROLE_COLORS[m.clubRole] ?? D.indigo, color: '#fff', textTransform: 'uppercase', letterSpacing: '.04em', flexShrink: 0 }}>
-                      {CLUB_ROLE_LABELS[m.clubRole] ?? m.clubRole}
+                    <span style={{ fontSize: 9, fontWeight: 700, padding: '3px 8px', borderRadius: 4, background: m.status === MEMBERSHIP_STATUS.PROBATION ? '#f59e0b' : (CLUB_ROLE_COLORS[m.clubRole] ?? D.indigo), color: '#fff', textTransform: 'uppercase', letterSpacing: '.04em', flexShrink: 0 }}>
+                      {m.status === MEMBERSHIP_STATUS.PROBATION ? 'Thử việc' : (CLUB_ROLE_LABELS[m.clubRole] ?? m.clubRole)}
                     </span>
                   </div>
                 ))}

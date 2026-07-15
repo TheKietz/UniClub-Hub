@@ -1,4 +1,4 @@
-using UniClub_Hub.Shared.Common;
+using UniClub_Hub.Shared.Constants;
 using System.Net.Http.Headers;
 using System.Text.Json;
 using Microsoft.AspNetCore.Identity;

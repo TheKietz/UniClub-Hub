@@ -9,6 +9,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { toast } from 'sonner'
 import { Trash2, LockKeyhole, LockKeyholeOpen, ShieldCheck, ShieldOff, Upload, Download, FileSpreadsheet, CheckCircle2, XCircle, AlertCircle } from 'lucide-react'
 import { FilterSelect } from '@/components/shared/FilterSelect'
+import MajorSelect from '@/components/shared/MajorSelect'
 import { LoadMoreBar } from '@/components/shared/LoadMoreBar'
 import { D } from '@/components/shared/managementTheme'
 import { getApiErrorMessage } from '@/lib/apiError'
@@ -441,7 +442,7 @@ export default function UsersPage() {
             </div>
             <div>
               <label style={labelStyle}>Ngành</label>
-              <input value={form.major} onChange={field('major')} placeholder="Công nghệ thông tin" style={inputStyle} />
+              <MajorSelect value={form.major} onChange={val => setForm(prev => ({ ...prev, major: val }))} />
             </div>
             <DialogFooter className="border-none bg-transparent" style={{ paddingTop: 4 }}>
               <Button type="button" variant="outline" onClick={() => setAddOpen(false)} style={{ border: D.border }}>Huỷ</Button>
