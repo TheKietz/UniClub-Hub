@@ -17,6 +17,7 @@ import type {
 import { useTasks } from "../context/TasksContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { CLUB_ROLES } from "@/types/auth";
+import { getApiErrorMessage } from "@/lib/apiError";
 import StartSprintModal from "../components/sprint/StartSprintModal";
 import CompleteSprintModal from "../components/sprint/CompleteSprintModal";
 import TaskDetailModal from "../components/task/TaskDetailModal";
@@ -300,16 +301,22 @@ function TaskRow({ task, columns, canManage, dragHandleProps, onOpen, onStatusCh
                   }}>
                     {sc.map(col => {
                       const isCurrent = cur?.id === col.id;
+                      // A task must pass "Đang duyệt" before it can be completed.
+                      const doneLocked = col.status === 'Done' && task.status !== 'Done' && task.status !== 'Reviewing';
                       return (
                         <button
                           key={col.id}
                           type="button"
+                          disabled={doneLocked}
+                          title={doneLocked ? "Công việc phải 'Đang duyệt' trước khi hoàn thành" : undefined}
                           style={{
                             width: '100%', display: 'flex', alignItems: 'center', gap: 8,
                             padding: '8px 12px', fontSize: 12, fontWeight: 700,
-                            textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', color: '#0A0A0A',
+                            textAlign: 'left', background: 'none', border: 'none',
+                            cursor: doneLocked ? 'not-allowed' : 'pointer', color: '#0A0A0A',
+                            opacity: doneLocked ? 0.4 : 1,
                           }}
-                          onMouseEnter={e => (e.currentTarget.style.background = '#FFFBE0')}
+                          onMouseEnter={e => { if (!doneLocked) e.currentTarget.style.background = '#FFFBE0'; }}
                           onMouseLeave={e => (e.currentTarget.style.background = 'none')}
                           onClick={() => {
                             onStatusChange(task.id, col.id, col.status);
@@ -650,14 +657,24 @@ function BacklogSection({
   const [search, setSearch] = useState('');
   const [priorityFilter, setPriorityFilter] = useState<'all' | TaskPriority>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | TaskStatus>('all');
+  // 'all' | 'none' (no event) | event id as string
+  const [eventFilter, setEventFilter] = useState<'all' | 'none' | string>('all');
+
+  // Unique events among the backlog tasks, for the event filter options.
+  const eventOptions = [...new Map(
+    tasks.filter(t => t.eventId != null)
+      .map(t => [t.eventId!, { id: t.eventId!, name: t.eventName ?? `Sự kiện #${t.eventId}` }])
+  ).values()];
 
   const q = search.trim().toLowerCase();
-  const hasFilter = q !== '' || priorityFilter !== 'all' || statusFilter !== 'all';
+  const hasFilter = q !== '' || priorityFilter !== 'all' || statusFilter !== 'all' || eventFilter !== 'all';
 
   const visibleTasks = tasks.filter(t => {
     if (q && !t.title.toLowerCase().includes(q) && !(t.assigneeName?.toLowerCase().includes(q))) return false;
     if (priorityFilter !== 'all' && t.priority !== priorityFilter) return false;
     if (statusFilter !== 'all' && t.status !== statusFilter) return false;
+    if (eventFilter === 'none' && t.eventId != null) return false;
+    if (eventFilter !== 'all' && eventFilter !== 'none' && t.eventId !== Number(eventFilter)) return false;
     return true;
   });
 
@@ -665,6 +682,7 @@ function BacklogSection({
     setSearch('');
     setPriorityFilter('all');
     setStatusFilter('all');
+    setEventFilter('all');
   }
 
   const selectStyle: React.CSSProperties = {
@@ -749,6 +767,14 @@ function BacklogSection({
               <option value="Doing">Đang làm</option>
               <option value="Reviewing">Reviewing</option>
               <option value="Done">Hoàn thành</option>
+            </select>
+
+            <select value={eventFilter} onChange={e => setEventFilter(e.target.value)} style={{ ...selectStyle, maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              <option value="all">Sự kiện</option>
+              <option value="none">Không thuộc sự kiện</option>
+              {eventOptions.map(ev => (
+                <option key={ev.id} value={String(ev.id)}>{ev.name}</option>
+              ))}
             </select>
 
             {hasFilter && (
@@ -1005,7 +1031,7 @@ export default function SprintsPage() {
     try {
       const updated = await updateTaskStatus(id, { status, progress, kanbanColumnId: colId });
       patchTask(updated);
-    } catch { toast.error('Không thể cập nhật trạng thái'); reloadTasks(); }
+    } catch (err) { toast.error(getApiErrorMessage(err, 'Không thể cập nhật trạng thái')); reloadTasks(); }
   }
 
   // ── Drag and drop ───────────────────────────────────────────────────────────

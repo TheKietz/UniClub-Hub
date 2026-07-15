@@ -4,6 +4,8 @@ import { toast } from 'sonner'
 import type { AxiosResponse } from 'axios'
 import { exportTasksReport, exportAuditLogsReport } from '../services/operationsApi'
 import { D } from '@/components/shared/managementTheme'
+import { useAuth } from '@/contexts/AuthContext'
+import { CLUB_ROLES } from '@/types/auth'
 
 type Variant = 'tasks' | 'audit'
 type Format = 'xlsx' | 'pdf'
@@ -24,6 +26,7 @@ function triggerDownload(res: AxiosResponse<Blob>, fileName: string) {
 
 export default function ExportReportButton({ clubId, variant }: { clubId: number; variant: Variant }) {
   const cfg = CONFIG[variant]
+  const { getClubRole } = useAuth()
   const [open, setOpen] = useState(false)
   const [format, setFormat] = useState<Format>('xlsx')
   const [from, setFrom] = useState('')
@@ -61,6 +64,9 @@ export default function ExportReportButton({ clubId, variant }: { clubId: number
     height: 34, padding: '0 10px', fontSize: 13, border: D.borderLight, borderRadius: 8,
     background: D.bg, color: D.ink, fontFamily: 'inherit', width: '100%', boxSizing: 'border-box',
   }
+
+  // Report export is CLUB_ADMIN-only (mirrors the server check) — hide for everyone else.
+  if (getClubRole(clubId) !== CLUB_ROLES.CLUB_ADMIN) return null
 
   return (
     <div ref={ref} style={{ position: 'relative' }}>

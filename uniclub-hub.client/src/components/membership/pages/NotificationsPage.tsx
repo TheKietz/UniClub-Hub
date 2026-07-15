@@ -21,6 +21,8 @@ const TYPE_META: Record<NotificationType, { label: string; color: string; Icon: 
   TaskStatusUpdated: { label: 'Cập nhật việc', color: '#4f46e5', Icon: ListTodo },
   DeadlineReminder: { label: 'Sắp đến hạn', color: '#f97316', Icon: Clock },
   AssignmentReceived: { label: 'Phiếu giao việc', color: '#8b3ff2', Icon: ClipboardCheck },
+  AssignmentCancelled: { label: 'Phiếu bị hủy', color: '#dc2626', Icon: Trash2 },
+  TaskUpdated: { label: 'Nội dung việc', color: '#0d9488', Icon: FileText },
 }
 
 const FILTERS: { key: FilterKey; label: string }[] = [

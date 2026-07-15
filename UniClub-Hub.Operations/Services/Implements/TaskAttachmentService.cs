@@ -57,14 +57,14 @@ namespace UniClub_Hub.Operations.Services.Implements
             var task = await db.Tasks.AsNoTracking().FirstOrDefaultAsync(t => t.Id == taskId)
                 ?? throw new KeyNotFoundException($"Task {taskId} not found.");
 
-            var isAdmin = await db.ClubMemberships.AnyAsync(m =>
+            // Any active club member may attach files (members explicitly have this right).
+            var isActiveMember = await db.ClubMemberships.AnyAsync(m =>
                 m.UserId == userId &&
                 m.ClubId == task.ClubId &&
-                m.Status == MembershipStatus.Active &&
-                m.ClubRole == ClubRole.CLUB_ADMIN);
+                m.Status == MembershipStatus.Active);
 
-            if (!isAdmin)
-                throw new UnauthorizedAccessException("Chỉ Admin CLB mới được tải lên tệp đính kèm.");
+            if (!isActiveMember)
+                throw new UnauthorizedAccessException("Chỉ thành viên CLB mới được tải lên tệp đính kèm.");
 
             var count = await db.TaskAttachments.CountAsync(a => a.TaskId == taskId && !a.IsDeleted);
             if (count >= 5)

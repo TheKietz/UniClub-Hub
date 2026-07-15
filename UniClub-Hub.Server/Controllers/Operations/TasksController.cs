@@ -81,6 +81,14 @@ namespace UniClub_Hub.Server.Controllers.Operations
             {
                 return NotFound(ApiResponse<object>.Fail(ex.Message));
             }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ApiResponse<object>.Fail(ex.Message));
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return StatusCode(StatusCodes.Status403Forbidden, ApiResponse<object>.Fail(ex.Message));
+            }
         }
 
         private async Task NotifyDeptLeadAsync(int departmentId, int clubId, int taskId, string taskTitle, int? eventId, string creatorId, string? assignedTo)
@@ -111,23 +119,33 @@ namespace UniClub_Hub.Server.Controllers.Operations
         [HttpPut("{id:int}")]
         public async Task<IActionResult> Update(int id, [FromBody] UpdateTaskDto dto)
         {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             try
             {
-                var result = await taskService.UpdateAsync(id, dto);
+                var result = await taskService.UpdateAsync(id, dto, userId);
                 return Ok(ApiResponse<TaskDto>.Ok(result, "Cập nhật thành công."));
             }
             catch (KeyNotFoundException ex)
             {
                 return NotFound(ApiResponse<object>.Fail(ex.Message));
             }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ApiResponse<object>.Fail(ex.Message));
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return StatusCode(StatusCodes.Status403Forbidden, ApiResponse<object>.Fail(ex.Message));
+            }
         }
 
         [HttpPatch("{id:int}/status")]
         public async Task<IActionResult> UpdateStatus(int id, [FromBody] UpdateTaskStatusDto dto)
         {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
             try
             {
-                var result = await taskService.UpdateStatusAsync(id, dto);
+                var result = await taskService.UpdateStatusAsync(id, dto, userId);
                 await hubContext.Clients
                     .Group(SignalRGroups.Club(result.ClubId))
                     .SendAsync(SignalREvents.TaskStatusUpdated, result);
@@ -140,6 +158,10 @@ namespace UniClub_Hub.Server.Controllers.Operations
             catch (InvalidOperationException ex)
             {
                 return BadRequest(ApiResponse<object>.Fail(ex.Message));
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return StatusCode(StatusCodes.Status403Forbidden, ApiResponse<object>.Fail(ex.Message));
             }
         }
 
@@ -187,9 +209,10 @@ namespace UniClub_Hub.Server.Controllers.Operations
         [HttpPost("{id:int}/dependencies")]
         public async Task<IActionResult> AddDependency(int id, [FromBody] AddDependencyDto dto)
         {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
             try
             {
-                await taskService.AddDependencyAsync(id, dto);
+                await taskService.AddDependencyAsync(id, dto, userId);
                 return Ok(ApiResponse<object>.Ok(null!, "Thêm phụ thuộc thành công."));
             }
             catch (KeyNotFoundException ex)
@@ -200,19 +223,28 @@ namespace UniClub_Hub.Server.Controllers.Operations
             {
                 return BadRequest(ApiResponse<object>.Fail(ex.Message));
             }
+            catch (UnauthorizedAccessException ex)
+            {
+                return StatusCode(StatusCodes.Status403Forbidden, ApiResponse<object>.Fail(ex.Message));
+            }
         }
 
         [HttpDelete("{id:int}/dependencies/{dependsOnId:int}")]
         public async Task<IActionResult> RemoveDependency(int id, int dependsOnId)
         {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
             try
             {
-                await taskService.RemoveDependencyAsync(id, dependsOnId);
+                await taskService.RemoveDependencyAsync(id, dependsOnId, userId);
                 return Ok(ApiResponse<object>.Ok(null!, "Xóa phụ thuộc thành công."));
             }
             catch (KeyNotFoundException ex)
             {
                 return NotFound(ApiResponse<object>.Fail(ex.Message));
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return StatusCode(StatusCodes.Status403Forbidden, ApiResponse<object>.Fail(ex.Message));
             }
         }
 

@@ -157,17 +157,58 @@ namespace UniClub_Hub.Server.Controllers.Operations
             }
         }
 
+        // Soft-cancel: the slip is marked "Cancelled" (not removed) so the club's
+        // inbox keeps it visible as "Đã bị hủy", and the club admins are notified.
         [HttpDelete("{id:int}")]
         public async Task<IActionResult> Delete(int id)
         {
             try
             {
-                await assignmentService.DeleteAsync(id);
-                return Ok(ApiResponse<object>.Ok(null!, "Đã xóa phiếu giao việc."));
+                var result = await assignmentService.CancelAsync(id);
+
+                await NotifyClubAdminsCancelledAsync(result.ClubId, result.Id,
+                    result.EventName ?? $"Sự kiện #{result.EventId}", result.Title);
+
+                // Realtime: let the receiving club's open inbox update live.
+                await hubContext.Clients
+                    .Group(SignalRGroups.Club(result.ClubId))
+                    .SendAsync(SignalREvents.AssignmentCancelled, result);
+
+                return Ok(ApiResponse<object>.Ok(result, "Đã hủy phiếu giao việc. CLB đã được thông báo."));
             }
             catch (KeyNotFoundException ex)
             {
                 return NotFound(ApiResponse<object>.Fail(ex.Message));
+            }
+        }
+
+        // Club admin removes a cancelled slip from their inbox; the tasks the club
+        // created from it are soft-deleted, and open boards are told to refresh.
+        [HttpDelete("{id:int}/inbox")]
+        public async Task<IActionResult> RemoveCancelled(int id)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+            try
+            {
+                var result = await assignmentService.RemoveCancelledAsync(id, userId);
+
+                await hubContext.Clients
+                    .Group(SignalRGroups.Club(result.ClubId))
+                    .SendAsync(SignalREvents.EventTasksCleaned, result.ClubId, result.EventId);
+
+                return Ok(ApiResponse<object>.Ok(null!, "Đã xóa phiếu giao việc và các công việc liên quan."));
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(ApiResponse<object>.Fail(ex.Message));
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ApiResponse<object>.Fail(ex.Message));
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return StatusCode(StatusCodes.Status403Forbidden, ApiResponse<object>.Fail(ex.Message));
             }
         }
 
@@ -190,6 +231,35 @@ namespace UniClub_Hub.Server.Controllers.Operations
                         "Phiếu giao việc mới từ Admin trường",
                         $"Sự kiện \"{eventName}\" có phiếu giao việc mới: \"{assignmentTitle}\". Vào Hộp thư để xử lý.",
                         NotificationType.AssignmentReceived,
+                        relatedEntityType: "Assignment",
+                        relatedEntityId: assignmentId);
+                }
+            }
+            catch
+            {
+                // Non-fatal
+            }
+        }
+
+        private async Task NotifyClubAdminsCancelledAsync(int clubId, int assignmentId, string eventName, string assignmentTitle)
+        {
+            try
+            {
+                var adminIds = await db.ClubMemberships
+                    .AsNoTracking()
+                    .Where(m => m.ClubId == clubId
+                             && m.ClubRole == ClubRole.CLUB_ADMIN
+                             && m.Status == MembershipStatus.Active)
+                    .Select(m => m.UserId)
+                    .ToListAsync();
+
+                foreach (var uid in adminIds)
+                {
+                    await notificationService.SendAsync(
+                        uid,
+                        "Phiếu giao việc đã bị hủy",
+                        $"Admin trường đã hủy phiếu giao việc \"{assignmentTitle}\" của sự kiện \"{eventName}\".",
+                        NotificationType.AssignmentCancelled,
                         relatedEntityType: "Assignment",
                         relatedEntityId: assignmentId);
                 }

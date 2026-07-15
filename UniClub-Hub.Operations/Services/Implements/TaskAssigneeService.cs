@@ -30,8 +30,29 @@ namespace UniClub_Hub.Operations.Services.Implements
                 .ToListAsync();
         }
 
+        // Only CLUB_ADMIN / DEPT_LEAD may (un)assign members on a task.
+        private async Task RequireManagerAsync(string actorId, int taskId)
+        {
+            var clubId = await db.Tasks.AsNoTracking()
+                .Where(t => t.Id == taskId)
+                .Select(t => (int?)t.ClubId)
+                .FirstOrDefaultAsync()
+                ?? throw new KeyNotFoundException($"Task {taskId} not found.");
+
+            var isManager = await db.ClubMemberships.AsNoTracking().AnyAsync(m =>
+                m.UserId == actorId &&
+                m.ClubId == clubId &&
+                m.Status == MembershipStatus.Active &&
+                (m.ClubRole == ClubRole.DEPT_LEAD || m.ClubRole == ClubRole.CLUB_ADMIN));
+
+            if (!isManager)
+                throw new UnauthorizedAccessException("Chỉ Quản lý CLB hoặc Trưởng ban mới được gán người thực hiện.");
+        }
+
         public async Task<TaskAssigneeDto> AssignAsync(int taskId, string userId, string assignedBy)
         {
+            await RequireManagerAsync(assignedBy, taskId);
+
             var existing = await db.TaskAssignees
                 .AsNoTracking()
                 .FirstOrDefaultAsync(a => a.TaskId == taskId && a.UserId == userId);
@@ -94,8 +115,10 @@ namespace UniClub_Hub.Operations.Services.Implements
                 .FirstAsync();
         }
 
-        public async Task UnassignAsync(int taskId, string userId)
+        public async Task UnassignAsync(int taskId, string userId, string actorId)
         {
+            await RequireManagerAsync(actorId, taskId);
+
             var assignee = await db.TaskAssignees
                 .FirstOrDefaultAsync(a => a.TaskId == taskId && a.UserId == userId);
             if (assignee == null) return;

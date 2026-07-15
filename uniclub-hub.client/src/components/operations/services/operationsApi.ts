@@ -167,6 +167,10 @@ export const updateAssignmentStatus = (id: number, status: string) =>
 export const deleteAssignment = (id: number) =>
   api.delete(`/v1/operations/assignments/${id}`)
 
+// Club admin removes a cancelled slip from the inbox (its tasks are soft-deleted server-side)
+export const removeCancelledAssignment = (id: number) =>
+  api.delete(`/v1/operations/assignments/${id}/inbox`)
+
 export const addAssignmentAttachments = (id: number, files: File[]) => {
   const form = new FormData()
   files.forEach(f => form.append('files', f))

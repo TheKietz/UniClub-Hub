@@ -47,6 +47,7 @@ const STATUS_MAP: Record<string, { label: string; bg: string; color: string }> =
   Pending:    { label: 'Chờ xử lý',  bg: '#fef9c3', color: '#a16207' },
   InProgress: { label: 'Đang xử lý', bg: '#dbeafe', color: '#1d4ed8' },
   Done:       { label: 'Hoàn thành', bg: '#dcfce7', color: '#15803d' },
+  Cancelled:  { label: 'Đã hủy',     bg: '#fee2e2', color: '#dc2626' },
 }
 
 const ALLOWED_TYPES = '.pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.webp,.zip,.rar'
@@ -65,16 +66,20 @@ function fileIcon(name: string): string {
   return '📎'
 }
 
+// Cancelled slips don't count toward a club's workload/progress.
 function clubOverallStatus(items: AssignmentItem[]): string {
-  if (items.every(a => a.status === 'Done')) return 'Done'
-  if (items.some(a => a.status === 'InProgress' || a.status === 'Done')) return 'InProgress'
+  const active = items.filter(a => a.status !== 'Cancelled')
+  if (!active.length) return 'Cancelled'
+  if (active.every(a => a.status === 'Done')) return 'Done'
+  if (active.some(a => a.status === 'InProgress' || a.status === 'Done')) return 'InProgress'
   return 'Pending'
 }
 
 function clubProgress(items: AssignmentItem[]): number {
-  if (!items.length) return 0
-  const score = items.reduce((s, a) => s + (a.status === 'Done' ? 100 : a.status === 'InProgress' ? 50 : 0), 0)
-  return Math.round(score / items.length)
+  const active = items.filter(a => a.status !== 'Cancelled')
+  if (!active.length) return 0
+  const score = active.reduce((s, a) => s + (a.status === 'Done' ? 100 : a.status === 'InProgress' ? 50 : 0), 0)
+  return Math.round(score / active.length)
 }
 
 /* ─── File Picker ────────────────────────────────────────────────────────── */
@@ -408,11 +413,12 @@ function AssignmentCard({ assignment, onDelete, onEdit }: {
 }) {
   const pr = PRIORITY_MAP[assignment.priority]
   const st = STATUS_MAP[assignment.status] ?? STATUS_MAP.Pending
-  const isOverdue = assignment.deadline && assignment.status !== 'Done'
+  const isCancelled = assignment.status === 'Cancelled'
+  const isOverdue = assignment.deadline && assignment.status !== 'Done' && !isCancelled
     ? new Date(assignment.deadline) < new Date() : false
 
   return (
-    <div style={{ background: D.card, border: D.border, borderRadius: 10, padding: '12px 16px' }}>
+    <div style={{ background: isCancelled ? '#fef2f2' : D.card, border: D.border, borderRadius: 10, padding: '12px 16px', opacity: isCancelled ? 0.75 : 1 }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 4 }}>
@@ -441,13 +447,13 @@ function AssignmentCard({ assignment, onDelete, onEdit }: {
           )}
         </div>
         <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-          {onEdit && (
+          {onEdit && !isCancelled && (
             <button type="button" onClick={onEdit} title="Chỉnh sửa phiếu" style={{ background: 'none', border: 'none', cursor: 'pointer', color: D.indigo, padding: 4 }}>
               <Pencil size={13} />
             </button>
           )}
-          {onDelete && (
-            <button type="button" onClick={onDelete} title="Xóa phiếu" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#dc2626', padding: 4 }}>
+          {onDelete && !isCancelled && (
+            <button type="button" onClick={onDelete} title="Hủy phiếu" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#dc2626', padding: 4 }}>
               <Trash2 size={13} />
             </button>
           )}
@@ -697,12 +703,13 @@ export default function UniversityEventDetailPage() {
   }, [id, isSuperAdmin])
 
   async function handleDeleteAssignment(assignmentId: number) {
-    if (!confirm('Xóa phiếu giao việc này?')) return
+    if (!confirm('Hủy phiếu giao việc này? CLB sẽ được thông báo và phiếu hiển thị "Đã bị hủy" trong hộp thư của họ.')) return
     try {
+      // Soft-cancel on the server: the slip stays in the club's inbox as "Đã bị hủy".
       await deleteAssignment(assignmentId)
-      setAssignments(prev => prev.filter(a => a.id !== assignmentId))
-      toast.success('Đã xóa phiếu giao việc')
-    } catch { toast.error('Không thể xóa') }
+      setAssignments(prev => prev.map(a => a.id === assignmentId ? { ...a, status: 'Cancelled' } : a))
+      toast.success('Đã hủy phiếu giao việc. CLB đã được thông báo.')
+    } catch { toast.error('Không thể hủy phiếu') }
   }
 
   async function handleReassignAssignment(assignmentId: number, clubId: number) {

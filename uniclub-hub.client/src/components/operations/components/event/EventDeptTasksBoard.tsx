@@ -15,6 +15,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { D } from '@/components/shared/managementTheme'
+import { getApiErrorMessage } from '@/lib/apiError'
 import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-pangea/dnd'
 
 const inputStyle: React.CSSProperties = {
@@ -50,6 +51,10 @@ function fmtDate(iso?: string): string {
 function toDateInput(iso?: string): string {
   return iso ? iso.slice(0, 10) : ''
 }
+/** Local YYYY-MM-DD of today — deadline lower bound ("từ thời điểm hiện tại"). */
+function todayInput(): string {
+  return new Date().toLocaleDateString('en-CA')
+}
 function deadlineHint(min?: string, max?: string): string | null {
   if (!min && !max) return null
   if (min && max) return `${fmtDate(min)} → ${fmtDate(max)}`
@@ -71,6 +76,7 @@ function taskToUpdateDto(task: TaskItem, overrides: Partial<UpdateTaskDto>): Upd
     eventId: task.eventId,
     sprintId: task.sprintId,
     departmentId: task.departmentId,
+    parentId: task.parentId,
     ...overrides,
   }
 }
@@ -100,7 +106,7 @@ function EditTaskModal({ open, task, departments, minDate, maxDate, onClose, onS
   async function handleSave() {
     if (!form.title.trim()) { toast.error('Tên không được để trống'); return }
     if (form.deadline) {
-      if (minDate && form.deadline < minDate) { toast.error(`Deadline không được trước ngày bắt đầu sự kiện (${fmtDate(minDate)})`); return }
+      if (minDate && form.deadline < minDate) { toast.error('Deadline không được trước ngày hiện tại'); return }
       if (maxDate && form.deadline > maxDate) { toast.error(`Deadline không được sau ngày kết thúc sự kiện (${fmtDate(maxDate)})`); return }
     }
     setSaving(true)
@@ -206,7 +212,7 @@ function TaskStatusDropdown({ task, isManager, onChange }: {
       await updateTaskStatus(task.id, dto)
       onChange(task.id, next)
       toast.success('Đã cập nhật trạng thái')
-    } catch { toast.error('Không thể cập nhật') }
+    } catch (err) { toast.error(getApiErrorMessage(err, 'Không thể cập nhật')) }
     finally { setUpdating(false); setOpen(false) }
   }
 
@@ -226,12 +232,16 @@ function TaskStatusDropdown({ task, isManager, onChange }: {
           <div style={{ position: 'absolute', right: 0, top: '110%', zIndex: 50, background: D.card, border: D.border, borderRadius: 10, boxShadow: D.shadow(), overflow: 'hidden', minWidth: 130 }}>
             {TASK_STATUS_ORDER.map(s => {
               const c = TASK_STATUS_MAP[s]
+              // A task must pass "Đang duyệt" before it can be completed.
+              const doneLocked = s === 'Done' && task.status !== 'Reviewing'
               return (
                 <button
                   key={s}
                   type="button"
+                  disabled={doneLocked}
+                  title={doneLocked ? "Công việc phải 'Đang duyệt' trước khi hoàn thành" : undefined}
                   onClick={() => changeStatus(s)}
-                  style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 12px', fontSize: 12, fontWeight: 700, background: s === task.status ? c.bg : 'transparent', color: c.color, border: 'none', cursor: 'pointer', textAlign: 'left' }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 12px', fontSize: 12, fontWeight: 700, background: s === task.status ? c.bg : 'transparent', color: c.color, border: 'none', cursor: doneLocked ? 'not-allowed' : 'pointer', textAlign: 'left', opacity: doneLocked ? 0.4 : 1 }}
                 >
                   <span style={{ width: 7, height: 7, borderRadius: '50%', background: c.color, flexShrink: 0 }} />
                   {c.label}
@@ -255,7 +265,7 @@ interface EventDeptTasksBoardProps {
 }
 
 /* ─── Component ──────────────────────────────────────────────────────────── */
-export default function EventDeptTasksBoard({ eventId, clubId, isManager, eventStart, eventEnd }: EventDeptTasksBoardProps) {
+export default function EventDeptTasksBoard({ eventId, clubId, isManager, eventEnd }: EventDeptTasksBoardProps) {
   const [departments, setDepartments] = useState<DepartmentItem[]>([])
   const [tasks, setTasks]             = useState<TaskItem[]>([])
   const [loading, setLoading]         = useState(true)
@@ -274,7 +284,8 @@ export default function EventDeptTasksBoard({ eventId, clubId, isManager, eventS
   const [deleteTarget, setDeleteTarget] = useState<TaskItem | null>(null)
   const [deleting, setDeleting]         = useState(false)
 
-  const minDate = toDateInput(eventStart)
+  // Deadline is tied to the event window: from today up to the event's end date.
+  const minDate = todayInput()
   const maxDate = toDateInput(eventEnd)
   const hint = deadlineHint(minDate || undefined, maxDate || undefined)
 
@@ -348,7 +359,7 @@ export default function EventDeptTasksBoard({ eventId, clubId, isManager, eventS
   const handleCreate = async (deptId: number) => {
     if (!form.title.trim()) { setFormError('Tên công việc không được để trống'); return }
     if (form.deadline) {
-      if (minDate && form.deadline < minDate) { setFormError(`Deadline không được trước ngày bắt đầu sự kiện (${fmtDate(minDate)})`); return }
+      if (minDate && form.deadline < minDate) { setFormError('Deadline không được trước ngày hiện tại'); return }
       if (maxDate && form.deadline > maxDate) { setFormError(`Deadline không được sau ngày kết thúc sự kiện (${fmtDate(maxDate)})`); return }
     }
     setSaving(true); setFormError(null)
@@ -418,7 +429,7 @@ export default function EventDeptTasksBoard({ eventId, clubId, isManager, eventS
     const prev = tasks
     setTasks(ts => ts.map(t => t.id === taskId ? { ...t, departmentId: newDeptId } : t))
     try {
-      const updated = await updateTask(taskId, taskToUpdateDto(task, { departmentId: newDeptId }))
+      const updated = await updateTask(taskId, taskToUpdateDto(task, { departmentId: newDeptId, eventId: task.eventId }))
       setTasks(ts => ts.map(t => t.id === taskId ? updated : t))
       toast.success('Đã chuyển công việc')
     } catch {
