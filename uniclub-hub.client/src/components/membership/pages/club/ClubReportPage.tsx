@@ -86,10 +86,14 @@ export default function ClubReportPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    Promise.all([getClubDetail(id), getClubStats(id), getClubGrowth(id, 12), getClubMembers(id)])
-      .then(([d, s, g, m]) => { setDetail(d); setStats(s); setGrowth(g); setMembers(m) })
+    // Dữ liệu báo cáo lõi (thống kê, tăng trưởng) — quyết định trang có render được không.
+    Promise.all([getClubDetail(id), getClubStats(id), getClubGrowth(id, 12)])
+      .then(([d, s, g]) => { setDetail(d); setStats(s); setGrowth(g) })
       .catch(() => toast.error('Không thể tải dữ liệu báo cáo.'))
       .finally(() => setLoading(false))
+    // Danh sách thành viên chỉ là mục phụ — người xem báo cáo có thể không có quyền xem
+    // danh sách (vd Thủ quỹ chỉ có quyền báo cáo). Không để nó chặn cả trang.
+    getClubMembers(id).then(setMembers).catch(() => setMembers([]))
   }, [id])
 
   const generatedAt = new Date().toLocaleString('vi-VN', {

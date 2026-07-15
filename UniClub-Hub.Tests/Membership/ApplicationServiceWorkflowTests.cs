@@ -149,6 +149,46 @@ public class ApplicationServiceWorkflowTests : DbTestBase
                 isSuperAdmin: true));
     }
 
+    [Fact]
+    public async Task ReviewAsync_ConcurrentReviews_SecondCallThrowsConflict()
+    {
+        await using var db1 = Fx.CreateDbContext();
+        await using var db2 = Fx.CreateDbContext();
+
+        SeedClubWithPipeline(db1);
+        db1.Users.Add(PagedServiceTestHelpers.User(1, "Applicant", "app@uef.edu.vn", "S001"));
+        db1.Applications.Add(PagedServiceTestHelpers.Application(1, "u1", status: ApplicationStatus.Reviewing, stageId: 2));
+        await db1.SaveChangesAsync();
+
+        // Mô phỏng 2 admin cùng mở đơn TRƯỚC KHI ai lưu — cả 2 context giữ bản ghi cũ (xmin cũ)
+        await db1.Applications.FindAsync(1);
+        await db2.Applications.FindAsync(1);
+
+        var service1 = PagedServiceTestHelpers.CreateApplicationService(db1);
+        var service2 = PagedServiceTestHelpers.CreateApplicationService(db2);
+
+        // Admin 1 duyệt trước — thành công, xmin trong DB đã đổi
+        await service1.ReviewAsync(
+            1, 1,
+            new ReviewApplicationDto { Status = ApplicationStatus.Accepted, ReviewNote = "OK" },
+            "reviewer1",
+            isSuperAdmin: true);
+
+        // Admin 2 duyệt dựa trên bản ghi cũ đã load trước đó — phải bị chặn, không được ghi đè âm thầm
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service2.ReviewAsync(
+                1, 1,
+                new ReviewApplicationDto { Status = ApplicationStatus.Rejected, ReviewNote = "No fit" },
+                "reviewer2",
+                isSuperAdmin: true));
+
+        Assert.Contains("vừa được người khác xử lý", ex.Message);
+
+        // Kết quả cuối cùng phải giữ đúng quyết định của admin 1 (Accepted), không bị admin 2 ghi đè
+        var final = await db1.Applications.AsNoTracking().SingleAsync(a => a.Id == 1);
+        Assert.Equal(ApplicationStatus.Accepted, final.Status);
+    }
+
     private static void SeedClubWithPipeline(UniClub_Hub.Shared.Data.UniClubDbContext db)
     {
         db.Clubs.Add(PagedServiceTestHelpers.Club(1, "Test Club", "TEST"));

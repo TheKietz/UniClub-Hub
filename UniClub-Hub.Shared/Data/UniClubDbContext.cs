@@ -87,6 +87,14 @@ namespace UniClub_Hub.Shared.Data
             builder.Entity<ClubEvent>().HasQueryFilter(e => !e.IsDeleted);
             builder.Entity<ClubTask>().HasQueryFilter(t => !t.IsDeleted);
 
+            // Concurrency token — chặn race condition khi 2 admin cùng duyệt/chuyển bước 1 đơn ứng tuyển.
+            // Map vào cột hệ thống "xmin" có sẵn trên mọi bảng Postgres (không cần tạo cột mới) —
+            // migration tương ứng đã được sửa tay thành no-op, xem AddXminConcurrencyToClubApplication.cs.
+            builder.Entity<ClubApplication>()
+                .Property<uint>("xmin")
+                .HasColumnName("xmin")
+                .IsRowVersion();
+
             // JSONB columns (PostgreSQL)
             builder.Entity<Club>().Property(c => c.FormSchema).HasColumnType("jsonb");
             builder.Entity<LandingPage>().Property(lp => lp.SocialLinks).HasColumnType("jsonb");

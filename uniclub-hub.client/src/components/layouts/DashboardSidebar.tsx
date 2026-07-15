@@ -152,6 +152,36 @@ function clubNav(id: string, role?: string, isSuperAdmin = false, perms: ClubPer
   ]
 }
 
+// Các trang quản lý mà một MEMBER (không phải CLUB_ADMIN/DEPT_LEAD) truy cập được KHI
+// được gán Position cấp quyền tương ứng. Mỗi mục khớp đúng guard permission của route trong
+// App.tsx và CHỈ gồm các route thuần-permission (không gồm route khóa cứng theo ClubRole như
+// Tổng quan/Sự kiện/Bài viết) — nên hiển thị mục nào là chắc chắn vào được, không bị Forbidden.
+const MEMBER_MANAGE_PAGES: { codes: string[]; icon: string; label: string; path: string; end?: boolean }[] = [
+  { codes: [CLUB_PERMISSIONS.MEMBERS_VIEW, CLUB_PERMISSIONS.MEMBERS_MANAGE], icon: '◐', label: 'Thành viên', path: 'members' },
+  { codes: [CLUB_PERMISSIONS.APPLICATIONS_VIEW, CLUB_PERMISSIONS.APPLICATIONS_REVIEW], icon: '✦', label: 'Đơn ứng tuyển', path: 'applications' },
+  { codes: [CLUB_PERMISSIONS.DEPARTMENTS_MANAGE], icon: '▦', label: 'Ban bộ phận', path: 'departments' },
+  { codes: [CLUB_PERMISSIONS.RECRUITMENT_PIPELINE_MANAGE], icon: '◫', label: 'Quy trình tuyển', path: 'pipeline' },
+  { codes: [CLUB_PERMISSIONS.RECRUITMENT_FORM_MANAGE], icon: '◫', label: 'Biểu mẫu đăng ký', path: 'form' },
+  { codes: [CLUB_PERMISSIONS.MEMBER_KPI_VIEW, CLUB_PERMISSIONS.MEMBER_KPI_MANAGE], icon: '▥', label: 'KPI thành viên', path: 'kpi', end: true },
+  { codes: [CLUB_PERMISSIONS.MEMBER_KPI_MANAGE], icon: '◫', label: 'Cấu hình KPI', path: 'kpi/config' },
+  { codes: [CLUB_PERMISSIONS.ORG_CHART_VIEW, CLUB_PERMISSIONS.ORG_CHART_MANAGE], icon: '⊹', label: 'Sơ đồ tổ chức', path: 'orgchart' },
+  { codes: [CLUB_PERMISSIONS.RESIGNATIONS_VIEW, CLUB_PERMISSIONS.RESIGNATIONS_REVIEW], icon: '⊖', label: 'Đơn từ chức', path: 'resignations' },
+  { codes: [CLUB_PERMISSIONS.REPORTS_VIEW, CLUB_PERMISSIONS.REPORTS_EXPORT], icon: '↓', label: 'Báo cáo', path: 'report' },
+  { codes: [CLUB_PERMISSIONS.CLUB_AUDIT_LOG_VIEW], icon: '◎', label: 'Lịch sử thay đổi', path: 'audit-log' },
+  { codes: [CLUB_PERMISSIONS.NOTIFICATION_SETTINGS_MANAGE], icon: '◑', label: 'Cài đặt thông báo', path: 'notifications' },
+  { codes: [CLUB_PERMISSIONS.CLUB_SETTINGS_MANAGE, CLUB_PERMISSIONS.CLUB_PROFILE_MANAGE], icon: '◉', label: 'Cài đặt CLB', path: 'settings' },
+]
+
+/** Nav quản lý cho MEMBER dựa trên quyền hiệu lực. Rỗng nếu member không có quyền quản lý nào. */
+function buildMemberManageNav(id: string, codes: string[]): NavItem[] {
+  const set = new Set(codes.map(c => c.toLowerCase()))
+  const items: NavItem[] = MEMBER_MANAGE_PAGES
+    .filter(p => p.codes.some(c => set.has(c.toLowerCase())))
+    .map(p => ({ to: `/clubs/${id}/manage/${p.path}`, icon: p.icon, label: p.label, end: p.end }))
+  if (items.length === 0) return []
+  return [{ to: `/clubs/${id}`, icon: '◇', label: 'Trang CLB', end: true }, ...items]
+}
+
 export default function DashboardSidebar({
   mode,
   clubId,
@@ -171,6 +201,9 @@ export default function DashboardSidebar({
   const setCollapsed = setCollapsedState
   const [clubPickerOpen, setClubPickerOpen] = useState(false)
   const [clubPermissionCodes, setClubPermissionCodes] = useState<string[]>([])
+  // Quyền hiệu lực theo từng CLB mà user chỉ là MEMBER — để biết member được gán Position
+  // quản lý ở CLB nào (quyết định tab CLB + điều hướng), không chỉ dựa vào ClubRole.
+  const [memberClubCodes, setMemberClubCodes] = useState<Record<number, string[]>>({})
   const pickerRef = useRef<HTMLDivElement>(null)
 
   const isSuperAdmin = user?.roles.includes('SUPER_ADMIN') ?? false
@@ -187,10 +220,38 @@ export default function DashboardSidebar({
     return Array.from(map.values())
   }, [user?.memberships])
 
-  const manageableClubs = uniqueActiveMemberships.filter(
-    m => m.clubRole === CLUB_ROLES.CLUB_ADMIN || m.clubRole === CLUB_ROLES.DEPT_LEAD
+  // Các CLB mà user chỉ giữ ClubRole = MEMBER — cần fetch quyền để biết có Position quản lý không
+  const memberRoleClubIds = useMemo(
+    () => uniqueActiveMemberships.filter(m => m.clubRole === CLUB_ROLES.MEMBER).map(m => m.clubId),
+    [uniqueActiveMemberships]
   )
-  // The SV/CLB switcher only distinguishes CLB for users who are CLUB_ADMIN of a club
+
+  useEffect(() => {
+    if (isSuperAdmin || memberRoleClubIds.length === 0) {
+      setMemberClubCodes({})
+      return
+    }
+    let cancelled = false
+    Promise.all(
+      memberRoleClubIds.map(cid =>
+        getMyClubPermissions(cid)
+          .then(r => [cid, r.permissionCodes] as const)
+          .catch(() => [cid, [] as string[]] as const))
+    ).then(pairs => {
+      if (!cancelled) setMemberClubCodes(Object.fromEntries(pairs))
+    })
+    return () => { cancelled = true }
+  }, [isSuperAdmin, memberRoleClubIds])
+
+  // Một CLB là "quản lý được" nếu user là CLUB_ADMIN/DEPT_LEAD, HOẶC là MEMBER nhưng được gán
+  // Position cấp ít nhất 1 quyền vào được trang quản lý.
+  const manageableClubs = uniqueActiveMemberships.filter(
+    m =>
+      m.clubRole === CLUB_ROLES.CLUB_ADMIN ||
+      m.clubRole === CLUB_ROLES.DEPT_LEAD ||
+      buildMemberManageNav(String(m.clubId), memberClubCodes[m.clubId] ?? []).length > 0
+  )
+  // Chỉ CLUB_ADMIN mới là ưu tiên đầu khi bấm tab CLB (vào thẳng Tổng quan)
   const adminClubs = uniqueActiveMemberships.filter(
     m => m.clubRole === CLUB_ROLES.CLUB_ADMIN
   )
@@ -219,9 +280,18 @@ export default function DashboardSidebar({
     }
   }, [activeClub?.clubRole, clubPermissionCodes, isSuperAdmin])
 
+  // Nav quản lý cho MEMBER (dựa trên quyền hiệu lực của CLB đang mở). Rỗng nếu không có quyền.
+  const memberManageNav = useMemo(
+    () => (clubId ? buildMemberManageNav(clubId, clubPermissionCodes) : []),
+    [clubId, clubPermissionCodes]
+  )
+
   const modeColor = mode === 'admin' ? '#e11d48' : mode === 'club' ? '#2563eb' : '#38bdf8'
   const navItems = mode === 'admin' ? ADMIN_NAV
-    : mode === 'club' && clubId ? clubNav(clubId, activeClub?.clubRole, isSuperAdmin, clubPerms)
+    : mode === 'club' && clubId
+      ? (!isSuperAdmin && activeClub?.clubRole === CLUB_ROLES.MEMBER && memberManageNav.length > 0
+          ? memberManageNav
+          : clubNav(clubId, activeClub?.clubRole, isSuperAdmin, clubPerms))
     : MEMBER_NAV
 
   const initials = user?.fullName
@@ -276,8 +346,16 @@ export default function DashboardSidebar({
   }
 
   function getClubManageEntry(club: UserMembership) {
-    if (club.clubRole !== CLUB_ROLES.DEPT_LEAD || isSuperAdmin)
+    if (isSuperAdmin || club.clubRole === CLUB_ROLES.CLUB_ADMIN)
       return `/clubs/${club.clubId}/manage`
+    // MEMBER được gán Position quản lý — vào trang đầu tiên họ được phép (không phải /manage
+    // vì route đó khóa cứng CLUB_ADMIN → sẽ Forbidden).
+    if (club.clubRole === CLUB_ROLES.MEMBER) {
+      const items = buildMemberManageNav(String(club.clubId), memberClubCodes[club.clubId] ?? [])
+      // items[0] = "Trang CLB", items[1] = trang quản lý đầu tiên
+      return items[1]?.to ?? items[0]?.to ?? `/clubs/${club.clubId}`
+    }
+    // DEPT_LEAD — giữ nguyên hành vi cũ
     if (clubPerms.positions) return `/clubs/${club.clubId}/manage/positions`
     if (clubPerms.members) return `/clubs/${club.clubId}/manage/members`
     if (clubPerms.applications) return `/clubs/${club.clubId}/manage/applications`

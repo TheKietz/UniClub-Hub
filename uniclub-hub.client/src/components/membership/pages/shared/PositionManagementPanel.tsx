@@ -506,8 +506,8 @@ export default function PositionManagementPanel({
           </div>
         </section>
 
-        {canShowAssignment && <aside style={{ borderRadius: D.radius, background: D.card, border: D.border, boxShadow: D.shadow(), overflow: 'hidden' }}>
-          <div style={{ background: D.indigo, color: '#fff', padding: '14px 16px', fontSize: 13, fontWeight: 900, letterSpacing: '.06em', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 8 }}>
+        {canShowAssignment && <aside style={{ borderRadius: D.radius, background: D.card, border: D.border, boxShadow: D.shadow() }}>
+          <div style={{ background: D.indigo, color: '#fff', padding: '14px 16px', fontSize: 13, fontWeight: 900, letterSpacing: '.06em', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 8, borderTopLeftRadius: D.radius, borderTopRightRadius: D.radius }}>
             <Users size={16} /> Gán vị trí
           </div>
           <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 14 }}>

@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using UniClub_Hub.Membership.DTOs.Stats;
 using UniClub_Hub.Membership.Services.Interfaces;
 using UniClub_Hub.Shared.Common;
+using UniClub_Hub.Shared.Constants;
 using UniClub_Hub.Shared.Data;
 using UniClub_Hub.Shared.Enums;
 
@@ -17,12 +18,21 @@ namespace UniClub_Hub.Server.Controllers.Membership
     {
         private readonly IStatsService _statsService;
         private readonly UniClubDbContext _db;
+        private readonly IClubPermissionService _permissions;
 
-        public StatsController(IStatsService statsService, UniClubDbContext db)
+        public StatsController(IStatsService statsService, UniClubDbContext db, IClubPermissionService permissions)
         {
             _statsService = statsService;
             _db = db;
+            _permissions = permissions;
         }
+
+        // Xem thống kê/báo cáo CLB: CLUB_ADMIN mặc định đủ quyền, hoặc thành viên được gán
+        // Position có quyền xem/xuất báo cáo (khớp guard route REPORTS_VIEW/EXPORT ở frontend).
+        private Task<bool> CanViewClubReportsAsync(int clubId, string userId, bool isSuperAdmin) =>
+            _permissions.HasAnyPermissionAsync(
+                clubId, userId, isSuperAdmin,
+                ClubPermissions.ReportsView, ClubPermissions.ReportsExport);
 
         // Thống kê toàn hệ thống — SUPER_ADMIN
         [HttpGet("admin/stats")]
@@ -40,18 +50,8 @@ namespace UniClub_Hub.Server.Controllers.Membership
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
             var isSuperAdmin = User.IsInRole("SUPER_ADMIN");
 
-            if (!isSuperAdmin)
-            {
-                var isClubAdmin = await _db.ClubMemberships.AnyAsync(m =>
-                    m.UserId == userId
-                    && m.ClubId == clubId
-                    && m.ClubRole == UniClub_Hub.Shared.Enums.ClubRole.CLUB_ADMIN
-                    && m.Status == MembershipStatus.Active
-                );
-
-                if (!isClubAdmin)
-                    return Forbid();
-            }
+            if (!await CanViewClubReportsAsync(clubId, userId, isSuperAdmin))
+                return Forbid();
 
             var stats = await _statsService.GetClubStatsAsync(clubId);
             if (stats == null)
@@ -76,14 +76,8 @@ namespace UniClub_Hub.Server.Controllers.Membership
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
             var isSuperAdmin = User.IsInRole("SUPER_ADMIN");
 
-            if (!isSuperAdmin)
-            {
-                var isClubAdmin = await _db.ClubMemberships.AnyAsync(m =>
-                    m.UserId == userId && m.ClubId == clubId
-                    && m.ClubRole == UniClub_Hub.Shared.Enums.ClubRole.CLUB_ADMIN
-                    && m.Status == MembershipStatus.Active);
-                if (!isClubAdmin) return Forbid();
-            }
+            if (!await CanViewClubReportsAsync(clubId, userId, isSuperAdmin))
+                return Forbid();
 
             var data = await _statsService.GetMemberGrowthAsync(clubId, months);
             return Ok(ApiResponse<List<MonthlyGrowthDto>>.Ok(data));

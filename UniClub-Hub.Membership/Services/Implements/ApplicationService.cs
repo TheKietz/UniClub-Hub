@@ -301,8 +301,17 @@ namespace UniClub_Hub.Membership.Services.Implements
                 }
             }
 
-            await _db.SaveChangesAsync();
-            await tx.CommitAsync();
+            try
+            {
+                await _db.SaveChangesAsync();
+                await tx.CommitAsync();
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                await tx.RollbackAsync();
+                throw new InvalidOperationException(
+                    "Đơn này vừa được người khác xử lý. Vui lòng tải lại trang để xem trạng thái mới nhất.");
+            }
 
             var clubName = await _db.Clubs.Where(c => c.Id == clubId).Select(c => c.Name).FirstAsync();
 
@@ -451,7 +460,16 @@ namespace UniClub_Hub.Membership.Services.Implements
             application.ReviewNote = req.ReviewNote;
             application.ReviewedAt = DateTime.UtcNow;
             application.ReviewerId = reviewerId;
-            await _db.SaveChangesAsync();
+
+            try
+            {
+                await _db.SaveChangesAsync();
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                throw new InvalidOperationException(
+                    "Đơn này vừa được người khác xử lý. Vui lòng tải lại trang để xem trạng thái mới nhất.");
+            }
 
             var updated = await _db.Applications.AsNoTracking()
                 .Include(a => a.Club).Include(a => a.User).Include(a => a.CurrentStage)
