@@ -43,6 +43,10 @@ namespace UniClub_Hub.Membership.Services.Implements
                 && Enum.TryParse<MembershipStatus>(status, true, out var parsedStatus)
             )
                 query = query.Where(m => m.Status == parsedStatus);
+            else
+                // Mặc định chỉ thành viên đang trong CLB (1 dòng / người nhờ partial unique index).
+                query = query.Where(m =>
+                    m.Status == MembershipStatus.Active || m.Status == MembershipStatus.Probation);
 
             if (departmentId.HasValue)
                 query = query.Where(m => m.DepartmentId == departmentId);
@@ -78,6 +82,9 @@ namespace UniClub_Hub.Membership.Services.Implements
             if (!string.IsNullOrWhiteSpace(request.Status) &&
                 Enum.TryParse<MembershipStatus>(request.Status, true, out var parsedStatus))
                 query = query.Where(m => m.Status == parsedStatus);
+            else
+                query = query.Where(m =>
+                    m.Status == MembershipStatus.Active || m.Status == MembershipStatus.Probation);
 
             if (request.DepartmentId.HasValue)
             {

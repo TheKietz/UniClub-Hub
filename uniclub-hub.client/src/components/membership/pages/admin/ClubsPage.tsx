@@ -22,7 +22,7 @@ type FormData = {
 }
 
 const emptyForm: FormData = {
-  name: '', code: '', description: '', advisorName: '', contactInfo: '', categoryId: '', status: 'Active'
+  name: '', code: '', description: '', advisorName: '', contactInfo: '', categoryId: '', status: 'Active',
 }
 
 const inputStyle: React.CSSProperties = {
@@ -31,6 +31,7 @@ const inputStyle: React.CSSProperties = {
   background: D.bg, fontFamily: 'inherit', boxSizing: 'border-box',
 }
 const labelStyle: React.CSSProperties = { fontSize: 12, fontWeight: 700, color: D.inkDim, display: 'block', marginBottom: 4 }
+
 
 export default function ClubsPage() {
   const [clubs, setClubs] = useState<ClubItem[]>([])
@@ -58,6 +59,7 @@ export default function ClubsPage() {
     const timer = window.setTimeout(() => setDebouncedSearch(search.trim()), 300)
     return () => window.clearTimeout(timer)
   }, [search])
+
 
   const buildQuery = useCallback((pageNumber: number): AdminClubListQuery => {
     return {
@@ -122,7 +124,11 @@ export default function ClubsPage() {
       })
   }
 
-  function openCreate() { setEditing(null); setForm(emptyForm); setDialogOpen(true) }
+  function openCreate() {
+    setEditing(null)
+    setForm(emptyForm)
+    setDialogOpen(true)
+  }
 
   function openEdit(club: ClubItem) {
     setEditing(club)

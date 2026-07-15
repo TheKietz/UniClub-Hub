@@ -13,10 +13,9 @@ public class ClubServiceCrudTests : DbTestBase
     }
 
     [Fact]
-    public async Task CreateAsync_WithValidData_CreatesClubAdminAndPipeline()
+    public async Task CreateAsync_WithValidData_CreatesClubAndDefaultPipeline()
     {
         await using var db = Fx.CreateDbContext();
-        db.Users.Add(PagedServiceTestHelpers.User(1, "Admin User", "admin@uef.edu.vn", "S001"));
         await db.SaveChangesAsync();
 
         var service = PagedServiceTestHelpers.CreateClubServiceWithMembership(db);
@@ -25,16 +24,12 @@ public class ClubServiceCrudTests : DbTestBase
         {
             Name = "Robotics Club",
             Code = "ROBO",
-            ClubAdminId = "u1",
             Description = "Build robots"
         });
 
         Assert.Equal("Robotics Club", result.Name);
         Assert.Equal("ROBO", result.Code);
-        var adminMembership = await db.ClubMemberships
-            .FirstOrDefaultAsync(m => m.ClubId == result.Id && m.UserId == "u1");
-        Assert.NotNull(adminMembership);
-        Assert.Equal(ClubRole.CLUB_ADMIN, adminMembership!.ClubRole);
+        Assert.Empty(await db.ClubMemberships.Where(m => m.ClubId == result.Id).ToListAsync());
         Assert.Equal(3, await db.ClubPipelineStages.CountAsync(s => s.ClubId == result.Id));
     }
 
@@ -43,7 +38,6 @@ public class ClubServiceCrudTests : DbTestBase
     {
         await using var db = Fx.CreateDbContext();
         db.Clubs.Add(PagedServiceTestHelpers.Club(1, "Existing", "DUP"));
-        db.Users.Add(PagedServiceTestHelpers.User(1));
         await db.SaveChangesAsync();
 
         var service = PagedServiceTestHelpers.CreateClubServiceWithMembership(db);
@@ -52,8 +46,7 @@ public class ClubServiceCrudTests : DbTestBase
             service.CreateAsync(new CreateClubDto
             {
                 Name = "Another Club",
-                Code = "dup",
-                ClubAdminId = "u1"
+                Code = "dup"
             }));
     }
 

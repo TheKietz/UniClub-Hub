@@ -75,6 +75,10 @@ namespace UniClub_Hub.Server.Controllers.Admin
             {
                 return NotFound(ApiResponse<object>.Fail(ex.Message));
             }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(ApiResponse<object>.Fail(ex.Message));
+            }
             catch (InvalidOperationException ex)
             {
                 return Conflict(ApiResponse<object>.Fail(ex.Message));

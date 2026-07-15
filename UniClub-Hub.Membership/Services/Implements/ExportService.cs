@@ -278,7 +278,10 @@ namespace UniClub_Hub.Membership.Services.Implements
         private IQueryable<ClubMembership> ApplyMemberFilters(IQueryable<ClubMembership> query, MemberListQuery? request)
         {
             if (request == null)
-                return query;
+            {
+                return query.Where(m =>
+                    m.Status == MembershipStatus.Active || m.Status == MembershipStatus.Probation);
+            }
 
             if (!string.IsNullOrWhiteSpace(request.Search))
             {
@@ -296,6 +299,9 @@ namespace UniClub_Hub.Membership.Services.Implements
             if (!string.IsNullOrWhiteSpace(request.Status) &&
                 Enum.TryParse<MembershipStatus>(request.Status, true, out var parsedStatus))
                 query = query.Where(m => m.Status == parsedStatus);
+            else
+                query = query.Where(m =>
+                    m.Status == MembershipStatus.Active || m.Status == MembershipStatus.Probation);
 
             if (request.DepartmentId.HasValue)
             {

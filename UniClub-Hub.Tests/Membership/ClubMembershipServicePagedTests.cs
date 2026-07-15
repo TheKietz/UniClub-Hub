@@ -72,6 +72,32 @@ public class ClubMembershipServicePagedTests : DbTestBase
     }
 
     [Fact]
+    public async Task GetPageAsync_WithNoStatusFilter_ExcludesResignedHistoryRows()
+    {
+        await using var db = Fx.CreateDbContext();
+        SeedClub(db);
+        db.Users.Add(PagedServiceTestHelpers.User(1, "Linh", "linh@uef.edu.vn", "S001"));
+        db.ClubMemberships.AddRange(
+            PagedServiceTestHelpers.Membership(1, "u1", role: ClubRole.DEPT_LEAD, status: MembershipStatus.Resigned),
+            PagedServiceTestHelpers.Membership(2, "u1", role: ClubRole.DEPT_LEAD, status: MembershipStatus.Active),
+            PagedServiceTestHelpers.Membership(3, "u1", role: ClubRole.MEMBER, status: MembershipStatus.Resigned));
+        await db.SaveChangesAsync();
+
+        var service = PagedServiceTestHelpers.CreateClubMembershipService(db);
+
+        var page = await service.GetPageAsync(1, new MemberListQuery { Page = 1, PageSize = 20 });
+        var all = (await service.GetAllAsync(1)).ToList();
+        var resignedOnly = await service.GetPageAsync(1, new MemberListQuery { Status = "Resigned", Page = 1, PageSize = 20 });
+
+        Assert.Equal(1, page.TotalCount);
+        Assert.Single(page.Items);
+        Assert.Equal(2, page.Items[0].Id);
+        Assert.Equal(MembershipStatus.Active, page.Items[0].Status);
+        Assert.Single(all);
+        Assert.Equal(2, resignedOnly.TotalCount);
+    }
+
+    [Fact]
     public async Task GetPageAsync_WithDuplicateSortKeyAcrossPages_ReturnsStableNonOverlappingPages()
     {
         await using var db = Fx.CreateDbContext();

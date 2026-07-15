@@ -77,7 +77,14 @@ export interface CreateClubDto {
   establishedDate?: string
 }
 
-export interface UpdateClubDto extends CreateClubDto {
+export interface UpdateClubDto {
+  name: string
+  code?: string
+  description?: string
+  categoryId?: number
+  advisorName?: string
+  contactInfo?: string
+  establishedDate?: string
   status?: string
 }
 

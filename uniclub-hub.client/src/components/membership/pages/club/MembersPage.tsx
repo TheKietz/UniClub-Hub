@@ -494,7 +494,7 @@ export default function MembersPage() {
           value={statusFilter}
           onChange={setStatusFilter}
           options={[
-            { value: '', label: 'Tất cả trạng thái' },
+            { value: '', label: 'Đang trong CLB' },
             { value: 'Active', label: 'Chính thức' },
             { value: 'Probation', label: 'Thử việc' },
           ]}

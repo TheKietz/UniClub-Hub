@@ -95,7 +95,7 @@ internal static class PagedServiceTestHelpers
     }
 
     public static ClubService CreateClubService(UniClubDbContext db) =>
-        new(db, Mock.Of<IClubMembershipService>(), Mock.Of<ISystemSettingService>(), Mock.Of<IClubPermissionService>());
+        new(db, Mock.Of<ISystemSettingService>(), Mock.Of<IClubPermissionService>());
 
     public static ClubMembershipService CreateClubMembershipService(UniClubDbContext db)
     {
@@ -151,15 +151,7 @@ internal static class PagedServiceTestHelpers
     {
         var settings = new Mock<ISystemSettingService>();
         settings.Setup(s => s.GetValueAsync(It.IsAny<string>())).ReturnsAsync((string?)null);
-
-        var dispatch = new Mock<INotificationDispatchService>();
-        dispatch.Setup(d => d.FireAsync(It.IsAny<string>(), It.IsAny<int?>(), It.IsAny<Dictionary<string, string>>()))
-            .Returns(Task.CompletedTask);
-
-        var membership = new ClubMembershipService(
-            db, dispatch.Object, settings.Object, Mock.Of<IClubPermissionService>());
-
-        return new ClubService(db, membership, settings.Object, Mock.Of<IClubPermissionService>());
+        return new ClubService(db, settings.Object, Mock.Of<IClubPermissionService>());
     }
 
     public static ResignationRequest Resignation(

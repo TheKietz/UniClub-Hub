@@ -15,18 +15,15 @@ namespace UniClub_Hub.Membership.Services.Implements
     public class ClubService : IClubService
     {
         private readonly UniClubDbContext _db;
-        private readonly IClubMembershipService _membershipService;
         private readonly ISystemSettingService _settings;
         private readonly IClubPermissionService _permissions;
 
         public ClubService(
             UniClubDbContext db,
-            IClubMembershipService membershipService,
             ISystemSettingService settings,
             IClubPermissionService permissions)
         {
             _db = db;
-            _membershipService = membershipService;
             _settings = settings;
             _permissions = permissions;
         }
@@ -179,13 +176,7 @@ namespace UniClub_Hub.Membership.Services.Implements
                 !await _db.Categories.AnyAsync(c => c.Id == dto.CategoryId))
                 throw new KeyNotFoundException("Lĩnh vực không tồn tại.");
 
-            // Kiểm tra ClubAdminId có hợp lệ không
-            if (string.IsNullOrEmpty(dto.ClubAdminId)) // This check is redundant if [Required] is used in DTO and model validation is enabled. Keeping for defensive programming.
-                throw new ArgumentException("ID của Trưởng câu lạc bộ là bắt buộc."); // Changed "Chủ nhiệm CLB" to "Trưởng câu lạc bộ"
-            if (!await _db.Users.AnyAsync(u => u.Id == dto.ClubAdminId))
-                throw new KeyNotFoundException($"Không tìm thấy người dùng với ID {dto.ClubAdminId} để gán làm Trưởng câu lạc bộ."); // Changed "Chủ nhiệm" to "Trưởng câu lạc bộ"
-
-            // Sử dụng Transaction để đảm bảo tính toàn vẹn dữ liệu
+            // Tạo CLB trước; Trưởng CLB bổ nhiệm sau qua quản lý thành viên.
             using var transaction = await _db.Database.BeginTransactionAsync();
             try
             {
@@ -203,10 +194,7 @@ namespace UniClub_Hub.Membership.Services.Implements
                 };
 
                 _db.Clubs.Add(club);
-                await _db.SaveChangesAsync(); // Lưu để có club.Id
-
-                // Gán Trưởng câu lạc bộ ngay lập tức bằng dịch vụ ClubMembershipService
-                await _membershipService.AssignClubAdminAsync(club.Id, dto.ClubAdminId);
+                await _db.SaveChangesAsync();
 
                 // Tạo ban mặc định theo cài đặt hệ thống
                 var defaultDepts = await _settings.GetValueAsync("club.default_departments");
@@ -234,7 +222,7 @@ namespace UniClub_Hub.Membership.Services.Implements
                 }
                 await _db.SaveChangesAsync();
 
-                await transaction.CommitAsync(); // Hoàn tất transaction
+                await transaction.CommitAsync();
                 return await GetByIdAdminAsync(club.Id);
             }
             catch
