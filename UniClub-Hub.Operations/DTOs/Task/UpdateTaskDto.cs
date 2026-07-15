@@ -17,5 +17,6 @@ namespace UniClub_Hub.Operations.DTOs.Task
         public int? EventId { get; set; }
         public int? SprintId { get; set; }
         public int? DepartmentId { get; set; }
+        public int? ParentId { get; set; }
     }
 }

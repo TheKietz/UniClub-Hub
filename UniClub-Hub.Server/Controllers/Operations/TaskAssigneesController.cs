@@ -32,13 +32,29 @@ namespace UniClub_Hub.Server.Controllers.Operations
             {
                 return NotFound(ApiResponse<object>.Fail(ex.Message));
             }
+            catch (UnauthorizedAccessException ex)
+            {
+                return StatusCode(StatusCodes.Status403Forbidden, ApiResponse<object>.Fail(ex.Message));
+            }
         }
 
         [HttpDelete("{userId}")]
         public async Task<IActionResult> Unassign(int taskId, string userId)
         {
-            await assigneeService.UnassignAsync(taskId, userId);
-            return Ok(ApiResponse<object>.Ok(null!, "Đã gỡ thành viên."));
+            var actorId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+            try
+            {
+                await assigneeService.UnassignAsync(taskId, userId, actorId);
+                return Ok(ApiResponse<object>.Ok(null!, "Đã gỡ thành viên."));
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(ApiResponse<object>.Fail(ex.Message));
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return StatusCode(StatusCodes.Status403Forbidden, ApiResponse<object>.Fail(ex.Message));
+            }
         }
     }
 }

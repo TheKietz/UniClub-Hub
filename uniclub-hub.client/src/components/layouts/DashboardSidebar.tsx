@@ -176,7 +176,7 @@ export default function DashboardSidebar({ mode, clubId, onNavigate, forceExpand
   // Deduplicate by clubId — keep the membership with the highest role per club
   const uniqueActiveMemberships = useMemo<UserMembership[]>(() => {
     const map = new Map<number, UserMembership>()
-    for (const m of (user?.memberships ?? []).filter(m => m.status === MEMBERSHIP_STATUS.ACTIVE)) {
+    for (const m of (user?.memberships ?? []).filter(m => m.status === MEMBERSHIP_STATUS.ACTIVE ||  m.status === MEMBERSHIP_STATUS.PROBATION)) {
       const existing = map.get(m.clubId)
       if (!existing || roleRank(m.clubRole) > roleRank(existing.clubRole)) {
         map.set(m.clubId, m)

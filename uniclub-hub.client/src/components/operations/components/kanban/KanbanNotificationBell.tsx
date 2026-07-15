@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
-import { Bell, GitBranch, ArrowRightLeft, Clock, Star } from "lucide-react";
+import { Bell, GitBranch, ArrowRightLeft, Clock, Star, Pencil } from "lucide-react";
 import {
   getNotifications, markAllNotificationsRead, markNotificationRead,
 } from "@/components/membership/services/notificationApi";
@@ -9,10 +9,10 @@ import type { NotificationItem, NotificationType } from "@/components/membership
 import { useNotificationSignalR } from "@/lib/useNotificationSignalR";
 
 /* ── Kanban-relevant notification types ──────────────────────────────────────
-   The persisted notification triggers that surface on a task board: assignment,
-   status change, deadline reminders and generic task events. */
+   Only task events surface on a board bell: new/assigned tasks, status changes,
+   content edits (title, description, deadline...) and deadline reminders. */
 const KANBAN_TYPES = new Set<NotificationType>([
-  "Task", "TaskAssigned", "TaskStatusUpdated", "DeadlineReminder",
+  "Task", "TaskAssigned", "TaskStatusUpdated", "TaskUpdated", "DeadlineReminder",
 ]);
 
 const PAGE_SIZE = 50;
@@ -32,6 +32,7 @@ function typeVisual(type: NotificationType): { color: string; icon: React.ReactN
   switch (type) {
     case "TaskAssigned":      return { color: "#1d4ed8", icon: <GitBranch size={16} color="#fff" /> };
     case "TaskStatusUpdated": return { color: "#7c3aed", icon: <ArrowRightLeft size={16} color="#fff" /> };
+    case "TaskUpdated":       return { color: "#0d9488", icon: <Pencil size={16} color="#fff" /> };
     case "DeadlineReminder":  return { color: "#ea580c", icon: <Clock size={16} color="#fff" /> };
     default:                  return { color: "#0a2f6e", icon: <Star size={16} fill="#fff" color="#fff" /> };
   }
@@ -39,6 +40,9 @@ function typeVisual(type: NotificationType): { color: string; icon: React.ReactN
 
 interface Props {
   clubId: number;
+  /** Ids of the tasks visible on this board (already scoped to the user's
+   *  department). When provided, only notifications for these tasks show. */
+  boardTaskIds?: Set<number>;
 }
 
 /**
@@ -47,7 +51,7 @@ interface Props {
  * current club's task events. Rendered via a portal with a high z-index so the
  * panel is never clipped by the board or other stacking contexts.
  */
-export default function KanbanNotificationBell({ clubId }: Props) {
+export default function KanbanNotificationBell({ clubId, boardTaskIds }: Props) {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<NotificationItem[]>([]);
@@ -57,10 +61,14 @@ export default function KanbanNotificationBell({ clubId }: Props) {
   const btnRef = useRef<HTMLButtonElement>(null);
   const dropRef = useRef<HTMLDivElement>(null);
 
-  const isKanbanNotif = useCallback((n: NotificationItem) =>
-    (n.relatedEntityType === "Task" || KANBAN_TYPES.has(n.type)) &&
-    (!n.navigationUrl || n.navigationUrl.includes(`/clubs/${clubId}/`)),
-  [clubId]);
+  // Only task notifications, and only for tasks that live on this board
+  // (i.e. within the user's department) — assignment/system alerts stay out.
+  const isKanbanNotif = useCallback((n: NotificationItem) => {
+    if (!KANBAN_TYPES.has(n.type)) return false;
+    if (n.relatedEntityType !== "Task") return false;
+    if (boardTaskIds && (n.relatedEntityId == null || !boardTaskIds.has(n.relatedEntityId))) return false;
+    return !n.navigationUrl || n.navigationUrl.includes(`/clubs/${clubId}/`);
+  }, [clubId, boardTaskIds]);
 
   // Fetches asynchronously (no synchronous setState) so it is safe to call from
   // an effect body; the spinner is driven separately from the click handler.

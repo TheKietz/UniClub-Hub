@@ -44,9 +44,11 @@ namespace UniClub_Hub.Operations.Services.Implements
 
         public async Task<List<AssignmentDto>> GetByClubAsync(int clubId)
         {
+            // Done slips are included: the inbox has a "Phiếu đã hoàn thành" tab
+            // listing the club's completed assignment history.
             var assignments = await db.EventClubAssignments
                 .AsNoTracking()
-                .Where(a => a.ClubId == clubId && a.Status != "Done")
+                .Where(a => a.ClubId == clubId)
                 .OrderByDescending(a => a.CreatedAt)
                 .ToListAsync();
 
@@ -222,13 +224,50 @@ namespace UniClub_Hub.Operations.Services.Implements
             return MapToDto(assignment, null, null);
         }
 
-        public async Task DeleteAsync(int id)
+        public async Task<AssignmentDto> CancelAsync(int id)
         {
             var assignment = await db.EventClubAssignments.FindAsync(id)
                 ?? throw new KeyNotFoundException($"Assignment {id} not found.");
 
+            // Soft-cancel: the slip stays visible in the club's inbox as "Đã bị hủy"
+            // so the club admin knows why it disappeared from their workload.
+            assignment.Status = "Cancelled";
+            await db.SaveChangesAsync();
+
+            return await ReloadDtoAsync(assignment);
+        }
+
+        public async Task<AssignmentDto> RemoveCancelledAsync(int id, string userId)
+        {
+            var assignment = await db.EventClubAssignments.FindAsync(id)
+                ?? throw new KeyNotFoundException($"Assignment {id} not found.");
+
+            if (assignment.Status != "Cancelled")
+                throw new InvalidOperationException("Chỉ phiếu giao việc đã bị hủy mới có thể xóa.");
+
+            var isClubAdmin = await db.ClubMemberships
+                .AsNoTracking()
+                .AnyAsync(m =>
+                    m.UserId == userId &&
+                    m.ClubId == assignment.ClubId &&
+                    m.Status == MembershipStatus.Active &&
+                    m.ClubRole == ClubRole.CLUB_ADMIN);
+            if (!isClubAdmin)
+                throw new UnauthorizedAccessException("Chỉ Quản lý CLB mới có quyền xóa phiếu giao việc đã hủy.");
+
+            var dto = await ReloadDtoAsync(assignment);
+
+            // Soft-delete the club's tasks created from this event's slip.
+            await db.Tasks
+                .Where(t => t.ClubId == assignment.ClubId && t.EventId == assignment.EventId && !t.IsDeleted)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(t => t.IsDeleted, true)
+                    .SetProperty(t => t.DeletedBy, userId));
+
             db.EventClubAssignments.Remove(assignment);
             await db.SaveChangesAsync();
+
+            return dto;
         }
 
         private static AssignmentDto MapToDto(EventClubAssignment a, string? eventName, string? clubName)

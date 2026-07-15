@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -17,6 +17,8 @@ import type { TaskItem, KanbanColumnItem, SprintItem, SprintStatus } from "../se
 import { createKanbanConnection } from "@/lib/kanbanHub";
 import { SIGNALR_EVENTS, HUB_METHODS } from "@/lib/signalrEvents";
 import { useTasks } from "../context/TasksContext";
+import { CLUB_ROLES } from "@/types/auth";
+import { getApiErrorMessage } from "@/lib/apiError";
 
 // ── Background presets ────────────────────────────────────────────────────────
 
@@ -130,7 +132,13 @@ export default function KanbanPage() {
   const clubId = Number(clubIdParam ?? 1);
 
   const { tasks: allTasks, patchTask, addTask, removeTask, reloadTasks, departmentId } = useTasks();
-  const { user } = useAuth();
+  // Task ids visible on this board (already scoped to the user's department by
+  // TasksContext) — the notification bell only shows alerts for these tasks.
+  const boardTaskIds = useMemo(() => new Set(allTasks.map(t => t.id)), [allTasks]);
+  const { user, getClubRole } = useAuth();
+  const clubRole = getClubRole(clubId);
+  // Only CLUB_ADMIN / DEPT_LEAD may move tasks into or out of "Hoàn thành" (also enforced server-side).
+  const canComplete = clubRole === CLUB_ROLES.CLUB_ADMIN || clubRole === CLUB_ROLES.DEPT_LEAD;
   const [columns, setColumns] = useState<KanbanColumnItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -348,12 +356,28 @@ export default function KanbanPage() {
     if (task.isBlocked && (newStatus === "Doing" || newStatus === "Done")) {
       toast.error(`Bị chặn bởi ${task.blockingCount} công việc chưa hoàn thành`); return;
     }
+    // Regular members may only move tasks they are assigned to (also enforced server-side).
+    const isMine = task.assignedTo === user?.id || (user?.id != null && task.assigneeIds?.includes(user.id));
+    if (!canComplete && !isMine) {
+      toast.error("Chỉ người được gán công việc mới có thể thay đổi trạng thái"); return;
+    }
+    if (newStatus === "Done" && task.status !== "Done") {
+      if (!canComplete) {
+        toast.error("Chỉ Quản lý CLB hoặc Trưởng ban mới được chuyển công việc sang Hoàn thành"); return;
+      }
+      if (task.status !== "Reviewing") {
+        toast.error("Công việc phải ở trạng thái 'Đang duyệt' trước khi hoàn thành"); return;
+      }
+    }
+    if (task.status === "Done" && newStatus !== "Done" && !canComplete) {
+      toast.error("Chỉ Quản lý CLB hoặc Trưởng ban mới được chuyển công việc ra khỏi Hoàn thành"); return;
+    }
     const progress = newStatus === "Done" ? 100 : newStatus === "Doing" ? Math.max(task.progress, 10) : task.progress;
     patchTask({ ...task, kanbanColumnId: targetColId, status: newStatus });
     try {
       const updated = await updateTaskStatus(task.id, { status: newStatus, progress, kanbanColumnId: targetColId });
       patchTask(updated);
-    } catch { toast.error("Không thể cập nhật trạng thái"); reloadTasks(); }
+    } catch (err) { toast.error(getApiErrorMessage(err, "Không thể cập nhật trạng thái")); reloadTasks(); }
   };
 
   const openCreate = (columnId?: number) => {
@@ -489,8 +513,8 @@ export default function KanbanPage() {
               </button>
             </div>
 
-            {/* ── Kanban notification bell ─────────────────────────────────── */}
-            <KanbanNotificationBell clubId={clubId} />
+            {/* ── Kanban notification bell — only tasks on this department's board ── */}
+            <KanbanNotificationBell clubId={clubId} boardTaskIds={boardTaskIds} />
 
             {/* Hidden file input for local image upload */}
             <input

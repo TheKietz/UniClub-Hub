@@ -181,13 +181,41 @@ namespace UniClub_Hub.Operations.Services.Implements
                 throw new InvalidOperationException("Sự kiện đã hoàn thành. Không thể thêm hoặc chỉnh sửa công việc.");
         }
 
+        // An event task's deadline is tied to its event: it must fall between now
+        // and the event's end date. Only enforced when the deadline is (re)set,
+        // so editing other fields of an overdue task keeps working.
+        private async Task ValidateDeadlineWithinEventAsync(int? eventId, DateTimeOffset? deadline, bool deadlineChanged)
+        {
+            if (!eventId.HasValue || !deadline.HasValue) return;
+
+            // 24h tolerance: date-only inputs arrive as midnight (timezone-shifted),
+            // so "today" must not be rejected.
+            if (deadlineChanged && deadline.Value < DateTimeOffset.UtcNow.AddDays(-1))
+                throw new InvalidOperationException("Deadline không được trước thời điểm hiện tại.");
+
+            var end = await db.Events
+                .AsNoTracking()
+                .Where(e => e.Id == eventId.Value)
+                .Select(e => e.EndTime)
+                .FirstOrDefaultAsync();
+
+            if (end.HasValue && deadline.Value > end.Value)
+                throw new InvalidOperationException("Deadline công việc không thể sau thời điểm kết thúc sự kiện.");
+        }
+
         public async Task<TaskDto> CreateAsync(int clubId, CreateTaskDto dto, string createdBy)
         {
             await GuardEventNotCompletedAsync(dto.EventId);
+            await ValidateDeadlineWithinEventAsync(dto.EventId, dto.Deadline?.ToUniversalTime(), deadlineChanged: true);
 
-            // A sub-task must reference an existing parent.
+            // A sub-task must reference an existing parent, and only managers may
+            // build parent/child dependencies.
             if (dto.ParentId.HasValue)
             {
+                if (!await IsManagerAsync(createdBy, clubId))
+                    throw new UnauthorizedAccessException(
+                        "Chỉ Quản lý CLB hoặc Trưởng ban mới được thêm công việc phụ thuộc.");
+
                 var parentExists = await db.Tasks.AnyAsync(t => t.Id == dto.ParentId.Value && !t.IsDeleted);
                 if (!parentExists)
                     throw new KeyNotFoundException($"Parent task {dto.ParentId} not found.");
@@ -238,13 +266,33 @@ namespace UniClub_Hub.Operations.Services.Implements
             return MapToDto(task);
         }
 
-        public async Task<TaskDto> UpdateAsync(int id, UpdateTaskDto dto)
+        public async Task<TaskDto> UpdateAsync(int id, UpdateTaskDto dto, string? actorId = null)
         {
             var task =
                 await db.Tasks.FindAsync(id)
                 ?? throw new KeyNotFoundException($"Task {id} not found.");
 
+            // Members cannot edit task fields (title, labels, deadline, assignee, parent...).
+            // actorId == null means an internal/trusted call (e.g. tests) — skip the check.
+            if (actorId != null && !await IsManagerAsync(actorId, task.ClubId))
+                throw new UnauthorizedAccessException(
+                    "Chỉ Quản lý CLB hoặc Trưởng ban mới được chỉnh sửa nội dung công việc.");
+
             await GuardEventNotCompletedAsync(task.EventId);
+
+            var newDeadline = dto.Deadline?.ToUniversalTime();
+            await ValidateDeadlineWithinEventAsync(
+                dto.EventId ?? task.EventId, newDeadline,
+                deadlineChanged: task.Deadline != newDeadline);
+
+            // Detect content edits (title, description, priority, dates) so the
+            // assignee gets a "nội dung thay đổi" notification on their board.
+            var contentChanged =
+                task.Title != dto.Title ||
+                task.Description != dto.Description ||
+                task.Priority != dto.Priority ||
+                task.StartDate != dto.StartDate?.ToUniversalTime() ||
+                task.Deadline != dto.Deadline?.ToUniversalTime();
 
             task.Title = dto.Title;
             task.Description = dto.Description;
@@ -254,15 +302,40 @@ namespace UniClub_Hub.Operations.Services.Implements
             task.EstimatedHours = dto.EstimatedHours;
             task.ActualHours = dto.ActualHours;
             task.AssignedTo = dto.AssignedTo;
-            task.EventId = dto.EventId;
+            // A task never leaves its event via a partial PUT — omitting EventId must not clear it.
+            if (dto.EventId.HasValue) task.EventId = dto.EventId;
             if (dto.SprintId.HasValue) task.SprintId = dto.SprintId;
             task.DepartmentId = dto.DepartmentId;
 
+            if (dto.ParentId != task.ParentId)
+            {
+                if (dto.ParentId.HasValue)
+                {
+                    if (dto.ParentId.Value == id)
+                        throw new InvalidOperationException("Công việc không thể là công việc con của chính nó.");
+                    var parentExists = await db.Tasks.AnyAsync(t => t.Id == dto.ParentId.Value && !t.IsDeleted);
+                    if (!parentExists)
+                        throw new KeyNotFoundException($"Parent task {dto.ParentId} not found.");
+                }
+                task.ParentId = dto.ParentId;
+            }
+
             await db.SaveChangesAsync();
+
+            // Notify the assignee about content edits (skip self-edits).
+            if (contentChanged && !string.IsNullOrEmpty(task.AssignedTo) && task.AssignedTo != actorId)
+                await notifications.SendAsync(
+                    task.AssignedTo,
+                    "Nội dung công việc đã thay đổi",
+                    $"Công việc \"{task.Title}\" vừa được cập nhật nội dung (tên, mô tả, deadline...).",
+                    NotificationType.TaskUpdated,
+                    relatedEntityType: "Task",
+                    relatedEntityId: task.Id);
+
             return MapToDto(task);
         }
 
-        public async Task<TaskDto> UpdateStatusAsync(int id, UpdateTaskStatusDto dto)
+        public async Task<TaskDto> UpdateStatusAsync(int id, UpdateTaskStatusDto dto, string userId)
         {
             var task =
                 await db.Tasks
@@ -271,6 +344,38 @@ namespace UniClub_Hub.Operations.Services.Implements
                 ?? throw new KeyNotFoundException($"Task {id} not found.");
 
             await GuardEventNotCompletedAsync(task.EventId);
+
+            var movingToDone = dto.Status == ClubTaskStatus.Done && task.Status != ClubTaskStatus.Done;
+            var movingOutOfDone = task.Status == ClubTaskStatus.Done && dto.Status != ClubTaskStatus.Done;
+
+            var isManager = await IsManagerAsync(userId, task.ClubId);
+
+            // A regular member may only move tasks they are assigned to.
+            if (!isManager &&
+                task.AssignedTo != userId &&
+                !task.Assignees.Any(a => a.UserId == userId))
+                throw new UnauthorizedAccessException(
+                    "Chỉ người được gán công việc mới có thể thay đổi trạng thái.");
+
+            // Only CLUB_ADMIN / DEPT_LEAD may move a task into or out of "Hoàn thành".
+            if ((movingToDone || movingOutOfDone) && !isManager)
+                throw new UnauthorizedAccessException(
+                    "Chỉ Quản lý CLB hoặc Trưởng ban mới được chuyển công việc vào/ra mục Hoàn thành.");
+
+            if (movingToDone)
+            {
+                // A task must pass review before it can be completed.
+                if (task.Status != ClubTaskStatus.Reviewing)
+                    throw new InvalidOperationException(
+                        "Công việc phải ở trạng thái 'Đang duyệt' và được Quản lý CLB hoặc Trưởng ban duyệt trước khi hoàn thành.");
+
+                // A parent task is only done when every sub-task is done.
+                var openSubTasks = await db.Tasks.CountAsync(t =>
+                    t.ParentId == id && !t.IsDeleted && t.Status != ClubTaskStatus.Done);
+                if (openSubTasks > 0)
+                    throw new InvalidOperationException(
+                        $"Còn {openSubTasks} công việc con chưa hoàn thành. Hoàn thành toàn bộ công việc con trước.");
+            }
 
             if (dto.Status == ClubTaskStatus.Doing || dto.Status == ClubTaskStatus.Done)
             {
@@ -341,19 +446,18 @@ namespace UniClub_Hub.Operations.Services.Implements
 
         private async Task RequireManagerRoleAsync(string userId, int clubId)
         {
-            var membership = await db.ClubMemberships
+            if (!await IsManagerAsync(userId, clubId))
+                throw new UnauthorizedAccessException("Chỉ Trưởng ban hoặc Quản lý CLB mới có quyền xóa công việc.");
+        }
+
+        private Task<bool> IsManagerAsync(string userId, int clubId) =>
+            db.ClubMemberships
                 .AsNoTracking()
-                .FirstOrDefaultAsync(m =>
+                .AnyAsync(m =>
                     m.UserId == userId &&
                     m.ClubId == clubId &&
-                    m.Status == MembershipStatus.Active);
-
-            if (membership == null ||
-                (membership.ClubRole != ClubRole.DEPT_LEAD && membership.ClubRole != ClubRole.CLUB_ADMIN))
-            {
-                throw new UnauthorizedAccessException("Chỉ Trưởng ban hoặc Quản lý CLB mới có quyền xóa công việc.");
-            }
-        }
+                    m.Status == MembershipStatus.Active &&
+                    (m.ClubRole == ClubRole.DEPT_LEAD || m.ClubRole == ClubRole.CLUB_ADMIN));
 
         public async Task<List<TaskDependencyDto>> GetDependenciesAsync(int taskId)
         {
@@ -369,11 +473,15 @@ namespace UniClub_Hub.Operations.Services.Implements
                 .ToListAsync();
         }
 
-        public async Task AddDependencyAsync(int taskId, AddDependencyDto dto)
+        public async Task AddDependencyAsync(int taskId, AddDependencyDto dto, string userId)
         {
             var task =
                 await db.Tasks.AsNoTracking().FirstOrDefaultAsync(t => t.Id == taskId)
                 ?? throw new KeyNotFoundException($"Task {taskId} not found.");
+
+            if (!await IsManagerAsync(userId, task.ClubId))
+                throw new UnauthorizedAccessException(
+                    "Chỉ Quản lý CLB hoặc Trưởng ban mới được thêm công việc phụ thuộc.");
 
             var depTask =
                 await db.Tasks.AsNoTracking().FirstOrDefaultAsync(t => t.Id == dto.DependsOnTaskId)
@@ -407,8 +515,16 @@ namespace UniClub_Hub.Operations.Services.Implements
             await db.SaveChangesAsync();
         }
 
-        public async Task RemoveDependencyAsync(int taskId, int dependsOnTaskId)
+        public async Task RemoveDependencyAsync(int taskId, int dependsOnTaskId, string userId)
         {
+            var task =
+                await db.Tasks.AsNoTracking().FirstOrDefaultAsync(t => t.Id == taskId)
+                ?? throw new KeyNotFoundException($"Task {taskId} not found.");
+
+            if (!await IsManagerAsync(userId, task.ClubId))
+                throw new UnauthorizedAccessException(
+                    "Chỉ Quản lý CLB hoặc Trưởng ban mới được gỡ công việc phụ thuộc.");
+
             var dep =
                 await db.TaskDependencies.FirstOrDefaultAsync(td =>
                     td.TaskId == taskId && td.DependsOnTaskId == dependsOnTaskId

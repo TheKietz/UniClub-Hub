@@ -3,6 +3,7 @@ import api from '@/lib/axiosInstance'
 export type NotificationType =
   | 'Task' | 'Event' | 'Application' | 'System'
   | 'TaskAssigned' | 'TaskStatusUpdated' | 'DeadlineReminder' | 'AssignmentReceived'
+  | 'AssignmentCancelled' | 'TaskUpdated'
 
 export interface NotificationItem {
   id: number

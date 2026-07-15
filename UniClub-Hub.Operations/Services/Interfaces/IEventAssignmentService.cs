@@ -17,6 +17,9 @@ namespace UniClub_Hub.Operations.Services.Interfaces
         Task<AssignmentDto> AddAttachmentsAsync(int id, IFormFileCollection files);
         Task<AssignmentDto> RemoveAttachmentAsync(int id, string url);
         Task<AssignmentDto> UpdateStatusAsync(int id, string status);
-        Task DeleteAsync(int id);
+        /// <summary>Soft-cancel: marks the assignment "Cancelled" (kept for the club's inbox history).</summary>
+        Task<AssignmentDto> CancelAsync(int id);
+        /// <summary>Club admin removes a cancelled slip from the inbox; its tasks are soft-deleted.</summary>
+        Task<AssignmentDto> RemoveCancelledAsync(int id, string userId);
     }
 }

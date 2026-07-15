@@ -8,6 +8,7 @@ export const SIGNALR_EVENTS = {
   ATTACHMENT_UPLOADED:   'AttachmentUploaded',   // new attachment on a task
   SPRINT_STATUS_CHANGED: 'SprintStatusChanged',  // sprint status transition
   ASSIGNMENT_RECEIVED:   'AssignmentReceived',   // club received a new assignment
+  ASSIGNMENT_CANCELLED:  'AssignmentCancelled',  // an assignment was cancelled by the university admin
 } as const
 
 export const HUB_METHODS = {

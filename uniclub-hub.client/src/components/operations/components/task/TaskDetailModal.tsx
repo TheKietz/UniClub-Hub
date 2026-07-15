@@ -22,6 +22,7 @@ import { getClubMembers } from "../../../membership/services/clubApi";
 import type { MemberItem } from "../../../membership/services/club.types";
 import { useAuth } from "@/contexts/AuthContext";
 import { CLUB_ROLES } from "@/types/auth";
+import { getApiErrorMessage } from "@/lib/apiError";
 import { D } from '@/components/shared/managementTheme'
 import { useIsMobile } from '@/hooks/useMediaQuery'
 
@@ -145,6 +146,9 @@ export default function TaskDetailModal({
   const role = getClubRole(clubId)
   const isAdmin = role === CLUB_ROLES.CLUB_ADMIN
   const canManageAssignees = isAdmin || role === CLUB_ROLES.DEPT_LEAD
+  // Members cannot edit task fields (title, label, dates, assignee, dependencies)
+  // or delete the task — they may attach files, add checklists and read activity.
+  const canEditTask = canManageAssignees
   const isEdit = !!task
 
   const MAX_FILES = 5
@@ -318,7 +322,15 @@ export default function TaskDetailModal({
         sprintId: isEdit ? (task?.sprintId ?? undefined) : sprintId,
       }
       if (isEdit) {
-        await updateTask(task.id, dto)
+        // Full-replace PUT: preserve fields the modal doesn't edit,
+        // otherwise the server nulls them (eventId, parent link, hours).
+        await updateTask(task.id, {
+          ...dto,
+          eventId: task.eventId,
+          parentId: task.parentId,
+          estimatedHours: task.estimatedHours,
+          actualHours: task.actualHours,
+        })
         toast.success("Đã cập nhật công việc")
       } else {
         const created = await createTask(clubId, dto)
@@ -338,7 +350,7 @@ export default function TaskDetailModal({
         toast.success("Đã tạo công việc")
       }
       onSaved(); onClose()
-    } catch { toast.error("Có lỗi xảy ra") }
+    } catch (err) { toast.error(getApiErrorMessage(err, "Có lỗi xảy ra")) }
     finally { setSaving(false) }
   }
 
@@ -381,6 +393,10 @@ export default function TaskDetailModal({
         priority: task.priority,
         startDate: task.startDate,
         deadline: task.deadline,
+        estimatedHours: task.estimatedHours,
+        actualHours: task.actualHours,
+        assignedTo: task.assignedTo,
+        eventId: task.eventId,
         departmentId: task.departmentId,
         sprintId: task.sprintId,
         kanbanColumnId: task.kanbanColumnId,
@@ -403,6 +419,10 @@ export default function TaskDetailModal({
         priority: task.priority,
         startDate: task.startDate,
         deadline: task.deadline,
+        estimatedHours: task.estimatedHours,
+        actualHours: task.actualHours,
+        assignedTo: task.assignedTo,
+        eventId: task.eventId,
         departmentId: task.departmentId,
         sprintId: task.sprintId,
         kanbanColumnId: task.kanbanColumnId,
@@ -611,7 +631,7 @@ export default function TaskDetailModal({
             {isEdit ? `#${task.id} · ${task.title}` : "Tạo công việc mới"}
           </span>
           <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
-            {isEdit && (
+            {isEdit && canEditTask && (
               <button type="button" onClick={handleDelete} disabled={deleting}
                 title="Xóa thẻ"
                 style={{ padding: 6, borderRadius: 6, border: 'none', background: 'transparent', cursor: 'pointer', color: D.inkMuted, display: 'flex', alignItems: 'center' }}
@@ -647,6 +667,7 @@ export default function TaskDetailModal({
               }}
               placeholder="Tiêu đề công việc..."
               value={title}
+              readOnly={isEdit && !canEditTask}
               onChange={e => setTitle(e.target.value)}
             />
 
@@ -660,30 +681,34 @@ export default function TaskDetailModal({
                   </button>
                 </ActionTip>
 
-                <ActionTip text="Đặt mức độ ưu tiên cho công việc">
-                  <button type="button" onClick={() => togglePanel("label")}
-                    style={panel === "label"
-                      ? actionBtnStyle(true)
-                      : activePriority
-                        ? { ...actionBtnStyle(false), background: activePriority.color + '22', color: activePriority.color, border: `1.5px solid ${activePriority.color}66` }
-                        : actionBtnStyle(false)
-                    }>
-                    <Tag size={13} /> Nhãn
-                  </button>
-                </ActionTip>
+                {canEditTask && (
+                  <ActionTip text="Đặt mức độ ưu tiên cho công việc">
+                    <button type="button" onClick={() => togglePanel("label")}
+                      style={panel === "label"
+                        ? actionBtnStyle(true)
+                        : activePriority
+                          ? { ...actionBtnStyle(false), background: activePriority.color + '22', color: activePriority.color, border: `1.5px solid ${activePriority.color}66` }
+                          : actionBtnStyle(false)
+                      }>
+                      <Tag size={13} /> Nhãn
+                    </button>
+                  </ActionTip>
+                )}
 
-                <ActionTip text="Thiết lập ngày bắt đầu và hạn hoàn thành">
-                  <button type="button" onClick={() => togglePanel("date")}
-                    style={panel === "date"
-                      ? actionBtnStyle(true)
-                      : hasDate
-                        ? { ...actionBtnStyle(false), background: '#fef3c7', color: '#92400e', border: '1.5px solid #fcd34d' }
-                        : actionBtnStyle(false)
-                    }>
-                    <Calendar size={13} />
-                    {deadline ? new Date(deadline).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" }) : "Ngày"}
-                  </button>
-                </ActionTip>
+                {canEditTask && (
+                  <ActionTip text="Thiết lập ngày bắt đầu và hạn hoàn thành">
+                    <button type="button" onClick={() => togglePanel("date")}
+                      style={panel === "date"
+                        ? actionBtnStyle(true)
+                        : hasDate
+                          ? { ...actionBtnStyle(false), background: '#fef3c7', color: '#92400e', border: '1.5px solid #fcd34d' }
+                          : actionBtnStyle(false)
+                      }>
+                      <Calendar size={13} />
+                      {deadline ? new Date(deadline).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" }) : "Ngày"}
+                    </button>
+                  </ActionTip>
+                )}
 
                 {isEdit && (
                   <ActionTip text="Thêm danh sách kiểm tra cho công việc">
@@ -693,7 +718,7 @@ export default function TaskDetailModal({
                   </ActionTip>
                 )}
 
-                {isEdit && (
+                {isEdit && canEditTask && (
                   <ActionTip text="Quản lý task con và task cha">
                     <button type="button"
                       onClick={() => { setDependTab('subtask'); togglePanel("depend") }}
@@ -735,8 +760,10 @@ export default function TaskDetailModal({
                   </div>
                   <div style={{ padding: '6px 0' }}>
                     {[
-                      { icon: <Tag size={15} style={{ color: D.inkDim }} />, p: "label" as Panel, title: "Nhãn", desc: "Sắp xếp, phân loại và ưu tiên" },
-                      { icon: <Calendar size={15} style={{ color: D.inkDim }} />, p: "date" as Panel, title: "Ngày", desc: "Ngày bắt đầu, ngày hết hạn và lời nhắc" },
+                      ...(canEditTask ? [
+                        { icon: <Tag size={15} style={{ color: D.inkDim }} />, p: "label" as Panel, title: "Nhãn", desc: "Sắp xếp, phân loại và ưu tiên" },
+                        { icon: <Calendar size={15} style={{ color: D.inkDim }} />, p: "date" as Panel, title: "Ngày", desc: "Ngày bắt đầu, ngày hết hạn và lời nhắc" },
+                      ] : []),
                       { icon: <CheckSquare size={15} style={{ color: D.inkDim }} />, p: null, title: "Việc cần làm", desc: "Thêm tác vụ con", action: addChecklist },
                       ...(canManageAssignees ? [{ icon: <User size={15} style={{ color: D.inkDim }} />, p: "member" as Panel, title: "Thành viên", desc: "Chỉ định thành viên" }] : []),
                       { icon: <Paperclip size={15} style={{ color: D.inkDim }} />, p: "attach" as Panel, title: "Đính kèm", desc: "Thêm liên kết, trang, hạng mục công việc, v.v." },
@@ -1159,6 +1186,7 @@ export default function TaskDetailModal({
                 }}
                 placeholder="Thêm mô tả chi tiết hơn..."
                 value={description}
+                readOnly={isEdit && !canEditTask}
                 onChange={e => setDescription(e.target.value)}
                 onFocus={e => (e.currentTarget.style.border = D.border)}
                 onBlur={e => (e.currentTarget.style.border = D.borderLight)}
@@ -1173,7 +1201,7 @@ export default function TaskDetailModal({
                   <span style={{ fontSize: 13, fontWeight: 700, color: D.inkDim }}>
                     Tệp đính kèm ({attachments.length}/{MAX_FILES})
                   </span>
-                  {isAdmin && attachments.length < MAX_FILES && (
+                  {attachments.length < MAX_FILES && (
                     <button type="button" onClick={() => togglePanel("attach")}
                       style={{ marginLeft: 'auto', fontSize: 11, padding: '3px 10px', background: D.bg, border: D.borderLight, borderRadius: D.pill, color: D.inkDim, cursor: 'pointer', fontFamily: 'inherit' }}>
                       + Thêm
@@ -1182,7 +1210,7 @@ export default function TaskDetailModal({
                 </div>
                 {attachments.length === 0 ? (
                   <div style={{ padding: '14px 0', textAlign: 'center', border: '1.5px dashed #d1cfc9', borderRadius: 8, color: D.inkMuted, fontSize: 12 }}>
-                    {isAdmin ? 'Chưa có tệp đính kèm — nhấn "+ Thêm" để tải lên.' : 'Chưa có tệp đính kèm.'}
+                    Chưa có tệp đính kèm — nhấn "+ Thêm" để tải lên.
                   </div>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -1476,12 +1504,15 @@ export default function TaskDetailModal({
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, padding: '10px 24px', borderTop: D.borderLight, flexShrink: 0, background: D.bg }}>
           <button type="button" onClick={onClose}
             style={{ padding: '8px 18px', fontSize: 13, border: D.border, borderRadius: D.pill, background: D.card, color: D.inkDim, cursor: 'pointer', boxShadow: D.shadow(2, 2), fontFamily: 'inherit', fontWeight: 600 }}>
-            Hủy
+            {isEdit && !canEditTask ? 'Đóng' : 'Hủy'}
           </button>
-          <button type="button" onClick={handleSave} disabled={saving}
-            style={{ padding: '8px 20px', fontSize: 13, background: D.ink, color: '#facc15', border: D.border, borderRadius: D.pill, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1, boxShadow: D.shadow(2, 2), fontFamily: 'inherit', fontWeight: 700 }}>
-            {saving ? "Đang lưu..." : isEdit ? "Lưu thay đổi" : "Tạo thẻ"}
-          </button>
+          {/* Members can't save field edits — attachments/checklists apply immediately. */}
+          {(!isEdit || canEditTask) && (
+            <button type="button" onClick={handleSave} disabled={saving}
+              style={{ padding: '8px 20px', fontSize: 13, background: D.ink, color: '#facc15', border: D.border, borderRadius: D.pill, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1, boxShadow: D.shadow(2, 2), fontFamily: 'inherit', fontWeight: 700 }}>
+              {saving ? "Đang lưu..." : isEdit ? "Lưu thay đổi" : "Tạo thẻ"}
+            </button>
+          )}
         </div>
       </DialogContent>
     </Dialog>

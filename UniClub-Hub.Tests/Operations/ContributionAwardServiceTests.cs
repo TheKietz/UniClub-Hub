@@ -47,7 +47,8 @@ public class ContributionAwardServiceTests : DbTestBase
     [Fact]
     public async Task UpdateStatus_DoneToDoing_RemovesTaskContributions()
     {
-        await using var db = await SeedTaskAsync(done: true, existingContribution: true);
+        // u1 must be a manager: moving a task out of Done is restricted to CLUB_ADMIN / DEPT_LEAD.
+        await using var db = await SeedTaskAsync(done: true, existingContribution: true, u1Role: ClubRole.CLUB_ADMIN);
         var awardService = new ContributionAwardService(db);
         var taskService = new TaskService(
             db,
@@ -59,7 +60,7 @@ public class ContributionAwardServiceTests : DbTestBase
         {
             Status = ClubTaskStatus.Doing,
             Progress = 50,
-        });
+        }, "u1");
 
         Assert.Empty(await db.Contributions
             .Where(c => c.TaskId == 1 && c.ActivityType == ActivityType.Task)
@@ -102,10 +103,11 @@ public class ContributionAwardServiceTests : DbTestBase
     private async Task<UniClubDbContext> SeedTaskAsync(
         bool includeSecondAssignee = false,
         bool done = false,
-        bool existingContribution = false)
+        bool existingContribution = false,
+        ClubRole u1Role = ClubRole.MEMBER)
     {
         var db = Fx.CreateDbContext();
-        SeedClubAndUsers(db, includeSecondUser: includeSecondAssignee);
+        SeedClubAndUsers(db, includeSecondUser: includeSecondAssignee, u1Role: u1Role);
 
         db.Tasks.Add(new ClubTask
         {
@@ -171,7 +173,7 @@ public class ContributionAwardServiceTests : DbTestBase
         return db;
     }
 
-    private static void SeedClubAndUsers(UniClubDbContext db, bool includeSecondUser = false)
+    private static void SeedClubAndUsers(UniClubDbContext db, bool includeSecondUser = false, ClubRole u1Role = ClubRole.MEMBER)
     {
         db.Clubs.Add(new Club { Id = 1, Name = "CLB Test", Code = "TEST" });
         db.Users.Add(new ApplicationUser
@@ -189,7 +191,7 @@ public class ContributionAwardServiceTests : DbTestBase
             UserId = "u1",
             ClubId = 1,
             Status = MembershipStatus.Active,
-            ClubRole = ClubRole.MEMBER,
+            ClubRole = u1Role,
             JoinedDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-30)),
         });
 
