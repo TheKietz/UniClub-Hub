@@ -11,6 +11,7 @@ public static class SignalREvents
     public const string AttachmentUploaded   = "AttachmentUploaded";    // new attachment on a task
     public const string SprintStatusChanged  = "SprintStatusChanged";   // sprint status transition
     public const string AssignmentReceived   = "AssignmentReceived";    // club received a new work assignment
+    public const string AssignmentCancelled  = "AssignmentCancelled";   // a work assignment was cancelled by the university admin
 }
 
 public static class SignalRGroups

@@ -1,11 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { toast } from 'sonner'
-import { ChevronsRight, Plus, Trash2, CalendarDays, ExternalLink, X, FileText, Paperclip, ClipboardList, Inbox, ChevronDown } from 'lucide-react'
-import { getInboxAssignments, createTask, updateAssignmentStatus, uploadTaskAttachmentFile, getTasks, updateTaskStatus } from '../services/operationsApi'
+import { ChevronsRight, Plus, Trash2, CalendarDays, ExternalLink, X, FileText, Paperclip, ClipboardList, Inbox, ChevronDown, CheckCircle2 } from 'lucide-react'
+import { getInboxAssignments, createTask, updateAssignmentStatus, uploadTaskAttachmentFile, getTasks, updateTaskStatus, removeCancelledAssignment } from '../services/operationsApi'
 import type { AssignmentItem, TaskItem, TaskPriority, TaskStatus, UpdateTaskStatusDto } from '../services/operations.types'
 import { getDepartments } from '@/components/membership/services/clubApi'
 import type { DepartmentItem } from '@/components/membership/services/club.types'
+import { getApiErrorMessage } from '@/lib/apiError'
+import { createKanbanConnection } from '@/lib/kanbanHub'
+import { SIGNALR_EVENTS, HUB_METHODS } from '@/lib/signalrEvents'
+import { useAuth } from '@/contexts/AuthContext'
+import { CLUB_ROLES } from '@/types/auth'
 
 /* ─── Design tokens ──────────────────────────────────────────────────────── */
 const D = {
@@ -164,6 +169,11 @@ function CreateSubTaskPanel({
   const [rows, setRows] = useState<SubTaskForm[]>([emptyRow()])
   const [saving, setSaving] = useState(false)
 
+  // Task deadlines must stay within the slip's window: from today up to the
+  // deadline the university admin set on the assignment.
+  const today = new Date().toLocaleDateString('en-CA')
+  const maxDeadline = assignment.deadline ? assignment.deadline.slice(0, 10) : undefined
+
   const inputStyle: React.CSSProperties = {
     padding: '7px 10px', fontSize: 12, fontWeight: 600,
     border: D.border, borderRadius: 7, outline: 'none',
@@ -180,6 +190,12 @@ function CreateSubTaskPanel({
     for (const r of rows) {
       if (!r.title.trim()) { toast.error('Mỗi công việc cần có tên'); return }
       if (!r.departmentId) { toast.error('Mỗi công việc cần chọn Ban phụ trách'); return }
+      if (r.deadline) {
+        if (r.deadline < today) { toast.error('Deadline không được trước ngày hiện tại'); return }
+        if (maxDeadline && r.deadline > maxDeadline) {
+          toast.error(`Deadline không được sau deadline của phiếu (${fmtDate(assignment.deadline)})`); return
+        }
+      }
     }
     setSaving(true)
     try {
@@ -200,8 +216,8 @@ function CreateSubTaskPanel({
       }
       toast.success(`Đã gửi ${created.length} công việc về các Ban. Trưởng ban đã được thông báo.`)
       onSubmitted(created)
-    } catch {
-      toast.error('Không thể tạo công việc')
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, 'Không thể tạo công việc'))
     } finally {
       setSaving(false)
     }
@@ -218,7 +234,7 @@ function CreateSubTaskPanel({
 
       {/* Header */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 150px 80px 120px auto 32px', gap: 6, marginBottom: 4 }}>
-        {['Tên công việc', 'Ban phụ trách', 'Ưu tiên', 'Deadline', 'File đính kèm', ''].map(h => (
+        {['Tên công việc', 'Ban phụ trách', 'Ưu tiên', maxDeadline ? `Deadline (đến ${fmtDate(assignment.deadline)})` : 'Deadline', 'File đính kèm', ''].map(h => (
           <span key={h} style={{ fontSize: 10, fontWeight: 800, color: D.inkMuted, textTransform: 'uppercase', letterSpacing: '.04em' }}>{h}</span>
         ))}
       </div>
@@ -233,7 +249,7 @@ function CreateSubTaskPanel({
           <select value={row.priority} onChange={e => updateRow(i, { priority: e.target.value as TaskPriority })} style={{ ...inputStyle, cursor: 'pointer' }}>
             {PRIORITY_OPTIONS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
           </select>
-          <input type="date" value={row.deadline} onChange={e => updateRow(i, { deadline: e.target.value })} style={inputStyle} />
+          <input type="date" value={row.deadline} min={today} max={maxDeadline} onChange={e => updateRow(i, { deadline: e.target.value })} style={inputStyle} />
           <RowFilePicker files={row.files} onChange={f => updateRow(i, { files: f })} />
           <button
             type="button"
@@ -277,22 +293,28 @@ function InboxAssignmentRow({
   assignment,
   depts,
   clubId,
+  canDeleteCancelled,
   onDecomposed,
   onStatusChanged,
+  onRemoved,
 }: {
   assignment: AssignmentItem
   depts: DepartmentItem[]
   clubId: number
+  canDeleteCancelled?: boolean
   onDecomposed: () => void
   onStatusChanged: (id: number, status: string) => void
+  onRemoved?: (id: number) => void
 }) {
   const [showPanel, setShowPanel] = useState(false)
   const [showDetail, setShowDetail] = useState(false)
+  const [removing, setRemoving] = useState(false)
 
   const pr = PRIORITY_MAP[assignment.priority]
   const dl = fmtDate(assignment.deadline)
   const isOverdue = assignment.deadline ? new Date(assignment.deadline) < new Date() : false
   const isDone = assignment.status === 'Done'
+  const isCancelled = assignment.status === 'Cancelled'
 
   async function markDone() {
     try {
@@ -304,8 +326,22 @@ function InboxAssignmentRow({
     }
   }
 
+  async function removeCancelled() {
+    if (!window.confirm(`Xóa phiếu "${assignment.title}"? Các công việc đã tạo từ phiếu này cũng sẽ bị xóa.`)) return
+    setRemoving(true)
+    try {
+      await removeCancelledAssignment(assignment.id)
+      toast.success('Đã xóa phiếu và các công việc liên quan')
+      onRemoved?.(assignment.id)
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, 'Không thể xóa phiếu'))
+    } finally {
+      setRemoving(false)
+    }
+  }
+
   return (
-    <div style={{ background: isDone ? '#f0fdf4' : D.card, border: D.border, borderRadius: D.radius, boxShadow: D.shadow(), opacity: isDone ? 0.75 : 1 }}>
+    <div style={{ background: isCancelled ? '#fef2f2' : isDone ? '#f0fdf4' : D.card, border: D.border, borderRadius: D.radius, boxShadow: D.shadow(), opacity: isDone || isCancelled ? 0.75 : 1 }}>
       {/* Main row */}
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: 16 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -323,6 +359,9 @@ function InboxAssignmentRow({
             )}
             {isDone && (
               <span style={{ fontSize: 10, fontWeight: 800, background: '#dcfce7', color: '#15803d', borderRadius: D.pill, padding: '2px 8px' }}>Hoàn thành</span>
+            )}
+            {isCancelled && (
+              <span style={{ fontSize: 10, fontWeight: 800, background: '#fee2e2', color: '#dc2626', border: '1px solid #fca5a5', borderRadius: D.pill, padding: '2px 8px' }}>Đã bị hủy</span>
             )}
           </div>
           <p style={{ margin: 0, fontSize: 14, fontWeight: 800, color: D.ink }}>{assignment.title}</p>
@@ -352,7 +391,18 @@ function InboxAssignmentRow({
               <ExternalLink size={11} /> Xem sự kiện
             </Link>
           )}
-          {!isDone && (
+          {isCancelled && canDeleteCancelled && (
+            <button
+              type="button"
+              onClick={removeCancelled}
+              disabled={removing}
+              title="Xóa phiếu và các công việc đã tạo từ phiếu"
+              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', fontSize: 11, fontWeight: 800, border: '1.5px solid #dc2626', borderRadius: 8, background: '#fee2e2', color: '#dc2626', cursor: removing ? 'not-allowed' : 'pointer', opacity: removing ? 0.7 : 1, boxShadow: '3px 3px 0 #fca5a5', whiteSpace: 'nowrap' }}
+            >
+              <Trash2 size={11} /> {removing ? 'Đang xóa...' : 'Xóa phiếu'}
+            </button>
+          )}
+          {!isDone && !isCancelled && (
             <>
               <button
                 type="button"
@@ -419,7 +469,7 @@ function EventTaskRow({ task, depts, onStatusChange }: {
       await updateTaskStatus(task.id, dto)
       onStatusChange(task.id, next)
       toast.success('Đã cập nhật trạng thái')
-    } catch { toast.error('Không thể cập nhật') }
+    } catch (err) { toast.error(getApiErrorMessage(err, 'Không thể cập nhật')) }
     finally { setUpdating(false); setOpen(false) }
   }
 
@@ -467,12 +517,16 @@ function EventTaskRow({ task, depts, onStatusChange }: {
             <div style={{ position: 'absolute', right: 0, top: '110%', zIndex: 50, background: D.card, border: D.border, borderRadius: 10, boxShadow: D.shadow(), overflow: 'hidden', minWidth: 130 }}>
               {TASK_STATUS_ORDER.map(s => {
                 const c = TASK_STATUS_MAP[s]
+                // A task must pass "Đang duyệt" before it can be completed.
+                const doneLocked = s === 'Done' && task.status !== 'Reviewing'
                 return (
                   <button
                     key={s}
                     type="button"
+                    disabled={doneLocked}
+                    title={doneLocked ? "Công việc phải 'Đang duyệt' trước khi hoàn thành" : undefined}
                     onClick={() => changeStatus(s)}
-                    style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 12px', fontSize: 12, fontWeight: 700, background: s === task.status ? c.bg : 'transparent', color: c.color, border: 'none', cursor: 'pointer', textAlign: 'left' }}
+                    style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 12px', fontSize: 12, fontWeight: 700, background: s === task.status ? c.bg : 'transparent', color: c.color, border: 'none', cursor: doneLocked ? 'not-allowed' : 'pointer', textAlign: 'left', opacity: doneLocked ? 0.4 : 1 }}
                   >
                     <span style={{ width: 8, height: 8, borderRadius: '50%', background: c.color, flexShrink: 0 }} />
                     {c.label}
@@ -623,11 +677,14 @@ function EventTasksSection({ clubId, depts, assignments }: {
 export default function InboxPage() {
   const { clubId } = useParams<{ clubId: string }>()
   const cid = Number(clubId ?? 0)
+  const { getClubRole } = useAuth()
+  // Only the club admin may remove a cancelled slip (server enforces too).
+  const canDeleteCancelled = getClubRole(cid) === CLUB_ROLES.CLUB_ADMIN
 
   const [assignments, setAssignments] = useState<AssignmentItem[]>([])
   const [depts, setDepts] = useState<DepartmentItem[]>([])
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'inbox' | 'tasks'>('inbox')
+  const [activeTab, setActiveTab] = useState<'inbox' | 'tasks' | 'done'>('inbox')
 
   useEffect(() => {
     if (!cid) return
@@ -641,14 +698,38 @@ export default function InboxPage() {
       .finally(() => setLoading(false))
   }, [cid])
 
+  // Realtime: keep the inbox live when the university admin sends or cancels a slip.
+  useEffect(() => {
+    if (!cid) return
+    const conn = createKanbanConnection()
+
+    conn.on(SIGNALR_EVENTS.ASSIGNMENT_RECEIVED, (a: AssignmentItem) => {
+      if (a.clubId !== cid) return
+      setAssignments(prev => prev.some(x => x.id === a.id) ? prev.map(x => x.id === a.id ? a : x) : [a, ...prev])
+      toast.info(`CLB nhận phiếu giao việc mới: "${a.title}"`)
+    })
+    conn.on(SIGNALR_EVENTS.ASSIGNMENT_CANCELLED, (a: AssignmentItem) => {
+      if (a.clubId !== cid) return
+      setAssignments(prev => prev.some(x => x.id === a.id) ? prev.map(x => x.id === a.id ? a : x) : [a, ...prev])
+      toast.warning(`Phiếu giao việc "${a.title}" đã bị Admin trường hủy.`)
+    })
+
+    conn.start().then(() => conn.invoke(HUB_METHODS.JOIN_CLUB, cid)).catch(() => {/* offline — non-fatal */})
+    return () => {
+      conn.invoke(HUB_METHODS.LEAVE_CLUB, cid).catch(() => {})
+      conn.stop()
+    }
+  }, [cid])
+
   function handleStatusChanged(id: number, status: string) {
     setAssignments(prev => prev.map(a => a.id === id ? { ...a, status: status as AssignmentItem['status'] } : a))
   }
 
-  const pending = assignments.filter(a => a.status !== 'Done')
+  const pending = assignments.filter(a => a.status !== 'Done' && a.status !== 'Cancelled')
   const done = assignments.filter(a => a.status === 'Done')
+  const cancelled = assignments.filter(a => a.status === 'Cancelled')
 
-  const tabBtn = (tab: 'inbox' | 'tasks', icon: React.ReactNode, label: string, count?: number): React.ReactNode => (
+  const tabBtn = (tab: 'inbox' | 'tasks' | 'done', icon: React.ReactNode, label: string, count?: number): React.ReactNode => (
     <button
       type="button"
       onClick={() => setActiveTab(tab)}
@@ -663,6 +744,31 @@ export default function InboxPage() {
     </button>
   )
 
+  const renderGroup = (title: string, items: AssignmentItem[], badge: { bg: string; color: string }, titleColor: string) => (
+    items.length > 0 && (
+      <div style={{ marginBottom: 24 }}>
+        <h2 style={{ fontSize: 14, fontWeight: 800, color: titleColor, margin: '0 0 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
+          {title}
+          <span style={{ fontSize: 12, fontWeight: 700, background: badge.bg, color: badge.color, borderRadius: D.pill, padding: '1px 8px' }}>{items.length}</span>
+        </h2>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {items.map(a => (
+            <InboxAssignmentRow
+              key={a.id}
+              assignment={a}
+              depts={depts}
+              clubId={cid}
+              canDeleteCancelled={canDeleteCancelled}
+              onDecomposed={() => {}}
+              onStatusChanged={handleStatusChanged}
+              onRemoved={id => setAssignments(prev => prev.filter(x => x.id !== id))}
+            />
+          ))}
+        </div>
+      </div>
+    )
+  )
+
   return (
     <div className="mgmt-page">
       <div style={{ marginBottom: 20 }}>
@@ -673,64 +779,37 @@ export default function InboxPage() {
       </div>
 
       {/* Tab switcher */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 24 }}>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 24, flexWrap: 'wrap' }}>
         {tabBtn('inbox', <Inbox size={13} />, 'Phiếu giao việc', pending.length)}
         {tabBtn('tasks', <ClipboardList size={13} />, 'Task đã triển khai')}
+        {tabBtn('done', <CheckCircle2 size={13} />, 'Phiếu đã hoàn thành', done.length)}
       </div>
 
       {loading ? (
         <div style={{ textAlign: 'center', padding: 60, color: D.inkMuted, fontSize: 13 }}>Đang tải...</div>
       ) : activeTab === 'inbox' ? (
-        assignments.length === 0 ? (
+        pending.length === 0 && cancelled.length === 0 ? (
           <div style={{ textAlign: 'center', padding: 60, border: D.border, borderRadius: D.radius, background: D.card, boxShadow: D.shadow(), color: D.inkMuted, fontSize: 13 }}>
+            <Inbox size={28} style={{ color: '#c4bfb0', display: 'block', margin: '0 auto 8px' }} />
             Hộp thư trống. Chưa có phiếu giao việc nào từ Admin trường. 🎉
           </div>
         ) : (
           <>
-            {pending.length > 0 && (
-              <div style={{ marginBottom: 24 }}>
-                <h2 style={{ fontSize: 14, fontWeight: 800, color: D.ink, margin: '0 0 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
-                  Chờ xử lý
-                  <span style={{ fontSize: 12, fontWeight: 700, background: '#fef9c3', color: '#a16207', borderRadius: D.pill, padding: '1px 8px' }}>{pending.length}</span>
-                </h2>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  {pending.map(a => (
-                    <InboxAssignmentRow
-                      key={a.id}
-                      assignment={a}
-                      depts={depts}
-                      clubId={cid}
-                      onDecomposed={() => {}}
-                      onStatusChanged={handleStatusChanged}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-            {done.length > 0 && (
-              <div>
-                <h2 style={{ fontSize: 14, fontWeight: 800, color: D.inkMuted, margin: '0 0 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
-                  Đã xử lý
-                  <span style={{ fontSize: 12, fontWeight: 700, background: '#dcfce7', color: '#15803d', borderRadius: D.pill, padding: '1px 8px' }}>{done.length}</span>
-                </h2>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  {done.map(a => (
-                    <InboxAssignmentRow
-                      key={a.id}
-                      assignment={a}
-                      depts={depts}
-                      clubId={cid}
-                      onDecomposed={() => {}}
-                      onStatusChanged={handleStatusChanged}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
+            {renderGroup('Chờ xử lý', pending, { bg: '#fef9c3', color: '#a16207' }, D.ink)}
+            {renderGroup('Đã bị hủy', cancelled, { bg: '#fee2e2', color: '#dc2626' }, D.inkMuted)}
           </>
         )
-      ) : (
+      ) : activeTab === 'tasks' ? (
         <EventTasksSection clubId={cid} depts={depts} assignments={assignments} />
+      ) : (
+        done.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: 60, border: D.border, borderRadius: D.radius, background: D.card, boxShadow: D.shadow(), color: D.inkMuted, fontSize: 13 }}>
+            <CheckCircle2 size={28} style={{ color: '#c4bfb0', display: 'block', margin: '0 auto 8px' }} />
+            Chưa có phiếu giao việc nào được hoàn thành.
+          </div>
+        ) : (
+          renderGroup('Phiếu đã hoàn thành', done, { bg: '#dcfce7', color: '#15803d' }, D.ink)
+        )
       )}
     </div>
   )

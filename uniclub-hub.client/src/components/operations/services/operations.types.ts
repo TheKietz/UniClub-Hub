@@ -359,7 +359,7 @@ export interface UpdateAttendanceDto {
 
 // ── Event Club Assignments (briefs from SUPER_ADMIN to clubs) ────────────────
 
-export type AssignmentStatus = 'Pending' | 'InProgress' | 'Done'
+export type AssignmentStatus = 'Pending' | 'InProgress' | 'Done' | 'Cancelled'
 
 export interface AssignmentAttachment {
   url: string

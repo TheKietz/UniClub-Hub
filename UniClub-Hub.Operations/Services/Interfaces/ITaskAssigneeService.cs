@@ -6,6 +6,6 @@ namespace UniClub_Hub.Operations.Services.Interfaces
     {
         Task<List<TaskAssigneeDto>> GetAsync(int taskId);
         Task<TaskAssigneeDto> AssignAsync(int taskId, string userId, string assignedBy);
-        Task UnassignAsync(int taskId, string userId);
+        Task UnassignAsync(int taskId, string userId, string actorId);
     }
 }
