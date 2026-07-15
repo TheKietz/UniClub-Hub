@@ -84,6 +84,11 @@ namespace UniClub_Hub.Server.Controllers.Membership
         [Authorize]
         public async Task<IActionResult> SuggestMembers(int clubId, [FromQuery] string q = "")
         {
+            var suggestUserId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+            var suggestIsSuperAdmin = User.IsInRole("SUPER_ADMIN");
+            if (!await _permissions.HasPermissionAsync(clubId, suggestUserId, suggestIsSuperAdmin, ClubPermissions.MembersView))
+                return Forbid();
+
             var lowerQ = q.ToLower();
             var results = await _db.ClubMemberships
                 .Where(m => m.ClubId == clubId && m.Status == MembershipStatus.Active)

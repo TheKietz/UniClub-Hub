@@ -1091,7 +1091,7 @@ export default function SprintsPage() {
 
   if (loading || tasksLoading) {
     return (
-      <div style={{ padding: 32, textAlign: 'center', background: 'var(--c-bg)', minHeight: '100%' }}>
+      <div className="mgmt-page mgmt-page--loading" style={{ textAlign: 'center' }}>
         <div style={{ width: 32, height: 32, border: '3px solid #FFE500', borderTop: '3px solid #0A0A0A', borderRadius: '50%', margin: '0 auto 12px', animation: 'spin 1s linear infinite' }} />
         <p style={{ fontWeight: 800, color: '#888', fontSize: 13, textTransform: 'uppercase', letterSpacing: '.08em' }}>Đang tải...</p>
       </div>
@@ -1100,9 +1100,9 @@ export default function SprintsPage() {
 
   return (
     <DragDropContext onDragEnd={onDragEnd}>
-      <div className="rsp-page" style={{ padding: `24px ${SPRINT_LAYOUT.pageX}px 32px`, background: 'var(--c-bg)', minHeight: '100%', boxSizing: 'border-box' }}>
+      <div className="mgmt-page ops-sprints-page" style={{ paddingBottom: 32, boxSizing: 'border-box' }}>
         {/* ── Header ──────────────────────────────────────────────── */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+        <div className="mgmt-page-header" style={{ marginBottom: 20 }}>
           <div>
             <h1 style={{ fontSize: 22, fontWeight: 900, color: '#0A0A0A', margin: 0, letterSpacing: '-0.01em' }}>Quản lý công việc</h1>
             <p style={{ fontSize: 12, color: '#888', marginTop: 4, fontWeight: 600 }}>
@@ -1316,9 +1316,9 @@ function EditSprintInline({ sprint, onClose, onSave }: {
   };
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '60px 16px 24px', boxSizing: 'border-box' }}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: 60 }}>
       <div style={{ position: 'absolute', inset: 0, background: 'rgba(10,10,10,0.45)' }} onClick={onClose} />
-      <div style={{ position: 'relative', width: '100%', maxWidth: 440, maxHeight: 'calc(100vh - 84px)', overflowY: 'auto', background: 'white', border: '3px solid #0A0A0A', boxShadow: '8px 8px 0 #0A0A0A', borderRadius: 0 }}>
+      <div style={{ position: 'relative', width: '100%', maxWidth: 440, background: 'white', border: '3px solid #0A0A0A', boxShadow: '8px 8px 0 #0A0A0A', borderRadius: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', borderBottom: '2px solid #0A0A0A', background: '#0A0A0A' }}>
           <h2 style={{ margin: 0, fontSize: 15, fontWeight: 900, color: '#FFE500', textTransform: 'uppercase', letterSpacing: '.04em' }}>Chỉnh sửa tuần công việc</h2>
           <button type="button" onClick={onClose} style={{ width: 26, height: 26, border: '2px solid #FFE500', borderRadius: 0, background: 'transparent', color: '#FFE500', cursor: 'pointer', fontWeight: 900 }}>✕</button>
@@ -1328,7 +1328,7 @@ function EditSprintInline({ sprint, onClose, onSave }: {
             <label style={labelStyle}>Tên tuần công việc *</label>
             <input type="text" value={name} onChange={e => setName(e.target.value)} style={inputStyle} />
           </div>
-          <div className="rsp-form-2" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
               <label style={labelStyle}>Ngày bắt đầu</label>
               <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} style={inputStyle} />

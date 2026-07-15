@@ -227,10 +227,10 @@ export default function OperationsDashboard() {
   const distData = distSegments.filter(s => s.count > 0).map(s => ({ name: s.label, value: s.count }))
 
   return (
-    <div className="rsp-page" style={{ padding: '28px 32px', minHeight: '100%', background: D.bg, fontFamily: "'Be Vietnam Pro', sans-serif" }}>
+    <div className="mgmt-page">
 
       {/* ── Header ──────────────────────────────────────────────────── */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, marginBottom: 24, flexWrap: 'wrap' }}>
+      <div className="mgmt-page-header" style={{ marginBottom: 24, flexWrap: 'wrap' }}>
         <div>
           <h1 style={{ fontSize: 24, fontWeight: 900, color: D.ink, letterSpacing: '-.025em', margin: 0 }}>
             Tổng quan Câu lạc bộ
@@ -253,7 +253,7 @@ export default function OperationsDashboard() {
       </div>
 
       {/* ── Stats ───────────────────────────────────────────────────── */}
-      <div className="rsp-grid-stats" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 16 }}>
+      <div className="mgmt-stat-grid mgmt-stat-grid--4" style={{ marginBottom: 16 }}>
         {loading ? (
           Array.from({ length: 4 }).map((_, i) => (
             <div key={i} style={{ background: D.card, border: D.border, borderRadius: D.radius, boxShadow: D.shadow(), padding: 20, height: 120 }} />
@@ -305,7 +305,7 @@ export default function OperationsDashboard() {
       )}
 
       {/* ── Charts row ────────────────────────────────────────────────── */}
-      <div className="rsp-split" style={{ display: 'grid', gridTemplateColumns: '1fr 1.4fr', gap: 16, marginBottom: 16, alignItems: 'stretch' }}>
+      <div className="mgmt-two-col" style={{ marginBottom: 16, alignItems: 'stretch' }}>
 
         {/* Donut — task status distribution */}
         <div style={{ background: D.card, border: D.border, borderRadius: D.radius, boxShadow: D.shadow(), padding: '16px 24px' }}>
@@ -415,7 +415,7 @@ export default function OperationsDashboard() {
       )}
 
       {/* ── Main grid ────────────────────────────────────────────────── */}
-      <div className="rsp-split" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 20, marginBottom: 20, alignItems: 'start' }}>
+      <div className="mgmt-two-col ops-dashboard-split" style={{ marginBottom: 20, alignItems: 'start' }}>
 
         {/* Active Sprints (up to 3) */}
         <div style={{ background: D.card, border: D.border, borderRadius: D.radius, boxShadow: D.shadow(), padding: '20px 24px' }}>
@@ -555,7 +555,7 @@ export default function OperationsDashboard() {
         ) : upcomingEvents.length === 0 ? (
           <p style={{ fontSize: 13, color: D.inkMuted, fontStyle: 'italic', textAlign: 'center', padding: '24px 0' }}>Không có sự kiện sắp tới</p>
         ) : (
-          <div className="rsp-split" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
+          <div className="mgmt-stat-grid" style={{ gap: 16 }}>
             {upcomingEvents.map(ev => {
               const evBadge = EVENT_STATUS_BADGE[ev.status] ?? EVENT_STATUS_BADGE.Draft
               const left = daysUntil(ev.startTime)

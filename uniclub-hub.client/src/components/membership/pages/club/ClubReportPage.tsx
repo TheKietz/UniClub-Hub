@@ -9,12 +9,7 @@ import { D } from '@/components/shared/managementTheme'
 import { PermissionDenied } from '@/components/shared/Can'
 import { useClubPermissions } from '@/hooks/useClubPermissions'
 import { CLUB_PERMISSIONS } from '@/constants/clubPermissions'
-
-const ROLE_LABELS: Record<string, string> = {
-  CLUB_ADMIN: 'Ban chủ nhiệm',
-  DEPT_LEAD: 'Trưởng ban',
-  MEMBER: 'Thành viên',
-}
+import { CLUB_ROLE_LABELS } from '@/constants/clubRoles'
 
 const STATUS_LABELS: Record<string, string> = {
   Active: 'Chính thức',
@@ -122,13 +117,13 @@ export default function ClubReportPage() {
     m.fullName ?? '—',
     m.studentId ?? '—',
     m.departmentName ?? '—',
-    ROLE_LABELS[m.clubRole] ?? m.clubRole,
+    CLUB_ROLE_LABELS[m.clubRole] ?? m.clubRole,
     STATUS_LABELS[m.status] ?? m.status,
     fmtDate(m.joinedDate),
   ])
 
   return (
-    <div style={{ padding: '28px 32px', minHeight: '100%', background: '#f4f7fc', fontFamily: "'Be Vietnam Pro', sans-serif" }}>
+    <div className="mgmt-page mgmt-page--report">
       <style>{`
         @media print {
           html, body {
@@ -267,7 +262,7 @@ export default function ClubReportPage() {
               headers={['Vai trò', 'Số lượng', 'Tỉ lệ']}
               rows={[
                 ...roleEntries.map(([role, count]) => [
-                  ROLE_LABELS[role] ?? role,
+                  CLUB_ROLE_LABELS[role] ?? role,
                   count,
                   total > 0 ? `${Math.round((count as number) / total * 100)}%` : '—',
                 ]),

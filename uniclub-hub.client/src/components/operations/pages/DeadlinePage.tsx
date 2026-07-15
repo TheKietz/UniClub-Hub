@@ -183,9 +183,9 @@ export default function DeadlinePage() {
   })
 
   return (
-    <div className="rsp-page" style={{ padding: '28px 32px', minHeight: '100%', background: D.bg, fontFamily: "'Be Vietnam Pro', sans-serif" }}>
+    <div className="mgmt-page">
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24 }}>
+      <div className="mgmt-page-header" style={{ marginBottom: 24 }}>
         <div>
           <h1 style={{ fontSize: 24, fontWeight: 900, color: D.ink, letterSpacing: '-.025em', margin: 0 }}>Cảnh báo Deadline</h1>
           <p style={{ fontSize: 13, color: D.inkMuted, marginTop: 4 }}>
@@ -209,7 +209,7 @@ export default function DeadlinePage() {
       </div>
 
       {/* Summary cards */}
-      <div className="rsp-grid-stats" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 24 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 24 }}>
         <div style={statCardStyle('#fca5a5')}>
           <div style={{ width: 40, height: 40, borderRadius: 10, background: '#fee2e2', border: '1.5px solid #fca5a5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <AlertTriangle size={20} style={{ color: D.red }} />

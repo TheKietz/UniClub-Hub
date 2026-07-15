@@ -284,7 +284,7 @@ export default function EventDetailPage() {
   }
 
   return (
-    <div className="rsp-page" style={{ padding: '28px 32px', minHeight: '100%', background: D.bg, fontFamily: "'Be Vietnam Pro', sans-serif" }}>
+    <div className="mgmt-page">
 
       {/* Breadcrumb */}
       <nav style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: D.inkMuted, marginBottom: 16 }}>
@@ -299,7 +299,7 @@ export default function EventDetailPage() {
       </nav>
 
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24, gap: 16 }}>
+      <div className="mgmt-page-header" style={{ marginBottom: 24 }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, minWidth: 0 }}>
           <button type="button" onClick={() => navigate(eventsListUrl)} style={{ marginTop: 2, padding: 6, borderRadius: 8, border: D.borderLight, background: D.card, color: D.inkMuted, cursor: 'pointer', flexShrink: 0 }}>
             <ArrowLeft size={16} />
@@ -333,7 +333,7 @@ export default function EventDetailPage() {
       </div>
 
       {/* Body */}
-      <div className="rsp-flexcol" style={{ display: 'flex', gap: 20, alignItems: 'flex-start' }}>
+      <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start' }}>
         {/* Left column */}
         <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 16 }}>
           {/* Event info */}

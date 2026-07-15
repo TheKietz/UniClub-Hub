@@ -6,6 +6,7 @@ import {
   type NotificationPreferenceItem, type UpdateNotificationPreferenceRequest,
 } from '@/components/membership/services/notificationPreferenceApi'
 import { D } from '@/components/shared/managementTheme'
+import LegacyNotificationSettingsPanel from './LegacyNotificationSettingsPanel'
 
 const CATEGORY_COLORS: Record<string, string> = {
   'Tuyển thành viên': '#1d4ed8',
@@ -18,10 +19,11 @@ const CATEGORY_COLORS: Record<string, string> = {
 
 const VARS = ['{{userName}}', '{{clubName}}', '{{stageName}}', '{{note}}', '{{dashboardUrl}}']
 
-type Tab = 'recipients' | 'templates'
+type Tab = 'recipients' | 'templates' | 'legacy'
 const TABS: { key: Tab; label: string }[] = [
   { key: 'recipients', label: 'Người nhận & kênh' },
   { key: 'templates', label: 'Mẫu thông báo' },
+  { key: 'legacy', label: 'Hỗ trợ & khác' },
 ]
 
 // ── Toggle ────────────────────────────────────────────────────────────────
@@ -215,7 +217,7 @@ export default function NotificationPreferencePage() {
   const [prefs, setPrefs] = useState<NotificationPreferenceItem[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<Tab>('recipients')
-  const [collapsedCategories, setCollapsedCategories] = useState<Record<Tab, Record<string, boolean>>>({
+  const [collapsedCategories, setCollapsedCategories] = useState<Record<'recipients' | 'templates', Record<string, boolean>>>({
     recipients: {},
     templates: {},
   })
@@ -243,6 +245,7 @@ export default function NotificationPreferencePage() {
   }, {})
 
   function toggleCategory(category: string) {
+    if (activeTab === 'legacy') return
     setCollapsedCategories(prev => ({
       ...prev,
       [activeTab]: {
@@ -278,7 +281,11 @@ export default function NotificationPreferencePage() {
 
       {/* Content */}
       {loading ? (
-        <div style={{ padding: '28px 32px', fontSize: 13, color: D.inkMuted }}>Đang tải…</div>
+        <div className="mgmt-page mgmt-page--loading">Đang tải…</div>
+      ) : activeTab === 'legacy' ? (
+        <div style={{ padding: '24px 32px' }}>
+          <LegacyNotificationSettingsPanel />
+        </div>
       ) : (
         <div style={{ padding: '24px 32px', display: 'flex', flexDirection: 'column', gap: 20 }}>
           {Object.entries(byCategory).map(([cat, items]) => {

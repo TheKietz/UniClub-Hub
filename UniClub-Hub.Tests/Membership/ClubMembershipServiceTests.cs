@@ -121,6 +121,51 @@ public class ClubMembershipServiceTests : DbTestBase
         Assert.NotNull(m.ResignedDate);
     }
 
+    [Fact]
+    public async Task ResignAsync_WithHistoricalResignedRow_ResignsActiveRowAndKeepsHistory()
+    {
+        var oldResignedDate = new DateOnly(2025, 6, 30);
+        var (svc, db) = Setup(d =>
+        {
+            SeedClubAndUser(d, role: ClubRole.MEMBER);
+            d.ClubMemberships.Add(new ClubMembership
+            {
+                Id = 2, UserId = "u1", ClubId = 1,
+                Status = MembershipStatus.Resigned,
+                JoinedDate = new DateOnly(2024, 9, 1),
+                ResignedDate = oldResignedDate,
+                ClubRole = ClubRole.MEMBER
+            });
+        });
+
+        await svc.ResignAsync(clubId: 1, userId: "u1");
+
+        Assert.Equal(MembershipStatus.Resigned, db.ClubMemberships.Find(1)!.Status);
+        Assert.Equal(oldResignedDate, db.ClubMemberships.Find(2)!.ResignedDate); // lịch sử giữ nguyên
+    }
+
+    [Fact]
+    public async Task ResignAsync_WithResignedMemberRowFirst_StillBlocksActiveLead()
+    {
+        var (svc, _) = Setup(d =>
+        {
+            // Dòng MEMBER cũ (Resigned) có Id nhỏ hơn — không được che dòng DEPT_LEAD đang Active
+            SeedClubAndUser(d, role: ClubRole.MEMBER, status: MembershipStatus.Resigned);
+            d.ClubMemberships.Add(new ClubMembership
+            {
+                Id = 2, UserId = "u1", ClubId = 1,
+                Status = MembershipStatus.Active,
+                JoinedDate = DateOnly.FromDateTime(DateTime.UtcNow),
+                ClubRole = ClubRole.DEPT_LEAD
+            });
+        });
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            svc.ResignAsync(clubId: 1, userId: "u1"));
+
+        Assert.Contains("NEEDS_RESIGNATION_REQUEST", ex.Message);
+    }
+
     // ─── RemoveMemberAsAdminAsync ────────────────────────────────────────────
 
     [Fact]

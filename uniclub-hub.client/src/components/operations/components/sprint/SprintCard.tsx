@@ -59,7 +59,7 @@ export default function SprintCard({
       onMouseLeave={() => setHovered(false)}
     >
       {/* Top row: status + menu */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 12 }}>
+      <div className="mgmt-page-header" style={{ marginBottom: 12 }}>
         <SprintStatusBadge status={sprint.status} />
 
         <div style={{ position: 'relative' }}>

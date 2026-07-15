@@ -134,8 +134,8 @@ namespace UniClub_Hub.Membership.Services.Implements
                 "name" => desc ? query.OrderByDescending(c => c.Name) : query.OrderBy(c => c.Name),
                 "code" => desc ? query.OrderByDescending(c => c.Code) : query.OrderBy(c => c.Code),
                 "members" => desc
-                    ? query.OrderByDescending(c => c.ClubMemberships!.Count(m => m.Status == MembershipStatus.Active))
-                    : query.OrderBy(c => c.ClubMemberships!.Count(m => m.Status == MembershipStatus.Active)),
+                    ? query.OrderByDescending(c => c.ClubMemberships!.Where(m => m.Status == MembershipStatus.Active).Select(m => m.UserId).Distinct().Count())
+                    : query.OrderBy(c => c.ClubMemberships!.Where(m => m.Status == MembershipStatus.Active).Select(m => m.UserId).Distinct().Count()),
                 "status" => desc ? query.OrderByDescending(c => c.Status) : query.OrderBy(c => c.Status),
                 "createdat" => desc ? query.OrderByDescending(c => c.CreatedAt) : query.OrderBy(c => c.CreatedAt),
                 _ => desc ? query.OrderByDescending(c => c.Id) : query.OrderBy(c => c.Id),
@@ -309,7 +309,8 @@ namespace UniClub_Hub.Membership.Services.Implements
             AdvisorName = c.AdvisorName,
             CategoryId = c.CategoryId,
             CategoryName = c.Category != null ? c.Category.Name : null,
-            MemberCount = c.ClubMemberships!.Count(m => m.Status == MembershipStatus.Active),
+            MemberCount = c.ClubMemberships!.Where(m => m.Status == MembershipStatus.Active)
+                .Select(m => m.UserId).Distinct().Count(),
             IsRecruiting = c.Status == ClubStatus.Active && c.FormSchema != null,
             CreatedAt = c.CreatedAt
         };
@@ -327,7 +328,8 @@ namespace UniClub_Hub.Membership.Services.Implements
             AdvisorName = c.AdvisorName,
             CategoryId = c.CategoryId,
             CategoryName = c.Category != null ? c.Category.Name : null,
-            MemberCount = c.ClubMemberships!.Count(m => m.Status == MembershipStatus.Active),
+            MemberCount = c.ClubMemberships!.Where(m => m.Status == MembershipStatus.Active)
+                .Select(m => m.UserId).Distinct().Count(),
             HasAdmin = c.ClubMemberships!.Any(m =>
                 m.ClubRole == ClubRole.CLUB_ADMIN &&
                 m.Status == MembershipStatus.Active),

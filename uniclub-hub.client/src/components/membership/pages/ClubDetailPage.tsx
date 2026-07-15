@@ -1,10 +1,12 @@
-import { MEMBERSHIP_STATUS, CLUB_ROLES } from '@/types/auth'
+import { MEMBERSHIP_STATUS } from '@/types/auth'
 import { Rv } from '@/components/public/publicComponents'
 import { useEffect, useMemo, useState } from 'react'
 import { useDeferredEffect } from '@/hooks/useDeferredEffect'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { getClubDetail, getDepartments, getFormSchema, getMemberFieldSchema, getMyApplications, submitApplication, resignFromClub, submitResignation, getUserResignations, uploadApplicationFile } from '@/components/membership/services/clubApi'
-import type { ClubDetail, DepartmentItem, FormSchema, MemberFieldDef, ApplicationItem, ResignationRequestItem, ResignationPreference } from '@/components/membership/services/club.types'
+import { getClubDetail, getDepartments, getFormSchema, getMemberFieldSchema, getMyApplications, submitApplication, getUserResignations, uploadApplicationFile } from '@/components/membership/services/clubApi'
+import type { ClubDetail, DepartmentItem, FormSchema, MemberFieldDef, ApplicationItem, ResignationRequestItem } from '@/components/membership/services/club.types'
+import LeaveClubDialog from '@/components/membership/shared/LeaveClubDialog'
+import { isLeaderRole } from '@/constants/clubRoles'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -13,9 +15,10 @@ import { toast } from 'sonner'
 import { ArrowLeft, Users, Building, Calendar, Phone, GraduationCap, CheckCircle2, Clock, XCircle, MessageCircle, LogOut, AlertCircle, Paperclip, X, GitBranch } from 'lucide-react'
 import { Tree, TreeNode } from 'react-organizational-chart'
 import PublicHeader from '@/components/layouts/PublicHeader'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { FilterSelect } from '@/components/shared/FilterSelect'
 import { getApiErrorMessage } from '@/lib/apiError'
+import { syncMemberFieldsToFormSchema } from '@/lib/memberFieldFormSync'
 import { getClubLandingPage } from '@/components/portal/services/portal.api'
 import type { ClubLandingData } from '@/components/portal/services/portal.types'
 
@@ -41,7 +44,6 @@ export default function ClubDetailPage() {
   const [landingData, setLandingData] = useState<ClubLandingData | null>(null)
 
   const [answers, setAnswers] = useState<Record<string, string>>({})
-  const [memberFieldAnswers, setMemberFieldAnswers] = useState<Record<string, string>>({})
   const [fileAnswers, setFileAnswers] = useState<Record<string, File | null>>({})
   const [submitting, setSubmitting] = useState(false)
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'uploading' | 'submitting'>('idle')
@@ -49,33 +51,22 @@ export default function ClubDetailPage() {
   const [applyOpen, setApplyOpen] = useState(false)
 
   const [resignOpen, setResignOpen] = useState(false)
-  const [resigning, setResigning] = useState(false)
-  const [resignPreference, setResignPreference] = useState<ResignationPreference>('LeaveClub')
   const [resignRequest, setResignRequest] = useState<ResignationRequestItem | null>(null)
 
   const membership = user?.memberships.find(m => m.clubId === id)
   const isMember = membership && (membership.status === MEMBERSHIP_STATUS.ACTIVE || membership.status === MEMBERSHIP_STATUS.PROBATION)
-  const isLeader = membership?.clubRole === CLUB_ROLES.CLUB_ADMIN || membership?.clubRole === CLUB_ROLES.DEPT_LEAD
+  const isLeader = membership?.clubRole ? isLeaderRole(membership.clubRole) : false
+
+  const formFields = useMemo(
+    () => syncMemberFieldsToFormSchema(fieldSchema, schema?.fields ?? []),
+    [fieldSchema, schema],
+  )
 
   useEffect(() => {
     if (isAuthenticated && !isMember && application?.status === 'Accepted') {
       refreshUser()
     }
-  }, [application?.status])
-
-  const linkedFieldIds = useMemo(
-    () => new Set(
-      (schema?.fields ?? [])
-        .map(f => f.linkedFieldId)
-        .filter((fid): fid is string => !!fid),
-    ),
-    [schema],
-  )
-
-  const unlinkedMemberFields = useMemo(
-    () => fieldSchema.filter(f => !linkedFieldIds.has(f.id)),
-    [fieldSchema, linkedFieldIds],
-  )
+  }, [application?.status, isAuthenticated, isMember, refreshUser])
 
   useEffect(() => {
     if (!isAuthenticated || !isMember || !isLeader || !user) return
@@ -87,32 +78,15 @@ export default function ClubDetailPage() {
       .catch(() => { })
   }, [id, isAuthenticated, isMember, isLeader, user])
 
-  async function handleResign() {
-    setResigning(true)
-    try {
-      await resignFromClub(id)
-      toast.success('Đã rời khỏi CLB.')
+  async function handleLeaveSuccess() {
+    if (isLeader && user) {
+      const list = await getUserResignations(user.id)
+      setResignRequest(list.find(r => r.clubId === id && r.status === 'Pending') ?? null)
+    } else {
+      await refreshUser()
       navigate('/clubs')
-    } catch (err: unknown) {
-      toast.error(getApiErrorMessage(err, 'Thao tác thất bại.'))
-      setResignOpen(false)
-    } finally {
-      setResigning(false)
     }
-  }
-
-  async function handleSubmitResignation() {
-    setResigning(true)
-    try {
-      const result = await submitResignation(id, { preference: resignPreference })
-      setResignRequest(result)
-      setResignOpen(false)
-      toast.success('Đã gửi đơn từ chức. Vui lòng chờ phê duyệt.')
-    } catch (err: unknown) {
-      toast.error(getApiErrorMessage(err, 'Gửi đơn thất bại.'))
-    } finally {
-      setResigning(false)
-    }
+    await refreshUser()
   }
 
   useDeferredEffect((isCancelled) => {
@@ -143,19 +117,12 @@ export default function ClubDetailPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (schema) {
-      const missingText = schema.fields.filter(f => f.required && f.type !== 'file' && !answers[f.id]?.trim())
-      const missingFile = schema.fields.filter(f => f.required && f.type === 'file' && !fileAnswers[f.id])
+    if (formFields.length > 0) {
+      const missingText = formFields.filter(f => f.required && f.type !== 'file' && !answers[f.id]?.trim())
+      const missingFile = formFields.filter(f => f.required && f.type === 'file' && !fileAnswers[f.id])
       const missing = [...missingText, ...missingFile]
       if (missing.length > 0) {
         toast.error(`Vui lòng điền: ${missing.map(f => f.label).join(', ')}`)
-        return
-      }
-    }
-    if (unlinkedMemberFields.length > 0) {
-      const missingMemberFields = unlinkedMemberFields.filter(f => f.required && !memberFieldAnswers[f.id]?.trim())
-      if (missingMemberFields.length > 0) {
-        toast.error(`Vui lòng điền: ${missingMemberFields.map(f => f.label).join(', ')}`)
         return
       }
     }
@@ -164,7 +131,7 @@ export default function ClubDetailPage() {
     try {
       const finalAnswers = { ...answers }
 
-      const fileFields = schema?.fields.filter(f => f.type === 'file' && fileAnswers[f.id]) ?? []
+      const fileFields = formFields.filter(f => f.type === 'file' && fileAnswers[f.id]) ?? []
       if (fileFields.length > 0) {
         setSubmitStatus('uploading')
         await Promise.all(fileFields.map(async f => {
@@ -173,14 +140,14 @@ export default function ClubDetailPage() {
       }
 
       setSubmitStatus('submitting')
-      const memberFieldData: Record<string, string> = { ...memberFieldAnswers }
-      for (const field of schema?.fields ?? []) {
+      const memberFieldData: Record<string, string> = {}
+      for (const field of formFields) {
         if (field.linkedFieldId && finalAnswers[field.id]?.trim()) {
           memberFieldData[field.linkedFieldId] = finalAnswers[field.id]
         }
       }
       await submitApplication(id, {
-        answers: schema ? finalAnswers : { note: finalAnswers['note'] ?? '' },
+        answers: formFields.length > 0 ? finalAnswers : { note: finalAnswers['note'] ?? '' },
         ...(Object.keys(memberFieldData).length > 0 ? { memberFieldData } : {}),
       })
       setSubmitted(true)
@@ -441,6 +408,7 @@ export default function ClubDetailPage() {
                   <div className="py-2 text-center space-y-4">
                     <p className="text-sm pb-1" style={{ color: '#5E7AA8' }}>Tham gia {club.name} và cùng nhau phát triển!</p>
                     <button
+                      type="button"
                       onClick={() => setApplyOpen(true)}
                       className="w-full py-4 rounded-xl font-black text-xl text-white transition-all active:translate-y-0.5"
                       style={{ background: '#C8102E', border: '2px solid #8B0000', boxShadow: '0 4px 0 #8B0000', letterSpacing: '-.01em' }}
@@ -590,8 +558,8 @@ export default function ClubDetailPage() {
 
           <div className="overflow-y-auto" style={{ maxHeight: 'calc(85vh - 140px)' }}>
             <form id="apply-form" onSubmit={handleSubmit} className="space-y-4 p-6">
-              {schema && schema.fields.length > 0 ? (
-                schema.fields.map(f => (
+              {formFields.length > 0 ? (
+                formFields.map(f => (
                   <div key={f.id} className="space-y-1.5">
                     <Label className="text-xs text-gray-600">
                       {f.label}{f.required && <span className="text-red-500 ml-0.5">*</span>}
@@ -651,35 +619,6 @@ export default function ClubDetailPage() {
                 </div>
               )}
 
-              {unlinkedMemberFields.length > 0 && (
-                <div className="border-t border-gray-100 pt-3 space-y-3">
-                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Thông tin hồ sơ thành viên</p>
-                  {unlinkedMemberFields.map(f => (
-                    <div key={f.id} className="space-y-1.5">
-                      <Label className="text-xs text-gray-600">
-                        {f.label}{f.required && <span className="text-red-500 ml-0.5">*</span>}
-                      </Label>
-                      {f.type === 'textarea' ? (
-                        <textarea rows={3} value={memberFieldAnswers[f.id] ?? ''}
-                          onChange={e => setMemberFieldAnswers(p => ({ ...p, [f.id]: e.target.value }))}
-                          className="w-full border border-input rounded-lg px-3 py-2 text-sm bg-background resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-                      ) : f.type === 'select' ? (
-                        <FilterSelect
-                          value={memberFieldAnswers[f.id] ?? ''}
-                          onChange={value => setMemberFieldAnswers(p => ({ ...p, [f.id]: value }))}
-                          options={[
-                            { value: '', label: '— Chọn —' },
-                            ...(f.options ?? []).map(o => ({ value: o, label: o })),
-                          ]}
-                        />
-                      ) : (
-                        <Input value={memberFieldAnswers[f.id] ?? ''}
-                          onChange={e => setMemberFieldAnswers(p => ({ ...p, [f.id]: e.target.value }))} />
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
             </form>
           </div>
 
@@ -701,65 +640,16 @@ export default function ClubDetailPage() {
       </Dialog>
 
       {/* Dialog rời CLB / đệ đơn từ chức */}
-      <Dialog open={resignOpen} onOpenChange={setResignOpen}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle>{isLeader ? 'Đệ đơn từ chức' : 'Xác nhận rời CLB'}</DialogTitle>
-          </DialogHeader>
-
-          {isLeader ? (
-            <div className="space-y-4 py-1">
-              <p className="text-sm text-gray-500">
-                Với vai trò <span className="font-semibold text-gray-800">
-                  {membership?.clubRole === CLUB_ROLES.CLUB_ADMIN ? 'Trưởng CLB' : 'Trưởng ban'}
-                </span>, đơn từ chức của bạn cần được phê duyệt trước khi có hiệu lực.
-              </p>
-              <div className="space-y-2">
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Sau khi được duyệt, bạn muốn</p>
-                {([
-                  { value: 'LeaveClub', label: 'Rời CLB hoàn toàn', desc: 'Chấm dứt tư cách thành viên' },
-                  { value: 'BecomeMember', label: 'Trở thành thành viên thường', desc: 'Giữ lại tư cách thành viên, không còn vai trò quản lý' },
-                ] as const).map(opt => (
-                  <label key={opt.value}
-                    className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
-                      resignPreference === opt.value
-                        ? 'border-indigo-400 bg-indigo-50'
-                        : 'border-gray-200 hover:bg-gray-50'
-                    }`}>
-                    <input type="radio" name="preference" value={opt.value}
-                      checked={resignPreference === opt.value}
-                      onChange={() => setResignPreference(opt.value)}
-                      className="mt-0.5 accent-indigo-600" />
-                    <div>
-                      <p className="text-sm font-medium text-gray-800">{opt.label}</p>
-                      <p className="text-xs text-gray-400">{opt.desc}</p>
-                    </div>
-                  </label>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <p className="text-sm text-gray-500">
-              Bạn có chắc muốn rời khỏi <span className="font-semibold text-gray-800">{club.name}</span>?
-              Bạn có thể nộp đơn đăng ký lại sau.
-            </p>
-          )}
-
-          <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setResignOpen(false)} disabled={resigning}>Huỷ</Button>
-            {isLeader ? (
-              <Button onClick={handleSubmitResignation} disabled={resigning}
-                className="bg-amber-600 hover:bg-amber-700">
-                {resigning ? 'Đang gửi...' : 'Gửi đơn từ chức'}
-              </Button>
-            ) : (
-              <Button variant="destructive" onClick={handleResign} disabled={resigning}>
-                {resigning ? 'Đang xử lý...' : 'Rời CLB'}
-              </Button>
-            )}
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {membership && club && (
+        <LeaveClubDialog
+          open={resignOpen}
+          onOpenChange={setResignOpen}
+          clubId={id}
+          clubName={club.name}
+          clubRole={membership.clubRole}
+          onSuccess={handleLeaveSuccess}
+        />
+      )}
 
       <footer className="py-6 px-6 border-t border-gray-100 text-center bg-white mt-auto">
         <p className="text-xs text-gray-400">© 2026 UniClub Hub · Đại học Kinh tế Tài chính TP.HCM</p>

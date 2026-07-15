@@ -66,7 +66,8 @@ namespace UniClub_Hub.Membership.Services.Implements
                 FullName = dto.FullName,
                 StudentId = dto.StudentId,
                 Major = dto.Major,
-                Phone = dto.Phone
+                Phone = dto.Phone,
+                LockoutEnabled = true, // cho phép tự khoá khi brute-force
             };
 
             var result = await _userManager.CreateAsync(user, dto.Password);
@@ -87,11 +88,20 @@ namespace UniClub_Hub.Membership.Services.Implements
             var user = await _userManager.FindByEmailAsync(dto.Email)
                 ?? throw new UnauthorizedAccessException("Email hoặc mật khẩu không đúng.");
 
-            if (!await _userManager.CheckPasswordAsync(user, dto.Password))
-                throw new UnauthorizedAccessException("Email hoặc mật khẩu không đúng.");
-
+            // Chặn ngay nếu tài khoản đang bị khoá (do brute-force hoặc admin khoá tay)
             if (await _userManager.IsLockedOutAsync(user))
                 throw new UnauthorizedAccessException("Tài khoản đã bị khoá.");
+
+            if (!await _userManager.CheckPasswordAsync(user, dto.Password))
+            {
+                // Đếm số lần sai mật khẩu — đủ ngưỡng sẽ tự khoá tạm thời (cấu hình ở Program.cs)
+                await _userManager.AccessFailedAsync(user);
+                throw new UnauthorizedAccessException("Email hoặc mật khẩu không đúng.");
+            }
+
+            // Đăng nhập đúng → xoá bộ đếm sai
+            if (await _userManager.GetAccessFailedCountAsync(user) > 0)
+                await _userManager.ResetAccessFailedCountAsync(user);
 
             if (!user.EmailConfirmed)
                 throw new UnauthorizedAccessException("EMAIL_NOT_CONFIRMED");
@@ -137,7 +147,8 @@ namespace UniClub_Hub.Membership.Services.Implements
                     Email = email,
                     FullName = name,
                     EmailConfirmed = true,
-                    AvatarUrl = picture
+                    AvatarUrl = picture,
+                    LockoutEnabled = true,
                 };
 
                 var result = await _userManager.CreateAsync(user);
@@ -152,12 +163,10 @@ namespace UniClub_Hub.Membership.Services.Implements
 
                 await _userManager.AddToRoleAsync(user, SystemRole.User);
             }
-            else if (user.IsDeleted)
-            {
-                throw new UnauthorizedAccessException("Tài khoản đã bị vô hiệu hóa.");
-            }
             else if (await _userManager.IsLockedOutAsync(user))
             {
+                // Lưu ý: user đã bị xóa mềm (IsDeleted) không bao giờ tới nhánh này vì
+                // FindByEmailAsync bị global query filter loại sẵn (trả null → đi nhánh tạo mới).
                 throw new UnauthorizedAccessException("Tài khoản đã bị khoá.");
             }
 
@@ -170,6 +179,21 @@ namespace UniClub_Hub.Membership.Services.Implements
                 .Include(r => r.User)
                 .FirstOrDefaultAsync(r => r.Token == refreshToken)
                 ?? throw new UnauthorizedAccessException("Refresh token không hợp lệ.");
+
+            // Reuse detection: token đã bị thu hồi mà vẫn được dùng lại là dấu hiệu bị đánh cắp
+            // (token cũ đã xoay vòng nhưng ai đó replay). Thu hồi toàn bộ token còn sống của user
+            // để buộc đăng nhập lại — phòng trường hợp kẻ tấn công đang giữ một token hợp lệ khác.
+            if (stored.RevokedAt != null)
+            {
+                var activeTokens = await _db.RefreshTokens
+                    .Where(r => r.UserId == stored.UserId && r.RevokedAt == null)
+                    .ToListAsync();
+                foreach (var token in activeTokens)
+                    token.RevokedAt = DateTime.UtcNow;
+                await _db.SaveChangesAsync();
+
+                throw new UnauthorizedAccessException("Refresh token đã bị thu hồi.");
+            }
 
             if (!stored.IsActive)
                 throw new UnauthorizedAccessException("Refresh token đã hết hạn hoặc bị thu hồi.");

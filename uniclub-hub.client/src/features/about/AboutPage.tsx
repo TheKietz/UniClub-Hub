@@ -85,7 +85,7 @@ export default function AboutPage() {
       <PublicHeader />
 
       {/* ── Hero ── */}
-      <section style={{ padding: '132px 28px 48px', textAlign: 'center' }}>
+      <section className="portal-section portal-section--hero-tall" style={{ textAlign: 'center' }}>
         <div style={{ maxWidth: 720, margin: '0 auto' }}>
           <Rv>
             <Tag bg={C.bg} color={C.ink} style={{ boxShadow: C.shadow(2, 2), marginBottom: 20 }}>
@@ -137,8 +137,8 @@ export default function AboutPage() {
       <Marquee tone="dark" items={marqueeItems} />
 
       {/* ── What is UniClub Hub ── */}
-      <section style={{ padding: '64px 28px' }}>
-        <div style={{ maxWidth: 1120, margin: '0 auto', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 48, alignItems: 'center' }}>
+      <section className="portal-section" style={{ paddingTop: 64, paddingBottom: 64 }}>
+        <div className="portal-inner portal-about-grid" style={{ alignItems: 'center' }}>
           <div>
             <Rv>
               <Tag bg={C.ink} color={C.bg} style={{ marginBottom: 16 }}>Giới thiệu</Tag>
@@ -235,7 +235,7 @@ export default function AboutPage() {
       </div>
 
       {/* ── 3 roles ── */}
-      <section style={{ padding: '64px 28px' }}>
+      <section className="portal-section" style={{ paddingTop: 64, paddingBottom: 64 }}>
         <div style={{ maxWidth: 1120, margin: '0 auto' }}>
           <Rv>
             <Tag bg={C.coral} color={C.bg} style={{ marginBottom: 14 }}>Ai dùng được?</Tag>
@@ -282,7 +282,7 @@ export default function AboutPage() {
       </section>
 
       {/* ── Features ── */}
-      <section style={{ padding: '0 28px 64px' }}>
+      <section className="portal-section" style={{ paddingTop: 0, paddingBottom: 64 }}>
         <div style={{ maxWidth: 1120, margin: '0 auto' }}>
           <Rv>
             <Tag bg={C.indigo} color={C.bg} style={{ marginBottom: 14 }}>Tính năng</Tag>
@@ -308,7 +308,7 @@ export default function AboutPage() {
       </section>
 
       {/* ── Vision ── */}
-      <section style={{ padding: '0 28px 64px' }}>
+      <section className="portal-section" style={{ paddingTop: 0, paddingBottom: 64 }}>
         <div style={{ maxWidth: 1120, margin: '0 auto' }}>
           <Rv>
             <div style={{

@@ -1,8 +1,11 @@
-import { useParams } from 'react-router-dom'
-import AppShell from './AppShell'
+import { Outlet, useParams } from 'react-router-dom'
+import DashboardLayoutShell from './DashboardLayoutShell'
 
-/* ─── MemberLayout ──────────────────────────────────────────────────── */
 export default function MemberLayout() {
   const { clubId } = useParams<{ clubId: string }>()
-  return <AppShell mode="member" clubId={clubId} />
+  return (
+    <DashboardLayoutShell mode="member" clubId={clubId}>
+      <Outlet />
+    </DashboardLayoutShell>
+  )
 }

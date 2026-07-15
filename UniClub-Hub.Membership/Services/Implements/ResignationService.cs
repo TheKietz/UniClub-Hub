@@ -28,18 +28,24 @@ namespace UniClub_Hub.Membership.Services.Implements
 
         public async Task<ResignationRequestDto> SubmitAsync(int clubId, string userId, SubmitResignationDto dto)
         {
-            var membership = await _db.ClubMemberships
+            // 1 user có thể có nhiều dòng membership trong cùng CLB — ưu tiên dòng giữ chức vụ cao nhất
+            var memberships = await _db.ClubMemberships
                 .Include(m => m.User)
-                .FirstOrDefaultAsync(m =>
+                .Where(m =>
                     m.ClubId == clubId && m.UserId == userId &&
                     (m.Status == MembershipStatus.Active || m.Status == MembershipStatus.Probation))
-                ?? throw new InvalidOperationException("Bạn không phải thành viên của CLB này.");
+                .ToListAsync();
 
-            if (membership.ClubRole != ClubRole.CLUB_ADMIN && membership.ClubRole != ClubRole.DEPT_LEAD)
-                throw new InvalidOperationException("Chỉ Trưởng CLB hoặc Trưởng ban mới cần gửi đơn từ chức.");
+            if (memberships.Count == 0)
+                throw new InvalidOperationException("Bạn không phải thành viên của CLB này.");
+
+            var membership =
+                memberships.FirstOrDefault(m => m.ClubRole == ClubRole.CLUB_ADMIN)
+                ?? memberships.FirstOrDefault(m => m.ClubRole == ClubRole.DEPT_LEAD)
+                ?? throw new InvalidOperationException("Chỉ Trưởng CLB hoặc Trưởng ban mới cần gửi đơn từ chức.");
 
             var hasPending = await _db.ResignationRequests.AnyAsync(r =>
-                r.MembershipId == membership.Id && r.Status == ResignationStatus.Pending);
+                r.ClubId == clubId && r.UserId == userId && r.Status == ResignationStatus.Pending);
             if (hasPending)
                 throw new InvalidOperationException("Bạn đã có đơn từ chức đang chờ duyệt.");
 
@@ -230,11 +236,26 @@ namespace UniClub_Hub.Membership.Services.Implements
                         activeMembership.Status = MembershipStatus.Resigned;
                         activeMembership.ResignedDate = resignedDate;
                     }
+
+                    // Đã rời CLB hoàn toàn → các đơn Pending khác của user trong CLB này không còn ý nghĩa
+                    var otherPending = await _db.ResignationRequests
+                        .Where(r => r.ClubId == request.ClubId && r.UserId == request.UserId &&
+                            r.Id != request.Id && r.Status == ResignationStatus.Pending)
+                        .ToListAsync();
+                    foreach (var other in otherPending)
+                    {
+                        other.Status = ResignationStatus.Rejected;
+                        other.ReviewNote = "Tự động đóng: đơn rời CLB của bạn đã được chấp thuận.";
+                        other.ReviewedAt = DateTime.UtcNow;
+                        other.ReviewerId = reviewerId;
+                    }
                 }
                 else
                 {
                     var membership = await _db.ClubMemberships.FindAsync(request.MembershipId)
                         ?? throw new KeyNotFoundException("Không tìm thấy thành viên liên kết với đơn từ chức.");
+                    if (membership.Status is not (MembershipStatus.Active or MembershipStatus.Probation))
+                        throw new InvalidOperationException("Thành viên này đã rời CLB, không thể duyệt đơn.");
                     membership.ClubRole = ClubRole.MEMBER;
                     membership.DepartmentId = null;
                 }

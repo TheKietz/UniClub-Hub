@@ -12,7 +12,6 @@ const CATEGORY_LABELS: Record<string, { label: string; color: string }> = {
   auth:         { label: 'Xác thực & Đăng ký', color: '#1d4ed8' },
   club:         { label: 'Câu lạc bộ',          color: '#10b981' },
   system:       { label: 'Hệ thống',             color: '#f59e0b' },
-  notification: { label: 'Thông báo',            color: '#6366f1' },
   contact:      { label: 'Trang liên hệ',        color: '#ec4899' },
   landing:      { label: 'Trang chủ công khai',  color: '#0ea5e9' },
   footer:       { label: 'Footer',               color: '#64748b' },
@@ -270,8 +269,9 @@ export default function SystemSettingsPage() {
   useEffect(() => {
     getSettings()
       .then(data => {
-        setSettings(data)
-        const first = [...new Set(data.map(s => s.category))][0]
+        const visible = data.filter(s => s.category !== 'notification')
+        setSettings(visible)
+        const first = [...new Set(visible.map(s => s.category))][0]
         if (first) setActiveTab(first)
       })
       .catch(() => toast.error('Không thể tải cài đặt.'))
@@ -370,7 +370,7 @@ export default function SystemSettingsPage() {
 
       {/* Content */}
       {loading ? (
-        <div style={{ padding: '28px 32px', fontSize: 13, color: D.inkMuted }}>Đang tải...</div>
+        <div className="mgmt-page mgmt-page--loading">Đang tải...</div>
       ) : (
         <div style={{ padding: '24px 32px', display: 'flex', flexDirection: 'column', gap: 0 }}>
           {categories.map(cat => {

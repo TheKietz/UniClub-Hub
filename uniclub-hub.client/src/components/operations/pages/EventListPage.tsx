@@ -137,9 +137,9 @@ export default function EventListPage() {
   })
 
   return (
-    <div className="rsp-page" style={{ padding: '28px 32px', minHeight: '100%', background: D.bg, fontFamily: "'Be Vietnam Pro', sans-serif" }}>
+    <div className="mgmt-page">
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20 }}>
+      <div className="mgmt-page-header" style={{ marginBottom: 20 }}>
         <div>
           <h1 style={{ fontSize: 24, fontWeight: 900, color: D.ink, letterSpacing: '-.025em', margin: 0 }}>
             {universityMode ? 'Sự kiện cấp Trường' : 'Sự kiện'}
@@ -351,7 +351,7 @@ function EventCard({
         </>
       ) : (
         <>
-          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 12 }}>
+          <div className="mgmt-page-header" style={{ marginBottom: 12 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
               <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 4, background: clubBadge.bg, color: clubBadge.text }}>
                 {clubBadge.label}

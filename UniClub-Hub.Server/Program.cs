@@ -66,6 +66,11 @@ builder
         options.Password.RequireUppercase = false;
         options.Password.RequireNonAlphanumeric = false;
         options.Password.RequiredLength = 6;
+
+        // Chống brute-force: khoá tạm thời sau 5 lần sai mật khẩu.
+        options.Lockout.MaxFailedAccessAttempts = 5;
+        options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
+        options.Lockout.AllowedForNewUsers = true;
     })
     .AddEntityFrameworkStores<UniClubDbContext>()
     .AddDefaultTokenProviders();

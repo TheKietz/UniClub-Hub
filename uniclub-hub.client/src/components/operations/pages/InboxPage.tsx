@@ -79,7 +79,7 @@ function AssignmentDetailModal({ assignment, onClose }: { assignment: Assignment
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
       <div style={{ position: 'absolute', inset: 0, background: 'rgba(21,19,26,0.5)' }} onClick={onClose} />
-      <div style={{ position: 'relative', width: '100%', maxWidth: 540, maxHeight: 'calc(100vh - 40px)', overflowY: 'auto', background: D.card, border: D.border, borderRadius: D.radius, boxShadow: D.shadow(6, 6), fontFamily: "'Be Vietnam Pro', sans-serif" }}>
+      <div style={{ position: 'relative', width: '100%', maxWidth: 540, background: D.card, border: D.border, borderRadius: D.radius, boxShadow: D.shadow(6, 6), fontFamily: "'Be Vietnam Pro', sans-serif" }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', borderBottom: D.borderLight }}>
           <span style={{ fontSize: 13, fontWeight: 800, color: D.ink }}>Chi tiết phiếu giao việc</span>
           <button type="button" onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: D.inkMuted }}><X size={16} /></button>
@@ -232,8 +232,6 @@ function CreateSubTaskPanel({
         </span>
       </div>
 
-      <div className="rsp-xscroll">
-      <div style={{ minWidth: 620 }}>
       {/* Header */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 150px 80px 120px auto 32px', gap: 6, marginBottom: 4 }}>
         {['Tên công việc', 'Ban phụ trách', 'Ưu tiên', maxDeadline ? `Deadline (đến ${fmtDate(assignment.deadline)})` : 'Deadline', 'File đính kèm', ''].map(h => (
@@ -263,8 +261,6 @@ function CreateSubTaskPanel({
           </button>
         </div>
       ))}
-      </div>
-      </div>
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 12 }}>
         <button
@@ -774,7 +770,7 @@ export default function InboxPage() {
   )
 
   return (
-    <div className="rsp-page" style={{ padding: '28px 32px', background: D.bg, minHeight: '100%', fontFamily: "'Be Vietnam Pro', sans-serif" }}>
+    <div className="mgmt-page">
       <div style={{ marginBottom: 20 }}>
         <h1 style={{ fontSize: 22, fontWeight: 900, color: D.ink, margin: 0 }}>Hộp thư công việc</h1>
         <p style={{ fontSize: 13, color: D.inkMuted, marginTop: 4 }}>

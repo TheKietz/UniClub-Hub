@@ -182,7 +182,7 @@ export default function GanttPage() {
 
   /* ─── Render ──────────────────────────────────────────────────────────── */
   return (
-    <div style={{ padding: '24px 28px', minHeight: '100%', background: D.bg, fontFamily: "'Be Vietnam Pro', sans-serif" }}>
+    <div className="mgmt-page">
 
       {/* ── Toolbar ─────────────────────────────────────────────────────── */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
@@ -276,7 +276,7 @@ export default function GanttPage() {
       )}
 
       {/* ── Gantt table ──────────────────────────────────────────────────── */}
-      <div style={{ background: D.card, border: D.border, borderRadius: D.radius, boxShadow: D.shadow(), overflow: 'hidden' }}>
+      <div className="mgmt-table-scroll" style={{ background: D.card, border: D.border, borderRadius: D.radius, boxShadow: D.shadow() }}>
         {loading ? (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 240, color: D.inkMuted, gap: 8 }}>
             <RefreshCw size={14} style={{ animation: 'spin 1s linear infinite' }} /> Đang tải...

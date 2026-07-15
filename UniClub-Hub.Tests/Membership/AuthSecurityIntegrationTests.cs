@@ -9,6 +9,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using UniClub_Hub.Membership.DTOs.Auth;
 using UniClub_Hub.Membership.DTOs.Membership;
+using UniClub_Hub.Membership.Services.Interfaces;
 using UniClub_Hub.Shared.Common;
 using UniClub_Hub.Shared.Models;
 using UniClub_Hub.Tests.Infrastructure;
@@ -361,5 +362,93 @@ public class AuthSecurityIntegrationTests : DbTestBase
         });
 
         Assert.Equal(HttpStatusCode.OK, login.StatusCode);
+    }
+
+    [Fact]
+    public async Task Login_AfterFiveWrongPasswords_LocksAccount()
+    {
+        const string email = "bruteforce.user@uef.edu.vn";
+        const string password = "123456";
+
+        var register = await _client.PostAsJsonAsync("/api/auth/register", new RegisterDto
+        {
+            Email = email,
+            Password = password,
+            FullName = "Brute Force",
+            StudentId = "SV303",
+            Major = "CNTT",
+        });
+        Assert.Equal(HttpStatusCode.OK, register.StatusCode);
+        await ConfirmEmailAsync(email);
+
+        // 5 lần sai mật khẩu → đạt ngưỡng khoá
+        for (var i = 0; i < 5; i++)
+        {
+            var wrong = await _client.PostAsJsonAsync("/api/auth/login", new LoginDto
+            {
+                Email = email,
+                Password = "sai-mat-khau",
+            });
+            Assert.Equal(HttpStatusCode.Unauthorized, wrong.StatusCode);
+        }
+
+        // Dù nhập đúng mật khẩu, tài khoản vẫn bị khoá tạm thời
+        var login = await _client.PostAsJsonAsync("/api/auth/login", new LoginDto
+        {
+            Email = email,
+            Password = password,
+        });
+        Assert.Equal(HttpStatusCode.Unauthorized, login.StatusCode);
+
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+        var user = await userManager.FindByEmailAsync(email);
+        Assert.True(await userManager.IsLockedOutAsync(user!));
+    }
+
+    [Fact]
+    public async Task Refresh_WithRevokedTokenReuse_RevokesAllActiveTokens()
+    {
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+        var authService = scope.ServiceProvider.GetRequiredService<IAuthService>();
+
+        var user = new ApplicationUser
+        {
+            UserName = "reuse.token@uef.edu.vn",
+            Email = "reuse.token@uef.edu.vn",
+            EmailConfirmed = true,
+            FullName = "Reuse Token",
+        };
+        Assert.True((await userManager.CreateAsync(user, "User@123")).Succeeded);
+
+        // 1 token đã bị thu hồi (đã xoay vòng) + 1 token còn sống của cùng user
+        await using (var db = Fx.CreateDbContext())
+        {
+            db.RefreshTokens.AddRange(
+                new RefreshToken
+                {
+                    Token = "reuse-revoked-token",
+                    UserId = user.Id,
+                    ExpiresAt = DateTime.UtcNow.AddDays(7),
+                    RevokedAt = DateTime.UtcNow.AddMinutes(-1),
+                },
+                new RefreshToken
+                {
+                    Token = "reuse-active-token",
+                    UserId = user.Id,
+                    ExpiresAt = DateTime.UtcNow.AddDays(7),
+                });
+            await db.SaveChangesAsync();
+        }
+
+        // Dùng lại token đã thu hồi → bị từ chối
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+            authService.RefreshTokenAsync("reuse-revoked-token"));
+
+        // …và token còn sống cũng bị thu hồi theo (defense-in-depth)
+        await using var verifyDb = Fx.CreateDbContext();
+        var activeAfter = await verifyDb.RefreshTokens.FirstAsync(t => t.Token == "reuse-active-token");
+        Assert.NotNull(activeAfter.RevokedAt);
     }
 }

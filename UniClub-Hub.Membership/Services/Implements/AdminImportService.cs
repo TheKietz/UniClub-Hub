@@ -184,6 +184,7 @@ namespace UniClub_Hub.Membership.Services.Implements
                         StudentId = row.StudentId,
                         Major = row.Major,
                         EmailConfirmed = false,
+                        LockoutEnabled = true,
                     };
 
                     var createResult = await _userManager.CreateAsync(user, GenerateSecurePassword());

@@ -72,7 +72,7 @@ export default function TaskCard({ task, onEdit }: Props) {
       onMouseLeave={() => setHovered(false)}
     >
       {/* Top row: priority badge + icons */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10 }}>
+      <div className="mgmt-page-header" style={{ marginBottom: 10 }}>
         <span style={{
           fontSize: 10,
           fontWeight: 800,

@@ -244,10 +244,7 @@ export default function NotificationsPage() {
   }
 
   return (
-    <div style={{
-      minHeight: '100%', background: D.bg, padding: '32px 42px',
-      fontFamily: "'Be Vietnam Pro', sans-serif",
-    }}>
+    <div className="mgmt-page">
       <div style={{ width: '100%' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 20, alignItems: 'flex-start', marginBottom: 22 }}>
           <div>

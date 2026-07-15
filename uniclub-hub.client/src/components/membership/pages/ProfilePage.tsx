@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import { Camera, ChevronDown, Loader2 } from 'lucide-react'
 import MajorSelect from '@/components/shared/MajorSelect'
 import { D } from '@/components/shared/managementTheme'
+import { CLUB_ROLE_COLORS, CLUB_ROLE_LABELS } from '@/constants/clubRoles'
 import { getApiErrorMessage } from '@/lib/apiError'
 
 const GENDER_OPTIONS = [
@@ -22,12 +23,6 @@ const inputS: React.CSSProperties = {
 }
 const labelS: React.CSSProperties = { fontSize: 12, fontWeight: 700, color: D.inkDim, display: 'block', marginBottom: 4 }
 
-const ROLE_LABELS: Record<string, string> = {
-  CLUB_ADMIN: 'Ban chủ nhiệm', DEPT_LEAD: 'Trưởng ban', MEMBER: 'Thành viên',
-}
-const ROLE_COLORS: Record<string, string> = {
-  CLUB_ADMIN: '#ff5a3c', DEPT_LEAD: '#f59e0b', MEMBER: '#14b8a6',
-}
 const AVATAR_COLORS = ['#1d4ed8', '#10b981', '#7c3aed', '#ef4444', '#f59e0b', '#06b6d4']
 const CLUB_BG_COLORS = ['#1d4ed8', '#7c3aed', '#ff5a3c', '#14b8a6', '#38bdf8', '#ec4899', '#f59e0b', '#10b981']
 
@@ -150,7 +145,7 @@ export default function ProfilePage() {
   const activeMemberships = user?.memberships.filter(m => m.status === MEMBERSHIP_STATUS.ACTIVE) ?? []
 
   return (
-    <div style={{ padding: '28px 32px', minHeight: '100%', background: D.bg, fontFamily: "'Be Vietnam Pro', sans-serif" }}>
+    <div className="mgmt-page">
       <div style={{ marginBottom: 24 }}>
         <h1 style={{ fontSize: 24, fontWeight: 900, color: D.ink, letterSpacing: '-.025em', margin: 0 }}>Hồ sơ cá nhân</h1>
         <p style={{ fontSize: 13, color: D.inkMuted, marginTop: 4 }}>Quản lý thông tin tài khoản của bạn</p>
@@ -224,8 +219,8 @@ export default function ProfilePage() {
                       <p style={{ fontSize: 13, fontWeight: 700, color: D.ink, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.clubName}</p>
                       {m.departmentName && <p style={{ fontSize: 11, color: D.inkMuted, marginTop: 2 }}>{m.departmentName}</p>}
                     </div>
-                    <span style={{ fontSize: 9, fontWeight: 700, padding: '3px 8px', borderRadius: 4, background: ROLE_COLORS[m.clubRole] ?? D.indigo, color: '#fff', textTransform: 'uppercase', letterSpacing: '.04em', flexShrink: 0 }}>
-                      {ROLE_LABELS[m.clubRole] ?? m.clubRole}
+                    <span style={{ fontSize: 9, fontWeight: 700, padding: '3px 8px', borderRadius: 4, background: CLUB_ROLE_COLORS[m.clubRole] ?? D.indigo, color: '#fff', textTransform: 'uppercase', letterSpacing: '.04em', flexShrink: 0 }}>
+                      {CLUB_ROLE_LABELS[m.clubRole] ?? m.clubRole}
                     </span>
                   </div>
                 ))}

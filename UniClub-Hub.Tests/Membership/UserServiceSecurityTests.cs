@@ -47,6 +47,44 @@ public class UserServiceSecurityTests : DbTestBase
     }
 
     [Fact]
+    public async Task ChangeRoleAsync_WhenOtherSuperAdminSoftDeleted_TreatsRemainingAsLast()
+    {
+        await EnsureRolesAsync();
+
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+        var db = Fx.CreateDbContext();
+
+        var activeAdmin = new ApplicationUser
+        {
+            UserName = "active.admin@uef.edu.vn",
+            Email = "active.admin@uef.edu.vn",
+            EmailConfirmed = true,
+            FullName = "Active Admin",
+        };
+        var deletedAdmin = new ApplicationUser
+        {
+            UserName = "deleted.admin@uef.edu.vn",
+            Email = "deleted.admin@uef.edu.vn",
+            EmailConfirmed = true,
+            FullName = "Deleted Admin",
+            IsDeleted = true,
+        };
+        Assert.True((await userManager.CreateAsync(activeAdmin, "Admin@123")).Succeeded);
+        Assert.True((await userManager.CreateAsync(deletedAdmin, "Admin@123")).Succeeded);
+        await userManager.AddToRoleAsync(activeAdmin, "SUPER_ADMIN");
+        await userManager.AddToRoleAsync(deletedAdmin, "SUPER_ADMIN");
+
+        var svc = new UserService(userManager, db);
+
+        // Tuy có 2 dòng SUPER_ADMIN nhưng 1 đã bị vô hiệu hóa → còn duy nhất 1 admin hoạt động
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            svc.ChangeRoleAsync(activeAdmin.Id, "USER"));
+
+        Assert.Contains("LAST_SUPER_ADMIN", ex.Message);
+    }
+
+    [Fact]
     public async Task UpdateMeAsync_WhenStudentIdAlreadySet_ThrowsInvalidOperation()
     {
         await using var db = Fx.CreateDbContext();

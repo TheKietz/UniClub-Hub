@@ -11,12 +11,7 @@ import { D } from '@/components/shared/managementTheme'
 import { PermissionDenied } from '@/components/shared/Can'
 import { useClubPermissions } from '@/hooks/useClubPermissions'
 import { CLUB_PERMISSIONS } from '@/constants/clubPermissions'
-
-const ROLE_LABELS: Record<string, string> = {
-  CLUB_ADMIN: 'Ban chủ nhiệm',
-  DEPT_LEAD: 'Trưởng ban',
-  MEMBER: 'Thành viên',
-}
+import { CLUB_ROLE_LABELS } from '@/constants/clubRoles'
 
 const inputStyle: React.CSSProperties = {
   height: 36,
@@ -135,8 +130,8 @@ export default function KpiDashboardPage() {
     return <PermissionDenied />
 
   return (
-    <div style={{ padding: '28px 32px', minHeight: '100%', background: D.bg, fontFamily: "'Be Vietnam Pro', sans-serif" }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20, gap: 16 }}>
+    <div className="mgmt-page">
+      <div className="mgmt-page-header" style={{ marginBottom: 20 }}>
         <div>
           <h1 style={{ fontSize: 24, fontWeight: 900, color: D.ink, letterSpacing: '-.025em', margin: 0 }}>KPI thành viên</h1>
           <p style={{ fontSize: 13, color: D.inkMuted, marginTop: 4 }}>
@@ -240,7 +235,7 @@ export default function KpiDashboardPage() {
                   <td style={{ ...tdS, fontWeight: 900, color: D.ink }}>#{member.rank}</td>
                   <td style={tdS}>
                     <div style={{ fontWeight: 800, color: D.ink }}>{member.fullName ?? member.email ?? member.userId}</div>
-                    <div style={{ marginTop: 4, fontSize: 12, color: D.inkMuted }}>{ROLE_LABELS[member.clubRole] ?? member.clubRole}</div>
+                    <div style={{ marginTop: 4, fontSize: 12, color: D.inkMuted }}>{CLUB_ROLE_LABELS[member.clubRole] ?? member.clubRole}</div>
                   </td>
                   <td style={{ ...tdS, color: D.inkDim }}>{member.departmentName ?? 'Chưa phân ban'}</td>
                   <td style={{ ...tdS, fontSize: 18, fontWeight: 900, color: D.ink }}>{member.totalScore}</td>

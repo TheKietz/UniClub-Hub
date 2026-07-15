@@ -81,8 +81,8 @@ export default function ContactPage() {
       <SkyBackground />
       <PublicHeader />
 
-      <section style={{ padding: '132px 28px 56px', flex: 1 }}>
-        <div style={{ maxWidth: 1280, margin: '0 auto' }}>
+      <section className="portal-section portal-section--hero-tall" style={{ flex: 1 }}>
+        <div className="portal-inner">
 
           {/* Heading */}
           {/* <Rv>
@@ -107,7 +107,7 @@ export default function ContactPage() {
           </Rv>
 
           {/* ── Form + Info cards ── */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 360px', gap: 40, alignItems: 'stretch', marginBottom: 40 }}>
+          <div className="portal-contact-grid" style={{ marginBottom: 40 }}>
 
             {/* Form */}
             <Rv delay={140}>
@@ -134,7 +134,7 @@ export default function ContactPage() {
                   </div>
                 ) : (
                   <form onSubmit={handleSubmit} noValidate style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 4 }}>
+                    <div className="portal-contact-form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 4 }}>
                       <div>
                         <label style={labelStyle}>Họ và tên</label>
                         <input value={name} onChange={e => setName(e.target.value)}
