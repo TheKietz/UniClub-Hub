@@ -211,6 +211,45 @@ public class ClubPositionServiceTests : DbTestBase
         Assert.Contains(result.Positions, p => p.Id == 1);
     }
 
+    [Fact]
+    public async Task AssignMemberPositionsAsync_MemberWithoutDepartment_AutoJoinsPositionDepartment()
+    {
+        await using var db = Fx.CreateDbContext();
+        db.Clubs.Add(PagedServiceTestHelpers.Club(1, "Test Club", "TEST"));
+        db.Departments.Add(PagedServiceTestHelpers.Department(1, 1, "Ban Ky thuat"));
+        db.Users.Add(PagedServiceTestHelpers.User(1, "No Dept Member"));
+        db.ClubMemberships.Add(PagedServiceTestHelpers.Membership(1, "u1")); // CHƯA thuộc ban nào
+        db.ClubPositions.Add(new ClubPosition { Id = 1, ClubId = 1, DepartmentId = 1, Name = "Developer" });
+        await db.SaveChangesAsync();
+
+        var service = CreateService(db);
+        await service.AssignMemberPositionsAsync(
+            1, 1, new AssignMemberPositionsDto { PositionIds = [1] }, "admin", isSuperAdmin: true);
+
+        var membership = await db.ClubMemberships.FindAsync(1);
+        Assert.Equal(1, membership!.DepartmentId); // tự động thêm vào Ban Ky thuat
+    }
+
+    [Fact]
+    public async Task AssignMemberPositionsAsync_PositionsFromTwoDepartments_Throws()
+    {
+        await using var db = Fx.CreateDbContext();
+        db.Clubs.Add(PagedServiceTestHelpers.Club(1, "Test Club", "TEST"));
+        db.Departments.Add(PagedServiceTestHelpers.Department(1, 1, "Ban A"));
+        db.Departments.Add(PagedServiceTestHelpers.Department(2, 1, "Ban B"));
+        db.Users.Add(PagedServiceTestHelpers.User(1, "Member"));
+        db.ClubMemberships.Add(PagedServiceTestHelpers.Membership(1, "u1"));
+        db.ClubPositions.Add(new ClubPosition { Id = 1, ClubId = 1, DepartmentId = 1, Name = "Vi tri A" });
+        db.ClubPositions.Add(new ClubPosition { Id = 2, ClubId = 1, DepartmentId = 2, Name = "Vi tri B" });
+        await db.SaveChangesAsync();
+
+        var service = CreateService(db);
+        // Gán cùng lúc vị trí của 2 ban khác nhau → chặn (một thành viên chỉ thuộc một ban)
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.AssignMemberPositionsAsync(
+                1, 1, new AssignMemberPositionsDto { PositionIds = [1, 2] }, "admin", isSuperAdmin: true));
+    }
+
     private static ClubPositionService CreateService(Shared.Data.UniClubDbContext db) =>
         new(db, new ClubPermissionService(db));
 

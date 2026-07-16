@@ -220,7 +220,11 @@ namespace UniClub_Hub.Membership.Services.Implements
                         IsActive = true
                     });
                 }
+
                 await _db.SaveChangesAsync();
+
+                // Tạo các vị trí mặc định làm template (idempotent — chỉ khi CLB chưa có vị trí).
+                await EnsureDefaultPositionsAsync(club.Id);
 
                 await transaction.CommitAsync();
                 return await GetByIdAdminAsync(club.Id);
@@ -230,6 +234,58 @@ namespace UniClub_Hub.Membership.Services.Implements
                 await transaction.RollbackAsync(); // Rollback nếu có lỗi
                 throw; // Ném lại lỗi để xử lý ở tầng trên
             }
+        }
+
+        // Tạo các vị trí (Position) mặc định làm template nếu CLB chưa có vị trí nào (idempotent).
+        // Dùng cho cả CLB tạo mới lẫn bù cho CLB cũ. Không tự gán cho ai — Trưởng CLB đã có toàn
+        // quyền qua vai trò CLUB_ADMIN, các vị trí này chỉ để gán cho thành viên khác khi cần.
+        public async Task EnsureDefaultPositionsAsync(int clubId)
+        {
+            if (await _db.ClubPositions.IgnoreQueryFilters().AnyAsync(p => p.ClubId == clubId))
+                return;
+
+            var vicePresidentPerms = new[]
+            {
+                ClubPermissions.MembersView, ClubPermissions.MembersManage,
+                ClubPermissions.ApplicationsView, ClubPermissions.ApplicationsReview,
+                ClubPermissions.ResignationsView, ClubPermissions.OrgChartView,
+                ClubPermissions.PositionAssignmentsManage, ClubPermissions.ReportsView,
+                ClubPermissions.TasksView, ClubPermissions.TasksManage,
+                ClubPermissions.EventsView, ClubPermissions.EventsManage,
+                ClubPermissions.NotificationsView,
+            };
+            var treasurerPerms = new[]
+            {
+                ClubPermissions.ReportsView, ClubPermissions.ReportsExport,
+                ClubPermissions.EventsView, ClubPermissions.EventParticipantsManage,
+                ClubPermissions.NotificationsView,
+            };
+            _db.ClubPositions.AddRange(
+                new ClubPosition
+                {
+                    ClubId = clubId, Name = "Chủ nhiệm CLB",
+                    Description = "Điều phối toàn bộ hoạt động, nhân sự, tuyển thành viên và cấu hình CLB.",
+                    IsDefault = true, CanBeAssignedByDeptLead = false, IsUnique = true,
+                    Permissions = ClubPermissions.All
+                        .Select(p => new ClubPositionPermission { PermissionCode = p.Code }).ToList(),
+                },
+                new ClubPosition
+                {
+                    ClubId = clubId, Name = "Phó chủ nhiệm",
+                    Description = "Hỗ trợ chủ nhiệm điều phối nhân sự, sự kiện và vận hành CLB.",
+                    IsDefault = true, CanBeAssignedByDeptLead = false, IsUnique = true,
+                    Permissions = vicePresidentPerms
+                        .Select(c => new ClubPositionPermission { PermissionCode = c }).ToList(),
+                },
+                new ClubPosition
+                {
+                    ClubId = clubId, Name = "Thủ quỹ",
+                    Description = "Theo dõi thu chi, xuất báo cáo và hỗ trợ tổng kết sự kiện.",
+                    IsDefault = false, CanBeAssignedByDeptLead = false, IsUnique = true,
+                    Permissions = treasurerPerms
+                        .Select(c => new ClubPositionPermission { PermissionCode = c }).ToList(),
+                });
+            await _db.SaveChangesAsync();
         }
 
         public async Task<AdminClubDto> UpdateAsync(int id, UpdateClubDto dto)

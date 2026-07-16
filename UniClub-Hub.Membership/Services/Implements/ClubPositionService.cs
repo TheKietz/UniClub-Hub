@@ -201,11 +201,33 @@ namespace UniClub_Hub.Membership.Services.Implements
                 throw new KeyNotFoundException("Có position không tồn tại trong CLB này.");
             }
 
-            foreach (var position in requestedPositions.Where(p => p.DepartmentId.HasValue))
+            // Vị trí theo ban: thành viên phải thuộc đúng ban đó.
+            // - Chưa thuộc ban nào + được gán vị trí của một ban → TỰ ĐỘNG thêm vào ban đó.
+            // - Gán cùng lúc vị trí của nhiều ban khác nhau → chặn (một thành viên chỉ thuộc một ban).
+            var deptPositionDeptIds = requestedPositions
+                .Where(p => p.DepartmentId.HasValue)
+                .Select(p => p.DepartmentId!.Value)
+                .Distinct()
+                .ToList();
+            if (deptPositionDeptIds.Count > 1)
             {
-                if (targetMembership.DepartmentId != position.DepartmentId)
+                throw new InvalidOperationException(
+                    "Không thể gán các vị trí thuộc nhiều ban khác nhau — một thành viên chỉ thuộc một ban.");
+            }
+            if (deptPositionDeptIds.Count == 1)
+            {
+                var requiredDeptId = deptPositionDeptIds[0];
+                if (targetMembership.DepartmentId == null)
                 {
-                    throw new InvalidOperationException("Không thể gán position thuộc ban khác cho thành viên này.");
+                    // Tự động thêm thành viên vào ban của vị trí (cần entity tracked để lưu).
+                    var trackedMembership = await _db.ClubMemberships.FirstAsync(m => m.Id == membershipId);
+                    trackedMembership.DepartmentId = requiredDeptId;
+                    targetMembership.DepartmentId = requiredDeptId; // đồng bộ cho các bước lọc phía dưới
+                }
+                else if (targetMembership.DepartmentId != requiredDeptId)
+                {
+                    throw new InvalidOperationException(
+                        "Không thể gán vị trí thuộc ban khác cho thành viên đang thuộc ban khác. Hãy chuyển thành viên sang ban đó trước.");
                 }
             }
 

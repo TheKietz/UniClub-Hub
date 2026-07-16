@@ -236,7 +236,11 @@ export default function PositionManagementPanel({
       .filter(position => {
         if (!canManageCatalog && !position.canBeAssignedByDeptLead) return false
         if (departmentScopeId) return position.departmentId === departmentScopeId
-        return !position.departmentId || position.departmentId === selectedMember.departmentId
+        // Vị trí cấp CLB: luôn gán được. Vị trí theo ban: gán được nếu thành viên thuộc đúng ban,
+        // HOẶC chưa thuộc ban nào (khi đó gán vị trí sẽ tự động thêm họ vào ban đó).
+        return !position.departmentId
+          || position.departmentId === selectedMember.departmentId
+          || !selectedMember.departmentId
       })
       .sort((a, b) => (a.departmentName ?? '').localeCompare(b.departmentName ?? '') || a.name.localeCompare(b.name))
   }, [canAssignPositions, canManageCatalog, departmentScopeId, positions, selectedMember])

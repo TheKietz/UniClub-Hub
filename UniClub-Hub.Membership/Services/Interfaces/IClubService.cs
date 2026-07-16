@@ -21,5 +21,6 @@ namespace UniClub_Hub.Membership.Services.Interfaces
         Task<AdminClubDto> CreateAsync(CreateClubDto dto);
         Task<AdminClubDto> UpdateAsync(int id, UpdateClubDto dto);
         Task DeleteAsync(int id);
+        Task EnsureDefaultPositionsAsync(int clubId);
     }
 }

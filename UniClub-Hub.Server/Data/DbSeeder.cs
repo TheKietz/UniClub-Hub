@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using UniClub_Hub.Membership.Services.Interfaces;
 using UniClub_Hub.Shared.Constants;
 using UniClub_Hub.Shared.Data;
 using UniClub_Hub.Shared.Enums;
@@ -2007,6 +2008,13 @@ namespace UniClub_Hub.Server.Data
                     await db.SaveChangesAsync();
                 }
             }
+
+            // Bù các vị trí mặc định cho mọi CLB chưa có vị trí nào (idempotent — CLB đã có
+            // vị trí như CLB Công nghệ sẽ được bỏ qua). Áp dụng cả cho CLB seed lẫn CLB tạo tay.
+            var clubService = scope.ServiceProvider.GetRequiredService<IClubService>();
+            var allClubIds = await db.Clubs.IgnoreQueryFilters().Select(c => c.Id).ToListAsync();
+            foreach (var clubId in allClubIds)
+                await clubService.EnsureDefaultPositionsAsync(clubId);
 
             Console.WriteLine("[Seeder] Done.");
         }
