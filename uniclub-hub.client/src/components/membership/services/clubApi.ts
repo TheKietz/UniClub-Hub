@@ -144,6 +144,10 @@ export const advanceApplicationStage = (clubId: number, appId: number, reviewNot
   api.post<{ data: ApplicationItem }>(`${base(clubId)}/applications/${appId}/advance`, { reviewNote })
     .then(r => r.data.data)
 
+export const rewindApplicationStage = (clubId: number, appId: number, reviewNote?: string) =>
+  api.post<{ data: ApplicationItem }>(`${base(clubId)}/applications/${appId}/rewind`, { reviewNote })
+    .then(r => r.data.data)
+
 // ── Pipeline ───────────────────────────────────────────────────────────────
 
 export const getPipelineStages = (clubId: number) =>

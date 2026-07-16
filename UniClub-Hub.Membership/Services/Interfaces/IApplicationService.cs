@@ -13,5 +13,6 @@ namespace UniClub_Hub.Membership.Services.Interfaces
         Task<ApplicationDto> SubmitAsync(int clubId, string userId, SubmitApplicationDto dto);
         Task<AdminApplicationDto> ReviewAsync(int clubId, int applicationId, ReviewApplicationDto dto, string reviewerId, bool isSuperAdmin);
         Task<AdminApplicationDto> AdvanceStageAsync(int clubId, int applicationId, AdvanceApplicationRequest req, string reviewerId, bool isSuperAdmin);
+        Task<AdminApplicationDto> RewindStageAsync(int clubId, int applicationId, AdvanceApplicationRequest req, string reviewerId, bool isSuperAdmin);
     }
 }

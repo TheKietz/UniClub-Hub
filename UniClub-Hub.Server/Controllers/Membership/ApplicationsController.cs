@@ -122,6 +122,24 @@ namespace UniClub_Hub.Server.Controllers.Membership
             catch (InvalidOperationException ex) { return Conflict(ApiResponse<object>.Fail(ex.Message)); }
         }
 
+        // CLUB_ADMIN lùi đơn về vòng trước (khi lỡ chuyển vòng nhầm)
+        [HttpPost("{applicationId}/rewind")]
+        [Authorize]
+        public async Task<IActionResult> Rewind(int clubId, int applicationId, [FromBody] AdvanceApplicationRequest req)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+            var isSuperAdmin = User.IsInRole("SUPER_ADMIN");
+
+            try
+            {
+                var result = await _applicationService.RewindStageAsync(clubId, applicationId, req, userId, isSuperAdmin);
+                return Ok(ApiResponse<AdminApplicationDto>.Ok(result, "Đã lùi về vòng trước."));
+            }
+            catch (UnauthorizedAccessException) { return Forbid(); }
+            catch (KeyNotFoundException ex) { return NotFound(ApiResponse<object>.Fail(ex.Message)); }
+            catch (InvalidOperationException ex) { return Conflict(ApiResponse<object>.Fail(ex.Message)); }
+        }
+
         // CLUB_ADMIN hoặc SUPER_ADMIN duyệt đơn
         [HttpPut("{applicationId}/review")]
         [Authorize]

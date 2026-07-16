@@ -2,7 +2,7 @@ import { APPLICATION_STATUS } from '@/types/auth'
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { useDeferredEffect } from '@/hooks/useDeferredEffect'
 import { useParams } from 'react-router-dom'
-import { getApplications, getApplicationsPage, reviewApplication, getMemberFieldSchema, getFormSchema, advanceApplicationStage, getPipelineStages, exportApplications } from '@/components/membership/services/clubApi'
+import { getApplications, getApplicationsPage, reviewApplication, getMemberFieldSchema, getFormSchema, advanceApplicationStage, rewindApplicationStage, getPipelineStages, exportApplications } from '@/components/membership/services/clubApi'
 import type { ApplicationListQuery } from '@/components/membership/services/clubApi'
 import type { ApplicationItem, FormField, MemberFieldDef, PipelineStage } from '@/components/membership/services/club.types'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -192,6 +192,21 @@ export default function ApplicationsPage() {
     }
   }
 
+  async function handleRewind() {
+    if (!selected) return
+    setReviewing(true)
+    try {
+      await rewindApplicationStage(id, selected.id, reviewNote || undefined)
+      toast.success('Đã lùi về vòng trước.')
+      setSelected(null)
+      setRefreshKey(k => k + 1)
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'Lùi vòng thất bại.'))
+    } finally {
+      setReviewing(false)
+    }
+  }
+
   const hasPipeline = pipelineStages.length > 0
   const isAtLastStage = selected?.currentStageId != null &&
     pipelineStages.length > 0 &&
@@ -199,6 +214,10 @@ export default function ApplicationsPage() {
   const canAdvance = hasPipeline &&
     (selected?.status === 'Pending' || selected?.status === 'Reviewing') &&
     !isAtLastStage
+  // Lùi vòng: đơn đang ở một vòng (không phải Pending) và chưa xử lý xong
+  const canRewind = hasPipeline &&
+    selected?.currentStageId != null &&
+    selected?.status !== 'Accepted' && selected?.status !== 'Rejected'
 
   const counts = allApplications.reduce((acc, a) => {
     acc[a.status] = (acc[a.status] ?? 0) + 1
@@ -560,6 +579,12 @@ export default function ApplicationsPage() {
               <div style={{ paddingTop: 4, paddingBottom: 8, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                 {canReview && (selected.status === 'Pending' || selected.status === 'Interview' || selected.status === 'Reviewing') && (
                   <>
+                    {canRewind && (
+                      <button disabled={reviewing} onClick={handleRewind}
+                        style={{ ...ghostButtonStyle, color: '#64748b', border: '1.5px solid #cbd5e1', opacity: reviewing ? 0.7 : 1 }}>
+                        ← Vòng trước
+                      </button>
+                    )}
                     {canAdvance && (
                       <button disabled={reviewing} onClick={handleAdvance}
                         style={{ ...ghostButtonStyle, color: '#5b21b6', border: '1.5px solid #c4b5fd', opacity: reviewing ? 0.7 : 1 }}>

@@ -189,6 +189,40 @@ public class ApplicationServiceWorkflowTests : DbTestBase
         Assert.Equal(ApplicationStatus.Accepted, final.Status);
     }
 
+    [Fact]
+    public async Task RewindStageAsync_FromSecondStage_MovesBackToFirstStage()
+    {
+        await using var db = Fx.CreateDbContext();
+        SeedClubWithPipeline(db); // stage 1 Screening, stage 2 Interview
+        db.Users.Add(PagedServiceTestHelpers.User(1));
+        db.Applications.Add(PagedServiceTestHelpers.Application(1, "u1", status: ApplicationStatus.Reviewing, stageId: 2));
+        await db.SaveChangesAsync();
+
+        var service = PagedServiceTestHelpers.CreateApplicationService(db);
+        var result = await service.RewindStageAsync(
+            1, 1, new AdvanceApplicationRequest { ReviewNote = "Bấm nhầm" }, "reviewer", isSuperAdmin: true);
+
+        Assert.Equal(1, db.Applications.Find(1)!.CurrentStageId); // lùi về vòng đầu
+        Assert.Equal(ApplicationStatus.Reviewing, result.Status);
+    }
+
+    [Fact]
+    public async Task RewindStageAsync_FromFirstStage_MovesBackToPending()
+    {
+        await using var db = Fx.CreateDbContext();
+        SeedClubWithPipeline(db);
+        db.Users.Add(PagedServiceTestHelpers.User(1));
+        db.Applications.Add(PagedServiceTestHelpers.Application(1, "u1", status: ApplicationStatus.Reviewing, stageId: 1));
+        await db.SaveChangesAsync();
+
+        var service = PagedServiceTestHelpers.CreateApplicationService(db);
+        var result = await service.RewindStageAsync(
+            1, 1, new AdvanceApplicationRequest { ReviewNote = "" }, "reviewer", isSuperAdmin: true);
+
+        Assert.Null(db.Applications.Find(1)!.CurrentStageId); // lùi về trạng thái chờ
+        Assert.Equal(ApplicationStatus.Pending, result.Status);
+    }
+
     private static void SeedClubWithPipeline(UniClub_Hub.Shared.Data.UniClubDbContext db)
     {
         db.Clubs.Add(PagedServiceTestHelpers.Club(1, "Test Club", "TEST"));

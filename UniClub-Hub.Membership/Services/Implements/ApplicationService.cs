@@ -483,5 +483,68 @@ namespace UniClub_Hub.Membership.Services.Implements
 
             return ToAdminDto(updated, reviewerName);
         }
+
+        // Lùi đơn về vòng trước (khi lỡ chuyển vòng nhầm). Đối xứng với AdvanceStageAsync.
+        public async Task<AdminApplicationDto> RewindStageAsync(
+            int clubId, int applicationId, AdvanceApplicationRequest req,
+            string reviewerId, bool isSuperAdmin)
+        {
+            await _permissions.EnsureHasPermissionAsync(
+                clubId, reviewerId, isSuperAdmin, ClubPermissions.ApplicationsReview);
+
+            var application = await _db.Applications
+                .Include(a => a.CurrentStage)
+                .FirstOrDefaultAsync(a => a.Id == applicationId && a.ClubId == clubId)
+                ?? throw new KeyNotFoundException("Không tìm thấy đơn ứng tuyển.");
+
+            if (application.Status is ApplicationStatus.Accepted or ApplicationStatus.Rejected)
+                throw new InvalidOperationException("Đơn này đã được xử lý xong, không thể thay đổi.");
+
+            if (application.CurrentStageId == null)
+                throw new InvalidOperationException("Đơn đang ở bước đầu (chưa vào vòng nào), không thể lùi.");
+
+            var stages = await _db.ClubPipelineStages
+                .Where(s => s.ClubId == clubId && s.IsActive)
+                .OrderBy(s => s.StageOrder)
+                .ToListAsync();
+
+            var currentIdx = stages.FindIndex(s => s.Id == application.CurrentStageId);
+            if (currentIdx <= 0)
+            {
+                // Đang ở vòng đầu (hoặc vòng không còn hợp lệ) → lùi về trạng thái chờ.
+                application.CurrentStageId = null;
+                application.Status = ApplicationStatus.Pending;
+            }
+            else
+            {
+                application.CurrentStageId = stages[currentIdx - 1].Id;
+                application.Status = ApplicationStatus.Reviewing;
+            }
+            application.ReviewNote = req.ReviewNote;
+            application.ReviewedAt = DateTime.UtcNow;
+            application.ReviewerId = reviewerId;
+
+            try
+            {
+                await _db.SaveChangesAsync();
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                throw new InvalidOperationException(
+                    "Đơn này vừa được người khác xử lý. Vui lòng tải lại trang để xem trạng thái mới nhất.");
+            }
+
+            var updated = await _db.Applications.AsNoTracking()
+                .Include(a => a.Club).Include(a => a.User).Include(a => a.CurrentStage)
+                .Where(a => a.Id == applicationId)
+                .FirstAsync();
+
+            string? rewindReviewerName = null;
+            if (updated.ReviewerId != null)
+                rewindReviewerName = await _db.Users.Where(u => u.Id == updated.ReviewerId)
+                    .Select(u => u.FullName ?? u.Email).FirstOrDefaultAsync();
+
+            return ToAdminDto(updated, rewindReviewerName);
+        }
     }
 }
