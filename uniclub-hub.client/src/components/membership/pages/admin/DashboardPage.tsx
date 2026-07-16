@@ -84,7 +84,7 @@ export default function DashboardPage() {
         setApprovedResignCount(approved.totalCount)
         const items: AlertItem[] = []
         clubs.filter(c => !c.hasAdmin && c.status === 'Active').forEach(c => {
-          items.push({ message: `CLB "${c.name}" chưa có Trưởng CLB`, link: '/admin/structure', linkLabel: 'Bổ nhiệm' })
+          items.push({ message: `CLB "${c.name}" chưa có Trưởng CLB`, link: '/admin/clubs', linkLabel: 'Bổ nhiệm' })
         })
         if (pending.totalCount > 0)
           items.push({ message: `${pending.totalCount} đơn từ chức Trưởng CLB đang chờ phê duyệt`, link: '/admin/resignations', linkLabel: 'Xem đơn' })

@@ -72,6 +72,9 @@ export const updateClub = (id: number, dto: UpdateClubDto) =>
 export const deleteClub = (id: number) =>
   api.delete(`/admin/clubs/${id}`)
 
+export const assignClubAdmin = (clubId: number, userId: string) =>
+  api.put(`/admin/clubs/${clubId}/admin`, { userId })
+
 // ── Categories ─────────────────────────────────────────────────────────────
 
 export const getCategories = () =>

@@ -23,7 +23,6 @@ import DashboardPage from "@/components/membership/pages/admin/DashboardPage";
 import UsersPage from "@/components/membership/pages/admin/UsersPage";
 import ClubsPage from "@/components/membership/pages/admin/ClubsPage";
 import CategoriesPage from "@/components/membership/pages/admin/CategoriesPage";
-import AdminStructurePage from "@/components/membership/pages/admin/AdminStructurePage";
 import AdminPositionsPage from "@/components/membership/pages/admin/AdminPositionsPage";
 
 import MemberLayout from "@/components/layouts/MemberLayout";
@@ -123,7 +122,6 @@ export default function App() {
               <Route path="/admin" element={<DashboardPage />} />
               <Route path="/admin/users" element={<UsersPage />} />
               <Route path="/admin/clubs" element={<ClubsPage />} />
-              <Route path="/admin/structure" element={<AdminStructurePage />} />
               <Route path="/admin/categories" element={<CategoriesPage />} />
               <Route path="/admin/positions" element={<AdminPositionsPage />} />
               <Route path="/admin/support" element={<SupportAdminPage />} />

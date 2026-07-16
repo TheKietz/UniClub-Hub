@@ -22,7 +22,7 @@ const STATUS_CONFIG: Record<string, { label: string; bg: string; text: string; i
   Pending:   { label: 'Chờ duyệt',  bg: '#fef3c7', text: '#b45309', icon: Clock },
   Interview: { label: 'Phỏng vấn',  bg: '#dbeafe', text: '#1d4ed8', icon: MessageCircle },
   Reviewing: { label: 'Đang xét',   bg: '#ede9fe', text: '#5b21b6', icon: GitBranch },
-  Accepted:  { label: 'Đã duyệt',   bg: '#dcfce7', text: '#15803d', icon: CheckCircle2 },
+  Accepted:  { label: 'Đã tuyển thẳng',   bg: '#dcfce7', text: '#15803d', icon: CheckCircle2 },
   Rejected:  { label: 'Từ chối',    bg: '#fee2e2', text: '#b91c1c', icon: XCircle },
 }
 
@@ -31,7 +31,7 @@ const STATUS_TABS = [
   { value: 'Pending', label: 'Chờ duyệt' },
   { value: 'Interview', label: 'Phỏng vấn' },
   { value: 'Reviewing', label: 'Đang xét' },
-  { value: 'Accepted', label: 'Đã duyệt' },
+  { value: 'Accepted', label: 'Đã tuyển thẳng' },
   { value: 'Rejected', label: 'Từ chối' },
 ]
 
@@ -536,7 +536,7 @@ export default function ApplicationsPage() {
                   <label style={labelStyle}>Kết quả duyệt</label>
                   <div style={{ ...fieldBoxStyle, borderColor: selected.status === 'Accepted' ? '#bbf7d0' : '#fecaca', background: selected.status === 'Accepted' ? '#f0fdf4' : '#fff1f2' }}>
                     <p style={{ fontWeight: 700, color: selected.status === 'Accepted' ? '#15803d' : '#b91c1c', marginBottom: 4 }}>
-                      {selected.status === 'Accepted' ? '✓ Đã chấp nhận' : '✕ Đã từ chối'}
+                      {selected.status === 'Accepted' ? '✓ Đã tuyển thẳng' : '✕ Đã từ chối'}
                     </p>
                     {selected.reviewerName && <p style={{ color: D.inkMuted, fontSize: 12 }}>Bởi: {selected.reviewerName}</p>}
                     {selected.reviewedAt && <p style={{ color: D.inkMuted, fontSize: 11 }}>{new Date(selected.reviewedAt).toLocaleString('vi-VN')}</p>}
@@ -574,7 +574,7 @@ export default function ApplicationsPage() {
                     )}
                     <button disabled={reviewing} onClick={() => handleReview('Accepted')}
                       style={{ ...primaryButtonStyle, background: '#10b981' }}>
-                      {reviewing ? 'Đang xử lý...' : 'Chấp nhận'}
+                      {reviewing ? 'Đang xử lý...' : 'Tuyển thẳng'}
                     </button>
                     <button disabled={reviewing} onClick={() => handleReview('Rejected')}
                       style={{ ...ghostButtonStyle, color: '#ef4444', border: '1.5px solid #ef4444', opacity: reviewing ? 0.7 : 1 }}>

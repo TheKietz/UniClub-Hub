@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using UniClub_Hub.Membership.DTOs.Club;
 using UniClub_Hub.Membership.DTOs.Common;
+using UniClub_Hub.Membership.DTOs.Membership;
 using UniClub_Hub.Membership.Services.Interfaces;
 using UniClub_Hub.Shared.Common;
 
@@ -13,10 +14,12 @@ namespace UniClub_Hub.Server.Controllers.Admin
     public class AdminClubsController : ControllerBase
     {
         private readonly IClubService _clubService;
+        private readonly IClubMembershipService _membershipService;
 
-        public AdminClubsController(IClubService clubService)
+        public AdminClubsController(IClubService clubService, IClubMembershipService membershipService)
         {
             _clubService = clubService;
+            _membershipService = membershipService;
         }
 
         [HttpGet]
@@ -114,6 +117,28 @@ namespace UniClub_Hub.Server.Controllers.Admin
             catch (KeyNotFoundException ex)
             {
                 return NotFound(ApiResponse<object>.Fail(ex.Message));
+            }
+        }
+
+        // Super Admin bổ nhiệm Trưởng CLB (CLUB_ADMIN) cho một CLB — tận dụng logic chống trùng
+        // trong AssignClubAdminAsync (chặn nếu CLB đã có Trưởng CLB khác đang hoạt động).
+        [HttpPut("{id}/admin")]
+        public async Task<IActionResult> AssignAdmin(int id, [FromBody] AssignClubAdminDto dto)
+        {
+            if (string.IsNullOrWhiteSpace(dto.UserId))
+                return BadRequest(ApiResponse<object>.Fail("Vui lòng chọn người dùng làm Trưởng CLB."));
+            try
+            {
+                var result = await _membershipService.AssignClubAdminAsync(id, dto.UserId);
+                return Ok(ApiResponse<MemberDto>.Ok(result, "Bổ nhiệm Trưởng CLB thành công."));
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(ApiResponse<object>.Fail(ex.Message));
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Conflict(ApiResponse<object>.Fail(ex.Message));
             }
         }
     }

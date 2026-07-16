@@ -16,9 +16,12 @@ export default function MemberDashboard() {
   const navigate = useNavigate()
 
   const activeMemberships = user?.memberships.filter(m => m.status === MEMBERSHIP_STATUS.ACTIVE) ?? []
+  const probationClubs = user?.memberships.filter(m => m.status === MEMBERSHIP_STATUS.PROBATION) ?? []
+  // Danh sách hiển thị gồm cả thành viên thử việc (Probation) — họ vẫn đang tham gia CLB,
+  // chỉ khác trạng thái. Thẻ thống kê vẫn tách riêng "tham gia" (Active) và "thử việc".
+  const joinedMemberships = [...activeMemberships, ...probationClubs]
   const managedClubs = activeMemberships.filter(m => m.clubRole === CLUB_ROLES.CLUB_ADMIN)
-  const memberClubs = activeMemberships.filter(m => m.clubRole !== CLUB_ROLES.CLUB_ADMIN)
-  const probationClubs = user?.memberships.filter(m => m.status === 'Probation') ?? []
+  const memberClubs = joinedMemberships.filter(m => m.clubRole !== CLUB_ROLES.CLUB_ADMIN)
 
   const firstName = user?.fullName?.trim().split(' ').pop() ?? user?.email?.split('@')[0] ?? 'bạn'
 
@@ -141,7 +144,7 @@ export default function MemberDashboard() {
                     {m.departmentName && (
                       <span style={{ fontSize: 12, color: D.inkMuted }}>{m.departmentName}</span>
                     )}
-                    {m.status === 'Probation' && (
+                    {m.status === MEMBERSHIP_STATUS.PROBATION && (
                       <DTag bg="#fef3c7" color="#b45309">Thử việc</DTag>
                     )}
                   </div>
@@ -152,8 +155,8 @@ export default function MemberDashboard() {
         </section>
       )}
 
-      {/* Empty state */}
-      {activeMemberships.length === 0 && (
+      {/* Empty state — chỉ khi không tham gia CLB nào (kể cả thử việc) */}
+      {joinedMemberships.length === 0 && (
         <div style={{
           padding: '48px 20px', textAlign: 'center',
           borderRadius: D.radius, background: D.card, border: D.border, boxShadow: D.shadow(),

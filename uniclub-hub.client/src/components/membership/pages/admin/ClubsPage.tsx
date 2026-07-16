@@ -1,13 +1,13 @@
 import { MEMBERSHIP_STATUS } from '@/types/auth'
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { useDeferredEffect } from '@/hooks/useDeferredEffect'
-import { getAdminClubsPage, createClub, updateClub, deleteClub, getCategories, exportClubs } from '@/components/membership/services/adminApi'
+import { getAdminClubsPage, createClub, updateClub, deleteClub, getCategories, exportClubs, assignClubAdmin, getUsers } from '@/components/membership/services/adminApi'
 import type { AdminClubListQuery } from '@/components/membership/services/adminApi'
-import type { ClubItem, CategoryItem, CreateClubDto, UpdateClubDto } from '@/components/membership/services/admin.types'
+import type { ClubItem, CategoryItem, CreateClubDto, UpdateClubDto, UserItem } from '@/components/membership/services/admin.types'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { toast } from 'sonner'
-import { Pencil, Trash2 } from 'lucide-react'
+import { Pencil, Trash2, Crown } from 'lucide-react'
 import { Tooltip } from '@/components/shared/Tooltip'
 import { FilterSelect } from '@/components/shared/FilterSelect'
 import { LoadMoreBar } from '@/components/shared/LoadMoreBar'
@@ -46,6 +46,12 @@ export default function ClubsPage() {
   const [form, setForm] = useState<FormData>(emptyForm)
   const [saving, setSaving] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<ClubItem | null>(null)
+  // Gán Trưởng CLB
+  const [adminTarget, setAdminTarget] = useState<ClubItem | null>(null)
+  const [userQuery, setUserQuery] = useState('')
+  const [userResults, setUserResults] = useState<UserItem[]>([])
+  const [loadingUsers, setLoadingUsers] = useState(false)
+  const [assigning, setAssigning] = useState(false)
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
@@ -180,6 +186,42 @@ export default function ClubsPage() {
       setRefreshKey(k => k + 1)
     } catch {
       toast.error('Xoá thất bại.')
+    }
+  }
+
+  function openAssignAdmin(club: ClubItem) {
+    setAdminTarget(club)
+    setUserQuery('')
+    setUserResults([])
+  }
+
+  const loadUsers = useCallback((q: string) => {
+    setLoadingUsers(true)
+    getUsers({ search: q || undefined, pageSize: 20 })
+      .then(res => setUserResults(res.items))
+      .catch(() => setUserResults([]))
+      .finally(() => setLoadingUsers(false))
+  }, [])
+
+  // Nạp danh sách người dùng khi mở dialog / khi gõ tìm kiếm
+  useEffect(() => {
+    if (!adminTarget) return
+    const t = window.setTimeout(() => loadUsers(userQuery.trim()), 300)
+    return () => window.clearTimeout(t)
+  }, [adminTarget, userQuery, loadUsers])
+
+  async function handleAssignAdmin(user: UserItem) {
+    if (!adminTarget) return
+    setAssigning(true)
+    try {
+      await assignClubAdmin(adminTarget.id, user.id)
+      toast.success(`Đã bổ nhiệm ${user.fullName ?? user.email} làm Trưởng CLB "${adminTarget.name}".`)
+      setAdminTarget(null)
+      setRefreshKey(k => k + 1)
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, 'Bổ nhiệm thất bại.'))
+    } finally {
+      setAssigning(false)
     }
   }
 
@@ -329,6 +371,11 @@ export default function ClubsPage() {
                 </td>
                 <td style={{ padding: '12px 14px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                    <Tooltip label={club.hasAdmin ? 'Đổi Trưởng CLB' : 'Bổ nhiệm Trưởng CLB'}>
+                      <button onClick={() => openAssignAdmin(club)} style={{ width: 30, height: 30, borderRadius: 7, display: 'grid', placeItems: 'center', border: D.border, background: club.hasAdmin ? '#fef3c7' : '#fde68a', color: '#b45309', cursor: 'pointer' }}>
+                        <Crown size={13} />
+                      </button>
+                    </Tooltip>
                     <Tooltip label="Sửa">
                       <button onClick={() => openEdit(club)} style={{ width: 30, height: 30, borderRadius: 7, display: 'grid', placeItems: 'center', border: D.border, background: '#eef2ff', color: D.indigo, cursor: 'pointer' }}>
                         <Pencil size={13} />
@@ -442,6 +489,63 @@ export default function ClubsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Dialog bổ nhiệm Trưởng CLB */}
+      <Dialog open={!!adminTarget} onOpenChange={open => { if (!open) setAdminTarget(null) }}>
+        <DialogContent style={{ maxWidth: 460 }}>
+          <DialogHeader>
+            <DialogTitle style={{ color: D.ink, fontWeight: 900 }}>
+              {adminTarget?.hasAdmin ? 'Đổi Trưởng CLB' : 'Bổ nhiệm Trưởng CLB'}
+            </DialogTitle>
+          </DialogHeader>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <p style={{ fontSize: 13, color: D.inkDim, margin: 0 }}>
+              Chọn người dùng làm Trưởng CLB <strong>{adminTarget?.name}</strong>.
+              {adminTarget?.hasAdmin && (
+                <span style={{ color: D.amber }}> CLB đã có Trưởng CLB — cần hạ cấp người hiện tại trước khi bổ nhiệm người mới.</span>
+              )}
+            </p>
+            <input
+              autoFocus
+              value={userQuery}
+              onChange={e => setUserQuery(e.target.value)}
+              placeholder="Tìm theo tên hoặc email..."
+              style={inputStyle}
+            />
+            <div style={{ maxHeight: 300, overflow: 'auto', border: D.borderLight, borderRadius: 8 }}>
+              {loadingUsers ? (
+                <div style={{ padding: '20px 14px', textAlign: 'center', color: D.inkMuted, fontSize: 13 }}>Đang tải...</div>
+              ) : userResults.length === 0 ? (
+                <div style={{ padding: '20px 14px', textAlign: 'center', color: D.inkMuted, fontSize: 13 }}>Không tìm thấy người dùng.</div>
+              ) : userResults.map(u => (
+                <button
+                  key={u.id}
+                  disabled={assigning}
+                  onClick={() => handleAssignAdmin(u)}
+                  style={{
+                    width: '100%', textAlign: 'left', padding: '10px 14px', border: 'none',
+                    borderBottom: D.borderLight, background: D.card, cursor: assigning ? 'wait' : 'pointer',
+                    fontFamily: 'inherit', display: 'flex', flexDirection: 'column', gap: 2,
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.background = D.bg)}
+                  onMouseLeave={e => (e.currentTarget.style.background = D.card)}
+                >
+                  <span style={{ fontSize: 13, fontWeight: 700, color: D.ink }}>{u.fullName ?? u.email}</span>
+                  <span style={{ fontSize: 12, color: D.inkMuted }}>{u.email}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+          <DialogFooter>
+            <button
+              type="button"
+              onClick={() => setAdminTarget(null)}
+              style={{ background: D.card, color: D.inkDim, border: D.border, padding: '8px 16px', borderRadius: D.pill, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+              Đóng
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
