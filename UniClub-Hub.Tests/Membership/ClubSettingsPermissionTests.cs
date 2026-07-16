@@ -69,7 +69,6 @@ public class ClubSettingsPermissionTests : DbTestBase
     private static ClubService CreateService(UniClubDbContext db) =>
         new(
             db,
-            Mock.Of<IClubMembershipService>(),
             Mock.Of<ISystemSettingService>(),
             new ClubPermissionService(db));
 

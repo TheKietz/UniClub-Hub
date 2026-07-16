@@ -90,6 +90,7 @@ export interface ClubPositionItem {
   description?: string
   isDefault: boolean
   canBeAssignedByDeptLead: boolean
+  isUnique: boolean
   memberCount: number
   permissionCodes: string[]
 }
@@ -100,6 +101,7 @@ export interface CreateClubPositionDto {
   description?: string
   isDefault: boolean
   canBeAssignedByDeptLead: boolean
+  isUnique: boolean
   permissionCodes: string[]
 }
 
@@ -109,6 +111,7 @@ export interface UpdateClubPositionDto {
   description?: string
   isDefault: boolean
   canBeAssignedByDeptLead: boolean
+  isUnique: boolean
 }
 
 export interface MemberPositionsItem {

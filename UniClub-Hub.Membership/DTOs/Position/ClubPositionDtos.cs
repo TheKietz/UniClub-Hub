@@ -10,6 +10,7 @@ namespace UniClub_Hub.Membership.DTOs.Position
         public string? Description { get; set; }
         public bool IsDefault { get; set; }
         public bool CanBeAssignedByDeptLead { get; set; }
+        public bool IsUnique { get; set; }
         public int MemberCount { get; set; }
         public List<string> PermissionCodes { get; set; } = [];
     }
@@ -21,6 +22,7 @@ namespace UniClub_Hub.Membership.DTOs.Position
         public string? Description { get; set; }
         public bool IsDefault { get; set; }
         public bool CanBeAssignedByDeptLead { get; set; } = true;
+        public bool IsUnique { get; set; }
         public List<string> PermissionCodes { get; set; } = [];
     }
 
@@ -31,6 +33,7 @@ namespace UniClub_Hub.Membership.DTOs.Position
         public string? Description { get; set; }
         public bool IsDefault { get; set; }
         public bool CanBeAssignedByDeptLead { get; set; } = true;
+        public bool IsUnique { get; set; }
     }
 
     public class UpdateClubPositionPermissionsDto

@@ -82,6 +82,7 @@ namespace UniClub_Hub.Membership.Services.Implements
                 Description = string.IsNullOrWhiteSpace(dto.Description) ? null : dto.Description.Trim(),
                 IsDefault = dto.IsDefault,
                 CanBeAssignedByDeptLead = dto.CanBeAssignedByDeptLead,
+                IsUnique = dto.IsUnique,
                 Permissions = dto.PermissionCodes
                     .Distinct(StringComparer.OrdinalIgnoreCase)
                     .Select(code => new ClubPositionPermission { PermissionCode = code.Trim() })
@@ -113,6 +114,7 @@ namespace UniClub_Hub.Membership.Services.Implements
             position.Description = string.IsNullOrWhiteSpace(dto.Description) ? null : dto.Description.Trim();
             position.IsDefault = dto.IsDefault;
             position.CanBeAssignedByDeptLead = dto.CanBeAssignedByDeptLead;
+            position.IsUnique = dto.IsUnique;
 
             await _db.SaveChangesAsync();
             return await GetByIdAsync(clubId, positionId, requesterUserId, isSuperAdmin);
@@ -211,6 +213,28 @@ namespace UniClub_Hub.Membership.Services.Implements
                 .Include(mp => mp.Position)
                 .Where(mp => mp.MembershipId == membershipId)
                 .ToListAsync();
+
+            // Vị trí độc quyền: chặn nếu đang được một thành viên KHÁC (còn hoạt động) giữ.
+            // Chỉ xét người Active/Probation — người đã nghỉ vẫn còn dòng gán cũ nhưng không tính,
+            // nên vị trí tự "giải phóng" khi người giữ rời CLB.
+            var alreadyHeldByTarget = existingAssignments.Select(mp => mp.PositionId).ToHashSet();
+            var newlyAddedUniqueIds = requestedPositions
+                .Where(p => p.IsUnique && !alreadyHeldByTarget.Contains(p.Id))
+                .Select(p => p.Id)
+                .ToList();
+            if (newlyAddedUniqueIds.Count > 0)
+            {
+                var takenName = await _db.ClubMemberPositions
+                    .Where(mp => newlyAddedUniqueIds.Contains(mp.PositionId)
+                        && mp.MembershipId != membershipId
+                        && (mp.Membership.Status == MembershipStatus.Active
+                            || mp.Membership.Status == MembershipStatus.Probation))
+                    .Select(mp => mp.Position.Name)
+                    .FirstOrDefaultAsync();
+                if (takenName != null)
+                    throw new InvalidOperationException(
+                        $"Vị trí '{takenName}' là vị trí độc quyền và đã có người giữ. Vui lòng gỡ người hiện tại trước khi gán cho người khác.");
+            }
 
             if (await CanAssignPositionsAsAdminAsync(clubId, requesterUserId, isSuperAdmin))
             {
@@ -527,6 +551,7 @@ namespace UniClub_Hub.Membership.Services.Implements
                 Description = position.Description,
                 IsDefault = position.IsDefault,
                 CanBeAssignedByDeptLead = position.CanBeAssignedByDeptLead,
+                IsUnique = position.IsUnique,
                 MemberCount = position.MemberPositions?.Count ?? 0,
                 PermissionCodes = position.Permissions?
                     .Select(p => p.PermissionCode)

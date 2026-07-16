@@ -155,6 +155,62 @@ public class ClubPositionServiceTests : DbTestBase
         Assert.Equal(1, result.Positions[0].Id);
     }
 
+    [Fact]
+    public async Task AssignMemberPositionsAsync_UniquePositionAlreadyHeldByActive_ThrowsConflict()
+    {
+        await using var db = Fx.CreateDbContext();
+        SeedClubWithMember(db); // club1, dept1, u1 = membership 1 (Active)
+        db.Users.Add(PagedServiceTestHelpers.User(2, "Holder"));
+        db.ClubMemberships.Add(new ClubMembership
+        {
+            Id = 2, UserId = "u2", ClubId = 1, DepartmentId = 1,
+            ClubRole = ClubRole.MEMBER, Status = MembershipStatus.Active,
+            JoinedDate = new DateOnly(2026, 1, 2),
+        });
+        db.ClubPositions.Add(new ClubPosition
+        {
+            Id = 1, ClubId = 1, DepartmentId = 1, Name = "Thu quy", IsUnique = true,
+        });
+        // u2 đang giữ vị trí độc quyền
+        db.ClubMemberPositions.Add(new ClubMemberPosition { MembershipId = 2, PositionId = 1 });
+        await db.SaveChangesAsync();
+
+        var service = CreateService(db);
+        // Gán cùng vị trí độc quyền đó cho u1 → phải bị chặn
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.AssignMemberPositionsAsync(
+                1, 1, new AssignMemberPositionsDto { PositionIds = [1] }, "admin", isSuperAdmin: true));
+        Assert.Contains("độc quyền", ex.Message);
+    }
+
+    [Fact]
+    public async Task AssignMemberPositionsAsync_UniquePositionHeldByResignedMember_AllowsReassign()
+    {
+        await using var db = Fx.CreateDbContext();
+        SeedClubWithMember(db); // club1, dept1, u1 = membership 1 (Active)
+        db.Users.Add(PagedServiceTestHelpers.User(2, "Ex Holder"));
+        db.ClubMemberships.Add(new ClubMembership
+        {
+            Id = 2, UserId = "u2", ClubId = 1, DepartmentId = 1,
+            ClubRole = ClubRole.MEMBER, Status = MembershipStatus.Resigned,
+            JoinedDate = new DateOnly(2025, 1, 1), ResignedDate = new DateOnly(2025, 6, 1),
+        });
+        db.ClubPositions.Add(new ClubPosition
+        {
+            Id = 1, ClubId = 1, DepartmentId = 1, Name = "Thu quy", IsUnique = true,
+        });
+        // Người giữ cũ đã NGHỈ nhưng dòng gán vị trí vẫn còn (không bị dọn khi nghỉ)
+        db.ClubMemberPositions.Add(new ClubMemberPosition { MembershipId = 2, PositionId = 1 });
+        await db.SaveChangesAsync();
+
+        var service = CreateService(db);
+        // Người cũ đã nghỉ → vị trí coi như trống → gán cho u1 phải THÀNH CÔNG
+        var result = await service.AssignMemberPositionsAsync(
+            1, 1, new AssignMemberPositionsDto { PositionIds = [1] }, "admin", isSuperAdmin: true);
+
+        Assert.Contains(result.Positions, p => p.Id == 1);
+    }
+
     private static ClubPositionService CreateService(Shared.Data.UniClubDbContext db) =>
         new(db, new ClubPermissionService(db));
 

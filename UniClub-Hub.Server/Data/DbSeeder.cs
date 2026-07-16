@@ -933,6 +933,11 @@ namespace UniClub_Hub.Server.Data
                     ClubPermissions.EventsView,
                     ClubPermissions.TasksView);
 
+                // Chức danh lãnh đạo = vị trí độc quyền, chỉ một người giữ cùng lúc.
+                foreach (var leadershipPosition in new[] { clubPresident, vicePresident, treasurer, techLead, eventLead })
+                    leadershipPosition.IsUnique = true;
+                await db.SaveChangesAsync();
+
                 await AssignPositionAsync("truong.clb@uef.edu.vn", clubTech, null, clubPresident);
                 await AssignPositionAsync("khoa.clb@uef.edu.vn", clubTech, null, treasurer);
                 // Linh chỉ thuộc Ban Kỹ thuật (1 membership/CLB) — không gán chức vụ ở ban khác.

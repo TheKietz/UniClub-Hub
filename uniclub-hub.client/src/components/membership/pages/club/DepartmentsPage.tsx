@@ -87,8 +87,11 @@ export default function DepartmentsPage() {
     setLeadDept(dept)
     setSelectedMembershipId(dept.deptLeadMembershipId?.toString() ?? '')
     try {
-      const members = await getClubMembers(id, { status: 'Active' })
-      setDeptMembers(members.filter(m => m.departmentId === dept.id))
+      // Không lọc status: 'Active' — số đếm thành viên của Ban gồm cả thành viên thử việc
+      // (Probation), và backend cũng cho phép bổ nhiệm họ làm trưởng ban. Bỏ status để danh
+      // sách khớp với số đếm (tránh cảnh "Ban có 1 thành viên nhưng picker rỗng").
+      const members = await getClubMembers(id, { departmentId: dept.id })
+      setDeptMembers(members)
     } catch {
       toast.error('Không thể tải danh sách thành viên.')
     }

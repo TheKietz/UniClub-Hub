@@ -11,6 +11,9 @@ namespace UniClub_Hub.Shared.Models
         public string? Description { get; set; }
         public bool IsDefault { get; set; }
         public bool CanBeAssignedByDeptLead { get; set; } = true;
+        // Vị trí độc quyền — chỉ một thành viên đang hoạt động được giữ tại một thời điểm
+        // (vd Trưởng CLB, Thủ quỹ). Mặc định false = nhiều người giữ được (vd Developer).
+        public bool IsUnique { get; set; }
 
         public DateTime CreatedAt { get; set; }
         public string? CreatedBy { get; set; }

@@ -66,6 +66,7 @@ type PositionForm = {
   departmentId: string
   isDefault: boolean
   canBeAssignedByDeptLead: boolean
+  isUnique: boolean
   permissionCodes: string[]
 }
 
@@ -85,6 +86,7 @@ const emptyForm: PositionForm = {
   departmentId: '',
   isDefault: false,
   canBeAssignedByDeptLead: true,
+  isUnique: false,
   permissionCodes: [],
 }
 
@@ -302,6 +304,7 @@ export default function PositionManagementPanel({
       departmentId: position.departmentId ? String(position.departmentId) : '',
       isDefault: position.isDefault,
       canBeAssignedByDeptLead: position.canBeAssignedByDeptLead,
+      isUnique: position.isUnique,
       permissionCodes: position.permissionCodes,
     })
     setDialogOpen(true)
@@ -340,6 +343,7 @@ export default function PositionManagementPanel({
         departmentId: form.departmentId ? Number(form.departmentId) : undefined,
         isDefault: form.isDefault,
         canBeAssignedByDeptLead: form.canBeAssignedByDeptLead,
+        isUnique: form.isUnique,
       }
 
       if (editing) {
@@ -666,6 +670,23 @@ export default function PositionManagementPanel({
                 onChange={e => setForm(prev => ({ ...prev, canBeAssignedByDeptLead: e.target.checked }))}
               />
               Trưởng ban được gán vị trí này cho thành viên trong ban
+            </label>
+
+            <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, color: D.inkDim, fontSize: 13, fontWeight: 700 }}>
+              <input
+                type="checkbox"
+                checked={form.isUnique}
+                disabled={!canManageCatalog}
+                onChange={e => setForm(prev => ({ ...prev, isUnique: e.target.checked }))}
+                style={{ marginTop: 3 }}
+              />
+              <span>
+                Vị trí độc quyền — chỉ một người được giữ cùng lúc
+                <span style={{ display: 'block', color: D.inkMuted, fontSize: 12, fontWeight: 500, marginTop: 2 }}>
+                  Bật cho các chức danh lãnh đạo (Trưởng CLB, Thủ quỹ…). Khi đã có người giữ,
+                  hệ thống sẽ chặn gán cho người thứ hai cho tới khi gỡ người hiện tại.
+                </span>
+              </span>
             </label>
 
             <div>
